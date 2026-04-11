@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { aiLight } from "@/lib/ai";
+import { sanitizeUrl } from "@/lib/security";
 
 /**
  * Free Report API — no signup required.
@@ -13,9 +14,8 @@ const PSI_API = "https://www.googleapis.com/pagespeedonline/v5/runPagespeed";
 export async function POST(req: NextRequest) {
   try {
     const { url } = await req.json();
-    if (!url) return NextResponse.json({ error: "URL is required" }, { status: 400 });
-
-    const normalizedUrl = url.startsWith("http") ? url : `https://${url}`;
+    const { valid, url: normalizedUrl, error } = sanitizeUrl(url);
+    if (!valid) return NextResponse.json({ error }, { status: 400 });
 
     // Run PageSpeed (mobile only for speed)
     const psiParams = new URLSearchParams();
