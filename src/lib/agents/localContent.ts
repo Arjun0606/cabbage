@@ -35,44 +35,7 @@ interface ReelScript {
   hashtags: string[];
 }
 
-// ---------- Locality Data ----------
-
-const HYDERABAD_LOCALITIES: Record<string, string[]> = {
-  "Kompally": ["Bachupally", "Medchal", "Alwal", "Bowenpally"],
-  "Kukatpally": ["KPHB", "Miyapur", "Nizampet", "Pragathi Nagar"],
-  "Gachibowli": ["Financial District", "Nanakramguda", "Kondapur", "Madhapur"],
-  "Kokapet": ["Narsingi", "Gandipet", "Puppalaguda", "Manikonda"],
-  "Shamshabad": ["Shadnagar", "Adibatla", "Maheshwaram"],
-  "Bachupally": ["Kompally", "Nizampet", "Pragathi Nagar"],
-  "Miyapur": ["Chandanagar", "Hafeezpet", "JNTU"],
-};
-
-const BANGALORE_LOCALITIES: Record<string, string[]> = {
-  "Sarjapur Road": ["Bellandur", "Marathahalli", "HSR Layout", "Kodathi"],
-  "Whitefield": ["ITPL", "Varthur", "Kadugodi", "Brookefield"],
-  "Kanakapura Road": ["JP Nagar", "Banashankari", "Gangasandra"],
-  "Electronic City": ["Bommasandra", "Hosur Road", "Chandapura"],
-  "Hebbal": ["Yelahanka", "Sahakara Nagar", "Thanisandra"],
-  "Devanahalli": ["Airport Road", "Yelahanka", "Bagalur"],
-};
-
-const CHENNAI_LOCALITIES: Record<string, string[]> = {
-  "OMR": ["Sholinganallur", "Siruseri", "Padur", "Kelambakkam"],
-  "Tambaram": ["Chromepet", "Pallavaram", "Guduvanchery"],
-  "Porur": ["Ramapuram", "Mogappair", "Valasaravakkam"],
-  "Thirumazhisai": ["Poonamallee", "Avadi", "Kundrathur"],
-  "Madhavaram": ["Kolathur", "Villivakkam", "Perambur"],
-  "Anna Nagar": ["Kilpauk", "Aminjikarai", "Shenoy Nagar"],
-};
-
-function getLocalityData(city: string): Record<string, string[]> {
-  switch (city.toLowerCase()) {
-    case "hyderabad": return HYDERABAD_LOCALITIES;
-    case "bangalore": return BANGALORE_LOCALITIES;
-    case "chennai": return CHENNAI_LOCALITIES;
-    default: return {};
-  }
-}
+import { getLocalities } from "@/data/localities";
 
 // ---------- Programmatic Locality Pages ----------
 
@@ -83,7 +46,7 @@ function generateLocalityPages(
   configurations: string,
   priceRange: string
 ): LocalityPage[] {
-  const localities = getLocalityData(city);
+  const localities = getLocalities(city);
   const nearbyLocalities = Object.entries(localities).find(([key]) =>
     location.toLowerCase().includes(key.toLowerCase())
   )?.[1] || [];
