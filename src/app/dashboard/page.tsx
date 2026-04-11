@@ -219,9 +219,23 @@ export default function DashboardPage() {
           competitorResults={competitorResults}
         />
 
-        {/* 4-panel grid — desktop optimized */}
-        <div className="flex-1 grid grid-cols-[280px_1fr_320px_340px] gap-px bg-zinc-800 overflow-hidden">
-          <CompanyPanel company={company} setCompany={setCompany} />
+        {/* 3-panel grid — Okara-style: Company+Chat left, Analytics center, Actions right */}
+        <div className="flex-1 grid grid-cols-[260px_1fr_300px] gap-px bg-zinc-800 overflow-hidden">
+          {/* Left column: Company + Chat stacked */}
+          <div className="bg-zinc-950 flex flex-col overflow-hidden">
+            <div className="flex-1 overflow-y-auto">
+              <CompanyPanel company={company} setCompany={setCompany} />
+            </div>
+            <div className="h-[320px] border-t border-zinc-800 flex-shrink-0">
+              <ChatPanel
+                company={company}
+                auditResult={auditResult}
+                aiVisResult={aiVisResult}
+              />
+            </div>
+          </div>
+
+          {/* Center: Analytics */}
           <AnalyticsPanel
             auditResult={auditResult}
             aiVisResult={aiVisResult}
@@ -243,17 +257,13 @@ export default function DashboardPage() {
             companyName={company.name}
             city={company.city}
           />
+          {/* Right: Actions Feed */}
           <ActionsFeed
             auditResult={auditResult}
             aiVisResult={aiVisResult}
             backlinkResult={backlinkResult}
             technicalResult={technicalResult}
             competitorResults={competitorResults}
-          />
-          <ChatPanel
-            company={company}
-            auditResult={auditResult}
-            aiVisResult={aiVisResult}
           />
         </div>
       </div>

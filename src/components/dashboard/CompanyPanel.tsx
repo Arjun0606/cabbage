@@ -3,7 +3,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import {
   Building2,
@@ -87,7 +86,7 @@ export function CompanyPanel({ company, setCompany }: Props) {
   ];
 
   return (
-    <ScrollArea className="bg-zinc-950 p-4">
+    <div className="bg-zinc-950 p-4 overflow-y-auto">
       <div className="space-y-4">
         {/* Company Info */}
         <Card className="bg-zinc-900 border-zinc-800">
@@ -283,6 +282,6 @@ export function CompanyPanel({ company, setCompany }: Props) {
           </CardContent>
         </Card>
       </div>
-    </ScrollArea>
+    </div>
   );
 }

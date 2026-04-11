@@ -2,7 +2,6 @@
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Globe,
   Bot,
@@ -165,7 +164,7 @@ export function ActionsFeed({ auditResult, aiVisResult, backlinkResult, technica
   }
 
   return (
-    <ScrollArea className="bg-zinc-950 border-l border-zinc-800 p-4">
+    <div className="bg-zinc-950 border-l border-zinc-800 p-4 overflow-y-auto">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-sm font-medium flex items-center gap-2">
           <div className="w-2 h-2 rounded-full bg-emerald-500" />
@@ -234,6 +233,6 @@ export function ActionsFeed({ auditResult, aiVisResult, backlinkResult, technica
           </Card>
         ))}
       </div>
-    </ScrollArea>
+    </div>
   );
 }

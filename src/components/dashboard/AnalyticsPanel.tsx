@@ -3,7 +3,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -108,7 +107,7 @@ export function AnalyticsPanel({
   const [auditUrl, setAuditUrl] = useState(websiteUrl || "");
 
   return (
-    <ScrollArea className="bg-zinc-950 border-l border-zinc-800 col-span-1 lg:col-span-2">
+    <div className="bg-zinc-950 overflow-y-auto">
       <div className="p-4">
         <Tabs defaultValue="health" className="space-y-4">
           <TabsList className="bg-zinc-900 border border-zinc-800">
@@ -165,22 +164,33 @@ export function AnalyticsPanel({
 
             {auditResult ? (
               <>
-                {/* Performance Scores */}
-                <Card className="bg-zinc-900 border-zinc-800">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">Mobile Performance</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex justify-around">
-                      <ScoreCircle score={auditResult.scores.performanceMobile} label="Performance" />
-                      <ScoreCircle score={auditResult.scores.accessibility} label="Accessibility" />
-                      <ScoreCircle score={auditResult.scores.bestPractices} label="Best Practices" />
-                      <ScoreCircle score={auditResult.scores.seo} label="SEO" />
-                    </div>
-                  </CardContent>
-                </Card>
+                {/* Performance Scores — only show if PageSpeed data available */}
+                {auditResult.scores.pageSpeedAvailable !== false && auditResult.scores.performanceMobile > 0 && (
+                  <Card className="bg-zinc-900 border-zinc-800">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm">Mobile Performance</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex justify-around">
+                        <ScoreCircle score={auditResult.scores.performanceMobile} label="Performance" />
+                        <ScoreCircle score={auditResult.scores.accessibility} label="Accessibility" />
+                        <ScoreCircle score={auditResult.scores.bestPractices} label="Best Practices" />
+                        <ScoreCircle score={auditResult.scores.seo} label="SEO" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
 
-                {/* Core Web Vitals */}
+                {auditResult.scores.pageSpeedAvailable === false && (
+                  <Card className="bg-zinc-900 border-zinc-800">
+                    <CardContent className="p-4">
+                      <p className="text-xs text-zinc-500">PageSpeed data temporarily unavailable (API quota). Real estate checks and AI analysis still ran below.</p>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Core Web Vitals — only if we have real data */}
+                {auditResult.coreWebVitals.lcp > 0 && (
                 <Card className="bg-zinc-900 border-zinc-800">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-sm">Core Web Vitals</CardTitle>
@@ -201,8 +211,10 @@ export function AnalyticsPanel({
                     </div>
                   </CardContent>
                 </Card>
+                )}
 
-                {/* SEO Health */}
+                {/* SEO Health — only if PageSpeed ran */}
+                {auditResult.seoHealth?.length > 0 && (
                 <Card className="bg-zinc-900 border-zinc-800">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-sm">SEO Health</CardTitle>
@@ -225,6 +237,7 @@ export function AnalyticsPanel({
                     ))}
                   </CardContent>
                 </Card>
+                )}
 
                 {/* Real Estate Checks */}
                 <Card className="bg-zinc-900 border-zinc-800">
@@ -694,6 +707,6 @@ export function AnalyticsPanel({
           </TabsContent>
         </Tabs>
       </div>
-    </ScrollArea>
+    </div>
   );
 }

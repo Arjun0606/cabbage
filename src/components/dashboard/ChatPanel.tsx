@@ -1,6 +1,5 @@
 "use client";
 
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Send, Bot, User, Loader2 } from "lucide-react";
@@ -21,7 +20,7 @@ export function ChatPanel({ company, auditResult, aiVisResult }: Props) {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
-      content: `Welcome to CabbageSEO! I'm your AI marketing assistant, specialized in Indian residential real estate.\n\nI can help you with:\n- **Review your SEO audit** and surface top issues\n- **Walk through AI/GEO recommendations** by priority\n- **Suggest content or technical action plans**\n- **Analyze your competitors' positioning**\n\nSet up your company details in the left panel and run an audit to get started!`,
+      content: `Welcome to CabbageSEO! I'm your AI CMO.\n\nI can help you with:\n- **Review your SEO audit** and surface top issues\n- **Walk through AI/GEO recommendations** by priority\n- **Suggest content or technical action plans**\n- **Analyze your competitors' positioning**\n\nRun a full scan to get started!`,
     },
   ]);
   const [input, setInput] = useState("");
