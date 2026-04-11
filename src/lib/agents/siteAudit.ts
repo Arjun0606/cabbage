@@ -232,7 +232,7 @@ async function generateAuditAnalysis(
   const failedReChecks = realEstateChecks.filter((c) => !c.passed);
 
   const message = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
+    model: "claude-sonnet-4-6",
     max_tokens: 2000,
     system: `You are CabbageSEO, an AI SEO expert specialized in Indian residential real estate developer websites. You analyze audit results and produce actionable fixes prioritized by impact on lead generation and conversions.
 

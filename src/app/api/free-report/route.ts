@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
     // AI-generated top 5 fixes
     const anthropic = new Anthropic();
     const analysis = await anthropic.messages.create({
-      model: "claude-sonnet-4-20250514",
+      model: "claude-sonnet-4-6",
       max_tokens: 800,
       system: "You are CabbageSEO. Give exactly 5 high-impact fixes for this real estate website. Be specific and actionable. Return a JSON array of 5 strings, each under 100 characters.",
       messages: [{

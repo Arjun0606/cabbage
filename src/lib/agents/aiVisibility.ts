@@ -43,7 +43,7 @@ interface AIReadinessCheck {
 async function queryOpenAI(query: string): Promise<string> {
   const openai = new OpenAI();
   const res = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
+    model: "gpt-5.4-nano",
     messages: [{ role: "user", content: query }],
     max_tokens: 1000,
   });
@@ -53,7 +53,7 @@ async function queryOpenAI(query: string): Promise<string> {
 async function queryClaude(query: string): Promise<string> {
   const anthropic = new Anthropic();
   const res = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
+    model: "claude-sonnet-4-6",
     max_tokens: 1000,
     messages: [{ role: "user", content: query }],
   });
@@ -119,7 +119,6 @@ function analyzeMention(
     return { mentioned: false, position: 0, context: "", sentiment: "absent" };
   }
 
-  const lower = response.toLowerCase();
   const brandLower = brand.toLowerCase();
   const allTerms = [brandLower, ...projects.map((p) => p.toLowerCase())];
 

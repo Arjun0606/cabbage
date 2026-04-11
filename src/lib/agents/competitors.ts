@@ -156,7 +156,7 @@ async function generateInsights(
   const anthropic = new Anthropic();
 
   const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
+    model: "claude-sonnet-4-6",
     max_tokens: 1500,
     system: `You are CabbageSEO's competitive intelligence agent for Indian real estate. Analyze a competitor and provide actionable insights. Return valid JSON array only.`,
     messages: [{

@@ -86,7 +86,7 @@ export async function discoverLocalities(
   const anthropic = new Anthropic();
 
   const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
+    model: "claude-sonnet-4-6",
     max_tokens: 1500,
     system: "You are a real estate market expert with deep knowledge of residential property markets worldwide. Return valid JSON only, no other text.",
     messages: [{
@@ -121,7 +121,7 @@ export async function searchLocality(
   const anthropic = new Anthropic();
 
   const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
+    model: "claude-sonnet-4-6",
     max_tokens: 2500,
     system: `You are CabbageSEO's locality intelligence engine for real estate. Given any city and locality anywhere in the world, provide comprehensive real estate market intelligence. Use real landmark names, real infrastructure, real market data. Return valid JSON only.`,
     messages: [{
@@ -195,7 +195,7 @@ export async function getBudgetRanges(city: string): Promise<BudgetRange[]> {
   const anthropic = new Anthropic();
 
   const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
+    model: "claude-sonnet-4-6",
     max_tokens: 500,
     system: "Return valid JSON only.",
     messages: [{
@@ -235,7 +235,7 @@ export async function generateSearchQueries(
   const anthropic = new Anthropic();
 
   const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
+    model: "claude-sonnet-4-6",
     max_tokens: 1000,
     system: "Return a JSON array of strings only.",
     messages: [{
@@ -293,7 +293,7 @@ export async function generateContentPlan(
   const anthropic = new Anthropic();
 
   const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
+    model: "claude-sonnet-4-6",
     max_tokens: 3500,
     system: `You are CabbageSEO's content strategist for real estate. Create content plans that maximize SEO impact and social engagement. Be specific to the actual locality, market, and buyer demographics. Return valid JSON only.`,
     messages: [{
