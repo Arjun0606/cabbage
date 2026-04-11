@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runAIVisibility } from "@/lib/agents/aiVisibility";
-import { REAL_ESTATE_QUERIES } from "@/data/queries";
+import { generateSearchQueries } from "@/lib/agents/localityEngine";
 
 export async function POST(req: NextRequest) {
   try {
@@ -10,16 +10,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Brand name is required" }, { status: 400 });
     }
 
-    // Use city-specific queries or all queries
-    const queries = city && REAL_ESTATE_QUERIES[city as keyof typeof REAL_ESTATE_QUERIES]
-      ? REAL_ESTATE_QUERIES[city as keyof typeof REAL_ESTATE_QUERIES]
-      : Object.values(REAL_ESTATE_QUERIES).flat().slice(0, 15); // Cap at 15 for cost
+    // Generate queries dynamically based on the actual city and brand
+    const queries = await generateSearchQueries(
+      city || "the market",
+      brand,
+      projects || []
+    );
 
     const result = await runAIVisibility(
       websiteUrl || "",
       brand,
       projects || [],
-      queries as string[]
+      queries
     );
 
     return NextResponse.json(result);

@@ -15,9 +15,7 @@ import {
   X,
   ArrowRight,
   Sparkles,
-  Zap,
 } from "lucide-react";
-import { DEMO_CUSTOMERS } from "@/data/customers";
 
 interface Project {
   name: string;
@@ -72,24 +70,6 @@ export default function OnboardingPage() {
     }
   };
 
-  const loadDemo = (key: keyof typeof DEMO_CUSTOMERS) => {
-    const demo = DEMO_CUSTOMERS[key];
-    setCompanyName(demo.name);
-    setWebsite(demo.website);
-    setCity(demo.city);
-    setDescription(demo.description);
-    setProjects(
-      demo.projects.map((p) => ({
-        name: p.name,
-        website: p.website,
-        location: p.location,
-        configurations: p.configurations,
-        priceRange: p.priceRange,
-      }))
-    );
-    setCompetitors(demo.competitors.map((c) => c.website));
-  };
-
   const handleComplete = () => {
     // Store in localStorage for the dashboard to read
     const data = {
@@ -135,29 +115,6 @@ export default function OnboardingPage() {
             ))}
           </div>
         </div>
-
-        {/* Quick Demo Load */}
-        {step === 1 && (
-          <Card className="bg-zinc-900/50 border-zinc-800 border-dashed">
-            <CardContent className="p-4">
-              <p className="text-xs text-zinc-500 mb-2">Quick start with demo data:</p>
-              <div className="flex gap-2 flex-wrap">
-                {Object.entries(DEMO_CUSTOMERS).map(([key, val]) => (
-                  <Button
-                    key={key}
-                    variant="outline"
-                    size="sm"
-                    onClick={() => loadDemo(key as keyof typeof DEMO_CUSTOMERS)}
-                    className="text-xs border-zinc-700 hover:border-emerald-600 hover:text-emerald-400"
-                  >
-                    <Zap size={12} className="mr-1" />
-                    {val.name}
-                  </Button>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
 
         {/* Step 1: Company */}
         {step === 1 && (

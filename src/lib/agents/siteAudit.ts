@@ -1,5 +1,23 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { REAL_ESTATE_SEO_CHECKS } from "@/data/queries";
+
+/**
+ * Real-estate-specific SEO checks. These are what make CabbageSEO
+ * vertical — no horizontal tool checks for these.
+ */
+const REAL_ESTATE_SEO_CHECKS = [
+  { id: "rera_visible", label: "RERA / regulatory number visible on page", category: "Compliance", weight: "critical" },
+  { id: "price_band_clear", label: "Price range clearly displayed", category: "Conversion", weight: "high" },
+  { id: "floor_plan_present", label: "Floor plans present and optimized", category: "Content", weight: "high" },
+  { id: "location_map", label: "Location map / proximity to landmarks", category: "Content", weight: "medium" },
+  { id: "emi_calculator", label: "EMI calculator or loan info present", category: "Conversion", weight: "medium" },
+  { id: "schema_realestate", label: "RealEstateListing schema markup", category: "Technical", weight: "high" },
+  { id: "project_status", label: "Project status (under construction / ready)", category: "Content", weight: "medium" },
+  { id: "builder_info", label: "Builder credibility section (past projects, awards)", category: "Trust", weight: "medium" },
+  { id: "virtual_tour", label: "360 tour or video walkthrough", category: "Content", weight: "low" },
+  { id: "contact_cta", label: "Contact/enquiry CTA above the fold", category: "Conversion", weight: "critical" },
+  { id: "whatsapp_link", label: "WhatsApp quick-connect link", category: "Conversion", weight: "high" },
+  { id: "testimonials", label: "Buyer testimonials present", category: "Trust", weight: "medium" },
+] as const;
 
 // ---------- Types ----------
 
