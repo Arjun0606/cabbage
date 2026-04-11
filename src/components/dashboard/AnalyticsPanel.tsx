@@ -33,6 +33,7 @@ interface Props {
   onRunBacklinks: (url: string) => void;
   onRunTechnical: (url: string) => void;
   websiteUrl: string;
+  allSites: { url: string; label: string }[];
 }
 
 function ScoreCircle({ score, label, size = "md" }: { score: number; label: string; size?: "sm" | "md" }) {
@@ -97,6 +98,7 @@ export function AnalyticsPanel({
   onRunBacklinks,
   onRunTechnical,
   websiteUrl,
+  allSites,
 }: Props) {
   const [auditUrl, setAuditUrl] = useState(websiteUrl || "");
 
@@ -114,6 +116,25 @@ export function AnalyticsPanel({
 
           {/* -------- HEALTH TAB -------- */}
           <TabsContent value="health" className="space-y-4">
+            {/* Site selector — quick pick from added sites */}
+            {allSites.length > 1 && (
+              <div className="flex gap-1.5 flex-wrap">
+                {allSites.map((site, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setAuditUrl(site.url)}
+                    className={`text-[11px] px-2.5 py-1 rounded-md border transition-colors ${
+                      auditUrl === site.url
+                        ? "bg-emerald-900/50 border-emerald-700 text-emerald-400"
+                        : "bg-zinc-900 border-zinc-800 text-zinc-500 hover:text-zinc-300 hover:border-zinc-700"
+                    }`}
+                  >
+                    {site.label}
+                  </button>
+                ))}
+              </div>
+            )}
+
             {/* Audit Input */}
             <div className="flex gap-2">
               <Input

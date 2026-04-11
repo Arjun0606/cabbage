@@ -23,6 +23,7 @@ export default function Home() {
       description: "",
       website: url.trim().startsWith("http") ? url.trim() : `https://${url.trim()}`,
       city: "",
+      sites: [],
       projects: [],
       competitors: [],
       documents: {

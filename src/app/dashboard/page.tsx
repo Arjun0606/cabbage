@@ -13,6 +13,7 @@ export default function DashboardPage() {
     description: "",
     website: "",
     city: "hyderabad",
+    sites: [] as { url: string; label: string }[],
     projects: [] as { name: string; website: string; location: string }[],
     competitors: [] as { name: string; website: string }[],
     documents: {
@@ -28,8 +29,6 @@ export default function DashboardPage() {
   const [backlinkResult, setBacklinkResult] = useState<any>(null);
   const [technicalResult, setTechnicalResult] = useState<any>(null);
   const [competitorResults, setCompetitorResults] = useState<any[]>([]);
-  const [contentResult, setContentResult] = useState<any>(null);
-
   const [isAuditing, setIsAuditing] = useState(false);
   const [isCheckingAI, setIsCheckingAI] = useState(false);
   const [isCheckingBacklinks, setIsCheckingBacklinks] = useState(false);
@@ -246,6 +245,10 @@ export default function DashboardPage() {
           onRunBacklinks={runBacklinks}
           onRunTechnical={runTechnical}
           websiteUrl={company.website}
+          allSites={[
+            ...(company.website ? [{ url: company.website, label: company.website.replace(/^https?:\/\//, "").replace(/\/$/, "") + " (main)" }] : []),
+            ...(company.sites || []),
+          ]}
         />
         <ActionsFeed
           auditResult={auditResult}

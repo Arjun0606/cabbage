@@ -12,6 +12,7 @@ import {
   Plus,
   X,
   Globe,
+  ExternalLink,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -20,6 +21,7 @@ interface Company {
   description: string;
   website: string;
   city: string;
+  sites: { url: string; label: string }[];
   projects: { name: string; website: string; location: string }[];
   competitors: { name: string; website: string }[];
   documents: {
@@ -37,7 +39,26 @@ interface Props {
 
 export function CompanyPanel({ company, setCompany }: Props) {
   const [newCompetitor, setNewCompetitor] = useState("");
+  const [newSite, setNewSite] = useState("");
   const [expandedDoc, setExpandedDoc] = useState<string | null>(null);
+
+  const addSite = () => {
+    if (!newSite.trim()) return;
+    const url = newSite.trim();
+    const label = url.replace(/^https?:\/\//, "").replace(/\/$/, "").split("/")[0];
+    setCompany({
+      ...company,
+      sites: [...(company.sites || []), { url, label }],
+    });
+    setNewSite("");
+  };
+
+  const removeSite = (idx: number) => {
+    setCompany({
+      ...company,
+      sites: (company.sites || []).filter((_, i) => i !== idx),
+    });
+  };
 
   const addCompetitor = () => {
     if (!newCompetitor.trim()) return;
@@ -111,6 +132,65 @@ export function CompanyPanel({ company, setCompany }: Props) {
               }
               className="bg-zinc-800 border-zinc-700 text-sm min-h-[60px]"
             />
+          </CardContent>
+        </Card>
+
+        {/* Sites — all project websites managed here */}
+        <Card className="bg-zinc-900 border-zinc-800">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <ExternalLink size={14} />
+              Sites
+              <Badge variant="secondary" className="text-[10px] bg-zinc-800 text-zinc-400 ml-auto">
+                {(company.sites || []).length + 1}
+              </Badge>
+            </CardTitle>
+            <p className="text-[10px] text-zinc-600">Main site + project microsites. Each scan uses credits.</p>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {/* Main site — always present */}
+            {company.website && (
+              <div className="flex items-center gap-2 px-2 py-1.5 rounded bg-zinc-800/50 text-sm">
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                <span className="text-zinc-300 truncate flex-1">
+                  {company.website.replace(/^https?:\/\//, "")}
+                </span>
+                <Badge variant="secondary" className="text-[10px] bg-emerald-900/50 text-emerald-400">
+                  Main
+                </Badge>
+              </div>
+            )}
+
+            {/* Additional sites */}
+            {(company.sites || []).map((site, i) => (
+              <div key={i} className="flex items-center gap-2 px-2 py-1.5 rounded bg-zinc-800/50 text-sm">
+                <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                <span className="text-zinc-300 truncate flex-1">{site.label}</span>
+                <button
+                  onClick={() => removeSite(i)}
+                  className="text-zinc-600 hover:text-red-400 transition-colors"
+                >
+                  <X size={12} />
+                </button>
+              </div>
+            ))}
+
+            {/* Add site */}
+            <div className="flex gap-1">
+              <Input
+                placeholder="+ Add project site (e.g. makutataranga.com)"
+                value={newSite}
+                onChange={(e) => setNewSite(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && addSite()}
+                className="bg-zinc-800 border-zinc-700 text-sm flex-1"
+              />
+              <button
+                onClick={addSite}
+                className="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 transition-colors"
+              >
+                <Plus size={14} />
+              </button>
+            </div>
           </CardContent>
         </Card>
 
