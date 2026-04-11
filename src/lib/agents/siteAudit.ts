@@ -88,7 +88,9 @@ async function fetchPageSpeed(url: string, strategy: "mobile" | "desktop") {
 
   const res = await fetch(`${PSI_API}?${params}`, { next: { revalidate: 0 } });
   if (!res.ok) {
-    throw new Error(`PageSpeed API error: ${res.status} ${await res.text()}`);
+    // Return empty result instead of crashing — audit continues with HTML checks
+    console.warn(`PageSpeed API error (${res.status}) for ${url} — continuing with HTML-only checks`);
+    return null;
   }
   return res.json();
 }
@@ -265,20 +267,22 @@ export async function runSiteAudit(url: string): Promise<AuditResult> {
     fetchPageSpeed(url, "desktop"),
   ]);
 
-  const mobileScores = extractScores(mobileResult);
-  const desktopScores = extractScores(desktopResult);
-  const webVitals = extractWebVitals(mobileResult);
-  const seoHealth = extractSeoHealth(mobileResult);
+  const mobileScores = mobileResult ? extractScores(mobileResult) : { performance: 0, accessibility: 0, bestPractices: 0, seo: 0 };
+  const desktopScores = desktopResult ? extractScores(desktopResult) : { performance: 0, accessibility: 0, bestPractices: 0, seo: 0 };
+  const webVitals = mobileResult ? extractWebVitals(mobileResult) : { lcp: 0, fcp: 0, tbt: 0, cls: 0 };
+  const seoHealth = mobileResult ? extractSeoHealth(mobileResult) : [];
 
+  const hasPageSpeed = mobileResult !== null;
   const scores = {
-    overall: Math.round(
-      (mobileScores.seo + desktopScores.performance + mobileScores.accessibility) / 3
-    ),
+    overall: hasPageSpeed
+      ? Math.round((mobileScores.seo + desktopScores.performance + mobileScores.accessibility) / 3)
+      : 0,
     performanceMobile: mobileScores.performance,
     performanceDesktop: desktopScores.performance,
     accessibility: mobileScores.accessibility,
     bestPractices: mobileScores.bestPractices,
     seo: mobileScores.seo,
+    pageSpeedAvailable: hasPageSpeed,
   };
 
   // Fetch the actual page HTML for real-estate-specific checks

@@ -44,9 +44,10 @@ export default function Home() {
   };
 
   const goToDashboard = () => {
-    const normalized = url.trim().replace(/^https?:\/\//, "").replace(/\/$/, "");
+    const normalized = url.trim().replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/$/, "");
+    const namePart = normalized.split(".")[0];
     const companyData = {
-      name: normalized.split(".")[0].charAt(0).toUpperCase() + normalized.split(".")[0].slice(1),
+      name: namePart.charAt(0).toUpperCase() + namePart.slice(1),
       description: "",
       website: url.trim().startsWith("http") ? url.trim() : `https://${url.trim()}`,
       city: "",
@@ -133,7 +134,11 @@ export default function Home() {
                   { label: "Real Estate", score: report.scores.realEstate },
                 ].map(({ label, score }) => (
                   <div key={label} className="text-center p-2 rounded bg-zinc-800/50">
-                    <div className={`text-lg font-bold ${scoreColor(score)}`}>{score}</div>
+                    {score !== null && score !== undefined ? (
+                      <div className={`text-lg font-bold ${scoreColor(score)}`}>{score}</div>
+                    ) : (
+                      <div className="text-lg font-bold text-zinc-600">—</div>
+                    )}
                     <div className="text-[10px] text-zinc-500">{label}</div>
                   </div>
                 ))}
@@ -144,14 +149,16 @@ export default function Home() {
           {/* Checks */}
           <Card className="bg-zinc-900 border-zinc-800">
             <CardContent className="p-5 space-y-1.5">
-              <h3 className="text-sm font-medium text-zinc-300 mb-3">Real Estate SEO Checks</h3>
+              <h3 className="text-sm font-medium text-zinc-300 mb-3">SEO Checks</h3>
               {[
                 { label: "RERA / Regulatory number visible", passed: report.checks.rera },
                 { label: "Pricing displayed on page", passed: report.checks.pricing },
+                { label: "Enquiry CTA above the fold", passed: report.checks.ctaAboveFold },
                 { label: "WhatsApp quick-connect", passed: report.checks.whatsapp },
                 { label: "Schema.org markup", passed: report.checks.schema },
-                { label: "Floor plans present", passed: report.checks.floorPlans },
-                { label: "Contact CTA above the fold", passed: report.checks.ctaAboveFold },
+                { label: "Floor plans on page", passed: report.checks.floorPlans },
+                { label: "EMI / loan information", passed: report.checks.emiLoan },
+                { label: "Location map with landmarks", passed: report.checks.locationMap },
                 { label: "llms.txt for AI crawlers", passed: report.checks.llmsTxt },
                 { label: "Sitemap.xml", passed: report.checks.sitemap },
               ].map(({ label, passed }) => (
