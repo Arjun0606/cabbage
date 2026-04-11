@@ -1,23 +1,20 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Sparkles,
-  Globe,
   Plug,
   PenTool,
   Save,
   CheckCircle2,
-  ExternalLink,
-  ArrowLeft,
 } from "lucide-react";
 import Link from "next/link";
+import { Sidebar } from "@/components/dashboard/Sidebar";
 
 // ---------- Types ----------
 
@@ -286,16 +283,13 @@ export default function SettingsPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100">
+    <div className="h-screen bg-zinc-950 text-zinc-100 flex overflow-hidden">
+      <Sidebar companyName="" />
+      <div className="flex-1 overflow-y-auto">
       {/* Header */}
-      <div className="border-b border-zinc-800 px-6 py-4">
+      <div className="border-b border-zinc-800 px-6 py-4 sticky top-0 bg-zinc-950/95 backdrop-blur z-10">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Link href="/dashboard" className="text-zinc-500 hover:text-zinc-300">
-              <ArrowLeft size={18} />
-            </Link>
-            <h1 className="text-lg font-semibold">Settings</h1>
-          </div>
+          <h1 className="text-lg font-semibold">Settings</h1>
           <Link href="/dashboard">
             <Button size="sm" variant="outline" className="border-zinc-700 text-xs">
               Back to Dashboard
@@ -406,6 +400,7 @@ export default function SettingsPage() {
             </div>
           </TabsContent>
         </Tabs>
+      </div>
       </div>
     </div>
   );

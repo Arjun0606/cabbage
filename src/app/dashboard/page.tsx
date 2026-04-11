@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { Sidebar } from "@/components/dashboard/Sidebar";
 import { CompanyPanel } from "@/components/dashboard/CompanyPanel";
 import { AnalyticsPanel } from "@/components/dashboard/AnalyticsPanel";
 import { ActionsFeed } from "@/components/dashboard/ActionsFeed";
@@ -13,7 +14,7 @@ export default function DashboardPage() {
     name: "",
     description: "",
     website: "",
-    city: "hyderabad",
+    city: "",
     sites: [] as { url: string; label: string }[],
     projects: [] as { name: string; website: string; location: string }[],
     competitors: [] as { name: string; website: string }[],
@@ -30,6 +31,7 @@ export default function DashboardPage() {
   const [backlinkResult, setBacklinkResult] = useState<any>(null);
   const [technicalResult, setTechnicalResult] = useState<any>(null);
   const [competitorResults, setCompetitorResults] = useState<any[]>([]);
+
   const [isAuditing, setIsAuditing] = useState(false);
   const [isCheckingAI, setIsCheckingAI] = useState(false);
   const [isCheckingBacklinks, setIsCheckingBacklinks] = useState(false);
@@ -47,15 +49,15 @@ export default function DashboardPage() {
       if (saved) {
         const data = JSON.parse(saved);
         setCompany(data);
-        addLog(`> Loaded company: ${data.name}`);
-        addLog(`> ${data.projects?.length || 0} projects configured`);
-        addLog(`> ${data.competitors?.length || 0} competitors tracked`);
-        addLog("> Ready to audit your real estate digital presence");
+        addLog(`> Loaded: ${data.name}`);
+        if (data.sites?.length) addLog(`> ${data.sites.length + 1} sites configured`);
+        if (data.competitors?.length) addLog(`> ${data.competitors.length} competitors tracked`);
+        addLog("> Ready — hit 'Run Full Scan' to start");
       } else {
-        addLog("> No company configured. Set up in the left panel or visit /onboarding");
+        addLog("> No site configured. Visit the homepage to add one.");
       }
     } catch {
-      addLog("> Ready to audit your real estate digital presence");
+      addLog("> Ready");
     }
   }, []);
 
@@ -72,9 +74,7 @@ export default function DashboardPage() {
 
   const runAudit = async (url: string) => {
     setIsAuditing(true);
-    addLog(`> Starting SEO audit for ${url}...`);
-    addLog("> Fetching PageSpeed data (mobile + desktop)...");
-
+    addLog(`> Auditing ${url}...`);
     try {
       const res = await fetch("/api/audit", {
         method: "POST",
@@ -83,11 +83,8 @@ export default function DashboardPage() {
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-
       setAuditResult(data);
-      addLog(`> Audit complete: Score ${data.scores.overall}/100`);
-      addLog(`> Found ${data.fixes?.length || 0} fixes to implement`);
-      addLog(`> Real estate checks: ${data.realEstateChecks?.filter((c: any) => c.passed).length}/${data.realEstateChecks?.length} passed`);
+      addLog(`> Audit: ${data.scores.overall}/100 — ${data.fixes?.length || 0} fixes`);
     } catch (err) {
       addLog(`> Error: ${err instanceof Error ? err.message : "Audit failed"}`);
     } finally {
@@ -96,11 +93,9 @@ export default function DashboardPage() {
   };
 
   const runAIVisibility = async () => {
-    if (!company.name) { addLog("> Error: Set your company name first"); return; }
+    if (!company.name) { addLog("> Set company name first"); return; }
     setIsCheckingAI(true);
     addLog(`> Checking AI visibility for "${company.name}"...`);
-    addLog("> Querying ChatGPT, Claude, Perplexity, Gemini...");
-
     try {
       const res = await fetch("/api/ai-visibility", {
         method: "POST",
@@ -114,12 +109,10 @@ export default function DashboardPage() {
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-
       setAiVisResult(data);
-      addLog(`> AI Visibility complete: Overall ${data.scores.overall}/100`);
-      addLog(`> ChatGPT: ${data.scores.chatgpt} | Claude: ${data.scores.claude} | Perplexity: ${data.scores.perplexity} | Gemini: ${data.scores.gemini}`);
+      addLog(`> AI Visibility: ${data.scores.overall}/100`);
     } catch (err) {
-      addLog(`> Error: ${err instanceof Error ? err.message : "AI Visibility failed"}`);
+      addLog(`> Error: ${err instanceof Error ? err.message : "Failed"}`);
     } finally {
       setIsCheckingAI(false);
     }
@@ -127,8 +120,7 @@ export default function DashboardPage() {
 
   const runBacklinks = async (url: string) => {
     setIsCheckingBacklinks(true);
-    addLog(`> Analyzing backlink profile for ${url}...`);
-
+    addLog(`> Analyzing backlinks...`);
     try {
       const res = await fetch("/api/backlinks", {
         method: "POST",
@@ -137,12 +129,10 @@ export default function DashboardPage() {
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-
       setBacklinkResult(data);
-      addLog(`> Backlinks: DA ${data.domainAuthority}, ${data.referringDomains} referring domains`);
-      addLog(`> ${data.recommendations?.length || 0} link-building recommendations`);
+      addLog(`> Backlinks: DA ${data.domainAuthority}, ${data.referringDomains} domains`);
     } catch (err) {
-      addLog(`> Error: ${err instanceof Error ? err.message : "Backlink analysis failed"}`);
+      addLog(`> Error: ${err instanceof Error ? err.message : "Failed"}`);
     } finally {
       setIsCheckingBacklinks(false);
     }
@@ -150,8 +140,7 @@ export default function DashboardPage() {
 
   const runTechnical = async (url: string) => {
     setIsCheckingTechnical(true);
-    addLog(`> Running technical SEO analysis for ${url}...`);
-
+    addLog(`> Technical SEO scan...`);
     try {
       const res = await fetch("/api/technical-seo", {
         method: "POST",
@@ -160,23 +149,19 @@ export default function DashboardPage() {
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-
       setTechnicalResult(data);
-      addLog(`> Technical: On-Page score ${data.onPageScore}/100`);
-      addLog(`> Server: ${data.server.host}, TTFB: ${data.serverTiming.ttfb}ms`);
-      addLog(`> ${data.resourceIssues?.length || 0} resource issues found`);
+      addLog(`> Technical: ${data.onPageScore}/100, TTFB ${data.serverTiming.ttfb}ms`);
     } catch (err) {
-      addLog(`> Error: ${err instanceof Error ? err.message : "Technical analysis failed"}`);
+      addLog(`> Error: ${err instanceof Error ? err.message : "Failed"}`);
     } finally {
       setIsCheckingTechnical(false);
     }
   };
 
   const runCompetitorAnalysis = async () => {
-    if (!company.competitors.length) { addLog("> Error: Add competitors first"); return; }
+    if (!company.competitors.length) { addLog("> Add competitors first"); return; }
     setIsCheckingCompetitors(true);
-    addLog(`> Analyzing ${company.competitors.length} competitor(s)...`);
-
+    addLog(`> Analyzing ${company.competitors.length} competitors...`);
     try {
       const res = await fetch("/api/competitors", {
         method: "POST",
@@ -188,95 +173,89 @@ export default function DashboardPage() {
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-
       setCompetitorResults(data);
-      addLog(`> Competitor analysis complete: ${data.length} analyzed`);
-      for (const r of data) {
-        addLog(`>   ${r.competitor.name}: ${r.insights?.length || 0} insights`);
-      }
+      addLog(`> ${data.length} competitors analyzed`);
     } catch (err) {
-      addLog(`> Error: ${err instanceof Error ? err.message : "Competitor analysis failed"}`);
+      addLog(`> Error: ${err instanceof Error ? err.message : "Failed"}`);
     } finally {
       setIsCheckingCompetitors(false);
     }
   };
 
-  // Run all agents at once
   const runFullScan = async () => {
     const url = company.website;
-    if (!url) { addLog("> Error: Set your website URL first"); return; }
-
-    addLog("> Starting full scan...");
-    addLog("> Running SEO audit + Technical + Backlinks + AI Visibility in parallel...");
-
+    if (!url) { addLog("> Set your website URL first"); return; }
+    addLog("> Full scan started...");
     await Promise.all([
       runAudit(url),
       runTechnical(url),
       runBacklinks(url),
       ...(company.name ? [runAIVisibility()] : []),
     ]);
-
     if (company.competitors.length > 0) {
       await runCompetitorAnalysis();
     }
-
-    addLog("> Full scan complete!");
+    addLog("> Full scan complete");
   };
 
   return (
-    <div className="h-screen bg-zinc-950 text-zinc-100 flex flex-col overflow-hidden">
-      <TerminalHeader logs={terminalLogs} onRunFullScan={runFullScan} hasWebsite={!!company.website} />
-      <AgentStatusBar
-        isAuditing={isAuditing}
-        isCheckingAI={isCheckingAI}
-        isCheckingBacklinks={isCheckingBacklinks}
-        isCheckingTechnical={isCheckingTechnical}
-        isCheckingCompetitors={isCheckingCompetitors}
-        auditResult={auditResult}
-        aiVisResult={aiVisResult}
-        backlinkResult={backlinkResult}
-        technicalResult={technicalResult}
-        competitorResults={competitorResults}
-      />
+    <div className="h-screen bg-zinc-950 text-zinc-100 flex overflow-hidden">
+      {/* Sidebar — Okara-style navigation */}
+      <Sidebar companyName={company.name} />
 
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-4 gap-px bg-zinc-800 overflow-hidden">
-        <CompanyPanel
-          company={company}
-          setCompany={setCompany}
-        />
-        <AnalyticsPanel
-          auditResult={auditResult}
-          aiVisResult={aiVisResult}
-          backlinkResult={backlinkResult}
-          technicalResult={technicalResult}
+      {/* Main content */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <TerminalHeader logs={terminalLogs} onRunFullScan={runFullScan} hasWebsite={!!company.website} />
+        <AgentStatusBar
           isAuditing={isAuditing}
           isCheckingAI={isCheckingAI}
           isCheckingBacklinks={isCheckingBacklinks}
           isCheckingTechnical={isCheckingTechnical}
-          onRunAudit={runAudit}
-          onRunAIVisibility={runAIVisibility}
-          onRunBacklinks={runBacklinks}
-          onRunTechnical={runTechnical}
-          websiteUrl={company.website}
-          companyName={company.name}
-          city={company.city}
-          allSites={[
-            ...(company.website ? [{ url: company.website, label: company.website.replace(/^https?:\/\//, "").replace(/\/$/, "") + " (main)" }] : []),
-            ...(company.sites || []),
-          ]}
-        />
-        <ActionsFeed
+          isCheckingCompetitors={isCheckingCompetitors}
           auditResult={auditResult}
           aiVisResult={aiVisResult}
           backlinkResult={backlinkResult}
           technicalResult={technicalResult}
           competitorResults={competitorResults}
         />
-        <ChatPanel
-          company={company}
-          auditResult={auditResult}
-          aiVisResult={aiVisResult}
-        />
+
+        {/* 4-panel grid — desktop optimized */}
+        <div className="flex-1 grid grid-cols-[280px_1fr_320px_340px] gap-px bg-zinc-800 overflow-hidden">
+          <CompanyPanel company={company} setCompany={setCompany} />
+          <AnalyticsPanel
+            auditResult={auditResult}
+            aiVisResult={aiVisResult}
+            backlinkResult={backlinkResult}
+            technicalResult={technicalResult}
+            isAuditing={isAuditing}
+            isCheckingAI={isCheckingAI}
+            isCheckingBacklinks={isCheckingBacklinks}
+            isCheckingTechnical={isCheckingTechnical}
+            onRunAudit={runAudit}
+            onRunAIVisibility={runAIVisibility}
+            onRunBacklinks={runBacklinks}
+            onRunTechnical={runTechnical}
+            websiteUrl={company.website}
+            allSites={[
+              ...(company.website ? [{ url: company.website, label: company.website.replace(/^https?:\/\//, "").replace(/\/$/, "") + " (main)" }] : []),
+              ...(company.sites || []),
+            ]}
+            companyName={company.name}
+            city={company.city}
+          />
+          <ActionsFeed
+            auditResult={auditResult}
+            aiVisResult={aiVisResult}
+            backlinkResult={backlinkResult}
+            technicalResult={technicalResult}
+            competitorResults={competitorResults}
+          />
+          <ChatPanel
+            company={company}
+            auditResult={auditResult}
+            aiVisResult={aiVisResult}
+          />
+        </div>
       </div>
     </div>
   );
