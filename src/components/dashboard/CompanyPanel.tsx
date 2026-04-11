@@ -4,7 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import {
   Building2,
@@ -13,7 +12,6 @@ import {
   Plus,
   X,
   Globe,
-  MapPin,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -93,18 +91,18 @@ export function CompanyPanel({ company, setCompany }: Props) {
               }
               className="bg-zinc-800 border-zinc-700 text-sm"
             />
-            <select
+            <Input
+              placeholder="City (e.g. Hyderabad, Dubai, London...)"
               value={company.city}
               onChange={(e) => setCompany({ ...company, city: e.target.value })}
-              className="w-full rounded-md bg-zinc-800 border border-zinc-700 text-sm px-3 py-2 text-zinc-100"
-            >
-              <option value="hyderabad">Hyderabad</option>
-              <option value="bangalore">Bangalore</option>
-              <option value="chennai">Chennai</option>
-              <option value="mumbai">Mumbai</option>
-              <option value="pune">Pune</option>
-              <option value="delhi">Delhi</option>
-            </select>
+              className="bg-zinc-800 border-zinc-700 text-sm"
+              list="dashboard-city-suggestions"
+            />
+            <datalist id="dashboard-city-suggestions">
+              {["Hyderabad","Bangalore","Chennai","Mumbai","Pune","Delhi NCR","Gurgaon","Noida","Kolkata","Ahmedabad","Kochi","Goa","Lucknow","Jaipur","Chandigarh","Indore","Vizag","Dubai","Abu Dhabi","Riyadh","London"].map(c => (
+                <option key={c} value={c} />
+              ))}
+            </datalist>
             <Textarea
               placeholder="About the company..."
               value={company.description}

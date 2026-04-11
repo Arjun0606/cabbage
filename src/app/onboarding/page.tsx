@@ -14,7 +14,6 @@ import {
   Plus,
   X,
   ArrowRight,
-  Loader2,
   Sparkles,
   Zap,
 } from "lucide-react";
@@ -31,7 +30,6 @@ interface Project {
 export default function OnboardingPage() {
   const router = useRouter();
   const [step, setStep] = useState(1);
-  const [isLoading, setIsLoading] = useState(false);
 
   // Company
   const [companyName, setCompanyName] = useState("");
@@ -191,18 +189,37 @@ export default function OnboardingPage() {
               </div>
               <div>
                 <label className="text-xs text-zinc-400 mb-1 block">Primary City</label>
-                <select
+                <Input
+                  placeholder="e.g. Hyderabad, Dubai, London, Gurgaon..."
                   value={city}
                   onChange={(e) => setCity(e.target.value)}
-                  className="w-full rounded-md bg-zinc-800 border border-zinc-700 text-sm px-3 py-2 text-zinc-100"
-                >
-                  <option value="hyderabad">Hyderabad</option>
-                  <option value="bangalore">Bangalore</option>
-                  <option value="chennai">Chennai</option>
-                  <option value="mumbai">Mumbai</option>
-                  <option value="pune">Pune</option>
-                  <option value="delhi">Delhi NCR</option>
-                </select>
+                  className="bg-zinc-800 border-zinc-700"
+                  list="city-suggestions"
+                />
+                <datalist id="city-suggestions">
+                  <option value="Hyderabad" />
+                  <option value="Bangalore" />
+                  <option value="Chennai" />
+                  <option value="Mumbai" />
+                  <option value="Pune" />
+                  <option value="Delhi NCR" />
+                  <option value="Gurgaon" />
+                  <option value="Noida" />
+                  <option value="Kolkata" />
+                  <option value="Ahmedabad" />
+                  <option value="Kochi" />
+                  <option value="Goa" />
+                  <option value="Lucknow" />
+                  <option value="Jaipur" />
+                  <option value="Chandigarh" />
+                  <option value="Indore" />
+                  <option value="Vizag" />
+                  <option value="Dubai" />
+                  <option value="Abu Dhabi" />
+                  <option value="Riyadh" />
+                  <option value="London" />
+                </datalist>
+                <p className="text-[10px] text-zinc-600 mt-1">Works globally — type any city</p>
               </div>
               <div>
                 <label className="text-xs text-zinc-400 mb-1 block">About the company</label>

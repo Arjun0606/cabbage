@@ -12,7 +12,7 @@
  */
 
 import Anthropic from "@anthropic-ai/sdk";
-import { getLocalities, getNearbyAreas } from "@/data/localities";
+import { getLocalities, getNearbyAreas, LOCALITIES } from "@/data/localities";
 
 // ---------- Types ----------
 
@@ -186,15 +186,7 @@ export function autocompleteLocality(
 
   const citiesToSearch = city
     ? { [city.toLowerCase()]: getLocalities(city) }
-    : (() => {
-        // Search all cities
-        const allCities: Record<string, Record<string, string[]>> = {};
-        for (const c of ["hyderabad", "bangalore", "chennai", "mumbai", "pune", "delhi_ncr", "kolkata", "ahmedabad", "kochi", "goa"]) {
-          const data = getLocalities(c);
-          if (Object.keys(data).length > 0) allCities[c] = data;
-        }
-        return allCities;
-      })();
+    : LOCALITIES;
 
   for (const [cityKey, localities] of Object.entries(citiesToSearch)) {
     for (const [locality, nearby] of Object.entries(localities)) {
@@ -367,7 +359,7 @@ Generate exactly 4 weeks of plans with 5 social posts per week (mix of platforms
 }
 
 function generateDefaultPages(
-  projectName: string,
+  _projectName: string,
   location: string,
   city: string,
   configurations: string,

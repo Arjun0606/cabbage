@@ -160,6 +160,154 @@ export const LOCALITIES: Record<string, Record<string, string[]>> = {
   },
 
   // ============================================================
+  // GURGAON (separate from Delhi NCR for market-specific targeting)
+  // ============================================================
+  gurgaon: {
+    "Golf Course Road": ["DLF Phase 5", "Sector 54", "Sector 56", "South City", "Sector 42"],
+    "Dwarka Expressway": ["Sector 99", "Sector 103", "Sector 106", "Sector 113", "Pataudi Road"],
+    "Sohna Road": ["Sector 49", "Badshahpur", "South of Gurgaon", "Sector 48"],
+    "MG Road": ["DLF Phase 1-3", "Sector 28", "Sikanderpur", "IFFCO Chowk"],
+    "SPR Road": ["Sector 76-95", "New Gurgaon", "Manesar"],
+    "Sector 82-85": ["NH-8", "Vatika", "Emaar", "New Gurgaon"],
+    "Manesar": ["IMT Manesar", "Sector 1-8", "NH-8"],
+    "DLF Phase 5": ["Golf Course Road", "Sector 53", "Galleria Market"],
+    "Sector 56-57": ["Golf Course Road", "Sushant Lok", "South City"],
+    "Nirvana Country": ["Sector 50", "South City", "Sohna Road"],
+  },
+
+  // ============================================================
+  // NOIDA
+  // ============================================================
+  noida: {
+    "Sector 150": ["Sector 137", "Noida Expressway", "Botanical Garden"],
+    "Sector 137": ["Sector 150", "Sector 128", "Noida City Centre"],
+    "Sector 75-79": ["Amity University", "Sector 62", "Noida Expressway"],
+    "Greater Noida West": ["Noida Extension", "Gaur City", "Crossing Republik", "Tech Zone"],
+    "Sector 128": ["Jaypee Greens", "Sector 137", "Noida Expressway"],
+    "Sector 62": ["NSEZ", "Sector 63", "Indirapuram"],
+    "Yamuna Expressway": ["Greater Noida", "Jewar Airport", "Pari Chowk"],
+    "Sector 44-50": ["Noida City Centre", "Botanical Garden", "Sector 37"],
+    "Greater Noida": ["Knowledge Park", "Pari Chowk", "Alpha", "Beta", "Gamma"],
+    "Sector 93-100": ["Expressway", "Sector 137", "Film City"],
+  },
+
+  // ============================================================
+  // LUCKNOW
+  // ============================================================
+  lucknow: {
+    "Gomti Nagar": ["Gomti Nagar Extension", "Vikas Nagar", "Chinhat"],
+    "Gomti Nagar Extension": ["Shaheed Path", "Sultanpur Road", "Chinhat"],
+    "Shaheed Path": ["Gomti Nagar Extension", "Sultanpur Road", "Sushant Golf City"],
+    "Sushant Golf City": ["Shaheed Path", "Ansal API", "Sultanpur Road"],
+    "Raebareli Road": ["Telibagh", "Mohanlalganj", "Lucknow Cantonment"],
+    "Kanpur Road": ["Alambagh", "Amausi", "Lucknow Airport"],
+    "Faizabad Road": ["Chinhat", "Indira Nagar", "Ashiyana"],
+    "Jankipuram": ["Vikas Nagar", "Sector A-J", "Sitapur Road"],
+  },
+
+  // ============================================================
+  // JAIPUR
+  // ============================================================
+  jaipur: {
+    "Jagatpura": ["Malviya Nagar", "Pratap Nagar", "Sitapura"],
+    "Mansarovar": ["Mansarovar Extension", "New Sanganer Road", "Vaishali Nagar"],
+    "Vaishali Nagar": ["Mansarovar", "Raja Park", "Nirman Nagar"],
+    "Ajmer Road": ["Jhotwara", "Kardhani", "Bagru"],
+    "Tonk Road": ["Durgapura", "Pratap Nagar", "Sanganer"],
+    "Sirsi Road": ["Jhotwara", "Vaishali Nagar", "Kardhani"],
+    "Malviya Nagar": ["Jagatpura", "Pratap Nagar", "Durgapura"],
+    "C-Scheme": ["Ashok Nagar", "Bani Park", "MI Road"],
+  },
+
+  // ============================================================
+  // CHANDIGARH TRI-CITY
+  // ============================================================
+  chandigarh: {
+    "Zirakpur": ["Panchkula", "Mohali", "Baltana", "Dhakoli", "VIP Road"],
+    "Mohali": ["Sector 66-80", "Aerocity", "Airport Road", "IT City"],
+    "Kharar": ["Sunny Enclave", "Gillco Valley", "Landran"],
+    "New Chandigarh": ["Mullanpur", "Eco City", "Omaxe", "Wave Estate"],
+    "Panchkula": ["Sector 1-25", "Pinjore", "Kalka"],
+    "Aerocity Mohali": ["IT City", "Airport Road", "Sector 82"],
+    "Dera Bassi": ["Zirakpur", "Lalru", "Barwala"],
+  },
+
+  // ============================================================
+  // INDORE
+  // ============================================================
+  indore: {
+    "Super Corridor": ["Bypass Road", "MR-10", "Ring Road"],
+    "Vijay Nagar": ["Scheme 78", "AB Road", "Sapna Sangeeta"],
+    "Nipania": ["AB Road", "Bicholi Mardana", "Rau"],
+    "Rau": ["Pithampur", "Nipania", "Bypass"],
+    "AB Road": ["Vijay Nagar", "LIG Colony", "MG Road"],
+    "Ring Road": ["Bypass Road", "Super Corridor", "Bhawarkua"],
+  },
+
+  // ============================================================
+  // VISHAKHAPATNAM
+  // ============================================================
+  vizag: {
+    "Madhurawada": ["GITAM University", "Rushikonda", "PM Palem"],
+    "Gajuwaka": ["Steel Plant", "Kurmannapalem", "Autonagar"],
+    "Rushikonda": ["Madhurawada", "Beach Road", "GITAM"],
+    "Seethammadhara": ["NAD Junction", "MVP Colony", "Dwaraka Nagar"],
+    "Pendurthi": ["Anandapuram", "Sabbavaram", "Parawada"],
+    "Kommadi": ["Madhurawada", "Rushikonda", "IT SEZ"],
+  },
+
+  // ============================================================
+  // INTERNATIONAL — UAE
+  // ============================================================
+  dubai: {
+    "Downtown Dubai": ["Burj Khalifa", "Dubai Mall", "Business Bay", "DIFC"],
+    "Dubai Marina": ["JBR", "Palm Jumeirah", "JLT", "Media City"],
+    "Palm Jumeirah": ["Atlantis", "Marina", "JBR", "Internet City"],
+    "Business Bay": ["Downtown", "Al Quoz", "Meydan", "Ras Al Khor"],
+    "Jumeirah Village Circle": ["JVC", "Al Barsha", "Sports City", "Motor City"],
+    "Dubai Hills": ["Al Barsha South", "Arabian Ranches", "MBR City"],
+    "Creek Harbour": ["Ras Al Khor", "Festival City", "Dubai Healthcare City"],
+    "Damac Hills": ["AKOYA", "Dubailand", "Global Village"],
+    "Mohammed Bin Rashid City": ["Meydan", "District One", "Sobha Hartland"],
+    "Emaar Beachfront": ["Dubai Harbour", "Marina", "Palm"],
+  },
+
+  abu_dhabi: {
+    "Saadiyat Island": ["Cultural District", "Louvre", "NYU Abu Dhabi"],
+    "Yas Island": ["Yas Marina", "Ferrari World", "Warner Bros"],
+    "Al Reem Island": ["Shams Abu Dhabi", "City of Lights", "Sun & Sky Towers"],
+    "Al Raha Beach": ["Al Raha Gardens", "Al Muneera", "Al Zeina"],
+    "Khalifa City": ["Masdar City", "Khalifa Park", "Yas Mall"],
+    "Corniche": ["Al Markaziyah", "World Trade Center", "Nation Towers"],
+  },
+
+  // ============================================================
+  // INTERNATIONAL — SAUDI
+  // ============================================================
+  riyadh: {
+    "KAFD": ["King Abdullah Financial District", "Al Aqiq", "Hittin"],
+    "Al Malqa": ["Al Yasmin", "Al Narjis", "KAFD"],
+    "Al Nakheel": ["Olaya", "Tahlia Street", "Al Wurud"],
+    "Diriyah": ["Diriyah Gate", "UNESCO Heritage", "Wadi Hanifah"],
+    "Al Yasmin": ["Al Malqa", "Al Narjis", "King Salman Road"],
+    "NEOM": ["The Line", "Trojena", "Sindalah", "Oxagon"],
+  },
+
+  // ============================================================
+  // INTERNATIONAL — LONDON
+  // ============================================================
+  london: {
+    "Canary Wharf": ["Isle of Dogs", "Poplar", "Limehouse", "Docklands"],
+    "Nine Elms": ["Battersea", "Vauxhall", "Pimlico", "Embassy Quarter"],
+    "Stratford": ["Olympic Park", "Westfield", "Hackney Wick", "Bow"],
+    "Greenwich": ["Woolwich", "Deptford", "Lewisham", "Blackheath"],
+    "Shoreditch": ["Hoxton", "Bethnal Green", "Old Street", "Liverpool Street"],
+    "Mayfair": ["St James", "Belgravia", "Park Lane", "Bond Street"],
+    "Chelsea": ["Fulham", "Kensington", "Sloane Square", "Kings Road"],
+    "Battersea": ["Nine Elms", "Clapham", "Wandsworth", "Power Station"],
+  },
+
+  // ============================================================
   // KOLKATA
   // ============================================================
   kolkata: {
@@ -219,11 +367,60 @@ export const LOCALITIES: Record<string, Record<string, string[]>> = {
 };
 
 /**
- * Get localities for a city. Falls back to empty object if city not found.
+ * Common city name aliases → canonical key mapping.
+ */
+const CITY_ALIASES: Record<string, string> = {
+  "gurugram": "gurgaon",
+  "bengaluru": "bangalore",
+  "bombay": "mumbai",
+  "calcutta": "kolkata",
+  "new delhi": "delhi_ncr",
+  "delhi": "delhi_ncr",
+  "ncr": "delhi_ncr",
+  "navi mumbai": "mumbai",
+  "greater noida": "noida",
+  "noida extension": "noida",
+  "dwarka": "delhi_ncr",
+  "faridabad": "delhi_ncr",
+  "ghaziabad": "delhi_ncr",
+  "vishakhapatnam": "vizag",
+  "visakhapatnam": "vizag",
+  "thiruvananthapuram": "kochi",
+  "cochin": "kochi",
+  "trivandrum": "kochi",
+  "chandigarh tricity": "chandigarh",
+  "mohali": "chandigarh",
+  "panchkula": "chandigarh",
+  "zirakpur": "chandigarh",
+  "abu dhabi": "abu_dhabi",
+  "abudhabi": "abu_dhabi",
+};
+
+/**
+ * Get localities for a city. Handles aliases and fuzzy matching.
+ * Falls back to empty object if city not found — the dynamic
+ * locality engine (localityEngine.ts) will use AI to discover them.
  */
 export function getLocalities(city: string): Record<string, string[]> {
-  const normalized = city.toLowerCase().replace(/[^a-z]/g, "_").replace(/_+/g, "_");
-  return LOCALITIES[normalized] || LOCALITIES[city.toLowerCase()] || {};
+  const lower = city.toLowerCase().trim();
+  const normalized = lower.replace(/[^a-z]/g, "_").replace(/_+/g, "_");
+
+  // Direct match
+  if (LOCALITIES[lower]) return LOCALITIES[lower];
+  if (LOCALITIES[normalized]) return LOCALITIES[normalized];
+
+  // Alias match
+  if (CITY_ALIASES[lower]) return LOCALITIES[CITY_ALIASES[lower]] || {};
+
+  // Partial match — "south mumbai" → mumbai, "east bangalore" → bangalore
+  for (const key of Object.keys(LOCALITIES)) {
+    if (lower.includes(key) || key.includes(lower)) {
+      return LOCALITIES[key];
+    }
+  }
+
+  // No match — return empty, let AI discover
+  return {};
 }
 
 /**
