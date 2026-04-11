@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { getMozBacklinks } from "@/lib/integrations/mozBacklinks";
 
 // ---------- Types ----------
 
@@ -11,6 +12,7 @@ export interface BacklinkResult {
   linkVelocity: string;
   anchorTexts: AnchorText[];
   recommendations: BacklinkRecommendation[];
+  dataSource: "moz_api" | "ai_estimated";
 }
 
 interface Referrer {
@@ -163,6 +165,7 @@ For recommendations, give 6-8 actionable items specific to Indian residential re
         linkVelocity: data.linkVelocity || "unknown",
         anchorTexts: data.anchorTexts || [],
         recommendations: data.recommendations || [],
+        dataSource: "ai_estimated",
       };
     } catch { /* fall through */ }
   }
@@ -176,6 +179,7 @@ For recommendations, give 6-8 actionable items specific to Indian residential re
     linkVelocity: "unknown",
     anchorTexts: [],
     recommendations: [],
+    dataSource: "ai_estimated",
   };
 }
 
@@ -183,6 +187,34 @@ For recommendations, give 6-8 actionable items specific to Indian residential re
 
 export async function runBacklinkAnalysis(url: string): Promise<BacklinkResult> {
   if (!url.startsWith("http")) url = `https://${url}`;
+
+  // Try real Moz data first
+  const mozData = await getMozBacklinks(url);
+  if (mozData) {
+    // We have real data — still generate AI recommendations based on it
+    const signals = await fetchSiteSignals(url);
+    const aiResult = await analyzeBacklinks(url, signals);
+
+    return {
+      url,
+      domainAuthority: mozData.domainAuthority,
+      totalBacklinks: mozData.inboundLinks,
+      referringDomains: mozData.linkingDomains,
+      topReferrers: mozData.topLinkingDomains.map(d => ({
+        domain: d.domain,
+        authority: d.domainAuthority,
+        linkCount: d.linkCount,
+        type: "dofollow" as const,
+      })),
+      linkVelocity: aiResult.linkVelocity,
+      anchorTexts: aiResult.anchorTexts,
+      recommendations: aiResult.recommendations,
+      dataSource: "moz_api" as const,
+    };
+  }
+
+  // Fallback to AI estimation
   const signals = await fetchSiteSignals(url);
-  return analyzeBacklinks(url, signals);
+  const result = await analyzeBacklinks(url, signals);
+  return { ...result, dataSource: "ai_estimated" as const };
 }

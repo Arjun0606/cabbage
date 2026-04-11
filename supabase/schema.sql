@@ -169,7 +169,55 @@ CREATE TABLE chat_messages (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Scan History (for historical tracking and trend charts)
+CREATE TABLE scan_history (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+
+  scan_type TEXT NOT NULL CHECK (scan_type IN (
+    'audit', 'technical', 'ai_visibility', 'backlinks', 'competitor'
+  )),
+  url TEXT NOT NULL,
+  score INT,                      -- Primary score for this scan type (0-100)
+  results JSONB NOT NULL,         -- Full scan results
+  triggered_by TEXT DEFAULT 'manual' CHECK (triggered_by IN ('manual', 'cron', 'webhook')),
+
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- GSC Integration credentials (per company)
+CREATE TABLE integrations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+
+  provider TEXT NOT NULL CHECK (provider IN (
+    'google_search_console', 'wordpress', 'webflow', 'moz'
+  )),
+  credentials JSONB NOT NULL,      -- Encrypted in production
+  metadata JSONB,                  -- Provider-specific metadata (e.g. list of GSC sites)
+  connected_at TIMESTAMPTZ DEFAULT NOW(),
+  last_synced_at TIMESTAMPTZ,
+
+  UNIQUE(company_id, provider)
+);
+
+-- Credit usage tracking (for token-based billing)
+CREATE TABLE credit_usage (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+
+  action TEXT NOT NULL,            -- 'audit', 'ai_visibility', 'blog_post', 'chat', etc.
+  credits_used INT NOT NULL,
+  metadata JSONB,                  -- e.g. {url: "...", query_count: 20}
+
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Indexes
+CREATE INDEX idx_scan_history_company ON scan_history(company_id, scan_type, created_at DESC);
+CREATE INDEX idx_scan_history_type ON scan_history(scan_type, created_at DESC);
+CREATE INDEX idx_integrations_company ON integrations(company_id, provider);
+CREATE INDEX idx_credit_usage_company ON credit_usage(company_id, created_at DESC);
 CREATE INDEX idx_audits_company ON audits(company_id, created_at DESC);
 CREATE INDEX idx_ai_visibility_company ON ai_visibility_runs(company_id, created_at DESC);
 CREATE INDEX idx_actions_company ON actions(company_id, is_archived, created_at DESC);
