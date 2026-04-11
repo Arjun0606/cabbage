@@ -20,12 +20,7 @@ export default function DashboardPage() {
     sites: [] as { url: string; label: string }[],
     projects: [] as { name: string; website: string; location: string }[],
     competitors: [] as { name: string; website: string }[],
-    documents: {
-      productInfo: "",
-      competitorAnalysis: "",
-      brandVoice: "",
-      marketingStrategy: "",
-    },
+    documents: { productInfo: "", competitorAnalysis: "", brandVoice: "", marketingStrategy: "" },
   });
 
   const [auditResult, setAuditResult] = useState<any>(null);
@@ -33,23 +28,28 @@ export default function DashboardPage() {
   const [backlinkResult, setBacklinkResult] = useState<any>(null);
   const [technicalResult, setTechnicalResult] = useState<any>(null);
   const [competitorResults, setCompetitorResults] = useState<any[]>([]);
-
   const [contentResult, setContentResult] = useState<any>(null);
   const [contentPlanResult, setContentPlanResult] = useState<any>(null);
   const [localityResult, setLocalityResult] = useState<any>(null);
   const [isGeneratingContent, setIsGeneratingContent] = useState(false);
-  const [trends, setTrends] = useState<Record<string, TrendData>>({ audit: { current: 0, previous: null, change: 0, direction: "new", history: [] }, technical: { current: 0, previous: null, change: 0, direction: "new", history: [] }, ai_visibility: { current: 0, previous: null, change: 0, direction: "new", history: [] }, backlinks: { current: 0, previous: null, change: 0, direction: "new", history: [] } });
+  const [trends, setTrends] = useState<Record<string, TrendData>>({
+    audit: { current: 0, previous: null, change: 0, direction: "new", history: [] },
+    technical: { current: 0, previous: null, change: 0, direction: "new", history: [] },
+    ai_visibility: { current: 0, previous: null, change: 0, direction: "new", history: [] },
+    backlinks: { current: 0, previous: null, change: 0, direction: "new", history: [] },
+  });
+
   const [isAuditing, setIsAuditing] = useState(false);
   const [isCheckingAI, setIsCheckingAI] = useState(false);
   const [isCheckingBacklinks, setIsCheckingBacklinks] = useState(false);
   const [isCheckingTechnical, setIsCheckingTechnical] = useState(false);
   const [isCheckingCompetitors, setIsCheckingCompetitors] = useState(false);
 
-  const [terminalLogs, setTerminalLogs] = useState<string[]>([
-    "CabbageSEO Terminal initialized",
-  ]);
+  const [terminalLogs, setTerminalLogs] = useState<string[]>(["CabbageSEO initialized"]);
 
-  // Load company data from onboarding (localStorage)
+  // Which panel is shown on the left: "company" or "chat"
+  const [leftPanel, setLeftPanel] = useState<"company" | "chat">("company");
+
   useEffect(() => {
     try {
       const saved = localStorage.getItem("cabbageseo_company");
@@ -57,144 +57,96 @@ export default function DashboardPage() {
         const data = JSON.parse(saved);
         setCompany(data);
         addLog(`> Loaded: ${data.name}`);
-        if (data.sites?.length) addLog(`> ${data.sites.length + 1} sites configured`);
-        if (data.competitors?.length) addLog(`> ${data.competitors.length} competitors tracked`);
         addLog("> Ready — hit 'Run Full Scan' to start");
-        // Load trends
         setTrends(getAllTrends(data.website));
       } else {
         addLog("> No site configured. Visit the homepage to add one.");
       }
-    } catch {
-      addLog("> Ready");
-    }
+    } catch { addLog("> Ready"); }
   }, []);
 
-  // Check for GSC OAuth callback
+  // GSC callback
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("gsc_connected") === "true") {
-      const sites = params.get("gsc_sites");
-      addLog("> Google Search Console connected successfully!");
-      if (sites) {
-        try {
-          const siteList = JSON.parse(decodeURIComponent(sites));
-          addLog(`> GSC sites found: ${siteList.join(", ")}`);
-        } catch { /* ignore */ }
-      }
-      // Clean URL
+      addLog("> Google Search Console connected!");
       window.history.replaceState({}, "", "/dashboard");
     }
-    const gscError = params.get("gsc_error");
-    if (gscError) {
-      addLog(`> GSC connection failed: ${decodeURIComponent(gscError)}`);
+    if (params.get("gsc_error")) {
+      addLog(`> GSC error: ${decodeURIComponent(params.get("gsc_error")!)}`);
       window.history.replaceState({}, "", "/dashboard");
     }
   }, []);
 
-  // Persist company changes
   useEffect(() => {
-    if (company.name) {
-      localStorage.setItem("cabbageseo_company", JSON.stringify(company));
-    }
+    if (company.name) localStorage.setItem("cabbageseo_company", JSON.stringify(company));
   }, [company]);
 
   const addLog = (msg: string) => setTerminalLogs((prev) => [...prev, msg]);
 
-  // ---------- Agent runners ----------
+  const refreshTrends = () => setTrends(getAllTrends(company.website));
+
+  // ---- Agent runners ----
 
   const runAudit = async (url: string) => {
     setIsAuditing(true);
     addLog(`> Auditing ${url}...`);
     try {
-      const res = await fetch("/api/audit", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url }),
-      });
+      const res = await fetch("/api/audit", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url }) });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       setAuditResult(data);
       recordScan("audit", url, data.scores.overall, `${data.fixes?.length || 0} fixes`);
-      setTrends(getAllTrends(company.website));
+      refreshTrends();
       addLog(`> Audit: ${data.scores.overall}/100 — ${data.fixes?.length || 0} fixes`);
-    } catch (err) {
-      addLog(`> Error: ${err instanceof Error ? err.message : "Audit failed"}`);
-    } finally {
-      setIsAuditing(false);
-    }
+    } catch (err) { addLog(`> Error: ${err instanceof Error ? err.message : "Audit failed"}`); }
+    finally { setIsAuditing(false); }
   };
 
   const runAIVisibility = async () => {
     if (!company.name) { addLog("> Set company name first"); return; }
     setIsCheckingAI(true);
-    addLog(`> Checking AI visibility for "${company.name}"...`);
+    addLog(`> Checking AI visibility...`);
     try {
-      const res = await fetch("/api/ai-visibility", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          websiteUrl: company.website,
-          brand: company.name,
-          projects: company.projects.map((p) => p.name),
-          city: company.city,
-        }),
-      });
+      const res = await fetch("/api/ai-visibility", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ websiteUrl: company.website, brand: company.name, projects: company.projects.map(p => p.name), city: company.city }) });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       setAiVisResult(data);
-      recordScan("ai_visibility", company.website, data.scores.overall, `ChatGPT/Claude/Perplexity/Gemini`);
-      setTrends(getAllTrends(company.website));
+      recordScan("ai_visibility", company.website, data.scores.overall, "GPT/Claude/Perplexity/Gemini");
+      refreshTrends();
       addLog(`> AI Visibility: ${data.scores.overall}/100`);
-    } catch (err) {
-      addLog(`> Error: ${err instanceof Error ? err.message : "Failed"}`);
-    } finally {
-      setIsCheckingAI(false);
-    }
+    } catch (err) { addLog(`> Error: ${err instanceof Error ? err.message : "Failed"}`); }
+    finally { setIsCheckingAI(false); }
   };
 
   const runBacklinks = async (url: string) => {
     setIsCheckingBacklinks(true);
     addLog(`> Analyzing backlinks...`);
     try {
-      const res = await fetch("/api/backlinks", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url }),
-      });
+      const res = await fetch("/api/backlinks", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url }) });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       setBacklinkResult(data);
       recordScan("backlinks", url, data.domainAuthority, `${data.referringDomains} domains`);
-      setTrends(getAllTrends(company.website));
+      refreshTrends();
       addLog(`> Backlinks: DA ${data.domainAuthority}, ${data.referringDomains} domains`);
-    } catch (err) {
-      addLog(`> Error: ${err instanceof Error ? err.message : "Failed"}`);
-    } finally {
-      setIsCheckingBacklinks(false);
-    }
+    } catch (err) { addLog(`> Error: ${err instanceof Error ? err.message : "Failed"}`); }
+    finally { setIsCheckingBacklinks(false); }
   };
 
   const runTechnical = async (url: string) => {
     setIsCheckingTechnical(true);
     addLog(`> Technical SEO scan...`);
     try {
-      const res = await fetch("/api/technical-seo", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url }),
-      });
+      const res = await fetch("/api/technical-seo", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url }) });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       setTechnicalResult(data);
       recordScan("technical", url, data.onPageScore, `TTFB ${data.serverTiming.ttfb}ms`);
-      setTrends(getAllTrends(company.website));
-      addLog(`> Technical: ${data.onPageScore}/100, TTFB ${data.serverTiming.ttfb}ms`);
-    } catch (err) {
-      addLog(`> Error: ${err instanceof Error ? err.message : "Failed"}`);
-    } finally {
-      setIsCheckingTechnical(false);
-    }
+      refreshTrends();
+      addLog(`> Technical: ${data.onPageScore}/100`);
+    } catch (err) { addLog(`> Error: ${err instanceof Error ? err.message : "Failed"}`); }
+    finally { setIsCheckingTechnical(false); }
   };
 
   const runCompetitorAnalysis = async () => {
@@ -202,99 +154,53 @@ export default function DashboardPage() {
     setIsCheckingCompetitors(true);
     addLog(`> Analyzing ${company.competitors.length} competitors...`);
     try {
-      const res = await fetch("/api/competitors", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          companyName: company.name,
-          competitors: company.competitors,
-        }),
-      });
+      const res = await fetch("/api/competitors", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ companyName: company.name, competitors: company.competitors }) });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       setCompetitorResults(data);
       addLog(`> ${data.length} competitors analyzed`);
-    } catch (err) {
-      addLog(`> Error: ${err instanceof Error ? err.message : "Failed"}`);
-    } finally {
-      setIsCheckingCompetitors(false);
-    }
+    } catch (err) { addLog(`> Error: ${err instanceof Error ? err.message : "Failed"}`); }
+    finally { setIsCheckingCompetitors(false); }
   };
 
   const runContent = async () => {
-    if (!company.name || !company.website) { addLog("> Set company name and website first"); return; }
+    if (!company.name) { addLog("> Set company name first"); return; }
     setIsGeneratingContent(true);
-    addLog(`> Generating content for ${company.name}...`);
+    addLog(`> Generating content...`);
     try {
-      const res = await fetch("/api/local-content", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          projectName: company.name,
-          developerName: company.name,
-          location: company.city || "the market",
-          city: company.city || "the market",
-          configurations: "",
-          priceRange: "",
-          usps: company.description || "",
-        }),
-      });
+      const res = await fetch("/api/local-content", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ projectName: company.name, developerName: company.name, location: company.city || "the market", city: company.city || "the market", configurations: "", priceRange: "", usps: company.description || "" }) });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       setContentResult(data);
       addLog(`> Content: ${data.blogTopics?.length || 0} blogs, ${data.linkedinPosts?.length || 0} LinkedIn, ${data.whatsappMessages?.length || 0} WhatsApp`);
-    } catch (err) {
-      addLog(`> Error: ${err instanceof Error ? err.message : "Content gen failed"}`);
-    } finally {
-      setIsGeneratingContent(false);
-    }
+    } catch (err) { addLog(`> Error: ${err instanceof Error ? err.message : "Failed"}`); }
+    finally { setIsGeneratingContent(false); }
   };
 
   const runContentPlan = async () => {
-    if (!company.name || !company.city) { addLog("> Set company name and city first"); return; }
+    if (!company.name) { addLog("> Set company name first"); return; }
     setIsGeneratingContent(true);
-    addLog(`> Generating 4-week content plan...`);
+    addLog(`> Generating 4-week plan...`);
     try {
-      const res = await fetch("/api/content-plan", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          projectName: company.name,
-          developerName: company.name,
-          location: company.city,
-          city: company.city,
-          configurations: "",
-          priceRange: "",
-          usps: company.description || "",
-        }),
-      });
+      const res = await fetch("/api/content-plan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ projectName: company.name, developerName: company.name, location: company.city || "the market", city: company.city || "the market", configurations: "", priceRange: "", usps: company.description || "" }) });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       setContentPlanResult(data);
-      addLog(`> Plan: ${data.weeklyPlan?.length || 0} weeks, ${data.socialCalendar?.length || 0} social posts, ${data.localityPages?.length || 0} pages`);
-    } catch (err) {
-      addLog(`> Error: ${err instanceof Error ? err.message : "Plan gen failed"}`);
-    } finally {
-      setIsGeneratingContent(false);
-    }
+      addLog(`> Plan: ${data.weeklyPlan?.length || 0} weeks, ${data.socialCalendar?.length || 0} posts`);
+    } catch (err) { addLog(`> Error: ${err instanceof Error ? err.message : "Failed"}`); }
+    finally { setIsGeneratingContent(false); }
   };
 
   const runLocalitySearch = async () => {
     if (!company.city) { addLog("> Set city first"); return; }
     addLog(`> Discovering localities in ${company.city}...`);
     try {
-      const res = await fetch("/api/locality/search", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ city: company.city, locality: company.city }),
-      });
+      const res = await fetch("/api/locality/search", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ city: company.city, locality: company.city }) });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       setLocalityResult(data);
-      addLog(`> Locality: ${data.nearbyAreas?.length || 0} areas, ${data.suggestedKeywords?.length || 0} keywords, ${data.competingProjects?.length || 0} competing projects`);
-    } catch (err) {
-      addLog(`> Error: ${err instanceof Error ? err.message : "Locality search failed"}`);
-    }
+      addLog(`> Found ${data.nearbyAreas?.length || 0} areas, ${data.suggestedKeywords?.length || 0} keywords`);
+    } catch (err) { addLog(`> Error: ${err instanceof Error ? err.message : "Failed"}`); }
   };
 
   const runFullScan = async () => {
@@ -302,92 +208,83 @@ export default function DashboardPage() {
     if (!url) { addLog("> Set your website URL first"); return; }
     addLog("> Full scan started...");
     await Promise.all([
-      runAudit(url),
-      runTechnical(url),
-      runBacklinks(url),
+      runAudit(url), runTechnical(url), runBacklinks(url),
       ...(company.name ? [runAIVisibility()] : []),
     ]);
-    if (company.competitors.length > 0) {
-      await runCompetitorAnalysis();
-    }
+    if (company.competitors.length > 0) await runCompetitorAnalysis();
     addLog("> Full scan complete");
   };
 
   return (
     <div className="h-screen bg-zinc-950 text-zinc-100 flex overflow-hidden">
-      {/* Sidebar — Okara-style navigation */}
       <Sidebar companyName={company.name} />
 
-      {/* Main content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        {/* Terminal + Agent bar */}
         <TerminalHeader logs={terminalLogs} onRunFullScan={runFullScan} hasWebsite={!!company.website} />
         <AgentStatusBar
-          isAuditing={isAuditing}
-          isCheckingAI={isCheckingAI}
-          isCheckingBacklinks={isCheckingBacklinks}
-          isCheckingTechnical={isCheckingTechnical}
-          isCheckingCompetitors={isCheckingCompetitors}
-          auditResult={auditResult}
-          aiVisResult={aiVisResult}
-          backlinkResult={backlinkResult}
-          technicalResult={technicalResult}
-          competitorResults={competitorResults}
+          isAuditing={isAuditing} isCheckingAI={isCheckingAI} isCheckingBacklinks={isCheckingBacklinks}
+          isCheckingTechnical={isCheckingTechnical} isCheckingCompetitors={isCheckingCompetitors}
+          auditResult={auditResult} aiVisResult={aiVisResult} backlinkResult={backlinkResult}
+          technicalResult={technicalResult} competitorResults={competitorResults}
         />
 
-        {/* 3-panel grid — Okara-style: Company+Chat left, Analytics center, Actions right */}
-        <div className="flex-1 grid grid-cols-[260px_1fr_300px] gap-px bg-zinc-800 overflow-hidden">
-          {/* Left column: Company + Chat stacked */}
-          <div className="bg-zinc-950 flex flex-col overflow-hidden">
-            <div className="flex-1 overflow-y-auto">
-              <CompanyPanel company={company} setCompany={setCompany} />
+        {/* Main content — 3 columns */}
+        <div className="flex-1 flex min-h-0">
+          {/* LEFT: Company or Chat (toggled) */}
+          <div className="w-[280px] flex-shrink-0 border-r border-zinc-800 flex flex-col min-h-0">
+            {/* Toggle tabs */}
+            <div className="flex border-b border-zinc-800 flex-shrink-0">
+              <button
+                onClick={() => setLeftPanel("company")}
+                className={`flex-1 py-2 text-xs font-medium transition-colors ${leftPanel === "company" ? "text-zinc-100 border-b-2 border-zinc-100" : "text-zinc-500 hover:text-zinc-300"}`}
+              >
+                Company
+              </button>
+              <button
+                onClick={() => setLeftPanel("chat")}
+                className={`flex-1 py-2 text-xs font-medium transition-colors ${leftPanel === "chat" ? "text-zinc-100 border-b-2 border-zinc-100" : "text-zinc-500 hover:text-zinc-300"}`}
+              >
+                Chat
+              </button>
             </div>
-            <div className="h-[320px] border-t border-zinc-800 flex-shrink-0">
-              <ChatPanel
-                company={company}
-                auditResult={auditResult}
-                aiVisResult={aiVisResult}
-              />
+            {/* Panel content — scrollable */}
+            <div className="flex-1 overflow-y-auto min-h-0">
+              {leftPanel === "company" ? (
+                <CompanyPanel company={company} setCompany={setCompany} />
+              ) : (
+                <ChatPanel company={company} auditResult={auditResult} aiVisResult={aiVisResult} />
+              )}
             </div>
           </div>
 
-          {/* Center: Analytics */}
-          <AnalyticsPanel
-            auditResult={auditResult}
-            aiVisResult={aiVisResult}
-            backlinkResult={backlinkResult}
-            technicalResult={technicalResult}
-            isAuditing={isAuditing}
-            isCheckingAI={isCheckingAI}
-            isCheckingBacklinks={isCheckingBacklinks}
-            isCheckingTechnical={isCheckingTechnical}
-            onRunAudit={runAudit}
-            onRunAIVisibility={runAIVisibility}
-            onRunBacklinks={runBacklinks}
-            onRunTechnical={runTechnical}
-            websiteUrl={company.website}
-            allSites={[
-              ...(company.website ? [{ url: company.website, label: company.website.replace(/^https?:\/\//, "").replace(/\/$/, "") + " (main)" }] : []),
-              ...(company.sites || []),
-            ]}
-            companyName={company.name}
-            city={company.city}
-            contentResult={contentResult}
-            contentPlanResult={contentPlanResult}
-            localityResult={localityResult}
-            isGeneratingContent={isGeneratingContent}
-            onRunContent={runContent}
-            onRunContentPlan={runContentPlan}
-            onRunLocalitySearch={runLocalitySearch}
-            trends={trends}
-          />
-          {/* Right: Actions Feed */}
-          <ActionsFeed
-            auditResult={auditResult}
-            aiVisResult={aiVisResult}
-            backlinkResult={backlinkResult}
-            technicalResult={technicalResult}
-            competitorResults={competitorResults}
-          />
+          {/* CENTER: Analytics — scrollable */}
+          <div className="flex-1 overflow-y-auto min-h-0">
+            <AnalyticsPanel
+              auditResult={auditResult} aiVisResult={aiVisResult} backlinkResult={backlinkResult}
+              technicalResult={technicalResult} isAuditing={isAuditing} isCheckingAI={isCheckingAI}
+              isCheckingBacklinks={isCheckingBacklinks} isCheckingTechnical={isCheckingTechnical}
+              onRunAudit={runAudit} onRunAIVisibility={runAIVisibility} onRunBacklinks={runBacklinks}
+              onRunTechnical={runTechnical} websiteUrl={company.website}
+              allSites={[
+                ...(company.website ? [{ url: company.website, label: company.website.replace(/^https?:\/\//, "").replace(/\/$/, "") }] : []),
+                ...(company.sites || []),
+              ]}
+              companyName={company.name} city={company.city}
+              contentResult={contentResult} contentPlanResult={contentPlanResult}
+              localityResult={localityResult} isGeneratingContent={isGeneratingContent}
+              onRunContent={runContent} onRunContentPlan={runContentPlan}
+              onRunLocalitySearch={runLocalitySearch} trends={trends}
+            />
+          </div>
+
+          {/* RIGHT: Actions Feed — scrollable */}
+          <div className="w-[300px] flex-shrink-0 border-l border-zinc-800 overflow-y-auto min-h-0">
+            <ActionsFeed
+              auditResult={auditResult} aiVisResult={aiVisResult} backlinkResult={backlinkResult}
+              technicalResult={technicalResult} competitorResults={competitorResults}
+            />
+          </div>
         </div>
       </div>
     </div>

@@ -86,7 +86,7 @@ export function CompanyPanel({ company, setCompany }: Props) {
   ];
 
   return (
-    <div className="bg-zinc-950 p-4 overflow-y-auto">
+    <div className="bg-zinc-950 p-3">
       <div className="space-y-4">
         {/* Company Info */}
         <Card className="bg-zinc-900 border-zinc-800">

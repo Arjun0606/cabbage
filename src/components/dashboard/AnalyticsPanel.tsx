@@ -18,7 +18,7 @@ import {
   FileText,
   MapPin,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { PromptVolumes } from "./PromptVolumes";
 import { TrendsPanel } from "./TrendsPanel";
 
@@ -124,10 +124,11 @@ export function AnalyticsPanel({
   trends,
 }: Props) {
   const [auditUrl, setAuditUrl] = useState(websiteUrl || "");
+  // Sync when websiteUrl changes (e.g. from onboarding)
+  useEffect(() => { if (websiteUrl && !auditUrl) setAuditUrl(websiteUrl); }, [websiteUrl]);
 
   return (
-    <div className="bg-zinc-950 overflow-y-auto">
-      <div className="p-4">
+    <div className="p-4">
         <Tabs defaultValue="health" className="space-y-4">
           <TabsList className="bg-zinc-900 border border-zinc-800">
             <TabsTrigger value="health" className="text-xs">Health</TabsTrigger>
@@ -296,7 +297,7 @@ export function AnalyticsPanel({
               <div className="flex flex-col items-center justify-center py-16 text-zinc-500">
                 <Globe size={48} className="mb-4 opacity-30" />
                 <p className="text-sm">Enter a URL above to run your first SEO audit</p>
-                <p className="text-xs text-zinc-600 mt-1">We'll check performance, SEO health, and real-estate-specific factors</p>
+                <p className="text-xs text-zinc-600 mt-1">Performance, SEO health, technical, and industry-specific checks</p>
               </div>
             )}
           </TabsContent>
@@ -956,6 +957,5 @@ export function AnalyticsPanel({
           </TabsContent>
         </Tabs>
       </div>
-    </div>
   );
 }
