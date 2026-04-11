@@ -15,6 +15,8 @@ import {
   Bot,
   Link2,
   Wrench,
+  FileText,
+  MapPin,
 } from "lucide-react";
 import { useState } from "react";
 import { PromptVolumes } from "./PromptVolumes";
@@ -36,6 +38,13 @@ interface Props {
   allSites: { url: string; label: string }[];
   companyName: string;
   city: string;
+  contentResult: any;
+  contentPlanResult: any;
+  localityResult: any;
+  isGeneratingContent: boolean;
+  onRunContent: () => void;
+  onRunContentPlan: () => void;
+  onRunLocalitySearch: () => void;
 }
 
 function ScoreCircle({ score, label, size = "md" }: { score: number; label: string; size?: "sm" | "md" }) {
@@ -103,6 +112,13 @@ export function AnalyticsPanel({
   allSites,
   companyName,
   city,
+  contentResult,
+  contentPlanResult,
+  localityResult,
+  isGeneratingContent,
+  onRunContent,
+  onRunContentPlan,
+  onRunLocalitySearch,
 }: Props) {
   const [auditUrl, setAuditUrl] = useState(websiteUrl || "");
 
@@ -116,6 +132,8 @@ export function AnalyticsPanel({
             <TabsTrigger value="technical" className="text-xs">Technical</TabsTrigger>
             <TabsTrigger value="aigeo" className="text-xs">AI/GEO</TabsTrigger>
             <TabsTrigger value="checks" className="text-xs">Checks</TabsTrigger>
+            <TabsTrigger value="content" className="text-xs">Content</TabsTrigger>
+            <TabsTrigger value="locality" className="text-xs">Locality</TabsTrigger>
           </TabsList>
 
           {/* -------- HEALTH TAB -------- */}
@@ -702,6 +720,222 @@ export function AnalyticsPanel({
             ) : (
               <div className="flex flex-col items-center justify-center py-16 text-zinc-500">
                 <p className="text-sm">Run an audit first to see all checks</p>
+              </div>
+            )}
+          </TabsContent>
+
+          {/* -------- CONTENT TAB -------- */}
+          <TabsContent value="content" className="space-y-4">
+            <div className="flex gap-2">
+              <Button onClick={onRunContent} disabled={isGeneratingContent} className="flex-1 bg-emerald-600 hover:bg-emerald-700" size="sm">
+                {isGeneratingContent ? <><Loader2 size={14} className="animate-spin mr-2" />Generating...</> : "Generate Content"}
+              </Button>
+              <Button onClick={onRunContentPlan} disabled={isGeneratingContent} variant="outline" className="border-zinc-700" size="sm">
+                4-Week Plan
+              </Button>
+            </div>
+
+            {contentResult ? (
+              <>
+                {/* Blog Topics */}
+                {contentResult.blogTopics?.length > 0 && (
+                  <Card className="bg-zinc-900 border-zinc-800">
+                    <CardContent className="p-4">
+                      <h4 className="text-sm font-medium text-zinc-200 mb-3">Blog Topics ({contentResult.blogTopics.length})</h4>
+                      <div className="space-y-3">
+                        {contentResult.blogTopics.map((topic: any, i: number) => (
+                          <div key={i} className="p-2 rounded bg-zinc-800/50 space-y-1">
+                            <div className="text-sm text-zinc-200 font-medium">{topic.title}</div>
+                            <div className="text-[10px] text-emerald-400">Keyword: {topic.targetKeyword}</div>
+                            {topic.outline && (
+                              <div className="text-[10px] text-zinc-500 mt-1">
+                                {topic.outline.map((s: string, j: number) => <div key={j}>• {s}</div>)}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* LinkedIn Posts */}
+                {contentResult.linkedinPosts?.length > 0 && (
+                  <Card className="bg-zinc-900 border-zinc-800">
+                    <CardContent className="p-4">
+                      <h4 className="text-sm font-medium text-zinc-200 mb-3">LinkedIn Posts ({contentResult.linkedinPosts.length})</h4>
+                      <div className="space-y-2">
+                        {contentResult.linkedinPosts.map((post: string, i: number) => (
+                          <div key={i} className="p-3 rounded bg-zinc-800/50 text-xs text-zinc-300 whitespace-pre-wrap">{post}</div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* WhatsApp Messages */}
+                {contentResult.whatsappMessages?.length > 0 && (
+                  <Card className="bg-zinc-900 border-zinc-800">
+                    <CardContent className="p-4">
+                      <h4 className="text-sm font-medium text-zinc-200 mb-3">WhatsApp Broadcasts ({contentResult.whatsappMessages.length})</h4>
+                      <div className="space-y-2">
+                        {contentResult.whatsappMessages.map((msg: string, i: number) => (
+                          <div key={i} className="p-3 rounded bg-zinc-800/50 text-xs text-zinc-300 whitespace-pre-wrap">{msg}</div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Locality Pages */}
+                {contentResult.localityPages?.length > 0 && (
+                  <Card className="bg-zinc-900 border-zinc-800">
+                    <CardContent className="p-4">
+                      <h4 className="text-sm font-medium text-zinc-200 mb-3">SEO Pages ({contentResult.localityPages.length})</h4>
+                      <div className="space-y-2">
+                        {contentResult.localityPages.map((page: any, i: number) => (
+                          <div key={i} className="p-2 rounded bg-zinc-800/50">
+                            <div className="text-xs text-zinc-200">{page.title}</div>
+                            <div className="text-[10px] text-emerald-400">{page.targetKeyword}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </>
+            ) : contentPlanResult ? (
+              <>
+                {/* Weekly Plan */}
+                {contentPlanResult.weeklyPlan?.length > 0 && (
+                  <Card className="bg-zinc-900 border-zinc-800">
+                    <CardContent className="p-4">
+                      <h4 className="text-sm font-medium text-zinc-200 mb-3">4-Week Content Plan</h4>
+                      <div className="space-y-3">
+                        {contentPlanResult.weeklyPlan.map((week: any, i: number) => (
+                          <div key={i} className="p-3 rounded bg-zinc-800/50 space-y-1">
+                            <div className="text-xs font-medium text-emerald-400">Week {week.week}</div>
+                            <div className="text-xs text-zinc-300">Blog: {week.blog?.title}</div>
+                            <div className="text-[10px] text-zinc-500">Keyword: {week.blog?.targetKeyword}</div>
+                            <div className="text-[10px] text-zinc-500">{week.socialPosts} social posts planned</div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Social Calendar */}
+                {contentPlanResult.socialCalendar?.length > 0 && (
+                  <Card className="bg-zinc-900 border-zinc-800">
+                    <CardContent className="p-4">
+                      <h4 className="text-sm font-medium text-zinc-200 mb-3">Social Calendar ({contentPlanResult.socialCalendar.length} posts)</h4>
+                      <div className="space-y-2">
+                        {contentPlanResult.socialCalendar.slice(0, 10).map((post: any, i: number) => (
+                          <div key={i} className="p-2 rounded bg-zinc-800/50 text-xs">
+                            <div className="flex items-center gap-2 mb-1">
+                              <Badge variant="outline" className="text-[9px] border-zinc-700">{post.platform}</Badge>
+                              <span className="text-zinc-500">{post.scheduledDay}</span>
+                            </div>
+                            <div className="text-zinc-300">{post.title}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-16 text-zinc-500">
+                <FileText size={48} className="mb-4 opacity-30" />
+                <p className="text-sm">Generate blogs, LinkedIn posts, WhatsApp broadcasts</p>
+                <p className="text-xs text-zinc-600 mt-1">Set your company details first, then click Generate Content</p>
+              </div>
+            )}
+          </TabsContent>
+
+          {/* -------- LOCALITY TAB -------- */}
+          <TabsContent value="locality" className="space-y-4">
+            <Button onClick={onRunLocalitySearch} disabled={!city} className="w-full bg-violet-600 hover:bg-violet-700" size="sm">
+              <MapPin size={14} className="mr-2" />
+              Discover Localities in {city || "your city"}
+            </Button>
+
+            {localityResult ? (
+              <>
+                {localityResult.marketInsight && (
+                  <Card className="bg-zinc-900 border-zinc-800">
+                    <CardContent className="p-4">
+                      <h4 className="text-sm font-medium text-zinc-200 mb-2">Market Insight</h4>
+                      <p className="text-xs text-zinc-400">{localityResult.marketInsight}</p>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {localityResult.nearbyAreas?.length > 0 && (
+                  <Card className="bg-zinc-900 border-zinc-800">
+                    <CardContent className="p-4">
+                      <h4 className="text-sm font-medium text-zinc-200 mb-2">Nearby Areas</h4>
+                      <div className="flex flex-wrap gap-1.5">
+                        {localityResult.nearbyAreas.map((area: string, i: number) => (
+                          <Badge key={i} variant="secondary" className="bg-zinc-800 text-zinc-300 text-[10px]">{area}</Badge>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {localityResult.buyerProfiles?.length > 0 && (
+                  <Card className="bg-zinc-900 border-zinc-800">
+                    <CardContent className="p-4">
+                      <h4 className="text-sm font-medium text-zinc-200 mb-3">Buyer Profiles</h4>
+                      <div className="space-y-2">
+                        {localityResult.buyerProfiles.map((profile: any, i: number) => (
+                          <div key={i} className="p-2 rounded bg-zinc-800/50">
+                            <div className="text-xs font-medium text-zinc-200">{profile.type}</div>
+                            <div className="text-[10px] text-zinc-500">{profile.preferredConfig} • {profile.budgetRange}</div>
+                            <div className="text-[10px] text-zinc-500 mt-0.5">{profile.searchBehavior}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {localityResult.suggestedKeywords?.length > 0 && (
+                  <Card className="bg-zinc-900 border-zinc-800">
+                    <CardContent className="p-4">
+                      <h4 className="text-sm font-medium text-zinc-200 mb-2">Suggested Keywords ({localityResult.suggestedKeywords.length})</h4>
+                      <div className="flex flex-wrap gap-1.5">
+                        {localityResult.suggestedKeywords.map((kw: string, i: number) => (
+                          <Badge key={i} variant="outline" className="border-zinc-700 text-zinc-400 text-[10px]">{kw}</Badge>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {localityResult.competingProjects?.length > 0 && (
+                  <Card className="bg-zinc-900 border-zinc-800">
+                    <CardContent className="p-4">
+                      <h4 className="text-sm font-medium text-zinc-200 mb-2">Competing Projects</h4>
+                      <div className="space-y-1">
+                        {localityResult.competingProjects.map((proj: string, i: number) => (
+                          <div key={i} className="text-xs text-zinc-400 flex items-center gap-1.5">
+                            <div className="w-1 h-1 rounded-full bg-zinc-600" />
+                            {proj}
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-16 text-zinc-500">
+                <MapPin size={48} className="mb-4 opacity-30" />
+                <p className="text-sm">Discover localities, buyer profiles, and keywords</p>
+                <p className="text-xs text-zinc-600 mt-1">Set your city first, then click the button above</p>
               </div>
             )}
           </TabsContent>

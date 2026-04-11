@@ -32,6 +32,10 @@ export default function DashboardPage() {
   const [technicalResult, setTechnicalResult] = useState<any>(null);
   const [competitorResults, setCompetitorResults] = useState<any[]>([]);
 
+  const [contentResult, setContentResult] = useState<any>(null);
+  const [contentPlanResult, setContentPlanResult] = useState<any>(null);
+  const [localityResult, setLocalityResult] = useState<any>(null);
+  const [isGeneratingContent, setIsGeneratingContent] = useState(false);
   const [isAuditing, setIsAuditing] = useState(false);
   const [isCheckingAI, setIsCheckingAI] = useState(false);
   const [isCheckingBacklinks, setIsCheckingBacklinks] = useState(false);
@@ -182,6 +186,82 @@ export default function DashboardPage() {
     }
   };
 
+  const runContent = async () => {
+    if (!company.name || !company.website) { addLog("> Set company name and website first"); return; }
+    setIsGeneratingContent(true);
+    addLog(`> Generating content for ${company.name}...`);
+    try {
+      const res = await fetch("/api/local-content", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectName: company.name,
+          developerName: company.name,
+          location: company.city || "the market",
+          city: company.city || "the market",
+          configurations: "",
+          priceRange: "",
+          usps: company.description || "",
+        }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setContentResult(data);
+      addLog(`> Content: ${data.blogTopics?.length || 0} blogs, ${data.linkedinPosts?.length || 0} LinkedIn, ${data.whatsappMessages?.length || 0} WhatsApp`);
+    } catch (err) {
+      addLog(`> Error: ${err instanceof Error ? err.message : "Content gen failed"}`);
+    } finally {
+      setIsGeneratingContent(false);
+    }
+  };
+
+  const runContentPlan = async () => {
+    if (!company.name || !company.city) { addLog("> Set company name and city first"); return; }
+    setIsGeneratingContent(true);
+    addLog(`> Generating 4-week content plan...`);
+    try {
+      const res = await fetch("/api/content-plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectName: company.name,
+          developerName: company.name,
+          location: company.city,
+          city: company.city,
+          configurations: "",
+          priceRange: "",
+          usps: company.description || "",
+        }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setContentPlanResult(data);
+      addLog(`> Plan: ${data.weeklyPlan?.length || 0} weeks, ${data.socialCalendar?.length || 0} social posts, ${data.localityPages?.length || 0} pages`);
+    } catch (err) {
+      addLog(`> Error: ${err instanceof Error ? err.message : "Plan gen failed"}`);
+    } finally {
+      setIsGeneratingContent(false);
+    }
+  };
+
+  const runLocalitySearch = async () => {
+    if (!company.city) { addLog("> Set city first"); return; }
+    addLog(`> Discovering localities in ${company.city}...`);
+    try {
+      const res = await fetch("/api/locality/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ city: company.city, locality: company.city }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setLocalityResult(data);
+      addLog(`> Locality: ${data.nearbyAreas?.length || 0} areas, ${data.suggestedKeywords?.length || 0} keywords, ${data.competingProjects?.length || 0} competing projects`);
+    } catch (err) {
+      addLog(`> Error: ${err instanceof Error ? err.message : "Locality search failed"}`);
+    }
+  };
+
   const runFullScan = async () => {
     const url = company.website;
     if (!url) { addLog("> Set your website URL first"); return; }
@@ -256,6 +336,13 @@ export default function DashboardPage() {
             ]}
             companyName={company.name}
             city={company.city}
+            contentResult={contentResult}
+            contentPlanResult={contentPlanResult}
+            localityResult={localityResult}
+            isGeneratingContent={isGeneratingContent}
+            onRunContent={runContent}
+            onRunContentPlan={runContentPlan}
+            onRunLocalitySearch={runLocalitySearch}
           />
           {/* Right: Actions Feed */}
           <ActionsFeed
