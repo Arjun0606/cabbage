@@ -65,16 +65,18 @@ function MiniChart({ history }: { history: { date: string; score: number }[] }) 
   );
 }
 
-export function TrendsPanel({ trends, url }: Props) {
+export function TrendsPanel({ trends }: Props) {
   const hasAnyData = Object.values(trends).some(t => t.history.length > 0);
 
   if (!hasAnyData) return null;
 
+  // Only show metrics that come from real APIs (not AI-estimated)
+  // Backlinks DA is excluded unless Moz API is connected
+  // because AI estimates can fluctuate and look misleading
   const trendItems = [
     { key: "audit", label: "SEO Score", trend: trends.audit },
     { key: "technical", label: "Technical", trend: trends.technical },
     { key: "ai_visibility", label: "AI Visibility", trend: trends.ai_visibility },
-    { key: "backlinks", label: "Backlinks DA", trend: trends.backlinks },
   ].filter(t => t.trend.history.length > 0);
 
   return (

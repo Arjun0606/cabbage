@@ -419,7 +419,16 @@ export function AnalyticsPanel({
               <>
                 <Card className="bg-zinc-900 border-zinc-800">
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">Backlink Overview</CardTitle>
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      Backlink Overview
+                      <Badge variant="secondary" className={`text-[9px] ${
+                        backlinkResult.dataSource === "moz_api"
+                          ? "bg-emerald-900/50 text-emerald-400"
+                          : "bg-zinc-800 text-zinc-500"
+                      }`}>
+                        {backlinkResult.dataSource === "moz_api" ? "Moz verified" : "AI estimated"}
+                      </Badge>
+                    </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="grid grid-cols-3 gap-4 text-center">
