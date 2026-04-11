@@ -9,7 +9,7 @@
  * - Content plans are generated fresh from real context every time
  */
 
-import Anthropic from "@anthropic-ai/sdk";
+import { aiComplete, aiLight } from "@/lib/ai";
 
 // ---------- Types ----------
 
@@ -83,23 +83,15 @@ export async function discoverLocalities(
   city: string,
   country?: string
 ): Promise<{ locality: string; type: string }[]> {
-  const anthropic = new Anthropic();
+  const system = "You are a real estate market expert with deep knowledge of residential property markets worldwide. Return valid JSON only, no other text.";
 
-  const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-6",
-    max_tokens: 1500,
-    system: "You are a real estate market expert with deep knowledge of residential property markets worldwide. Return valid JSON only, no other text.",
-    messages: [{
-      role: "user",
-      content: `List the top 20 residential real estate localities/neighborhoods in ${city}${country ? `, ${country}` : ""} where active residential development is happening. For each, indicate the type (luxury, mid-segment, affordable, upcoming, established).
+  const prompt = `List the top 20 residential real estate localities/neighborhoods in ${city}${country ? `, ${country}` : ""} where active residential development is happening. For each, indicate the type (luxury, mid-segment, affordable, upcoming, established).
 
 Return JSON: [{"locality": "name", "type": "luxury|mid-segment|affordable|upcoming|established"}]
 
-Be specific — use real neighborhood/area names that home buyers actually search for. Not administrative districts.`,
-    }],
-  });
+Be specific — use real neighborhood/area names that home buyers actually search for. Not administrative districts.`;
 
-  const text = response.content[0].type === "text" ? response.content[0].text : "[]";
+  const text = await aiLight(system, prompt, 1500);
   const jsonMatch = text.match(/\[[\s\S]*\]/);
   if (jsonMatch) {
     try { return JSON.parse(jsonMatch[0]); } catch { /* fall through */ }
@@ -118,15 +110,9 @@ export async function searchLocality(
   configurations?: string,
   priceRange?: string
 ): Promise<LocalitySearchResult> {
-  const anthropic = new Anthropic();
+  const system = `You are CabbageSEO's locality intelligence engine for real estate. Given any city and locality anywhere in the world, provide comprehensive real estate market intelligence. Use real landmark names, real infrastructure, real market data. Return valid JSON only.`;
 
-  const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-6",
-    max_tokens: 2500,
-    system: `You are CabbageSEO's locality intelligence engine for real estate. Given any city and locality anywhere in the world, provide comprehensive real estate market intelligence. Use real landmark names, real infrastructure, real market data. Return valid JSON only.`,
-    messages: [{
-      role: "user",
-      content: `Real estate intelligence for ${locality}, ${city}:
+  const prompt = `Real estate intelligence for ${locality}, ${city}:
 ${projectName ? `Project context: ${projectName}` : ""}
 ${configurations ? `Configurations: ${configurations}` : ""}
 ${priceRange ? `Price range: ${priceRange}` : ""}
@@ -159,11 +145,9 @@ Return JSON:
   "marketInsight": "2-3 sentence market overview for this locality — price trends, demand drivers, upcoming infrastructure"
 }
 
-Be hyper-specific to ${locality}, ${city}. Use real place names, real infrastructure projects, real schools/offices/metro stations nearby.`,
-    }],
-  });
+Be hyper-specific to ${locality}, ${city}. Use real place names, real infrastructure projects, real schools/offices/metro stations nearby.`;
 
-  const text = response.content[0].type === "text" ? response.content[0].text : "{}";
+  const text = await aiComplete(system, prompt, 2500);
   const jsonMatch = text.match(/\{[\s\S]*\}/);
 
   const defaults: LocalitySearchResult = {
@@ -192,23 +176,15 @@ Be hyper-specific to ${locality}, ${city}. Use real place names, real infrastruc
  * Get budget ranges for any city. AI-powered, not hardcoded.
  */
 export async function getBudgetRanges(city: string): Promise<BudgetRange[]> {
-  const anthropic = new Anthropic();
+  const system = "Return valid JSON only.";
 
-  const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-6",
-    max_tokens: 500,
-    system: "Return valid JSON only.",
-    messages: [{
-      role: "user",
-      content: `What are the 4-5 most common residential property budget ranges that home buyers search for in ${city}? Use local currency.
+  const prompt = `What are the 4-5 most common residential property budget ranges that home buyers search for in ${city}? Use local currency.
 
 Return JSON: [{"label": "under X lakhs", "min": 0, "max": 5000000}]
 
-Use the actual local currency and terms (lakhs/crore for India, AED for UAE, GBP for UK, USD for US, etc).`,
-    }],
-  });
+Use the actual local currency and terms (lakhs/crore for India, AED for UAE, GBP for UK, USD for US, etc).`;
 
-  const text = response.content[0].type === "text" ? response.content[0].text : "[]";
+  const text = await aiLight(system, prompt, 500);
   const jsonMatch = text.match(/\[[\s\S]*\]/);
   if (jsonMatch) {
     try { return JSON.parse(jsonMatch[0]); } catch { /* fall through */ }
@@ -232,15 +208,9 @@ export async function generateSearchQueries(
   projects: string[],
   locality?: string
 ): Promise<string[]> {
-  const anthropic = new Anthropic();
+  const system = "Return a JSON array of strings only.";
 
-  const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-6",
-    max_tokens: 1000,
-    system: "Return a JSON array of strings only.",
-    messages: [{
-      role: "user",
-      content: `Generate 20 real estate search queries that home buyers in ${city} would type into Google or ask ChatGPT when looking for residential properties.
+  const prompt = `Generate 20 real estate search queries that home buyers in ${city} would type into Google or ask ChatGPT when looking for residential properties.
 ${locality ? `Focus on the ${locality} area.` : ""}
 ${projects.length > 0 ? `Include queries where someone might discover: ${projects.join(", ")}` : ""}
 
@@ -252,11 +222,9 @@ Mix of:
 - Area queries ("is [locality] good for investment")
 - General queries ("new launch projects [city]")
 
-Use the local language terms and currency. Return JSON array of 20 strings.`,
-    }],
-  });
+Use the local language terms and currency. Return JSON array of 20 strings.`;
 
-  const text = response.content[0].type === "text" ? response.content[0].text : "[]";
+  const text = await aiLight(system, prompt, 1000);
   const jsonMatch = text.match(/\[[\s\S]*\]/);
   if (jsonMatch) {
     try { return JSON.parse(jsonMatch[0]); } catch { /* fall through */ }
@@ -290,15 +258,9 @@ export async function generateContentPlan(
   const localityData = await searchLocality(city, location, projectName, configurations, priceRange);
 
   // Generate content plan
-  const anthropic = new Anthropic();
+  const system = `You are CabbageSEO's content strategist for real estate. Create content plans that maximize SEO impact and social engagement. Be specific to the actual locality, market, and buyer demographics. Return valid JSON only.`;
 
-  const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-6",
-    max_tokens: 3500,
-    system: `You are CabbageSEO's content strategist for real estate. Create content plans that maximize SEO impact and social engagement. Be specific to the actual locality, market, and buyer demographics. Return valid JSON only.`,
-    messages: [{
-      role: "user",
-      content: `Create a 4-week content plan for:
+  const prompt = `Create a 4-week content plan for:
 - Project: ${projectName} by ${developerName}
 - Location: ${location}, ${city}
 - Configurations: ${configurations}
@@ -341,11 +303,9 @@ Return JSON:
   ]
 }
 
-Generate 10-15 locality pages, 4 weekly blog posts, and 20 social posts (5/week across platforms). Make everything hyper-specific to ${location}, ${city}. Reference real landmarks, infrastructure, and market conditions.`,
-    }],
-  });
+Generate 10-15 locality pages, 4 weekly blog posts, and 20 social posts (5/week across platforms). Make everything hyper-specific to ${location}, ${city}. Reference real landmarks, infrastructure, and market conditions.`;
 
-  const text = response.content[0].type === "text" ? response.content[0].text : "{}";
+  const text = await aiComplete(system, prompt, 3500);
   const jsonMatch = text.match(/\{[\s\S]*\}/);
 
   let plan: Partial<ContentPlan> = {};

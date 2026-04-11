@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
+import { aiLight } from "@/lib/ai";
 
 /**
  * Free Report API — no signup required.
@@ -51,24 +51,17 @@ export async function POST(req: NextRequest) {
     const overallScore = Math.round((perfScore + seoScore + reScore) / 3);
 
     // AI-generated top 5 fixes
-    const anthropic = new Anthropic();
-    const analysis = await anthropic.messages.create({
-      model: "claude-sonnet-4-6",
-      max_tokens: 800,
-      system: "You are CabbageSEO. Give exactly 5 high-impact fixes for this real estate website. Be specific and actionable. Return a JSON array of 5 strings, each under 100 characters.",
-      messages: [{
-        role: "user",
-        content: `Real estate website: ${normalizedUrl}
+    const fixText = await aiLight(
+      "You are CabbageSEO. Give exactly 5 high-impact fixes for this real estate website. Be specific and actionable. Return a JSON array of 5 strings, each under 100 characters.",
+      `Real estate website: ${normalizedUrl}
 Performance: ${perfScore}/100, SEO: ${seoScore}/100
 RERA visible: ${hasRera}, Pricing shown: ${hasPrice}, WhatsApp: ${hasWhatsApp}
 Schema markup: ${hasSchema}, Floor plans: ${hasFloorPlan}, CTA above fold: ${hasCTA}
 llms.txt: ${hasLlmsTxt}, Sitemap: ${hasSitemap}
 
 Return JSON array of exactly 5 one-line fix recommendations, most impactful first.`,
-      }],
-    });
-
-    const fixText = analysis.content[0].type === "text" ? analysis.content[0].text : "[]";
+      800
+    );
     const fixMatch = fixText.match(/\[[\s\S]*\]/);
     let fixes: string[] = [];
     if (fixMatch) {

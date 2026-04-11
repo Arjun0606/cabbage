@@ -1,5 +1,4 @@
-import OpenAI from "openai";
-import Anthropic from "@anthropic-ai/sdk";
+import { queryForVisibility, queryClaudeForVisibility } from "@/lib/ai";
 
 // ---------- Types ----------
 
@@ -36,76 +35,6 @@ interface AIReadinessCheck {
   check: string;
   passed: boolean;
   details: string;
-}
-
-// ---------- LLM Querying ----------
-
-async function queryOpenAI(query: string): Promise<string> {
-  const openai = new OpenAI();
-  const res = await openai.chat.completions.create({
-    model: "gpt-5.4-nano",
-    messages: [{ role: "user", content: query }],
-    max_tokens: 1000,
-  });
-  return res.choices[0]?.message?.content || "";
-}
-
-async function queryClaude(query: string): Promise<string> {
-  const anthropic = new Anthropic();
-  const res = await anthropic.messages.create({
-    model: "claude-sonnet-4-6",
-    max_tokens: 1000,
-    messages: [{ role: "user", content: query }],
-  });
-  return res.content[0].type === "text" ? res.content[0].text : "";
-}
-
-// Note: Perplexity and Gemini use OpenAI-compatible APIs
-async function queryPerplexity(query: string): Promise<string> {
-  // Perplexity uses OpenAI-compatible API
-  const apiKey = process.env.PERPLEXITY_API_KEY;
-  if (!apiKey) return ""; // Skip if no key
-
-  try {
-    const res = await fetch("https://api.perplexity.ai/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "llama-3.1-sonar-small-128k-online",
-        messages: [{ role: "user", content: query }],
-        max_tokens: 1000,
-      }),
-    });
-    const data = await res.json();
-    return data.choices?.[0]?.message?.content || "";
-  } catch {
-    return "";
-  }
-}
-
-async function queryGemini(query: string): Promise<string> {
-  const apiKey = process.env.GOOGLE_GEMINI_API_KEY;
-  if (!apiKey) return "";
-
-  try {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: query }] }],
-        }),
-      }
-    );
-    const data = await res.json();
-    return data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-  } catch {
-    return "";
-  }
 }
 
 // ---------- Analysis ----------
@@ -261,10 +190,10 @@ export async function runAIVisibility(
   for (const query of queries) {
     // Run all 4 LLMs in parallel per query
     const [chatgptRes, claudeRes, perplexityRes, geminiRes] = await Promise.all([
-      queryOpenAI(query).catch(() => ""),
-      queryClaude(query).catch(() => ""),
-      queryPerplexity(query).catch(() => ""),
-      queryGemini(query).catch(() => ""),
+      queryForVisibility("openai", query).catch(() => ""),
+      queryClaudeForVisibility(query).catch(() => ""),
+      queryForVisibility("perplexity", query).catch(() => ""),
+      queryForVisibility("gemini", query).catch(() => ""),
     ]);
 
     queryResults.push({

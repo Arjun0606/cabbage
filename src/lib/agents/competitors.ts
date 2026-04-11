@@ -1,4 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { aiComplete } from "@/lib/ai";
 
 // ---------- Types ----------
 
@@ -153,15 +153,9 @@ async function generateInsights(
   competitorName: string,
   competitorSnapshot: CompetitorSnapshot
 ): Promise<CompetitorInsight[]> {
-  const anthropic = new Anthropic();
+  const system = `You are CabbageSEO's competitive intelligence agent for Indian real estate. Analyze a competitor and provide actionable insights. Return valid JSON array only.`;
 
-  const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-6",
-    max_tokens: 1500,
-    system: `You are CabbageSEO's competitive intelligence agent for Indian real estate. Analyze a competitor and provide actionable insights. Return valid JSON array only.`,
-    messages: [{
-      role: "user",
-      content: `Analyze competitor "${competitorName}" against our client in Indian real estate:
+  const prompt = `Analyze competitor "${competitorName}" against our client in Indian real estate:
 
 Competitor signals:
 - Title: ${competitorSnapshot.title}
@@ -179,11 +173,9 @@ Return a JSON array of 5-8 insights:
 Types:
 - "advantage": something the competitor does better that our client should learn from
 - "gap": something the competitor is missing that our client can exploit
-- "opportunity": a market opportunity neither is addressing well`
-    }],
-  });
+- "opportunity": a market opportunity neither is addressing well`;
 
-  const text = response.content[0].type === "text" ? response.content[0].text : "[]";
+  const text = await aiComplete(system, prompt, 1500);
   const jsonMatch = text.match(/\[[\s\S]*\]/);
 
   if (jsonMatch) {

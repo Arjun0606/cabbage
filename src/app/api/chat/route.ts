@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
+import { aiChat } from "@/lib/ai";
 
 export async function POST(req: NextRequest) {
   try {
     const { message, company, auditResult, aiVisResult, history } = await req.json();
-
-    const anthropic = new Anthropic();
 
     // Build context from available data
     let context = `You are CabbageSEO, an AI marketing assistant specialized in Indian residential real estate developers. You help marketing heads and owners improve their digital presence, SEO rankings, AI visibility (GEO), and lead generation.
@@ -63,14 +61,7 @@ ${aiVisResult.queryResults?.filter((q: any) => !q.chatgpt.mentioned && !q.claude
     }
     messages.push({ role: "user", content: message });
 
-    const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-6",
-      max_tokens: 1500,
-      system: context,
-      messages,
-    });
-
-    const text = response.content[0].type === "text" ? response.content[0].text : "";
+    const text = await aiChat(context, messages, 1500);
 
     return NextResponse.json({ response: text });
   } catch (error) {

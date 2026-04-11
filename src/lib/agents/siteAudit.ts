@@ -1,4 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { aiComplete } from "@/lib/ai";
 
 /**
  * Real-estate-specific SEO checks. These are what make CabbageSEO
@@ -226,23 +226,16 @@ async function generateAuditAnalysis(
   seoHealth: SeoHealthCheck[],
   realEstateChecks: RealEstateCheck[]
 ): Promise<AuditFix[]> {
-  const anthropic = new Anthropic();
-
   const failedChecks = seoHealth.filter((c) => c.status !== "pass");
   const failedReChecks = realEstateChecks.filter((c) => !c.passed);
 
-  const message = await anthropic.messages.create({
-    model: "claude-sonnet-4-6",
-    max_tokens: 2000,
-    system: `You are CabbageSEO, an AI SEO expert specialized in Indian residential real estate developer websites. You analyze audit results and produce actionable fixes prioritized by impact on lead generation and conversions.
+  const system = `You are CabbageSEO, an AI SEO expert specialized in Indian residential real estate developer websites. You analyze audit results and produce actionable fixes prioritized by impact on lead generation and conversions.
 
 Your audience is a marketing head at an Indian residential developer. Be specific, practical, and tie every recommendation to business impact (more site visits, more enquiries, better Google ranking for buyer queries like "3BHK apartments in [location] under [budget]").
 
-Always output valid JSON array of fixes.`,
-    messages: [
-      {
-        role: "user",
-        content: `Analyze this SEO audit for ${url} (Indian real estate developer website):
+Always output valid JSON array of fixes.`;
+
+  const prompt = `Analyze this SEO audit for ${url} (Indian real estate developer website):
 
 ## Scores
 - Overall: ${scores.overall}/100
@@ -264,12 +257,9 @@ ${failedChecks.map((c) => `- ${c.check}: ${c.value}`).join("\n") || "None"}
 ${failedReChecks.map((c) => `- ${c.label}: ${c.details}`).join("\n") || "None"}
 
 Produce a JSON array of the top 10 fixes, ordered by impact. Each fix:
-{"title": "...", "severity": "critical|high|medium|low", "category": "Technical|On-Page|Content|Conversion|Compliance", "description": "2-3 sentences explaining why and how to fix", "snippet": "optional code snippet or copy to paste"}`,
-      },
-    ],
-  });
+{"title": "...", "severity": "critical|high|medium|low", "category": "Technical|On-Page|Content|Conversion|Compliance", "description": "2-3 sentences explaining why and how to fix", "snippet": "optional code snippet or copy to paste"}`;
 
-  const text = message.content[0].type === "text" ? message.content[0].text : "";
+  const text = await aiComplete(system, prompt, 2000);
   // Extract JSON from the response
   const jsonMatch = text.match(/\[[\s\S]*\]/);
   if (jsonMatch) {

@@ -6,7 +6,7 @@
  */
 
 import { searchLocality } from "@/lib/agents/localityEngine";
-import Anthropic from "@anthropic-ai/sdk";
+import { aiComplete } from "@/lib/ai";
 
 // ---------- Types ----------
 
@@ -36,15 +36,9 @@ export async function generateLocalContent(
   const localityData = await searchLocality(city, location, projectName, configurations, priceRange);
 
   // Generate social/blog content via AI
-  const anthropic = new Anthropic();
+  const system = `You are a content strategist for real estate. Generate marketing content for a specific project. Be specific to the location and use local context. Output valid JSON only.`;
 
-  const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-6",
-    max_tokens: 3000,
-    system: `You are a content strategist for real estate. Generate marketing content for a specific project. Be specific to the location and use local context. Output valid JSON only.`,
-    messages: [{
-      role: "user",
-      content: `Generate marketing content for:
+  const prompt = `Generate marketing content for:
 - Project: ${projectName} by ${developerName}
 - Location: ${location}, ${city}
 - Configurations: ${configurations}
@@ -59,11 +53,9 @@ Return JSON:
   "linkedinPosts": [3 LinkedIn posts, 150-200 words each],
   "instagramReels": [3 reel scripts with { "hook", "body", "cta", "hashtags": [8] }],
   "whatsappMessages": [3 WhatsApp broadcasts under 100 words each]
-}`
-    }],
-  });
+}`;
 
-  const text = response.content[0].type === "text" ? response.content[0].text : "{}";
+  const text = await aiComplete(system, prompt, 3000);
   const jsonMatch = text.match(/\{[\s\S]*\}/);
   let aiContent = { blogTopics: [], linkedinPosts: [], instagramReels: [], whatsappMessages: [] };
   if (jsonMatch) {

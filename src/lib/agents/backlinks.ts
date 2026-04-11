@@ -1,4 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { aiComplete } from "@/lib/ai";
 import { getMozBacklinks } from "@/lib/integrations/mozBacklinks";
 
 // ---------- Types ----------
@@ -102,17 +102,11 @@ async function analyzeBacklinks(
   url: string,
   signals: Awaited<ReturnType<typeof fetchSiteSignals>>
 ): Promise<BacklinkResult> {
-  const anthropic = new Anthropic();
+  const system = `You are CabbageSEO's backlink analysis agent, specialized in Indian residential real estate developer websites. Based on observable site signals, estimate the backlink profile and provide actionable recommendations.
 
-  const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-6",
-    max_tokens: 2000,
-    system: `You are CabbageSEO's backlink analysis agent, specialized in Indian residential real estate developer websites. Based on observable site signals, estimate the backlink profile and provide actionable recommendations.
+You must return valid JSON only, no other text.`;
 
-You must return valid JSON only, no other text.`,
-    messages: [{
-      role: "user",
-      content: `Analyze the backlink profile for ${url} (Indian real estate developer):
+  const prompt = `Analyze the backlink profile for ${url} (Indian real estate developer):
 
 Site Signals:
 - HTTPS: ${signals.hasHttps}
@@ -146,11 +140,9 @@ Based on these signals and your knowledge of Indian real estate developer websit
 
 For topReferrers, include likely sources for Indian real estate sites: 99acres, MagicBricks, Housing.com, local news portals, RERA websites, real estate blogs, Google Business Profile, social media. List 8-10 referrers.
 For anchorTexts, include brand name, project names, location-based terms, generic terms.
-For recommendations, give 6-8 actionable items specific to Indian residential real estate SEO link building. Focus on strategies that actually work in India: portal optimization, local directory listings, PR in local media, RERA page backlinks, real estate forum participation, guest posts on property portals.`
-    }],
-  });
+For recommendations, give 6-8 actionable items specific to Indian residential real estate SEO link building. Focus on strategies that actually work in India: portal optimization, local directory listings, PR in local media, RERA page backlinks, real estate forum participation, guest posts on property portals.`;
 
-  const text = response.content[0].type === "text" ? response.content[0].text : "{}";
+  const text = await aiComplete(system, prompt, 2000);
   const jsonMatch = text.match(/\{[\s\S]*\}/);
 
   if (jsonMatch) {
