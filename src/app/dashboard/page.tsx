@@ -65,6 +65,28 @@ export default function DashboardPage() {
     }
   }, []);
 
+  // Check for GSC OAuth callback
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("gsc_connected") === "true") {
+      const sites = params.get("gsc_sites");
+      addLog("> Google Search Console connected successfully!");
+      if (sites) {
+        try {
+          const siteList = JSON.parse(decodeURIComponent(sites));
+          addLog(`> GSC sites found: ${siteList.join(", ")}`);
+        } catch { /* ignore */ }
+      }
+      // Clean URL
+      window.history.replaceState({}, "", "/dashboard");
+    }
+    const gscError = params.get("gsc_error");
+    if (gscError) {
+      addLog(`> GSC connection failed: ${decodeURIComponent(gscError)}`);
+      window.history.replaceState({}, "", "/dashboard");
+    }
+  }, []);
+
   // Persist company changes
   useEffect(() => {
     if (company.name) {
