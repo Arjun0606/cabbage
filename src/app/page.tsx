@@ -73,10 +73,10 @@ export default function Home() {
           <Sparkles size={24} className="text-emerald-400" />
         </div>
         <h1 className="text-xl font-semibold text-zinc-100">
-          Meet CabbageSEO, the AI CMO for Real Estate
+          Meet CabbageSEO, the AI CMO
         </h1>
         <p className="text-sm text-zinc-500 text-center max-w-md">
-          SEO, AI Visibility, Content, Competitors — all in one. Built specifically for real estate developers.
+          The only AI CMO you need for growth and marketing.
         </p>
       </div>
 
@@ -86,7 +86,7 @@ export default function Home() {
           <Sparkles size={16} />
         </div>
         <Input
-          placeholder="urbanrise.in"
+          placeholder="example.com"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleScan()}
