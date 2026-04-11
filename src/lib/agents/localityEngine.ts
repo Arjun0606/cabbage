@@ -59,7 +59,7 @@ interface WeeklyContent {
 }
 
 interface SocialPost {
-  platform: "linkedin" | "instagram" | "whatsapp" | "facebook";
+  platform: "linkedin" | "whatsapp" | "facebook";
   type: "post" | "reel" | "story" | "broadcast";
   title: string;
   content: string;
@@ -293,17 +293,17 @@ Return JSON:
   ],
   "socialCalendar": [
     {
-      "platform": "linkedin|instagram|whatsapp|facebook",
+      "platform": "linkedin|whatsapp|facebook",
       "type": "post|reel|story|broadcast",
       "title": "short title",
       "content": "full post content",
       "scheduledDay": "Week 1 Monday",
-      "hashtags": ["for instagram only"]
+      "hashtags": ["optional"]
     }
   ]
 }
 
-Generate 10-15 locality pages, 4 weekly blog posts, and 20 social posts (5/week across platforms). Make everything hyper-specific to ${location}, ${city}. Reference real landmarks, infrastructure, and market conditions.`;
+Generate 10-15 locality pages, 4 weekly blog posts, and 12 social posts (3/week — mix of LinkedIn posts for the marketing head and WhatsApp broadcasts for the sales team). No Instagram — their agency handles that. Make everything hyper-specific to ${location}, ${city}. Reference real landmarks, infrastructure, and market conditions.`;
 
   const text = await aiComplete(system, prompt, 3500);
   const jsonMatch = text.match(/\{[\s\S]*\}/);

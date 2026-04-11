@@ -124,7 +124,7 @@ CREATE TABLE generated_content (
   project_id UUID REFERENCES projects(id) ON DELETE SET NULL,
 
   content_type TEXT NOT NULL CHECK (content_type IN (
-    'blog_post', 'linkedin_post', 'instagram_reel',
+    'blog_post', 'linkedin_post',
     'whatsapp_broadcast', 'locality_page', 'project_comparison'
   )),
   title TEXT,

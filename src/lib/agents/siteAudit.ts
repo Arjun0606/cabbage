@@ -4,19 +4,20 @@ import { aiComplete } from "@/lib/ai";
  * Real-estate-specific SEO checks. These are what make CabbageSEO
  * vertical — no horizontal tool checks for these.
  */
+/**
+ * Real-estate-specific SEO checks — only the ones that directly
+ * impact lead generation and conversion. Each one catches something
+ * that generic SEO tools and agencies consistently miss.
+ */
 const REAL_ESTATE_SEO_CHECKS = [
-  { id: "rera_visible", label: "RERA / regulatory number visible on page", category: "Compliance", weight: "critical" },
-  { id: "price_band_clear", label: "Price range clearly displayed", category: "Conversion", weight: "high" },
-  { id: "floor_plan_present", label: "Floor plans present and optimized", category: "Content", weight: "high" },
-  { id: "location_map", label: "Location map / proximity to landmarks", category: "Content", weight: "medium" },
-  { id: "emi_calculator", label: "EMI calculator or loan info present", category: "Conversion", weight: "medium" },
+  { id: "rera_visible", label: "RERA / regulatory number visible", category: "Compliance", weight: "critical" },
+  { id: "price_band_clear", label: "Price range displayed", category: "Conversion", weight: "critical" },
+  { id: "contact_cta", label: "Enquiry CTA above the fold", category: "Conversion", weight: "critical" },
+  { id: "whatsapp_link", label: "WhatsApp quick-connect link", category: "Conversion", weight: "critical" },
   { id: "schema_realestate", label: "RealEstateListing schema markup", category: "Technical", weight: "high" },
-  { id: "project_status", label: "Project status (under construction / ready)", category: "Content", weight: "medium" },
-  { id: "builder_info", label: "Builder credibility section (past projects, awards)", category: "Trust", weight: "medium" },
-  { id: "virtual_tour", label: "360 tour or video walkthrough", category: "Content", weight: "low" },
-  { id: "contact_cta", label: "Contact/enquiry CTA above the fold", category: "Conversion", weight: "critical" },
-  { id: "whatsapp_link", label: "WhatsApp quick-connect link", category: "Conversion", weight: "high" },
-  { id: "testimonials", label: "Buyer testimonials present", category: "Trust", weight: "medium" },
+  { id: "floor_plan_present", label: "Floor plans on page", category: "Content", weight: "high" },
+  { id: "emi_calculator", label: "EMI / home loan information", category: "Conversion", weight: "high" },
+  { id: "location_map", label: "Location map with landmarks", category: "Content", weight: "medium" },
 ] as const;
 
 // ---------- Types ----------
@@ -177,18 +178,6 @@ async function runRealEstateChecks(
         passed = /realestate|realestatelisting|schema.*org.*residence/i.test(html);
         details = passed ? "Real estate schema markup detected" : "Missing RealEstateListing schema — critical for Google rich results";
         break;
-      case "project_status":
-        passed = /under\s*construction|ready\s*to\s*move|possession|oc\s*received|completion/i.test(html);
-        details = passed ? "Project status mentioned" : "Project status unclear — buyers need to know construction stage";
-        break;
-      case "builder_info":
-        passed = /about\s*(us|the\s*builder|developer)|track\s*record|past\s*projects|completed\s*projects/i.test(html);
-        details = passed ? "Builder credibility section found" : "No builder track record — add past projects and awards";
-        break;
-      case "virtual_tour":
-        passed = /360|virtual\s*tour|walkthrough|video\s*tour|youtube/i.test(html);
-        details = passed ? "Virtual tour/video detected" : "No virtual tour — increasingly expected by NRI and premium buyers";
-        break;
       case "contact_cta":
         passed = /enqui|contact|book\s*(a|your)?\s*visit|schedule|callback|get\s*in\s*touch/i.test(
           html.substring(0, Math.min(html.length, 5000))
@@ -198,10 +187,6 @@ async function runRealEstateChecks(
       case "whatsapp_link":
         passed = /whatsapp|wa\.me|api\.whatsapp/i.test(html);
         details = passed ? "WhatsApp link found" : "No WhatsApp link — Indian buyers prefer WhatsApp over forms";
-        break;
-      case "testimonials":
-        passed = /testimonial|review|happy\s*(customer|buyer|homeowner)|feedback/i.test(html);
-        details = passed ? "Testimonials section found" : "No testimonials — social proof is critical for high-value purchases";
         break;
       default:
         details = "Check not implemented";

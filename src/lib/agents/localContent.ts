@@ -17,7 +17,6 @@ export interface LocalContentResult {
   localityPages: { title: string; slug: string; metaDescription: string; targetKeyword: string; outline: string[] }[];
   blogTopics: { title: string; targetKeyword: string; estimatedWordCount: number; outline: string[] }[];
   linkedinPosts: string[];
-  instagramReels: { hook: string; body: string; cta: string; hashtags: string[] }[];
   whatsappMessages: string[];
 }
 
@@ -50,14 +49,13 @@ export async function generateLocalContent(
 Return JSON:
 {
   "blogTopics": [5 topics with { "title", "targetKeyword", "estimatedWordCount", "outline": [5 sections] }],
-  "linkedinPosts": [3 LinkedIn posts, 150-200 words each],
-  "instagramReels": [3 reel scripts with { "hook", "body", "cta", "hashtags": [8] }],
-  "whatsappMessages": [3 WhatsApp broadcasts under 100 words each]
+  "linkedinPosts": [3 LinkedIn posts for the marketing head / founder, 150-200 words each, professional thought-leadership tone],
+  "whatsappMessages": [5 WhatsApp broadcasts for the sales team to send to prospect lists, under 100 words each, personal and direct]
 }`;
 
   const text = await aiComplete(system, prompt, 3000);
   const jsonMatch = text.match(/\{[\s\S]*\}/);
-  let aiContent = { blogTopics: [], linkedinPosts: [], instagramReels: [], whatsappMessages: [] };
+  let aiContent = { blogTopics: [], linkedinPosts: [], whatsappMessages: [] };
   if (jsonMatch) {
     try { aiContent = JSON.parse(jsonMatch[0]); } catch { /* use defaults */ }
   }
@@ -84,7 +82,6 @@ Return JSON:
     localityPages,
     blogTopics: aiContent.blogTopics || [],
     linkedinPosts: aiContent.linkedinPosts || [],
-    instagramReels: aiContent.instagramReels || [],
     whatsappMessages: aiContent.whatsappMessages || [],
   };
 }
