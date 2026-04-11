@@ -6,6 +6,7 @@ import { AnalyticsPanel } from "@/components/dashboard/AnalyticsPanel";
 import { ActionsFeed } from "@/components/dashboard/ActionsFeed";
 import { ChatPanel } from "@/components/dashboard/ChatPanel";
 import { TerminalHeader } from "@/components/dashboard/TerminalHeader";
+import { AgentStatusBar } from "@/components/dashboard/AgentStatusBar";
 
 export default function DashboardPage() {
   const [company, setCompany] = useState({
@@ -225,6 +226,18 @@ export default function DashboardPage() {
   return (
     <div className="h-screen bg-zinc-950 text-zinc-100 flex flex-col overflow-hidden">
       <TerminalHeader logs={terminalLogs} onRunFullScan={runFullScan} hasWebsite={!!company.website} />
+      <AgentStatusBar
+        isAuditing={isAuditing}
+        isCheckingAI={isCheckingAI}
+        isCheckingBacklinks={isCheckingBacklinks}
+        isCheckingTechnical={isCheckingTechnical}
+        isCheckingCompetitors={isCheckingCompetitors}
+        auditResult={auditResult}
+        aiVisResult={aiVisResult}
+        backlinkResult={backlinkResult}
+        technicalResult={technicalResult}
+        competitorResults={competitorResults}
+      />
 
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-4 gap-px bg-zinc-800 overflow-hidden">
         <CompanyPanel
@@ -245,6 +258,8 @@ export default function DashboardPage() {
           onRunBacklinks={runBacklinks}
           onRunTechnical={runTechnical}
           websiteUrl={company.website}
+          companyName={company.name}
+          city={company.city}
           allSites={[
             ...(company.website ? [{ url: company.website, label: company.website.replace(/^https?:\/\//, "").replace(/\/$/, "") + " (main)" }] : []),
             ...(company.sites || []),

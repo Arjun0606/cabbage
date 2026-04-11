@@ -18,6 +18,7 @@ import {
   Wrench,
 } from "lucide-react";
 import { useState } from "react";
+import { PromptVolumes } from "./PromptVolumes";
 
 interface Props {
   auditResult: any;
@@ -34,6 +35,8 @@ interface Props {
   onRunTechnical: (url: string) => void;
   websiteUrl: string;
   allSites: { url: string; label: string }[];
+  companyName: string;
+  city: string;
 }
 
 function ScoreCircle({ score, label, size = "md" }: { score: number; label: string; size?: "sm" | "md" }) {
@@ -99,6 +102,8 @@ export function AnalyticsPanel({
   onRunTechnical,
   websiteUrl,
   allSites,
+  companyName,
+  city,
 }: Props) {
   const [auditUrl, setAuditUrl] = useState(websiteUrl || "");
 
@@ -281,6 +286,9 @@ export function AnalyticsPanel({
 
             {aiVisResult ? (
               <>
+                {/* Prompt Volumes — Profound-inspired demand framing */}
+                <PromptVolumes aiVisResult={aiVisResult} companyName={companyName} city={city} />
+
                 {/* AI Readiness Score */}
                 <Card className="bg-zinc-900 border-zinc-800">
                   <CardHeader className="pb-2">
