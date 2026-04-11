@@ -2,8 +2,9 @@
 
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
-import { ChevronUp, ChevronDown, Zap } from "lucide-react";
+import { ChevronUp, ChevronDown, Zap, Settings } from "lucide-react";
 import { useState } from "react";
+import Link from "next/link";
 
 interface Props {
   logs: string[];
@@ -24,6 +25,11 @@ export function TerminalHeader({ logs, onRunFullScan, hasWebsite }: Props) {
           </span>
         </div>
         <div className="flex items-center gap-2">
+          <Link href="/settings">
+            <button className="text-zinc-500 hover:text-zinc-300 transition-colors">
+              <Settings size={16} />
+            </button>
+          </Link>
           {onRunFullScan && hasWebsite && (
             <Button
               size="sm"
