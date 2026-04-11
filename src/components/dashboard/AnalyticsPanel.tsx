@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { PromptVolumes } from "./PromptVolumes";
+import { TrendsPanel } from "./TrendsPanel";
 
 interface Props {
   auditResult: any;
@@ -45,6 +46,7 @@ interface Props {
   onRunContent: () => void;
   onRunContentPlan: () => void;
   onRunLocalitySearch: () => void;
+  trends: Record<string, any>;
 }
 
 function ScoreCircle({ score, label, size = "md" }: { score: number; label: string; size?: "sm" | "md" }) {
@@ -119,6 +121,7 @@ export function AnalyticsPanel({
   onRunContent,
   onRunContentPlan,
   onRunLocalitySearch,
+  trends,
 }: Props) {
   const [auditUrl, setAuditUrl] = useState(websiteUrl || "");
 
@@ -138,6 +141,9 @@ export function AnalyticsPanel({
 
           {/* -------- HEALTH TAB -------- */}
           <TabsContent value="health" className="space-y-4">
+            {/* Progress Over Time */}
+            <TrendsPanel trends={trends} url={websiteUrl} />
+
             {/* Site selector — quick pick from added sites */}
             {allSites.length > 1 && (
               <div className="flex gap-1.5 flex-wrap">

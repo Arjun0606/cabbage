@@ -8,6 +8,8 @@ import { ActionsFeed } from "@/components/dashboard/ActionsFeed";
 import { ChatPanel } from "@/components/dashboard/ChatPanel";
 import { TerminalHeader } from "@/components/dashboard/TerminalHeader";
 import { AgentStatusBar } from "@/components/dashboard/AgentStatusBar";
+import { TrendsPanel } from "@/components/dashboard/TrendsPanel";
+import { recordScan, getAllTrends, type TrendData } from "@/lib/scanHistory";
 
 export default function DashboardPage() {
   const [company, setCompany] = useState({
@@ -36,6 +38,7 @@ export default function DashboardPage() {
   const [contentPlanResult, setContentPlanResult] = useState<any>(null);
   const [localityResult, setLocalityResult] = useState<any>(null);
   const [isGeneratingContent, setIsGeneratingContent] = useState(false);
+  const [trends, setTrends] = useState<Record<string, TrendData>>({ audit: { current: 0, previous: null, change: 0, direction: "new", history: [] }, technical: { current: 0, previous: null, change: 0, direction: "new", history: [] }, ai_visibility: { current: 0, previous: null, change: 0, direction: "new", history: [] }, backlinks: { current: 0, previous: null, change: 0, direction: "new", history: [] } });
   const [isAuditing, setIsAuditing] = useState(false);
   const [isCheckingAI, setIsCheckingAI] = useState(false);
   const [isCheckingBacklinks, setIsCheckingBacklinks] = useState(false);
@@ -57,6 +60,8 @@ export default function DashboardPage() {
         if (data.sites?.length) addLog(`> ${data.sites.length + 1} sites configured`);
         if (data.competitors?.length) addLog(`> ${data.competitors.length} competitors tracked`);
         addLog("> Ready — hit 'Run Full Scan' to start");
+        // Load trends
+        setTrends(getAllTrends(data.website));
       } else {
         addLog("> No site configured. Visit the homepage to add one.");
       }
@@ -110,6 +115,8 @@ export default function DashboardPage() {
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       setAuditResult(data);
+      recordScan("audit", url, data.scores.overall, `${data.fixes?.length || 0} fixes`);
+      setTrends(getAllTrends(company.website));
       addLog(`> Audit: ${data.scores.overall}/100 — ${data.fixes?.length || 0} fixes`);
     } catch (err) {
       addLog(`> Error: ${err instanceof Error ? err.message : "Audit failed"}`);
@@ -136,6 +143,8 @@ export default function DashboardPage() {
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       setAiVisResult(data);
+      recordScan("ai_visibility", company.website, data.scores.overall, `ChatGPT/Claude/Perplexity/Gemini`);
+      setTrends(getAllTrends(company.website));
       addLog(`> AI Visibility: ${data.scores.overall}/100`);
     } catch (err) {
       addLog(`> Error: ${err instanceof Error ? err.message : "Failed"}`);
@@ -156,6 +165,8 @@ export default function DashboardPage() {
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       setBacklinkResult(data);
+      recordScan("backlinks", url, data.domainAuthority, `${data.referringDomains} domains`);
+      setTrends(getAllTrends(company.website));
       addLog(`> Backlinks: DA ${data.domainAuthority}, ${data.referringDomains} domains`);
     } catch (err) {
       addLog(`> Error: ${err instanceof Error ? err.message : "Failed"}`);
@@ -176,6 +187,8 @@ export default function DashboardPage() {
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       setTechnicalResult(data);
+      recordScan("technical", url, data.onPageScore, `TTFB ${data.serverTiming.ttfb}ms`);
+      setTrends(getAllTrends(company.website));
       addLog(`> Technical: ${data.onPageScore}/100, TTFB ${data.serverTiming.ttfb}ms`);
     } catch (err) {
       addLog(`> Error: ${err instanceof Error ? err.message : "Failed"}`);
@@ -365,6 +378,7 @@ export default function DashboardPage() {
             onRunContent={runContent}
             onRunContentPlan={runContentPlan}
             onRunLocalitySearch={runLocalitySearch}
+            trends={trends}
           />
           {/* Right: Actions Feed */}
           <ActionsFeed
