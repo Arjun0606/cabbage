@@ -41,7 +41,7 @@ export async function aiComplete(
   const client = getClient();
   const res = await client.chat.completions.create({
     model: MODEL_HEAVY,
-    max_tokens: maxTokens,
+    max_completion_tokens: maxTokens,
     messages: [
       { role: "system", content: system },
       { role: "user", content: prompt },
@@ -62,7 +62,7 @@ export async function aiLight(
   const client = getClient();
   const res = await client.chat.completions.create({
     model: MODEL_LIGHT,
-    max_tokens: maxTokens,
+    max_completion_tokens: maxTokens,
     messages: [
       { role: "system", content: system },
       { role: "user", content: prompt },
@@ -82,7 +82,7 @@ export async function aiChat(
   const client = getClient();
   const res = await client.chat.completions.create({
     model: MODEL_LIGHT,
-    max_tokens: maxTokens,
+    max_completion_tokens: maxTokens,
     messages: [
       { role: "system", content: system },
       ...messages,
@@ -116,7 +116,7 @@ export async function queryForVisibility(
         body: JSON.stringify({
           model: "llama-3.1-sonar-small-128k-online",
           messages: [{ role: "user", content: query }],
-          max_tokens: 1000,
+          max_completion_tokens: 1000,
         }),
       });
       const data = await res.json();
@@ -163,7 +163,7 @@ export async function queryClaudeForVisibility(query: string): Promise<string> {
       },
       body: JSON.stringify({
         model: "claude-sonnet-4-6",
-        max_tokens: 1000,
+        max_completion_tokens: 1000,
         messages: [{ role: "user", content: query }],
       }),
     });
