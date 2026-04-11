@@ -14,16 +14,24 @@ import {
   AlertTriangle,
   Globe,
   Bot,
+  Link2,
+  Wrench,
 } from "lucide-react";
 import { useState } from "react";
 
 interface Props {
   auditResult: any;
   aiVisResult: any;
+  backlinkResult: any;
+  technicalResult: any;
   isAuditing: boolean;
   isCheckingAI: boolean;
+  isCheckingBacklinks: boolean;
+  isCheckingTechnical: boolean;
   onRunAudit: (url: string) => void;
   onRunAIVisibility: () => void;
+  onRunBacklinks: (url: string) => void;
+  onRunTechnical: (url: string) => void;
   websiteUrl: string;
 }
 
@@ -78,10 +86,16 @@ function StatusIcon({ status }: { status: "pass" | "warn" | "fail" }) {
 export function AnalyticsPanel({
   auditResult,
   aiVisResult,
+  backlinkResult,
+  technicalResult,
   isAuditing,
   isCheckingAI,
+  isCheckingBacklinks,
+  isCheckingTechnical,
   onRunAudit,
   onRunAIVisibility,
+  onRunBacklinks,
+  onRunTechnical,
   websiteUrl,
 }: Props) {
   const [auditUrl, setAuditUrl] = useState(websiteUrl || "");
@@ -92,6 +106,7 @@ export function AnalyticsPanel({
         <Tabs defaultValue="health" className="space-y-4">
           <TabsList className="bg-zinc-900 border border-zinc-800">
             <TabsTrigger value="health" className="text-xs">Health</TabsTrigger>
+            <TabsTrigger value="links" className="text-xs">Links</TabsTrigger>
             <TabsTrigger value="technical" className="text-xs">Technical</TabsTrigger>
             <TabsTrigger value="aigeo" className="text-xs">AI/GEO</TabsTrigger>
             <TabsTrigger value="checks" className="text-xs">Checks</TabsTrigger>
@@ -320,25 +335,280 @@ export function AnalyticsPanel({
             )}
           </TabsContent>
 
-          {/* -------- TECHNICAL TAB -------- */}
-          <TabsContent value="technical" className="space-y-4">
-            {auditResult ? (
-              <Card className="bg-zinc-900 border-zinc-800">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">Desktop Performance</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex justify-around">
-                    <ScoreCircle score={auditResult.scores.performanceDesktop} label="Performance" />
-                    <ScoreCircle score={auditResult.scores.accessibility} label="Accessibility" />
-                    <ScoreCircle score={auditResult.scores.bestPractices} label="Best Practices" />
-                    <ScoreCircle score={auditResult.scores.seo} label="SEO" />
-                  </div>
-                </CardContent>
-              </Card>
+          {/* -------- LINKS TAB -------- */}
+          <TabsContent value="links" className="space-y-4">
+            <Button
+              onClick={() => onRunBacklinks(auditUrl || websiteUrl)}
+              disabled={isCheckingBacklinks || (!auditUrl && !websiteUrl)}
+              className="w-full bg-blue-600 hover:bg-blue-700"
+            >
+              {isCheckingBacklinks ? (
+                <><Loader2 size={14} className="animate-spin mr-2" />Analyzing backlinks...</>
+              ) : (
+                <><Link2 size={14} className="mr-2" />Analyze Backlink Profile</>
+              )}
+            </Button>
+
+            {backlinkResult ? (
+              <>
+                <Card className="bg-zinc-900 border-zinc-800">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm">Backlink Overview</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-3 gap-4 text-center">
+                      <div>
+                        <div className="text-2xl font-bold text-zinc-100">{backlinkResult.domainAuthority}</div>
+                        <div className="text-[10px] text-zinc-500">Domain Authority</div>
+                      </div>
+                      <div>
+                        <div className="text-2xl font-bold text-zinc-100">{backlinkResult.referringDomains?.toLocaleString()}</div>
+                        <div className="text-[10px] text-zinc-500">Referring Domains</div>
+                      </div>
+                      <div>
+                        <div className="text-2xl font-bold text-zinc-100">{backlinkResult.totalBacklinks?.toLocaleString()}</div>
+                        <div className="text-[10px] text-zinc-500">Total Backlinks</div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {backlinkResult.topReferrers?.length > 0 && (
+                  <Card className="bg-zinc-900 border-zinc-800">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm">Top Referring Domains</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-1">
+                      {backlinkResult.topReferrers.map((ref: any, i: number) => (
+                        <div key={i} className="flex items-center justify-between py-1 text-sm">
+                          <span className="text-zinc-300">{ref.domain}</span>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="text-[10px] border-zinc-700">
+                              DA {ref.authority}
+                            </Badge>
+                            <Badge variant="secondary" className={`text-[10px] ${ref.type === 'dofollow' ? 'bg-emerald-900/50 text-emerald-400' : 'bg-zinc-800 text-zinc-500'}`}>
+                              {ref.type}
+                            </Badge>
+                          </div>
+                        </div>
+                      ))}
+                    </CardContent>
+                  </Card>
+                )}
+
+                {backlinkResult.recommendations?.length > 0 && (
+                  <Card className="bg-zinc-900 border-zinc-800">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm">Link Building Recommendations</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      {backlinkResult.recommendations.map((rec: any, i: number) => (
+                        <div key={i} className="text-sm space-y-0.5">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className={`text-[10px] ${
+                              rec.priority === 'high' ? 'border-orange-800 text-orange-400' :
+                              rec.priority === 'medium' ? 'border-yellow-800 text-yellow-400' :
+                              'border-zinc-700 text-zinc-500'
+                            }`}>{rec.priority}</Badge>
+                            <span className="text-zinc-300 text-xs font-medium">{rec.title}</span>
+                          </div>
+                          <p className="text-xs text-zinc-500 pl-4">{rec.description}</p>
+                        </div>
+                      ))}
+                    </CardContent>
+                  </Card>
+                )}
+              </>
             ) : (
               <div className="flex flex-col items-center justify-center py-16 text-zinc-500">
-                <p className="text-sm">Run an audit first to see technical details</p>
+                <Link2 size={48} className="mb-4 opacity-30" />
+                <p className="text-sm">Analyze your backlink profile</p>
+                <p className="text-xs text-zinc-600 mt-1">Domain authority, referring domains, and link building opportunities</p>
+              </div>
+            )}
+          </TabsContent>
+
+          {/* -------- TECHNICAL TAB -------- */}
+          <TabsContent value="technical" className="space-y-4">
+            <Button
+              onClick={() => onRunTechnical(auditUrl || websiteUrl)}
+              disabled={isCheckingTechnical || (!auditUrl && !websiteUrl)}
+              className="w-full bg-zinc-700 hover:bg-zinc-600"
+            >
+              {isCheckingTechnical ? (
+                <><Loader2 size={14} className="animate-spin mr-2" />Running technical audit...</>
+              ) : (
+                <><Wrench size={14} className="mr-2" />Run Technical SEO Audit</>
+              )}
+            </Button>
+
+            {technicalResult ? (
+              <>
+                <Card className="bg-zinc-900 border-zinc-800">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm">On-Page Score</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-center gap-4">
+                      <ScoreCircle score={technicalResult.onPageScore} label="On-Page" />
+                      <div className="text-xs text-zinc-500 space-y-1">
+                        <p>Server: {technicalResult.server.host}</p>
+                        <p>Encoding: {technicalResult.server.encoding}</p>
+                        <p>Page Size: {technicalResult.server.pageSize}</p>
+                        <p>Status: {technicalResult.server.status}</p>
+                        <p>Cacheable: {technicalResult.server.cacheable ? "Yes" : "No"}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-zinc-900 border-zinc-800">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm">Server Timing</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-3 gap-3 text-center">
+                      {[
+                        { label: "TTFB", value: `${technicalResult.serverTiming.ttfb}ms` },
+                        { label: "DOM Complete", value: `${technicalResult.serverTiming.domComplete}ms` },
+                        { label: "Download", value: `${technicalResult.serverTiming.download}ms` },
+                        { label: "Connection", value: `${technicalResult.serverTiming.connection}ms` },
+                        { label: "TLS", value: `${technicalResult.serverTiming.tlsHandshake}ms` },
+                        { label: "Total", value: `${technicalResult.serverTiming.timeToInteractive}ms` },
+                      ].map(({ label, value }) => (
+                        <div key={label}>
+                          <div className="text-xs text-zinc-500">{label}</div>
+                          <div className="text-sm font-bold text-zinc-200">{value}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-zinc-900 border-zinc-800">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm">Render Blocking</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 gap-4 text-center">
+                      <div>
+                        <div className="text-lg font-bold text-zinc-200">{technicalResult.renderBlocking.scripts}</div>
+                        <div className="text-[10px] text-zinc-500">Scripts</div>
+                      </div>
+                      <div>
+                        <div className="text-lg font-bold text-zinc-200">{technicalResult.renderBlocking.stylesheets}</div>
+                        <div className="text-[10px] text-zinc-500">Stylesheets</div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-zinc-900 border-zinc-800">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm">Content Relevance</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {[
+                      { label: "Title Relevance", value: technicalResult.contentRelevance.titleRelevance },
+                      { label: "Description Relevance", value: technicalResult.contentRelevance.descriptionRelevance },
+                      { label: "Keyword Relevance", value: technicalResult.contentRelevance.keywordRelevance },
+                      { label: "Content Rate", value: technicalResult.contentRelevance.contentRate },
+                    ].map(({ label, value }) => (
+                      <div key={label} className="flex items-center justify-between text-sm">
+                        <span className="text-zinc-400">{label}</span>
+                        <div className="flex items-center gap-2">
+                          <div className="w-24 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                            <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${Math.min(100, value)}%` }} />
+                          </div>
+                          <span className="text-xs text-zinc-400 w-10 text-right">{value}%</span>
+                        </div>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-zinc-900 border-zinc-800">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm">Heading Structure</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-1">
+                      {Object.entries(technicalResult.headingStructure).map(([tag, count]) => (
+                        <div key={tag} className="flex items-center gap-2 text-sm">
+                          <span className="text-zinc-500 font-mono w-6">{tag.toUpperCase()}</span>
+                          <div className="flex-1 h-2 bg-zinc-800 rounded-full overflow-hidden">
+                            <div className="h-full bg-blue-500 rounded-full" style={{ width: `${Math.min(100, (count as number) * 5)}%` }} />
+                          </div>
+                          <span className="text-xs text-zinc-400 w-6 text-right">{count as number}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-zinc-900 border-zinc-800">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm">Social Media Tags ({technicalResult.socialMediaTags.totalTags} tags)</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-1">
+                    {technicalResult.socialMediaTags.openGraph.map((tag: any, i: number) => (
+                      <div key={i} className="flex items-start gap-2 py-0.5 text-xs">
+                        <CheckCircle2 size={12} className="text-emerald-400 mt-0.5 flex-shrink-0" />
+                        <span className="text-zinc-500 font-mono">{tag.property}:</span>
+                        <span className="text-zinc-400 truncate">{tag.content}</span>
+                      </div>
+                    ))}
+                    {technicalResult.socialMediaTags.twitter.map((tag: any, i: number) => (
+                      <div key={`tw-${i}`} className="flex items-start gap-2 py-0.5 text-xs">
+                        <CheckCircle2 size={12} className="text-emerald-400 mt-0.5 flex-shrink-0" />
+                        <span className="text-zinc-500 font-mono">{tag.property}:</span>
+                        <span className="text-zinc-400 truncate">{tag.content}</span>
+                      </div>
+                    ))}
+                    {technicalResult.socialMediaTags.totalTags === 0 && (
+                      <p className="text-xs text-red-400">No Open Graph or Twitter Card tags found</p>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-zinc-900 border-zinc-800">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm">Site Files</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-1">
+                    {Object.entries(technicalResult.siteFiles).map(([name, file]: [string, any]) => (
+                      <div key={name} className="flex items-center justify-between py-1 text-sm">
+                        <div className="flex items-center gap-2">
+                          {file.exists ? <CheckCircle2 size={14} className="text-emerald-400" /> : <XCircle size={14} className="text-red-400" />}
+                          <span className="text-zinc-300 font-mono">{name.replace(/([A-Z])/g, '.$1').toLowerCase()}</span>
+                        </div>
+                        <span className="text-xs text-zinc-500">{file.exists ? `${file.status} ${(file.size / 1024).toFixed(0)}KB` : "Not found"}</span>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+
+                {technicalResult.resourceIssues?.length > 0 && (
+                  <Card className="bg-zinc-900 border-zinc-800">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm text-yellow-400">Resource Issues ({technicalResult.resourceIssues.length})</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-1">
+                      {technicalResult.resourceIssues.map((issue: any, i: number) => (
+                        <div key={i} className="flex items-center gap-2 py-1 text-sm">
+                          <AlertTriangle size={14} className={issue.severity === 'error' ? 'text-red-400' : 'text-yellow-400'} />
+                          <span className="text-zinc-300 text-xs">{issue.issue}</span>
+                        </div>
+                      ))}
+                    </CardContent>
+                  </Card>
+                )}
+              </>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-16 text-zinc-500">
+                <Wrench size={48} className="mb-4 opacity-30" />
+                <p className="text-sm">Run a technical SEO audit</p>
+                <p className="text-xs text-zinc-600 mt-1">Server timing, render blocking, heading structure, social tags, site files</p>
               </div>
             )}
           </TabsContent>

@@ -1,22 +1,25 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Globe,
   Bot,
-  FileText,
   AlertTriangle,
-  CheckCircle2,
   ChevronDown,
   Wrench,
+  Link2,
+  Users,
 } from "lucide-react";
 import { useState } from "react";
 
 interface Props {
   auditResult: any;
   aiVisResult: any;
+  backlinkResult: any;
+  technicalResult: any;
+  competitorResults: any[];
 }
 
 interface FeedItem {
@@ -28,7 +31,7 @@ interface FeedItem {
   items?: { title: string; severity: string; description: string; snippet?: string }[];
 }
 
-export function ActionsFeed({ auditResult, aiVisResult }: Props) {
+export function ActionsFeed({ auditResult, aiVisResult, backlinkResult, technicalResult, competitorResults }: Props) {
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
 
   const feedItems: FeedItem[] = [];
@@ -93,6 +96,59 @@ export function ActionsFeed({ auditResult, aiVisResult }: Props) {
             description: `Your brand doesn't appear in any AI answer for this query. Create content targeting this keyword to improve visibility.`,
           })),
         ],
+      });
+    }
+  }
+
+  // Backlink recommendations
+  if (backlinkResult?.recommendations?.length) {
+    feedItems.push({
+      id: "backlinks",
+      icon: <Link2 size={16} />,
+      iconBg: "bg-blue-500/20 text-blue-400",
+      title: "Link Building Opportunities",
+      subtitle: `DA ${backlinkResult.domainAuthority}, ${backlinkResult.recommendations.length} recommendations`,
+      items: backlinkResult.recommendations.map((r: any) => ({
+        title: r.title,
+        severity: r.priority,
+        description: r.description,
+      })),
+    });
+  }
+
+  // Technical issues
+  if (technicalResult?.resourceIssues?.length) {
+    feedItems.push({
+      id: "technical",
+      icon: <Wrench size={16} />,
+      iconBg: "bg-zinc-500/20 text-zinc-400",
+      title: "Technical Issues",
+      subtitle: `On-Page score: ${technicalResult.onPageScore}/100, ${technicalResult.resourceIssues.length} issues`,
+      items: technicalResult.resourceIssues.map((i: any) => ({
+        title: i.issue,
+        severity: i.severity === "error" ? "critical" : "medium",
+        description: "",
+      })),
+    });
+  }
+
+  // Competitor insights
+  if (competitorResults?.length) {
+    const allInsights = competitorResults.flatMap((r: any) =>
+      (r.insights || []).map((i: any) => ({
+        title: `${r.competitor.name}: ${i.title}`,
+        severity: i.type === "gap" ? "high" : "medium",
+        description: i.description,
+      }))
+    );
+    if (allInsights.length) {
+      feedItems.push({
+        id: "competitors",
+        icon: <Users size={16} />,
+        iconBg: "bg-amber-500/20 text-amber-400",
+        title: "Competitor Insights",
+        subtitle: `${competitorResults.length} competitors analyzed, ${allInsights.length} insights`,
+        items: allInsights,
       });
     }
   }
