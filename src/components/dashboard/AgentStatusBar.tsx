@@ -7,8 +7,6 @@ import {
   Link2,
   Wrench,
   Users,
-  FileText,
-  MapPin,
 } from "lucide-react";
 
 interface AgentStatus {
@@ -80,21 +78,12 @@ export function AgentStatusBar({
       status: isCheckingCompetitors ? "running" : competitorResults?.length > 0 ? "done" : "idle",
       resultCount: competitorResults?.length,
     },
-    {
-      id: "content",
-      name: "Content",
-      icon: <FileText size={13} />,
-      status: "idle",
-    },
-    {
-      id: "locality",
-      name: "Locality",
-      icon: <MapPin size={13} />,
-      status: "idle",
-    },
   ];
 
-  const statusConfig = {
+  // Only show agents that are running or have results — no greyed-out idle pills
+  const visibleAgents = agents.filter(a => a.status !== "idle");
+
+  const statusConfig: Record<string, { pill: string; dot: string }> = {
     running: {
       pill: "bg-blue-500/10 border-blue-500/20 text-blue-400",
       dot: "bg-blue-400 animate-pulse shadow-[0_0_6px_rgba(59,130,246,0.5)]",
@@ -107,16 +96,14 @@ export function AgentStatusBar({
       pill: "bg-red-500/10 border-red-500/20 text-red-400",
       dot: "bg-red-400",
     },
-    idle: {
-      pill: "bg-zinc-800/40 border-zinc-700/30 text-zinc-600",
-      dot: "bg-zinc-700",
-    },
   };
+
+  if (visibleAgents.length === 0) return null;
 
   return (
     <div className="px-5 py-2 border-b border-zinc-800/60 bg-[#0a0a0b]">
       <div className="flex items-center gap-2 overflow-x-auto">
-        {agents.map((agent) => {
+        {visibleAgents.map((agent) => {
           const cfg = statusConfig[agent.status];
           return (
             <div

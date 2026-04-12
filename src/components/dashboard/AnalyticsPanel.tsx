@@ -29,6 +29,7 @@ import {
   HardHat,
   BarChart3,
   Megaphone,
+  ChevronDown,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { PromptVolumes } from "./PromptVolumes";
@@ -192,6 +193,9 @@ export function AnalyticsPanel({
   const [articleType, setArticleType] = useState("locality_guide");
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
+  // Content tab collapsible sections
+  const [contentSection, setContentSection] = useState<string | null>("topics");
+
   const copyToClipboard = (text: string, field: string) => {
     navigator.clipboard.writeText(text);
     setCopiedField(field);
@@ -241,27 +245,19 @@ export function AnalyticsPanel({
       )}
 
       <Tabs defaultValue="health" className="space-y-5">
-        <TabsList className="bg-zinc-900/60 border border-zinc-800/50 rounded-lg p-0.5 h-auto flex-wrap">
-          <TabsTrigger value="health" className="text-[13px] rounded-md px-3 py-1.5">Health</TabsTrigger>
-          <TabsTrigger value="links" className="text-[13px] rounded-md px-3 py-1.5">Links</TabsTrigger>
-          <TabsTrigger value="technical" className="text-[13px] rounded-md px-3 py-1.5">Technical</TabsTrigger>
-          <TabsTrigger value="aigeo" className="text-[13px] rounded-md px-3 py-1.5">AI/GEO</TabsTrigger>
-          <TabsTrigger value="checks" className="text-[13px] rounded-md px-3 py-1.5">Checks</TabsTrigger>
-          <TabsTrigger value="content" className="text-[13px] rounded-md px-3 py-1.5">Content</TabsTrigger>
-          <TabsTrigger value="articles" className="text-[13px] rounded-md px-3 py-1.5">Articles</TabsTrigger>
-          <TabsTrigger value="campaigns" className="text-[13px] rounded-md px-3 py-1.5">Campaigns</TabsTrigger>
-          <TabsTrigger value="partners" className="text-[13px] rounded-md px-3 py-1.5">Partners</TabsTrigger>
-          <TabsTrigger value="schema" className="text-[13px] rounded-md px-3 py-1.5">Schema</TabsTrigger>
-          <TabsTrigger value="locality" className="text-[13px] rounded-md px-3 py-1.5">Locality</TabsTrigger>
-          <TabsTrigger value="landing" className="text-[13px] rounded-md px-3 py-1.5">Landing Pages</TabsTrigger>
-          <TabsTrigger value="portals" className="text-[13px] rounded-md px-3 py-1.5">Portals</TabsTrigger>
-          <TabsTrigger value="neighborhood" className="text-[13px] rounded-md px-3 py-1.5">Neighborhood</TabsTrigger>
-          <TabsTrigger value="progress" className="text-[13px] rounded-md px-3 py-1.5">Progress</TabsTrigger>
-          <TabsTrigger value="ads" className="text-[13px] rounded-md px-3 py-1.5">Ads</TabsTrigger>
-          <TabsTrigger value="report" className="text-[13px] rounded-md px-3 py-1.5">Report</TabsTrigger>
+        <TabsList className="bg-zinc-900/60 border border-zinc-800/50 rounded-lg p-0.5 h-auto">
+          <TabsTrigger value="health" className="text-[13px] rounded-md px-3.5 py-1.5">Health</TabsTrigger>
+          <TabsTrigger value="aigeo" className="text-[13px] rounded-md px-3.5 py-1.5">AI/GEO</TabsTrigger>
+          <TabsTrigger value="links" className="text-[13px] rounded-md px-3.5 py-1.5">Links</TabsTrigger>
+          <TabsTrigger value="content" className="text-[13px] rounded-md px-3.5 py-1.5">Content</TabsTrigger>
+          <TabsTrigger value="locality" className="text-[13px] rounded-md px-3.5 py-1.5">Locality</TabsTrigger>
+          <TabsTrigger value="ads" className="text-[13px] rounded-md px-3.5 py-1.5">Ads & Portals</TabsTrigger>
+          <TabsTrigger value="report" className="text-[13px] rounded-md px-3.5 py-1.5">Report</TabsTrigger>
         </TabsList>
 
-        {/* -------- HEALTH TAB -------- */}
+        {/* ================================================================ */}
+        {/* -------- HEALTH TAB (Health + Technical + Checks) -------- */}
+        {/* ================================================================ */}
         <TabsContent value="health" className="space-y-4">
           <TrendsPanel trends={trends} url={websiteUrl} />
 
@@ -283,7 +279,7 @@ export function AnalyticsPanel({
             </div>
           )}
 
-          {/* Audit Input */}
+          {/* Audit + Technical buttons */}
           <div className="flex gap-2">
             <Input
               placeholder="Enter website URL to audit..."
@@ -300,8 +296,17 @@ export function AnalyticsPanel({
             >
               {isAuditing ? <Loader2 size={15} className="animate-spin" /> : <Search size={15} />}
             </Button>
+            <Button
+              onClick={() => onRunTechnical(auditUrl || websiteUrl)}
+              disabled={isCheckingTechnical || (!auditUrl && !websiteUrl)}
+              size="sm"
+              className="bg-zinc-700 hover:bg-zinc-600 h-10 px-3 rounded-lg"
+            >
+              {isCheckingTechnical ? <Loader2 size={15} className="animate-spin" /> : <Wrench size={15} />}
+            </Button>
           </div>
 
+          {/* --- Health: audit results --- */}
           {auditResult ? (
             <>
               {auditResult.scores.pageSpeedAvailable !== false && auditResult.scores.performanceMobile > 0 && (
@@ -403,196 +408,9 @@ export function AnalyticsPanel({
           ) : (
             <EmptyState icon={Globe} title="Enter a URL above to run your first SEO audit" subtitle="Performance, SEO health, technical, and industry-specific checks" />
           )}
-        </TabsContent>
 
-        {/* -------- AI/GEO TAB -------- */}
-        <TabsContent value="aigeo" className="space-y-4">
-          <Button
-            onClick={onRunAIVisibility}
-            disabled={isCheckingAI}
-            className="w-full bg-violet-600 hover:bg-violet-500 h-10 text-[13px] font-medium rounded-lg"
-          >
-            {isCheckingAI ? (
-              <><Loader2 size={15} className="animate-spin mr-2" />Querying AI models...</>
-            ) : (
-              <><Bot size={15} className="mr-2" />Check AI Visibility (GEO)</>
-            )}
-          </Button>
-
-          {aiVisResult ? (
-            <>
-              <PromptVolumes aiVisResult={aiVisResult} companyName={companyName} city={city} />
-
-              <SectionCard>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-[13px] font-semibold">AI Readiness Score</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center gap-4">
-                    <ScoreCircle score={aiVisResult.scores.overall} label="Overall" size="md" />
-                    <div className="text-[13px] text-zinc-500">
-                      {aiVisResult.aiReadiness.filter((c: any) => c.passed).length}/{aiVisResult.aiReadiness.length} checks passed
-                    </div>
-                  </div>
-                </CardContent>
-              </SectionCard>
-
-              <SectionCard>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-[13px] font-semibold">Visibility by AI Platform</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3.5">
-                    {[
-                      { name: "ChatGPT", score: aiVisResult.scores.chatgpt },
-                      { name: "Claude", score: aiVisResult.scores.claude },
-                      { name: "Perplexity", score: aiVisResult.scores.perplexity },
-                      { name: "Gemini", score: aiVisResult.scores.gemini },
-                    ].map(({ name, score }) => (
-                      <div key={name} className="flex items-center justify-between">
-                        <span className="text-[13px] text-zinc-300 w-20">{name}</span>
-                        <div className="flex items-center gap-3 flex-1 ml-4">
-                          <div className="flex-1 h-2 bg-zinc-800/60 rounded-full overflow-hidden">
-                            <div className="h-full bg-violet-500 rounded-full transition-all" style={{ width: `${score}%` }} />
-                          </div>
-                          <span className="text-[13px] font-mono text-zinc-400 w-8 text-right">{score}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </SectionCard>
-
-              <SectionCard>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-[13px] font-semibold">AI/GEO Checklist</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-1">
-                  {aiVisResult.aiReadiness.map((check: any, i: number) => (
-                    <div key={i} className="flex items-center gap-2.5 py-1.5 text-[13px]">
-                      {check.passed ? <CheckCircle2 size={15} className="text-emerald-400" /> : <XCircle size={15} className="text-red-400" />}
-                      <span className="text-zinc-300">{check.check}</span>
-                    </div>
-                  ))}
-                </CardContent>
-              </SectionCard>
-            </>
-          ) : (
-            <EmptyState icon={Bot} title="Check how your brand appears in AI answers" subtitle="Set your company name first, then click the button above" />
-          )}
-        </TabsContent>
-
-        {/* -------- LINKS TAB -------- */}
-        <TabsContent value="links" className="space-y-4">
-          <Button
-            onClick={() => onRunBacklinks(auditUrl || websiteUrl)}
-            disabled={isCheckingBacklinks || (!auditUrl && !websiteUrl)}
-            className="w-full bg-blue-600 hover:bg-blue-500 h-10 text-[13px] font-medium rounded-lg"
-          >
-            {isCheckingBacklinks ? (
-              <><Loader2 size={15} className="animate-spin mr-2" />Analyzing backlinks...</>
-            ) : (
-              <><Link2 size={15} className="mr-2" />Analyze Backlink Profile</>
-            )}
-          </Button>
-
-          {backlinkResult ? (
-            <>
-              <SectionCard>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-[13px] font-semibold flex items-center gap-2">
-                    Backlink Overview
-                    <Badge variant="secondary" className={`text-[10px] rounded-md h-5 px-1.5 border-0 ${
-                      backlinkResult.dataSource === "moz_api" ? "bg-emerald-500/10 text-emerald-400" : "bg-zinc-800 text-zinc-500"
-                    }`}>
-                      {backlinkResult.dataSource === "moz_api" ? "Moz verified" : "AI estimated"}
-                    </Badge>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-3 gap-4 text-center">
-                    <div>
-                      <div className="text-3xl font-bold text-zinc-100">{backlinkResult.domainAuthority}</div>
-                      <div className="text-[11px] text-zinc-500 mt-1 font-medium">Domain Authority</div>
-                    </div>
-                    <div>
-                      <div className="text-3xl font-bold text-zinc-100">{backlinkResult.referringDomains?.toLocaleString()}</div>
-                      <div className="text-[11px] text-zinc-500 mt-1 font-medium">Referring Domains</div>
-                    </div>
-                    <div>
-                      <div className="text-3xl font-bold text-zinc-100">{backlinkResult.totalBacklinks?.toLocaleString()}</div>
-                      <div className="text-[11px] text-zinc-500 mt-1 font-medium">Total Backlinks</div>
-                    </div>
-                  </div>
-                </CardContent>
-              </SectionCard>
-
-              {backlinkResult.topReferrers?.length > 0 && (
-                <SectionCard>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-[13px] font-semibold">Top Referring Domains</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-1">
-                    {backlinkResult.topReferrers.map((ref: any, i: number) => (
-                      <div key={i} className="flex items-center justify-between py-1.5 text-[13px]">
-                        <span className="text-zinc-300">{ref.domain}</span>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="text-[10px] border-zinc-700/50 rounded-md">
-                            DA {ref.authority}
-                          </Badge>
-                          <Badge variant="secondary" className={`text-[10px] rounded-md h-5 px-1.5 border-0 ${
-                            ref.type === "dofollow" ? "bg-emerald-500/10 text-emerald-400" : "bg-zinc-800 text-zinc-500"
-                          }`}>
-                            {ref.type}
-                          </Badge>
-                        </div>
-                      </div>
-                    ))}
-                  </CardContent>
-                </SectionCard>
-              )}
-
-              {backlinkResult.recommendations?.length > 0 && (
-                <SectionCard>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-[13px] font-semibold">Link Building Recommendations</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    {backlinkResult.recommendations.map((rec: any, i: number) => (
-                      <div key={i} className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className={`text-[10px] rounded-md h-5 ${
-                            rec.priority === "high" ? "border-orange-500/30 text-orange-400 bg-orange-500/5" :
-                            rec.priority === "medium" ? "border-yellow-500/30 text-yellow-400 bg-yellow-500/5" :
-                            "border-zinc-700/50 text-zinc-500"
-                          }`}>{rec.priority}</Badge>
-                          <span className="text-[13px] text-zinc-300 font-medium">{rec.title}</span>
-                        </div>
-                        <p className="text-[12px] text-zinc-500 pl-[52px] leading-relaxed">{rec.description}</p>
-                      </div>
-                    ))}
-                  </CardContent>
-                </SectionCard>
-              )}
-            </>
-          ) : (
-            <EmptyState icon={Link2} title="Analyze your backlink profile" subtitle="Domain authority, referring domains, and link building opportunities" />
-          )}
-        </TabsContent>
-
-        {/* -------- TECHNICAL TAB -------- */}
-        <TabsContent value="technical" className="space-y-4">
-          <Button
-            onClick={() => onRunTechnical(auditUrl || websiteUrl)}
-            disabled={isCheckingTechnical || (!auditUrl && !websiteUrl)}
-            className="w-full bg-zinc-700 hover:bg-zinc-600 h-10 text-[13px] font-medium rounded-lg"
-          >
-            {isCheckingTechnical ? (
-              <><Loader2 size={15} className="animate-spin mr-2" />Running technical audit...</>
-            ) : (
-              <><Wrench size={15} className="mr-2" />Run Technical SEO Audit</>
-            )}
-          </Button>
+          {/* --- Divider: Technical section --- */}
+          <div className="border-t border-zinc-800/40 pt-4 mt-4" />
 
           {technicalResult ? (
             <>
@@ -757,12 +575,14 @@ export function AnalyticsPanel({
               )}
             </>
           ) : (
-            <EmptyState icon={Wrench} title="Run a technical SEO audit" subtitle="Server timing, render blocking, heading structure, social tags, site files" />
+            !auditResult && (
+              <p className="text-[12px] text-zinc-600 text-center py-4">Click the wrench button to run a technical SEO audit</p>
+            )
           )}
-        </TabsContent>
 
-        {/* -------- CHECKS TAB -------- */}
-        <TabsContent value="checks" className="space-y-4">
+          {/* --- Divider: Checks section --- */}
+          <div className="border-t border-zinc-800/40 pt-4 mt-4" />
+
           {auditResult ? (
             <>
               <SectionCard>
@@ -806,131 +626,916 @@ export function AnalyticsPanel({
               )}
             </>
           ) : (
-            <EmptyState icon={Search} title="Run an audit first to see all checks" subtitle="SEO health checks organized by pass/fail status" />
+            <p className="text-[12px] text-zinc-600 text-center py-4">Run an audit to see pass/fail checks</p>
           )}
         </TabsContent>
 
-        {/* -------- CONTENT TAB -------- */}
-        <TabsContent value="content" className="space-y-4">
-          <div className="flex gap-2">
-            <Button onClick={onRunContent} disabled={isGeneratingContent} className="flex-1 bg-emerald-600 hover:bg-emerald-500 h-10 text-[13px] font-medium rounded-lg">
-              {isGeneratingContent ? <><Loader2 size={15} className="animate-spin mr-2" />Generating...</> : "Generate Content"}
-            </Button>
-            <Button onClick={onRunContentPlan} disabled={isGeneratingContent} variant="outline" className="border-zinc-700 h-10 text-[13px] rounded-lg">
-              4-Week Plan
-            </Button>
-          </div>
+        {/* ================================================================ */}
+        {/* -------- AI/GEO TAB -------- */}
+        {/* ================================================================ */}
+        <TabsContent value="aigeo" className="space-y-4">
+          <Button
+            onClick={onRunAIVisibility}
+            disabled={isCheckingAI}
+            className="w-full bg-violet-600 hover:bg-violet-500 h-10 text-[13px] font-medium rounded-lg"
+          >
+            {isCheckingAI ? (
+              <><Loader2 size={15} className="animate-spin mr-2" />Querying AI models...</>
+            ) : (
+              <><Bot size={15} className="mr-2" />Check AI Visibility (GEO)</>
+            )}
+          </Button>
 
-          {contentResult ? (
+          {aiVisResult ? (
             <>
-              {contentResult.blogTopics?.length > 0 && (
-                <SectionCard>
-                  <CardContent className="p-5">
-                    <h4 className="text-[13px] font-semibold text-zinc-200 mb-4">Blog Topics ({contentResult.blogTopics.length})</h4>
-                    <div className="space-y-3">
-                      {contentResult.blogTopics.map((topic: any, i: number) => (
-                        <div key={i} className="p-3.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30 space-y-1.5">
-                          <div className="text-[13px] text-zinc-200 font-medium">{topic.title}</div>
-                          <div className="text-[11px] text-emerald-400 font-medium">Keyword: {topic.targetKeyword}</div>
-                          {topic.outline && (
-                            <div className="text-[12px] text-zinc-500 mt-1.5 space-y-0.5">
-                              {topic.outline.map((s: string, j: number) => <div key={j}>&#8226; {s}</div>)}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </SectionCard>
-              )}
+              <PromptVolumes aiVisResult={aiVisResult} companyName={companyName} city={city} />
 
-              {contentResult.linkedinPosts?.length > 0 && (
-                <SectionCard>
-                  <CardContent className="p-5">
-                    <h4 className="text-[13px] font-semibold text-zinc-200 mb-4">LinkedIn Posts ({contentResult.linkedinPosts.length})</h4>
-                    <div className="space-y-2.5">
-                      {contentResult.linkedinPosts.map((post: string, i: number) => (
-                        <div key={i} className="p-3.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30 text-[13px] text-zinc-300 whitespace-pre-wrap leading-relaxed">{post}</div>
-                      ))}
+              <SectionCard>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-[13px] font-semibold">AI Readiness Score</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center gap-4">
+                    <ScoreCircle score={aiVisResult.scores.overall} label="Overall" size="md" />
+                    <div className="text-[13px] text-zinc-500">
+                      {aiVisResult.aiReadiness.filter((c: any) => c.passed).length}/{aiVisResult.aiReadiness.length} checks passed
                     </div>
-                  </CardContent>
-                </SectionCard>
-              )}
+                  </div>
+                </CardContent>
+              </SectionCard>
 
-              {contentResult.whatsappMessages?.length > 0 && (
-                <SectionCard>
-                  <CardContent className="p-5">
-                    <h4 className="text-[13px] font-semibold text-zinc-200 mb-4">WhatsApp Broadcasts ({contentResult.whatsappMessages.length})</h4>
-                    <div className="space-y-2.5">
-                      {contentResult.whatsappMessages.map((msg: string, i: number) => (
-                        <div key={i} className="p-3.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30 text-[13px] text-zinc-300 whitespace-pre-wrap leading-relaxed">{msg}</div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </SectionCard>
-              )}
-
-              {contentResult.localityPages?.length > 0 && (
-                <SectionCard>
-                  <CardContent className="p-5">
-                    <h4 className="text-[13px] font-semibold text-zinc-200 mb-4">SEO Pages ({contentResult.localityPages.length})</h4>
-                    <div className="space-y-2">
-                      {contentResult.localityPages.map((page: any, i: number) => (
-                        <div key={i} className="p-3 rounded-lg bg-zinc-800/40 border border-zinc-700/30">
-                          <div className="text-[13px] text-zinc-200">{page.title}</div>
-                          <div className="text-[11px] text-emerald-400 font-medium mt-0.5">{page.targetKeyword}</div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </SectionCard>
-              )}
-            </>
-          ) : contentPlanResult ? (
-            <>
-              {contentPlanResult.weeklyPlan?.length > 0 && (
-                <SectionCard>
-                  <CardContent className="p-5">
-                    <h4 className="text-[13px] font-semibold text-zinc-200 mb-4">4-Week Content Plan</h4>
-                    <div className="space-y-3">
-                      {contentPlanResult.weeklyPlan.map((week: any, i: number) => (
-                        <div key={i} className="p-3.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30 space-y-1.5">
-                          <div className="text-[12px] font-semibold text-emerald-400">Week {week.week}</div>
-                          <div className="text-[13px] text-zinc-300">Blog: {week.blog?.title}</div>
-                          <div className="text-[12px] text-zinc-500">Keyword: {week.blog?.targetKeyword}</div>
-                          <div className="text-[12px] text-zinc-500">{week.socialPosts} social posts planned</div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </SectionCard>
-              )}
-
-              {contentPlanResult.socialCalendar?.length > 0 && (
-                <SectionCard>
-                  <CardContent className="p-5">
-                    <h4 className="text-[13px] font-semibold text-zinc-200 mb-4">Social Calendar ({contentPlanResult.socialCalendar.length} posts)</h4>
-                    <div className="space-y-2">
-                      {contentPlanResult.socialCalendar.slice(0, 10).map((post: any, i: number) => (
-                        <div key={i} className="p-3 rounded-lg bg-zinc-800/40 border border-zinc-700/30">
-                          <div className="flex items-center gap-2 mb-1.5">
-                            <Badge variant="outline" className="text-[10px] border-zinc-700/50 rounded-md">{post.platform}</Badge>
-                            <span className="text-zinc-500 text-[12px]">{post.scheduledDay}</span>
+              <SectionCard>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-[13px] font-semibold">Visibility by AI Platform</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3.5">
+                    {[
+                      { name: "ChatGPT", score: aiVisResult.scores.chatgpt },
+                      { name: "Claude", score: aiVisResult.scores.claude },
+                      { name: "Perplexity", score: aiVisResult.scores.perplexity },
+                      { name: "Gemini", score: aiVisResult.scores.gemini },
+                    ].map(({ name, score }) => (
+                      <div key={name} className="flex items-center justify-between">
+                        <span className="text-[13px] text-zinc-300 w-20">{name}</span>
+                        <div className="flex items-center gap-3 flex-1 ml-4">
+                          <div className="flex-1 h-2 bg-zinc-800/60 rounded-full overflow-hidden">
+                            <div className="h-full bg-violet-500 rounded-full transition-all" style={{ width: `${score}%` }} />
                           </div>
-                          <div className="text-[13px] text-zinc-300">{post.title}</div>
+                          <span className="text-[13px] font-mono text-zinc-400 w-8 text-right">{score}</span>
                         </div>
-                      ))}
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </SectionCard>
+
+              <SectionCard>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-[13px] font-semibold">AI/GEO Checklist</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-1">
+                  {aiVisResult.aiReadiness.map((check: any, i: number) => (
+                    <div key={i} className="flex items-center gap-2.5 py-1.5 text-[13px]">
+                      {check.passed ? <CheckCircle2 size={15} className="text-emerald-400" /> : <XCircle size={15} className="text-red-400" />}
+                      <span className="text-zinc-300">{check.check}</span>
                     </div>
+                  ))}
+                </CardContent>
+              </SectionCard>
+            </>
+          ) : (
+            <EmptyState icon={Bot} title="Check how your brand appears in AI answers" subtitle="Set your company name first, then click the button above" />
+          )}
+        </TabsContent>
+
+        {/* ================================================================ */}
+        {/* -------- LINKS TAB -------- */}
+        {/* ================================================================ */}
+        <TabsContent value="links" className="space-y-4">
+          <Button
+            onClick={() => onRunBacklinks(auditUrl || websiteUrl)}
+            disabled={isCheckingBacklinks || (!auditUrl && !websiteUrl)}
+            className="w-full bg-blue-600 hover:bg-blue-500 h-10 text-[13px] font-medium rounded-lg"
+          >
+            {isCheckingBacklinks ? (
+              <><Loader2 size={15} className="animate-spin mr-2" />Analyzing backlinks...</>
+            ) : (
+              <><Link2 size={15} className="mr-2" />Analyze Backlink Profile</>
+            )}
+          </Button>
+
+          {backlinkResult ? (
+            <>
+              <SectionCard>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-[13px] font-semibold flex items-center gap-2">
+                    Backlink Overview
+                    <Badge variant="secondary" className={`text-[10px] rounded-md h-5 px-1.5 border-0 ${
+                      backlinkResult.dataSource === "moz_api" ? "bg-emerald-500/10 text-emerald-400" : "bg-zinc-800 text-zinc-500"
+                    }`}>
+                      {backlinkResult.dataSource === "moz_api" ? "Moz verified" : "AI estimated"}
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-3 gap-4 text-center">
+                    <div>
+                      <div className="text-3xl font-bold text-zinc-100">{backlinkResult.domainAuthority}</div>
+                      <div className="text-[11px] text-zinc-500 mt-1 font-medium">Domain Authority</div>
+                    </div>
+                    <div>
+                      <div className="text-3xl font-bold text-zinc-100">{backlinkResult.referringDomains?.toLocaleString()}</div>
+                      <div className="text-[11px] text-zinc-500 mt-1 font-medium">Referring Domains</div>
+                    </div>
+                    <div>
+                      <div className="text-3xl font-bold text-zinc-100">{backlinkResult.totalBacklinks?.toLocaleString()}</div>
+                      <div className="text-[11px] text-zinc-500 mt-1 font-medium">Total Backlinks</div>
+                    </div>
+                  </div>
+                </CardContent>
+              </SectionCard>
+
+              {backlinkResult.topReferrers?.length > 0 && (
+                <SectionCard>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-[13px] font-semibold">Top Referring Domains</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-1">
+                    {backlinkResult.topReferrers.map((ref: any, i: number) => (
+                      <div key={i} className="flex items-center justify-between py-1.5 text-[13px]">
+                        <span className="text-zinc-300">{ref.domain}</span>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-[10px] border-zinc-700/50 rounded-md">
+                            DA {ref.authority}
+                          </Badge>
+                          <Badge variant="secondary" className={`text-[10px] rounded-md h-5 px-1.5 border-0 ${
+                            ref.type === "dofollow" ? "bg-emerald-500/10 text-emerald-400" : "bg-zinc-800 text-zinc-500"
+                          }`}>
+                            {ref.type}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </CardContent>
+                </SectionCard>
+              )}
+
+              {backlinkResult.recommendations?.length > 0 && (
+                <SectionCard>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-[13px] font-semibold">Link Building Recommendations</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {backlinkResult.recommendations.map((rec: any, i: number) => (
+                      <div key={i} className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className={`text-[10px] rounded-md h-5 ${
+                            rec.priority === "high" ? "border-orange-500/30 text-orange-400 bg-orange-500/5" :
+                            rec.priority === "medium" ? "border-yellow-500/30 text-yellow-400 bg-yellow-500/5" :
+                            "border-zinc-700/50 text-zinc-500"
+                          }`}>{rec.priority}</Badge>
+                          <span className="text-[13px] text-zinc-300 font-medium">{rec.title}</span>
+                        </div>
+                        <p className="text-[12px] text-zinc-500 pl-[52px] leading-relaxed">{rec.description}</p>
+                      </div>
+                    ))}
                   </CardContent>
                 </SectionCard>
               )}
             </>
           ) : (
-            <EmptyState icon={FileText} title="Generate blogs, LinkedIn posts, WhatsApp broadcasts" subtitle="Set your company details first, then click Generate Content" />
+            <EmptyState icon={Link2} title="Analyze your backlink profile" subtitle="Domain authority, referring domains, and link building opportunities" />
           )}
         </TabsContent>
 
-        {/* -------- LOCALITY TAB -------- */}
+        {/* ================================================================ */}
+        {/* -------- CONTENT TAB (Content + Articles + Campaigns + Partners + Landing + Progress + Schema) -------- */}
+        {/* ================================================================ */}
+        <TabsContent value="content" className="space-y-4">
+
+          {/* --- Section 1: Content Topics --- */}
+          <button
+            onClick={() => setContentSection(contentSection === "topics" ? null : "topics")}
+            className="w-full flex items-center justify-between px-4 py-3 rounded-lg bg-zinc-900/60 border border-zinc-800/50 text-left hover:border-zinc-700 transition-all"
+          >
+            <span className="flex items-center gap-2 text-[13px] font-semibold text-zinc-200">
+              <FileText size={15} className="text-emerald-400" /> Content Topics
+            </span>
+            <ChevronDown size={14} className={`text-zinc-500 transition-transform ${contentSection === "topics" ? "rotate-180" : ""}`} />
+          </button>
+          {contentSection === "topics" && (
+            <div className="space-y-4">
+              <div className="flex gap-2">
+                <Button onClick={onRunContent} disabled={isGeneratingContent} className="flex-1 bg-emerald-600 hover:bg-emerald-500 h-10 text-[13px] font-medium rounded-lg">
+                  {isGeneratingContent ? <><Loader2 size={15} className="animate-spin mr-2" />Generating...</> : "Generate Content"}
+                </Button>
+                <Button onClick={onRunContentPlan} disabled={isGeneratingContent} variant="outline" className="border-zinc-700 h-10 text-[13px] rounded-lg">
+                  4-Week Plan
+                </Button>
+              </div>
+
+              {contentResult ? (
+                <>
+                  {contentResult.blogTopics?.length > 0 && (
+                    <SectionCard>
+                      <CardContent className="p-5">
+                        <h4 className="text-[13px] font-semibold text-zinc-200 mb-4">Blog Topics ({contentResult.blogTopics.length})</h4>
+                        <div className="space-y-3">
+                          {contentResult.blogTopics.map((topic: any, i: number) => (
+                            <div key={i} className="p-3.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30 space-y-1.5">
+                              <div className="text-[13px] text-zinc-200 font-medium">{topic.title}</div>
+                              <div className="text-[11px] text-emerald-400 font-medium">Keyword: {topic.targetKeyword}</div>
+                              {topic.outline && (
+                                <div className="text-[12px] text-zinc-500 mt-1.5 space-y-0.5">
+                                  {topic.outline.map((s: string, j: number) => <div key={j}>&#8226; {s}</div>)}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </SectionCard>
+                  )}
+
+                  {contentResult.linkedinPosts?.length > 0 && (
+                    <SectionCard>
+                      <CardContent className="p-5">
+                        <h4 className="text-[13px] font-semibold text-zinc-200 mb-4">LinkedIn Posts ({contentResult.linkedinPosts.length})</h4>
+                        <div className="space-y-2.5">
+                          {contentResult.linkedinPosts.map((post: string, i: number) => (
+                            <div key={i} className="p-3.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30 text-[13px] text-zinc-300 whitespace-pre-wrap leading-relaxed">{post}</div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </SectionCard>
+                  )}
+
+                  {contentResult.whatsappMessages?.length > 0 && (
+                    <SectionCard>
+                      <CardContent className="p-5">
+                        <h4 className="text-[13px] font-semibold text-zinc-200 mb-4">WhatsApp Broadcasts ({contentResult.whatsappMessages.length})</h4>
+                        <div className="space-y-2.5">
+                          {contentResult.whatsappMessages.map((msg: string, i: number) => (
+                            <div key={i} className="p-3.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30 text-[13px] text-zinc-300 whitespace-pre-wrap leading-relaxed">{msg}</div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </SectionCard>
+                  )}
+
+                  {contentResult.localityPages?.length > 0 && (
+                    <SectionCard>
+                      <CardContent className="p-5">
+                        <h4 className="text-[13px] font-semibold text-zinc-200 mb-4">SEO Pages ({contentResult.localityPages.length})</h4>
+                        <div className="space-y-2">
+                          {contentResult.localityPages.map((page: any, i: number) => (
+                            <div key={i} className="p-3 rounded-lg bg-zinc-800/40 border border-zinc-700/30">
+                              <div className="text-[13px] text-zinc-200">{page.title}</div>
+                              <div className="text-[11px] text-emerald-400 font-medium mt-0.5">{page.targetKeyword}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </SectionCard>
+                  )}
+                </>
+              ) : contentPlanResult ? (
+                <>
+                  {contentPlanResult.weeklyPlan?.length > 0 && (
+                    <SectionCard>
+                      <CardContent className="p-5">
+                        <h4 className="text-[13px] font-semibold text-zinc-200 mb-4">4-Week Content Plan</h4>
+                        <div className="space-y-3">
+                          {contentPlanResult.weeklyPlan.map((week: any, i: number) => (
+                            <div key={i} className="p-3.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30 space-y-1.5">
+                              <div className="text-[12px] font-semibold text-emerald-400">Week {week.week}</div>
+                              <div className="text-[13px] text-zinc-300">Blog: {week.blog?.title}</div>
+                              <div className="text-[12px] text-zinc-500">Keyword: {week.blog?.targetKeyword}</div>
+                              <div className="text-[12px] text-zinc-500">{week.socialPosts} social posts planned</div>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </SectionCard>
+                  )}
+
+                  {contentPlanResult.socialCalendar?.length > 0 && (
+                    <SectionCard>
+                      <CardContent className="p-5">
+                        <h4 className="text-[13px] font-semibold text-zinc-200 mb-4">Social Calendar ({contentPlanResult.socialCalendar.length} posts)</h4>
+                        <div className="space-y-2">
+                          {contentPlanResult.socialCalendar.slice(0, 10).map((post: any, i: number) => (
+                            <div key={i} className="p-3 rounded-lg bg-zinc-800/40 border border-zinc-700/30">
+                              <div className="flex items-center gap-2 mb-1.5">
+                                <Badge variant="outline" className="text-[10px] border-zinc-700/50 rounded-md">{post.platform}</Badge>
+                                <span className="text-zinc-500 text-[12px]">{post.scheduledDay}</span>
+                              </div>
+                              <div className="text-[13px] text-zinc-300">{post.title}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </SectionCard>
+                  )}
+                </>
+              ) : (
+                <EmptyState icon={FileText} title="Generate blogs, LinkedIn posts, WhatsApp broadcasts" subtitle="Set your company details first, then click Generate Content" />
+              )}
+            </div>
+          )}
+
+          {/* --- Section 2: Full Articles --- */}
+          <button
+            onClick={() => setContentSection(contentSection === "articles" ? null : "articles")}
+            className="w-full flex items-center justify-between px-4 py-3 rounded-lg bg-zinc-900/60 border border-zinc-800/50 text-left hover:border-zinc-700 transition-all"
+          >
+            <span className="flex items-center gap-2 text-[13px] font-semibold text-zinc-200">
+              <PenTool size={15} className="text-emerald-400" /> Full Articles
+            </span>
+            <ChevronDown size={14} className={`text-zinc-500 transition-transform ${contentSection === "articles" ? "rotate-180" : ""}`} />
+          </button>
+          {contentSection === "articles" && (
+            <div className="space-y-4">
+              <SectionCard>
+                <CardContent className="p-5 space-y-4">
+                  <h4 className="text-[13px] font-semibold text-zinc-200 flex items-center gap-2">
+                    <PenTool size={15} className="text-emerald-400" />
+                    Full Article Writer
+                  </h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Input
+                      placeholder="Article topic or title..."
+                      value={articleTopic}
+                      onChange={(e) => setArticleTopic(e.target.value)}
+                      className="bg-zinc-900/80 border-zinc-800 text-[13px] h-10 placeholder:text-zinc-600"
+                    />
+                    <Input
+                      placeholder="Target keyword..."
+                      value={articleKeyword}
+                      onChange={(e) => setArticleKeyword(e.target.value)}
+                      className="bg-zinc-900/80 border-zinc-800 text-[13px] h-10 placeholder:text-zinc-600"
+                    />
+                  </div>
+                  <div className="flex gap-2 flex-wrap">
+                    {[
+                      { value: "locality_guide", label: "Locality Guide" },
+                      { value: "project_showcase", label: "Project Showcase" },
+                      { value: "market_analysis", label: "Market Analysis" },
+                      { value: "buyer_guide", label: "Buyer Guide" },
+                      { value: "comparison", label: "Comparison" },
+                      { value: "investment", label: "Investment" },
+                      { value: "nri_guide", label: "NRI Guide" },
+                    ].map((t) => (
+                      <button
+                        key={t.value}
+                        onClick={() => setArticleType(t.value)}
+                        className={`text-[12px] px-3 py-1.5 rounded-lg border transition-all ${
+                          articleType === t.value
+                            ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                            : "bg-zinc-900/50 border-zinc-800/50 text-zinc-500 hover:text-zinc-300"
+                        }`}
+                      >
+                        {t.label}
+                      </button>
+                    ))}
+                  </div>
+                  <Button
+                    onClick={() => onRunArticleWriter(articleTopic, articleKeyword, articleType)}
+                    disabled={isGeneratingArticle || !articleTopic || !articleKeyword}
+                    className="w-full bg-emerald-600 hover:bg-emerald-500 h-10 text-[13px] font-medium rounded-lg"
+                  >
+                    {isGeneratingArticle ? (
+                      <><Loader2 size={15} className="animate-spin mr-2" />Writing article...</>
+                    ) : (
+                      <><PenTool size={15} className="mr-2" />Generate Full Article</>
+                    )}
+                  </Button>
+                </CardContent>
+              </SectionCard>
+
+              {articleResult && (
+                <>
+                  <SectionCard>
+                    <CardContent className="p-5">
+                      <div className="flex items-start justify-between mb-3">
+                        <div>
+                          <h4 className="text-[15px] font-semibold text-zinc-100">{articleResult.title}</h4>
+                          <p className="text-[12px] text-zinc-500 mt-1">{articleResult.metaDescription}</p>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <Badge className="bg-emerald-500/10 text-emerald-400 border-0 text-[10px] h-5 rounded-md">{articleResult.wordCount} words</Badge>
+                          <CopyBtn text={articleResult.content} field="article" />
+                        </div>
+                      </div>
+                      <div className="rounded-lg bg-zinc-800/40 border border-zinc-700/30 p-5 max-h-[500px] overflow-y-auto">
+                        <div className="text-[13px] text-zinc-300 leading-relaxed whitespace-pre-wrap">{articleResult.content}</div>
+                      </div>
+                    </CardContent>
+                  </SectionCard>
+
+                  {articleResult.faqs?.length > 0 && (
+                    <SectionCard>
+                      <CardContent className="p-5">
+                        <h4 className="text-[13px] font-semibold text-zinc-200 mb-3">FAQs (AI/GEO Optimized)</h4>
+                        <div className="space-y-3">
+                          {articleResult.faqs.map((faq: any, i: number) => (
+                            <div key={i} className="p-3.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30">
+                              <div className="text-[13px] font-medium text-zinc-200 mb-1">{faq.question}</div>
+                              <div className="text-[12px] text-zinc-400 leading-relaxed">{faq.answer}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </SectionCard>
+                  )}
+
+                  {articleResult.suggestedInternalLinks?.length > 0 && (
+                    <SectionCard>
+                      <CardContent className="p-5">
+                        <h4 className="text-[13px] font-semibold text-zinc-200 mb-3">Suggested Internal Links</h4>
+                        <div className="flex flex-wrap gap-2">
+                          {articleResult.suggestedInternalLinks.map((link: string, i: number) => (
+                            <Badge key={i} variant="outline" className="border-zinc-700/50 text-zinc-400 text-[12px] rounded-lg h-7 px-2.5">{link}</Badge>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </SectionCard>
+                  )}
+                </>
+              )}
+
+              {!articleResult && !isGeneratingArticle && (
+                <EmptyState icon={PenTool} title="Generate full SEO articles" subtitle="Locality guides, market analysis, NRI guides, project showcases, and more" />
+              )}
+            </div>
+          )}
+
+          {/* --- Section 3: Festive Campaigns --- */}
+          <button
+            onClick={() => setContentSection(contentSection === "campaigns" ? null : "campaigns")}
+            className="w-full flex items-center justify-between px-4 py-3 rounded-lg bg-zinc-900/60 border border-zinc-800/50 text-left hover:border-zinc-700 transition-all"
+          >
+            <span className="flex items-center gap-2 text-[13px] font-semibold text-zinc-200">
+              <PartyPopper size={15} className="text-orange-400" /> Festive Campaigns
+            </span>
+            <ChevronDown size={14} className={`text-zinc-500 transition-transform ${contentSection === "campaigns" ? "rotate-180" : ""}`} />
+          </button>
+          {contentSection === "campaigns" && (
+            <div className="space-y-4">
+              <Button
+                onClick={() => onRunFestiveCampaign()}
+                disabled={isGeneratingCampaign}
+                className="w-full bg-orange-600 hover:bg-orange-500 h-10 text-[13px] font-medium rounded-lg"
+              >
+                {isGeneratingCampaign ? (
+                  <><Loader2 size={15} className="animate-spin mr-2" />Generating campaign...</>
+                ) : (
+                  <><PartyPopper size={15} className="mr-2" />Generate Festive Campaign</>
+                )}
+              </Button>
+
+              <div className="flex gap-2 flex-wrap">
+                {["Diwali", "Navratri", "Ugadi", "Akshaya Tritiya", "Independence Day", "Christmas", "New Year", "Holi"].map((f) => (
+                  <button
+                    key={f}
+                    onClick={() => onRunFestiveCampaign(f)}
+                    disabled={isGeneratingCampaign}
+                    className="text-[12px] px-3 py-1.5 rounded-lg border bg-zinc-900/50 border-zinc-800/50 text-zinc-500 hover:text-orange-400 hover:border-orange-500/20 transition-all disabled:opacity-40"
+                  >
+                    {f}
+                  </button>
+                ))}
+              </div>
+
+              {festiveCampaignResult ? (
+                <>
+                  <SectionCard>
+                    <CardContent className="p-5">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Badge className="bg-orange-500/10 text-orange-400 border-0 text-[11px] h-5 rounded-md">{festiveCampaignResult.festival}</Badge>
+                      </div>
+                      <h4 className="text-[15px] font-semibold text-zinc-100">{festiveCampaignResult.campaignTheme}</h4>
+                      <p className="text-[13px] text-orange-400 mt-1 italic">&ldquo;{festiveCampaignResult.tagline}&rdquo;</p>
+                    </CardContent>
+                  </SectionCard>
+
+                  {festiveCampaignResult.whatsappMessages?.length > 0 && (
+                    <SectionCard>
+                      <CardContent className="p-5">
+                        <h4 className="text-[13px] font-semibold text-zinc-200 mb-3">WhatsApp Broadcasts ({festiveCampaignResult.whatsappMessages.length})</h4>
+                        <div className="space-y-2.5">
+                          {festiveCampaignResult.whatsappMessages.map((msg: string, i: number) => (
+                            <div key={i} className="p-3.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30 flex justify-between gap-2">
+                              <div className="text-[13px] text-zinc-300 whitespace-pre-wrap leading-relaxed">{msg}</div>
+                              <CopyBtn text={msg} field={`wa-${i}`} />
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </SectionCard>
+                  )}
+
+                  {festiveCampaignResult.linkedinPosts?.length > 0 && (
+                    <SectionCard>
+                      <CardContent className="p-5">
+                        <h4 className="text-[13px] font-semibold text-zinc-200 mb-3">LinkedIn Posts</h4>
+                        <div className="space-y-2.5">
+                          {festiveCampaignResult.linkedinPosts.map((post: string, i: number) => (
+                            <div key={i} className="p-3.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30 flex justify-between gap-2">
+                              <div className="text-[13px] text-zinc-300 whitespace-pre-wrap leading-relaxed">{post}</div>
+                              <CopyBtn text={post} field={`li-${i}`} />
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </SectionCard>
+                  )}
+
+                  {festiveCampaignResult.adCopy?.length > 0 && (
+                    <SectionCard>
+                      <CardContent className="p-5">
+                        <h4 className="text-[13px] font-semibold text-zinc-200 mb-3">Ad Copy</h4>
+                        <div className="space-y-2.5">
+                          {festiveCampaignResult.adCopy.map((ad: string, i: number) => (
+                            <div key={i} className="p-3.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30 flex justify-between gap-2">
+                              <div className="text-[13px] text-zinc-300 whitespace-pre-wrap leading-relaxed">{ad}</div>
+                              <CopyBtn text={ad} field={`ad-${i}`} />
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </SectionCard>
+                  )}
+
+                  {festiveCampaignResult.emailContent && (
+                    <SectionCard>
+                      <CardContent className="p-5">
+                        <h4 className="text-[13px] font-semibold text-zinc-200 mb-3">Email Template</h4>
+                        <div className="p-3.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30">
+                          <div className="text-[13px] font-medium text-zinc-200 mb-2">Subject: {festiveCampaignResult.emailContent.subject}</div>
+                          <div className="text-[13px] text-zinc-300 whitespace-pre-wrap leading-relaxed">{festiveCampaignResult.emailContent.body}</div>
+                          <div className="mt-2 flex justify-end">
+                            <CopyBtn text={`Subject: ${festiveCampaignResult.emailContent.subject}\n\n${festiveCampaignResult.emailContent.body}`} field="email" />
+                          </div>
+                        </div>
+                      </CardContent>
+                    </SectionCard>
+                  )}
+
+                  {festiveCampaignResult.googleAds?.length > 0 && (
+                    <SectionCard>
+                      <CardContent className="p-5">
+                        <h4 className="text-[13px] font-semibold text-zinc-200 mb-3">Google Ads Copy</h4>
+                        <div className="space-y-2.5">
+                          {festiveCampaignResult.googleAds.map((ad: any, i: number) => (
+                            <div key={i} className="p-3.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30">
+                              <div className="text-[13px] font-medium text-zinc-200">{ad.headline}</div>
+                              <div className="text-[12px] text-zinc-400 mt-1">{ad.description}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </SectionCard>
+                  )}
+
+                  {festiveCampaignResult.landingPage && (
+                    <SectionCard>
+                      <CardContent className="p-5">
+                        <h4 className="text-[13px] font-semibold text-zinc-200 mb-3">Landing Page Copy</h4>
+                        <div className="p-3.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30">
+                          <div className="text-[15px] font-bold text-zinc-100">{festiveCampaignResult.landingPage.headline}</div>
+                          <div className="text-[13px] text-zinc-400 mt-1">{festiveCampaignResult.landingPage.subheading}</div>
+                          {festiveCampaignResult.landingPage.bullets?.length > 0 && (
+                            <ul className="mt-3 space-y-1.5">
+                              {festiveCampaignResult.landingPage.bullets.map((b: string, i: number) => (
+                                <li key={i} className="text-[13px] text-zinc-300 flex items-start gap-2">
+                                  <span className="text-emerald-400 mt-0.5">&#8226;</span> {b}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      </CardContent>
+                    </SectionCard>
+                  )}
+
+                  {festiveCampaignResult.smsText && (
+                    <SectionCard>
+                      <CardContent className="p-5">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-[13px] font-semibold text-zinc-200">SMS Text</h4>
+                          <CopyBtn text={festiveCampaignResult.smsText} field="sms" />
+                        </div>
+                        <div className="mt-2 p-3 rounded-lg bg-zinc-800/40 border border-zinc-700/30 text-[13px] text-zinc-300">{festiveCampaignResult.smsText}</div>
+                      </CardContent>
+                    </SectionCard>
+                  )}
+                </>
+              ) : (
+                <EmptyState icon={PartyPopper} title="Generate festive campaign content" subtitle="Diwali, Navratri, Ugadi, Akshaya Tritiya — multi-channel campaigns" />
+              )}
+            </div>
+          )}
+
+          {/* --- Section 4: Channel Partners --- */}
+          <button
+            onClick={() => setContentSection(contentSection === "partners" ? null : "partners")}
+            className="w-full flex items-center justify-between px-4 py-3 rounded-lg bg-zinc-900/60 border border-zinc-800/50 text-left hover:border-zinc-700 transition-all"
+          >
+            <span className="flex items-center gap-2 text-[13px] font-semibold text-zinc-200">
+              <Users size={15} className="text-blue-400" /> Channel Partners
+            </span>
+            <ChevronDown size={14} className={`text-zinc-500 transition-transform ${contentSection === "partners" ? "rotate-180" : ""}`} />
+          </button>
+          {contentSection === "partners" && (
+            <div className="space-y-4">
+              <Button
+                onClick={onRunChannelPartner}
+                disabled={isGeneratingPartner}
+                className="w-full bg-blue-600 hover:bg-blue-500 h-10 text-[13px] font-medium rounded-lg"
+              >
+                {isGeneratingPartner ? (
+                  <><Loader2 size={15} className="animate-spin mr-2" />Generating broker pack...</>
+                ) : (
+                  <><Users size={15} className="mr-2" />Generate Channel Partner Pack</>
+                )}
+              </Button>
+
+              {channelPartnerResult ? (
+                <>
+                  {channelPartnerResult.whatsappForward && (
+                    <SectionCard>
+                      <CardContent className="p-5">
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="text-[13px] font-semibold text-zinc-200">WhatsApp Forward Message</h4>
+                          <CopyBtn text={channelPartnerResult.whatsappForward} field="cp-wa" />
+                        </div>
+                        <div className="p-3.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30 text-[13px] text-zinc-300 whitespace-pre-wrap leading-relaxed">{channelPartnerResult.whatsappForward}</div>
+                      </CardContent>
+                    </SectionCard>
+                  )}
+
+                  {channelPartnerResult.onePager && (
+                    <SectionCard>
+                      <CardContent className="p-5">
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="text-[13px] font-semibold text-zinc-200">Project One-Pager</h4>
+                          <CopyBtn text={channelPartnerResult.onePager} field="cp-onepager" />
+                        </div>
+                        <div className="p-3.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30 text-[13px] text-zinc-300 whitespace-pre-wrap leading-relaxed">{channelPartnerResult.onePager}</div>
+                      </CardContent>
+                    </SectionCard>
+                  )}
+
+                  {channelPartnerResult.emailTemplate && (
+                    <SectionCard>
+                      <CardContent className="p-5">
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="text-[13px] font-semibold text-zinc-200">Broker Email Template</h4>
+                          <CopyBtn text={`Subject: ${channelPartnerResult.emailTemplate.subject}\n\n${channelPartnerResult.emailTemplate.body}`} field="cp-email" />
+                        </div>
+                        <div className="p-3.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30">
+                          <div className="text-[13px] font-medium text-zinc-200 mb-2">Subject: {channelPartnerResult.emailTemplate.subject}</div>
+                          <div className="text-[13px] text-zinc-300 whitespace-pre-wrap leading-relaxed">{channelPartnerResult.emailTemplate.body}</div>
+                        </div>
+                      </CardContent>
+                    </SectionCard>
+                  )}
+
+                  {channelPartnerResult.pitchScript && (
+                    <SectionCard>
+                      <CardContent className="p-5">
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="text-[13px] font-semibold text-zinc-200">30-Second Pitch Script</h4>
+                          <CopyBtn text={channelPartnerResult.pitchScript} field="cp-pitch" />
+                        </div>
+                        <div className="p-3.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30 text-[13px] text-zinc-300 whitespace-pre-wrap leading-relaxed">{channelPartnerResult.pitchScript}</div>
+                      </CardContent>
+                    </SectionCard>
+                  )}
+
+                  {channelPartnerResult.brokerFAQs?.length > 0 && (
+                    <SectionCard>
+                      <CardContent className="p-5">
+                        <h4 className="text-[13px] font-semibold text-zinc-200 mb-3">Broker FAQ (Objection Handling)</h4>
+                        <div className="space-y-3">
+                          {channelPartnerResult.brokerFAQs.map((faq: any, i: number) => (
+                            <div key={i} className="p-3.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30">
+                              <div className="text-[13px] font-medium text-zinc-200 mb-1">Q: {faq.question}</div>
+                              <div className="text-[12px] text-zinc-400 leading-relaxed">A: {faq.answer}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </SectionCard>
+                  )}
+
+                  {channelPartnerResult.comparisonPoints?.length > 0 && (
+                    <SectionCard>
+                      <CardContent className="p-5">
+                        <h4 className="text-[13px] font-semibold text-zinc-200 mb-3">Comparison Talking Points</h4>
+                        <div className="space-y-1.5">
+                          {channelPartnerResult.comparisonPoints.map((point: string, i: number) => (
+                            <div key={i} className="text-[13px] text-zinc-300 flex items-start gap-2">
+                              <span className="text-emerald-400 mt-0.5 flex-shrink-0">&#8226;</span> {point}
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </SectionCard>
+                  )}
+                </>
+              ) : (
+                <EmptyState icon={Users} title="Generate channel partner content packs" subtitle="WhatsApp forwards, one-pagers, email templates, pitch scripts for brokers" />
+              )}
+            </div>
+          )}
+
+          {/* --- Section 5: Landing Pages --- */}
+          <button
+            onClick={() => setContentSection(contentSection === "landing" ? null : "landing")}
+            className="w-full flex items-center justify-between px-4 py-3 rounded-lg bg-zinc-900/60 border border-zinc-800/50 text-left hover:border-zinc-700 transition-all"
+          >
+            <span className="flex items-center gap-2 text-[13px] font-semibold text-zinc-200">
+              <Layout size={15} className="text-violet-400" /> Landing Pages
+            </span>
+            <ChevronDown size={14} className={`text-zinc-500 transition-transform ${contentSection === "landing" ? "rotate-180" : ""}`} />
+          </button>
+          {contentSection === "landing" && (
+            <div className="space-y-4">
+              <div className="flex gap-2 flex-wrap">
+                {[
+                  { value: "site_visit", label: "Site Visit Page", icon: Layout },
+                  { value: "price_enquiry", label: "Price Enquiry", icon: Building },
+                  { value: "nri", label: "NRI Landing Page", icon: Globe },
+                  { value: "festive_offer", label: "Festive Offer", icon: PartyPopper },
+                  { value: "pre_launch", label: "Pre-Launch", icon: Megaphone },
+                ].map(({ value, label, icon: Ic }) => (
+                  <Button
+                    key={value}
+                    onClick={() => onRunLandingPage(value)}
+                    disabled={isGeneratingLanding}
+                    variant="outline"
+                    className="border-zinc-700 text-[13px] h-10 rounded-lg hover:border-emerald-500/30 hover:text-emerald-400"
+                  >
+                    {isGeneratingLanding ? <Loader2 size={14} className="animate-spin mr-2" /> : <Ic size={14} className="mr-2" />}
+                    {label}
+                  </Button>
+                ))}
+              </div>
+
+              {landingPageResult ? (
+                <SectionCard>
+                  <CardContent className="p-5">
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <Badge className="bg-emerald-500/10 text-emerald-400 border-0 text-[10px] h-5 rounded-md mb-2">{landingPageResult.pageType}</Badge>
+                        <h4 className="text-[15px] font-semibold text-zinc-100">{landingPageResult.title}</h4>
+                        <p className="text-[12px] text-zinc-500 mt-1">{landingPageResult.metaDescription}</p>
+                      </div>
+                      <CopyBtn text={landingPageResult.html} field="landing-html" />
+                    </div>
+                    <div className="rounded-lg bg-zinc-800/40 border border-zinc-700/30 p-4 max-h-[500px] overflow-y-auto">
+                      <pre className="text-[11px] text-zinc-400 whitespace-pre-wrap font-mono">{landingPageResult.html?.substring(0, 3000)}...</pre>
+                    </div>
+                    <p className="text-[11px] text-zinc-600 mt-2">Copy the full HTML and host it on your domain or use with a landing page builder.</p>
+                  </CardContent>
+                </SectionCard>
+              ) : (
+                <EmptyState icon={Layout} title="Generate ready-to-deploy landing pages" subtitle="Site visit, price enquiry, NRI, festive offer, pre-launch pages" />
+              )}
+            </div>
+          )}
+
+          {/* --- Section 6: Construction Updates --- */}
+          <button
+            onClick={() => setContentSection(contentSection === "progress" ? null : "progress")}
+            className="w-full flex items-center justify-between px-4 py-3 rounded-lg bg-zinc-900/60 border border-zinc-800/50 text-left hover:border-zinc-700 transition-all"
+          >
+            <span className="flex items-center gap-2 text-[13px] font-semibold text-zinc-200">
+              <HardHat size={15} className="text-yellow-400" /> Construction Updates
+            </span>
+            <ChevronDown size={14} className={`text-zinc-500 transition-transform ${contentSection === "progress" ? "rotate-180" : ""}`} />
+          </button>
+          {contentSection === "progress" && (
+            <div className="space-y-4">
+              <div className="flex gap-2 flex-wrap">
+                {[
+                  { value: "excavation", label: "Excavation" },
+                  { value: "foundation", label: "Foundation" },
+                  { value: "structure", label: "Structure" },
+                  { value: "finishing", label: "Finishing" },
+                  { value: "landscaping", label: "Landscaping" },
+                  { value: "handover", label: "Handover" },
+                ].map((phase) => (
+                  <Button
+                    key={phase.value}
+                    onClick={() => onRunProgressUpdate(phase.value)}
+                    disabled={isGeneratingProgress}
+                    variant="outline"
+                    className="border-zinc-700 text-[13px] h-10 rounded-lg hover:border-emerald-500/30 hover:text-emerald-400"
+                  >
+                    {isGeneratingProgress ? <Loader2 size={14} className="animate-spin mr-2" /> : <HardHat size={14} className="mr-2" />}
+                    {phase.label}
+                  </Button>
+                ))}
+              </div>
+
+              {progressResult ? (
+                <>
+                  {[
+                    { key: "linkedinPost", label: "LinkedIn Post" },
+                    { key: "buyerWhatsApp", label: "WhatsApp (Existing Buyers)" },
+                    { key: "prospectWhatsApp", label: "WhatsApp (Prospects)" },
+                    { key: "emailSection", label: "Email Newsletter Section" },
+                    { key: "blogPost", label: "Website Blog Post" },
+                    { key: "socialCaption", label: "Instagram / Facebook Caption" },
+                    { key: "videoScript", label: "YouTube Video Script (60s)" },
+                    { key: "smsText", label: "SMS" },
+                  ].map(({ key, label }) => progressResult[key] && (
+                    <SectionCard key={key}>
+                      <CardContent className="p-5">
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="text-[13px] font-semibold text-zinc-200">{label}</h4>
+                          <CopyBtn text={progressResult[key]} field={`progress-${key}`} />
+                        </div>
+                        <div className="p-3.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30 text-[13px] text-zinc-300 whitespace-pre-wrap leading-relaxed">{progressResult[key]}</div>
+                      </CardContent>
+                    </SectionCard>
+                  ))}
+                </>
+              ) : (
+                <EmptyState icon={HardHat} title="Generate construction progress updates" subtitle="LinkedIn, WhatsApp (buyers + prospects), email, blog, social, video script, SMS" />
+              )}
+            </div>
+          )}
+
+          {/* --- Section 7: Property Schema --- */}
+          <button
+            onClick={() => setContentSection(contentSection === "schema" ? null : "schema")}
+            className="w-full flex items-center justify-between px-4 py-3 rounded-lg bg-zinc-900/60 border border-zinc-800/50 text-left hover:border-zinc-700 transition-all"
+          >
+            <span className="flex items-center gap-2 text-[13px] font-semibold text-zinc-200">
+              <Code size={15} className="text-violet-400" /> Property Schema
+            </span>
+            <ChevronDown size={14} className={`text-zinc-500 transition-transform ${contentSection === "schema" ? "rotate-180" : ""}`} />
+          </button>
+          {contentSection === "schema" && (
+            <div className="space-y-4">
+              <Button
+                onClick={onRunSchemaGenerator}
+                disabled={isGeneratingSchema}
+                className="w-full bg-violet-600 hover:bg-violet-500 h-10 text-[13px] font-medium rounded-lg"
+              >
+                {isGeneratingSchema ? (
+                  <><Loader2 size={15} className="animate-spin mr-2" />Generating schemas...</>
+                ) : (
+                  <><Code size={15} className="mr-2" />Generate Property Schema (JSON-LD)</>
+                )}
+              </Button>
+
+              {schemaResult ? (
+                <>
+                  <SectionCard>
+                    <CardContent className="p-5">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="text-[13px] font-semibold text-zinc-200">Ready-to-Paste HTML Snippet</h4>
+                        <CopyBtn text={schemaResult.htmlSnippet} field="schema-html" />
+                      </div>
+                      <p className="text-[12px] text-zinc-500 mb-3">Copy this into your website&apos;s &lt;head&gt; tag for rich search results and AI visibility.</p>
+                      <div className="rounded-lg bg-zinc-800/40 border border-zinc-700/30 p-4 max-h-[400px] overflow-y-auto">
+                        <pre className="text-[11px] text-emerald-400 whitespace-pre-wrap font-mono">{schemaResult.htmlSnippet}</pre>
+                      </div>
+                    </CardContent>
+                  </SectionCard>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    {Object.entries(schemaResult.schemas || {}).map(([key, schema]) => (
+                      <SectionCard key={key}>
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <Badge className="bg-violet-500/10 text-violet-400 border-0 text-[10px] h-5 rounded-md">{key}</Badge>
+                            <CopyBtn text={JSON.stringify(schema, null, 2)} field={`schema-${key}`} />
+                          </div>
+                          <div className="rounded-lg bg-zinc-800/40 border border-zinc-700/30 p-3 max-h-[200px] overflow-y-auto">
+                            <pre className="text-[10px] text-zinc-400 whitespace-pre-wrap font-mono">{JSON.stringify(schema, null, 2).substring(0, 500)}...</pre>
+                          </div>
+                        </CardContent>
+                      </SectionCard>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <EmptyState icon={Code} title="Generate structured data for your property" subtitle="RealEstateListing, Organization, FAQ, BreadcrumbList, LocalBusiness schemas" />
+              )}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* ================================================================ */}
+        {/* -------- LOCALITY TAB (Locality + Neighborhood) -------- */}
+        {/* ================================================================ */}
         <TabsContent value="locality" className="space-y-4">
           <Button onClick={onRunLocalitySearch} disabled={!city} className="w-full bg-violet-600 hover:bg-violet-500 h-10 text-[13px] font-medium rounded-lg">
             <MapPin size={15} className="mr-2" />
@@ -1010,542 +1615,10 @@ export function AnalyticsPanel({
           ) : (
             <EmptyState icon={MapPin} title="Discover localities, buyer profiles, and keywords" subtitle="Set your city first, then click the button above" />
           )}
-        </TabsContent>
 
-        {/* -------- ARTICLES TAB -------- */}
-        <TabsContent value="articles" className="space-y-4">
-          <SectionCard>
-            <CardContent className="p-5 space-y-4">
-              <h4 className="text-[13px] font-semibold text-zinc-200 flex items-center gap-2">
-                <PenTool size={15} className="text-emerald-400" />
-                Full Article Writer
-              </h4>
-              <div className="grid grid-cols-2 gap-3">
-                <Input
-                  placeholder="Article topic or title..."
-                  value={articleTopic}
-                  onChange={(e) => setArticleTopic(e.target.value)}
-                  className="bg-zinc-900/80 border-zinc-800 text-[13px] h-10 placeholder:text-zinc-600"
-                />
-                <Input
-                  placeholder="Target keyword..."
-                  value={articleKeyword}
-                  onChange={(e) => setArticleKeyword(e.target.value)}
-                  className="bg-zinc-900/80 border-zinc-800 text-[13px] h-10 placeholder:text-zinc-600"
-                />
-              </div>
-              <div className="flex gap-2 flex-wrap">
-                {[
-                  { value: "locality_guide", label: "Locality Guide" },
-                  { value: "project_showcase", label: "Project Showcase" },
-                  { value: "market_analysis", label: "Market Analysis" },
-                  { value: "buyer_guide", label: "Buyer Guide" },
-                  { value: "comparison", label: "Comparison" },
-                  { value: "investment", label: "Investment" },
-                  { value: "nri_guide", label: "NRI Guide" },
-                ].map((t) => (
-                  <button
-                    key={t.value}
-                    onClick={() => setArticleType(t.value)}
-                    className={`text-[12px] px-3 py-1.5 rounded-lg border transition-all ${
-                      articleType === t.value
-                        ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
-                        : "bg-zinc-900/50 border-zinc-800/50 text-zinc-500 hover:text-zinc-300"
-                    }`}
-                  >
-                    {t.label}
-                  </button>
-                ))}
-              </div>
-              <Button
-                onClick={() => onRunArticleWriter(articleTopic, articleKeyword, articleType)}
-                disabled={isGeneratingArticle || !articleTopic || !articleKeyword}
-                className="w-full bg-emerald-600 hover:bg-emerald-500 h-10 text-[13px] font-medium rounded-lg"
-              >
-                {isGeneratingArticle ? (
-                  <><Loader2 size={15} className="animate-spin mr-2" />Writing article...</>
-                ) : (
-                  <><PenTool size={15} className="mr-2" />Generate Full Article</>
-                )}
-              </Button>
-            </CardContent>
-          </SectionCard>
+          {/* --- Divider: Neighborhood section --- */}
+          <div className="border-t border-zinc-800/40 pt-4 mt-4" />
 
-          {articleResult && (
-            <>
-              <SectionCard>
-                <CardContent className="p-5">
-                  <div className="flex items-start justify-between mb-3">
-                    <div>
-                      <h4 className="text-[15px] font-semibold text-zinc-100">{articleResult.title}</h4>
-                      <p className="text-[12px] text-zinc-500 mt-1">{articleResult.metaDescription}</p>
-                    </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <Badge className="bg-emerald-500/10 text-emerald-400 border-0 text-[10px] h-5 rounded-md">{articleResult.wordCount} words</Badge>
-                      <CopyBtn text={articleResult.content} field="article" />
-                    </div>
-                  </div>
-                  <div className="rounded-lg bg-zinc-800/40 border border-zinc-700/30 p-5 max-h-[500px] overflow-y-auto">
-                    <div className="text-[13px] text-zinc-300 leading-relaxed whitespace-pre-wrap">{articleResult.content}</div>
-                  </div>
-                </CardContent>
-              </SectionCard>
-
-              {articleResult.faqs?.length > 0 && (
-                <SectionCard>
-                  <CardContent className="p-5">
-                    <h4 className="text-[13px] font-semibold text-zinc-200 mb-3">FAQs (AI/GEO Optimized)</h4>
-                    <div className="space-y-3">
-                      {articleResult.faqs.map((faq: any, i: number) => (
-                        <div key={i} className="p-3.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30">
-                          <div className="text-[13px] font-medium text-zinc-200 mb-1">{faq.question}</div>
-                          <div className="text-[12px] text-zinc-400 leading-relaxed">{faq.answer}</div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </SectionCard>
-              )}
-
-              {articleResult.suggestedInternalLinks?.length > 0 && (
-                <SectionCard>
-                  <CardContent className="p-5">
-                    <h4 className="text-[13px] font-semibold text-zinc-200 mb-3">Suggested Internal Links</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {articleResult.suggestedInternalLinks.map((link: string, i: number) => (
-                        <Badge key={i} variant="outline" className="border-zinc-700/50 text-zinc-400 text-[12px] rounded-lg h-7 px-2.5">{link}</Badge>
-                      ))}
-                    </div>
-                  </CardContent>
-                </SectionCard>
-              )}
-            </>
-          )}
-
-          {!articleResult && !isGeneratingArticle && (
-            <EmptyState icon={PenTool} title="Generate full SEO articles" subtitle="Locality guides, market analysis, NRI guides, project showcases, and more" />
-          )}
-        </TabsContent>
-
-        {/* -------- CAMPAIGNS TAB -------- */}
-        <TabsContent value="campaigns" className="space-y-4">
-          <Button
-            onClick={() => onRunFestiveCampaign()}
-            disabled={isGeneratingCampaign}
-            className="w-full bg-orange-600 hover:bg-orange-500 h-10 text-[13px] font-medium rounded-lg"
-          >
-            {isGeneratingCampaign ? (
-              <><Loader2 size={15} className="animate-spin mr-2" />Generating campaign...</>
-            ) : (
-              <><PartyPopper size={15} className="mr-2" />Generate Festive Campaign</>
-            )}
-          </Button>
-
-          <div className="flex gap-2 flex-wrap">
-            {["Diwali", "Navratri", "Ugadi", "Akshaya Tritiya", "Independence Day", "Christmas", "New Year", "Holi"].map((f) => (
-              <button
-                key={f}
-                onClick={() => onRunFestiveCampaign(f)}
-                disabled={isGeneratingCampaign}
-                className="text-[12px] px-3 py-1.5 rounded-lg border bg-zinc-900/50 border-zinc-800/50 text-zinc-500 hover:text-orange-400 hover:border-orange-500/20 transition-all disabled:opacity-40"
-              >
-                {f}
-              </button>
-            ))}
-          </div>
-
-          {festiveCampaignResult ? (
-            <>
-              <SectionCard>
-                <CardContent className="p-5">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Badge className="bg-orange-500/10 text-orange-400 border-0 text-[11px] h-5 rounded-md">{festiveCampaignResult.festival}</Badge>
-                  </div>
-                  <h4 className="text-[15px] font-semibold text-zinc-100">{festiveCampaignResult.campaignTheme}</h4>
-                  <p className="text-[13px] text-orange-400 mt-1 italic">&ldquo;{festiveCampaignResult.tagline}&rdquo;</p>
-                </CardContent>
-              </SectionCard>
-
-              {festiveCampaignResult.whatsappMessages?.length > 0 && (
-                <SectionCard>
-                  <CardContent className="p-5">
-                    <h4 className="text-[13px] font-semibold text-zinc-200 mb-3">WhatsApp Broadcasts ({festiveCampaignResult.whatsappMessages.length})</h4>
-                    <div className="space-y-2.5">
-                      {festiveCampaignResult.whatsappMessages.map((msg: string, i: number) => (
-                        <div key={i} className="p-3.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30 flex justify-between gap-2">
-                          <div className="text-[13px] text-zinc-300 whitespace-pre-wrap leading-relaxed">{msg}</div>
-                          <CopyBtn text={msg} field={`wa-${i}`} />
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </SectionCard>
-              )}
-
-              {festiveCampaignResult.linkedinPosts?.length > 0 && (
-                <SectionCard>
-                  <CardContent className="p-5">
-                    <h4 className="text-[13px] font-semibold text-zinc-200 mb-3">LinkedIn Posts</h4>
-                    <div className="space-y-2.5">
-                      {festiveCampaignResult.linkedinPosts.map((post: string, i: number) => (
-                        <div key={i} className="p-3.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30 flex justify-between gap-2">
-                          <div className="text-[13px] text-zinc-300 whitespace-pre-wrap leading-relaxed">{post}</div>
-                          <CopyBtn text={post} field={`li-${i}`} />
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </SectionCard>
-              )}
-
-              {festiveCampaignResult.adCopy?.length > 0 && (
-                <SectionCard>
-                  <CardContent className="p-5">
-                    <h4 className="text-[13px] font-semibold text-zinc-200 mb-3">Ad Copy</h4>
-                    <div className="space-y-2.5">
-                      {festiveCampaignResult.adCopy.map((ad: string, i: number) => (
-                        <div key={i} className="p-3.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30 flex justify-between gap-2">
-                          <div className="text-[13px] text-zinc-300 whitespace-pre-wrap leading-relaxed">{ad}</div>
-                          <CopyBtn text={ad} field={`ad-${i}`} />
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </SectionCard>
-              )}
-
-              {festiveCampaignResult.emailContent && (
-                <SectionCard>
-                  <CardContent className="p-5">
-                    <h4 className="text-[13px] font-semibold text-zinc-200 mb-3">Email Template</h4>
-                    <div className="p-3.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30">
-                      <div className="text-[13px] font-medium text-zinc-200 mb-2">Subject: {festiveCampaignResult.emailContent.subject}</div>
-                      <div className="text-[13px] text-zinc-300 whitespace-pre-wrap leading-relaxed">{festiveCampaignResult.emailContent.body}</div>
-                      <div className="mt-2 flex justify-end">
-                        <CopyBtn text={`Subject: ${festiveCampaignResult.emailContent.subject}\n\n${festiveCampaignResult.emailContent.body}`} field="email" />
-                      </div>
-                    </div>
-                  </CardContent>
-                </SectionCard>
-              )}
-
-              {festiveCampaignResult.googleAds?.length > 0 && (
-                <SectionCard>
-                  <CardContent className="p-5">
-                    <h4 className="text-[13px] font-semibold text-zinc-200 mb-3">Google Ads Copy</h4>
-                    <div className="space-y-2.5">
-                      {festiveCampaignResult.googleAds.map((ad: any, i: number) => (
-                        <div key={i} className="p-3.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30">
-                          <div className="text-[13px] font-medium text-zinc-200">{ad.headline}</div>
-                          <div className="text-[12px] text-zinc-400 mt-1">{ad.description}</div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </SectionCard>
-              )}
-
-              {festiveCampaignResult.landingPage && (
-                <SectionCard>
-                  <CardContent className="p-5">
-                    <h4 className="text-[13px] font-semibold text-zinc-200 mb-3">Landing Page Copy</h4>
-                    <div className="p-3.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30">
-                      <div className="text-[15px] font-bold text-zinc-100">{festiveCampaignResult.landingPage.headline}</div>
-                      <div className="text-[13px] text-zinc-400 mt-1">{festiveCampaignResult.landingPage.subheading}</div>
-                      {festiveCampaignResult.landingPage.bullets?.length > 0 && (
-                        <ul className="mt-3 space-y-1.5">
-                          {festiveCampaignResult.landingPage.bullets.map((b: string, i: number) => (
-                            <li key={i} className="text-[13px] text-zinc-300 flex items-start gap-2">
-                              <span className="text-emerald-400 mt-0.5">&#8226;</span> {b}
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  </CardContent>
-                </SectionCard>
-              )}
-
-              {festiveCampaignResult.smsText && (
-                <SectionCard>
-                  <CardContent className="p-5">
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-[13px] font-semibold text-zinc-200">SMS Text</h4>
-                      <CopyBtn text={festiveCampaignResult.smsText} field="sms" />
-                    </div>
-                    <div className="mt-2 p-3 rounded-lg bg-zinc-800/40 border border-zinc-700/30 text-[13px] text-zinc-300">{festiveCampaignResult.smsText}</div>
-                  </CardContent>
-                </SectionCard>
-              )}
-            </>
-          ) : (
-            <EmptyState icon={PartyPopper} title="Generate festive campaign content" subtitle="Diwali, Navratri, Ugadi, Akshaya Tritiya — multi-channel campaigns" />
-          )}
-        </TabsContent>
-
-        {/* -------- PARTNERS TAB -------- */}
-        <TabsContent value="partners" className="space-y-4">
-          <Button
-            onClick={onRunChannelPartner}
-            disabled={isGeneratingPartner}
-            className="w-full bg-blue-600 hover:bg-blue-500 h-10 text-[13px] font-medium rounded-lg"
-          >
-            {isGeneratingPartner ? (
-              <><Loader2 size={15} className="animate-spin mr-2" />Generating broker pack...</>
-            ) : (
-              <><Users size={15} className="mr-2" />Generate Channel Partner Pack</>
-            )}
-          </Button>
-
-          {channelPartnerResult ? (
-            <>
-              {channelPartnerResult.whatsappForward && (
-                <SectionCard>
-                  <CardContent className="p-5">
-                    <div className="flex items-center justify-between mb-3">
-                      <h4 className="text-[13px] font-semibold text-zinc-200">WhatsApp Forward Message</h4>
-                      <CopyBtn text={channelPartnerResult.whatsappForward} field="cp-wa" />
-                    </div>
-                    <div className="p-3.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30 text-[13px] text-zinc-300 whitespace-pre-wrap leading-relaxed">{channelPartnerResult.whatsappForward}</div>
-                  </CardContent>
-                </SectionCard>
-              )}
-
-              {channelPartnerResult.onePager && (
-                <SectionCard>
-                  <CardContent className="p-5">
-                    <div className="flex items-center justify-between mb-3">
-                      <h4 className="text-[13px] font-semibold text-zinc-200">Project One-Pager</h4>
-                      <CopyBtn text={channelPartnerResult.onePager} field="cp-onepager" />
-                    </div>
-                    <div className="p-3.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30 text-[13px] text-zinc-300 whitespace-pre-wrap leading-relaxed">{channelPartnerResult.onePager}</div>
-                  </CardContent>
-                </SectionCard>
-              )}
-
-              {channelPartnerResult.emailTemplate && (
-                <SectionCard>
-                  <CardContent className="p-5">
-                    <div className="flex items-center justify-between mb-3">
-                      <h4 className="text-[13px] font-semibold text-zinc-200">Broker Email Template</h4>
-                      <CopyBtn text={`Subject: ${channelPartnerResult.emailTemplate.subject}\n\n${channelPartnerResult.emailTemplate.body}`} field="cp-email" />
-                    </div>
-                    <div className="p-3.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30">
-                      <div className="text-[13px] font-medium text-zinc-200 mb-2">Subject: {channelPartnerResult.emailTemplate.subject}</div>
-                      <div className="text-[13px] text-zinc-300 whitespace-pre-wrap leading-relaxed">{channelPartnerResult.emailTemplate.body}</div>
-                    </div>
-                  </CardContent>
-                </SectionCard>
-              )}
-
-              {channelPartnerResult.pitchScript && (
-                <SectionCard>
-                  <CardContent className="p-5">
-                    <div className="flex items-center justify-between mb-3">
-                      <h4 className="text-[13px] font-semibold text-zinc-200">30-Second Pitch Script</h4>
-                      <CopyBtn text={channelPartnerResult.pitchScript} field="cp-pitch" />
-                    </div>
-                    <div className="p-3.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30 text-[13px] text-zinc-300 whitespace-pre-wrap leading-relaxed">{channelPartnerResult.pitchScript}</div>
-                  </CardContent>
-                </SectionCard>
-              )}
-
-              {channelPartnerResult.brokerFAQs?.length > 0 && (
-                <SectionCard>
-                  <CardContent className="p-5">
-                    <h4 className="text-[13px] font-semibold text-zinc-200 mb-3">Broker FAQ (Objection Handling)</h4>
-                    <div className="space-y-3">
-                      {channelPartnerResult.brokerFAQs.map((faq: any, i: number) => (
-                        <div key={i} className="p-3.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30">
-                          <div className="text-[13px] font-medium text-zinc-200 mb-1">Q: {faq.question}</div>
-                          <div className="text-[12px] text-zinc-400 leading-relaxed">A: {faq.answer}</div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </SectionCard>
-              )}
-
-              {channelPartnerResult.comparisonPoints?.length > 0 && (
-                <SectionCard>
-                  <CardContent className="p-5">
-                    <h4 className="text-[13px] font-semibold text-zinc-200 mb-3">Comparison Talking Points</h4>
-                    <div className="space-y-1.5">
-                      {channelPartnerResult.comparisonPoints.map((point: string, i: number) => (
-                        <div key={i} className="text-[13px] text-zinc-300 flex items-start gap-2">
-                          <span className="text-emerald-400 mt-0.5 flex-shrink-0">&#8226;</span> {point}
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </SectionCard>
-              )}
-            </>
-          ) : (
-            <EmptyState icon={Users} title="Generate channel partner content packs" subtitle="WhatsApp forwards, one-pagers, email templates, pitch scripts for brokers" />
-          )}
-        </TabsContent>
-
-        {/* -------- SCHEMA TAB -------- */}
-        <TabsContent value="schema" className="space-y-4">
-          <Button
-            onClick={onRunSchemaGenerator}
-            disabled={isGeneratingSchema}
-            className="w-full bg-violet-600 hover:bg-violet-500 h-10 text-[13px] font-medium rounded-lg"
-          >
-            {isGeneratingSchema ? (
-              <><Loader2 size={15} className="animate-spin mr-2" />Generating schemas...</>
-            ) : (
-              <><Code size={15} className="mr-2" />Generate Property Schema (JSON-LD)</>
-            )}
-          </Button>
-
-          {schemaResult ? (
-            <>
-              <SectionCard>
-                <CardContent className="p-5">
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="text-[13px] font-semibold text-zinc-200">Ready-to-Paste HTML Snippet</h4>
-                    <CopyBtn text={schemaResult.htmlSnippet} field="schema-html" />
-                  </div>
-                  <p className="text-[12px] text-zinc-500 mb-3">Copy this into your website&apos;s &lt;head&gt; tag for rich search results and AI visibility.</p>
-                  <div className="rounded-lg bg-zinc-800/40 border border-zinc-700/30 p-4 max-h-[400px] overflow-y-auto">
-                    <pre className="text-[11px] text-emerald-400 whitespace-pre-wrap font-mono">{schemaResult.htmlSnippet}</pre>
-                  </div>
-                </CardContent>
-              </SectionCard>
-
-              <div className="grid grid-cols-2 gap-3">
-                {Object.entries(schemaResult.schemas || {}).map(([key, schema]) => (
-                  <SectionCard key={key}>
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <Badge className="bg-violet-500/10 text-violet-400 border-0 text-[10px] h-5 rounded-md">{key}</Badge>
-                        <CopyBtn text={JSON.stringify(schema, null, 2)} field={`schema-${key}`} />
-                      </div>
-                      <div className="rounded-lg bg-zinc-800/40 border border-zinc-700/30 p-3 max-h-[200px] overflow-y-auto">
-                        <pre className="text-[10px] text-zinc-400 whitespace-pre-wrap font-mono">{JSON.stringify(schema, null, 2).substring(0, 500)}...</pre>
-                      </div>
-                    </CardContent>
-                  </SectionCard>
-                ))}
-              </div>
-            </>
-          ) : (
-            <EmptyState icon={Code} title="Generate structured data for your property" subtitle="RealEstateListing, Organization, FAQ, BreadcrumbList, LocalBusiness schemas" />
-          )}
-        </TabsContent>
-
-        {/* -------- LANDING PAGES TAB -------- */}
-        <TabsContent value="landing" className="space-y-4">
-          <div className="flex gap-2 flex-wrap">
-            {[
-              { value: "site_visit", label: "Site Visit Page", icon: Layout },
-              { value: "price_enquiry", label: "Price Enquiry", icon: Building },
-              { value: "nri", label: "NRI Landing Page", icon: Globe },
-              { value: "festive_offer", label: "Festive Offer", icon: PartyPopper },
-              { value: "pre_launch", label: "Pre-Launch", icon: Megaphone },
-            ].map(({ value, label, icon: Ic }) => (
-              <Button
-                key={value}
-                onClick={() => onRunLandingPage(value)}
-                disabled={isGeneratingLanding}
-                variant="outline"
-                className="border-zinc-700 text-[13px] h-10 rounded-lg hover:border-emerald-500/30 hover:text-emerald-400"
-              >
-                {isGeneratingLanding ? <Loader2 size={14} className="animate-spin mr-2" /> : <Ic size={14} className="mr-2" />}
-                {label}
-              </Button>
-            ))}
-          </div>
-
-          {landingPageResult ? (
-            <>
-              <SectionCard>
-                <CardContent className="p-5">
-                  <div className="flex items-start justify-between mb-3">
-                    <div>
-                      <Badge className="bg-emerald-500/10 text-emerald-400 border-0 text-[10px] h-5 rounded-md mb-2">{landingPageResult.pageType}</Badge>
-                      <h4 className="text-[15px] font-semibold text-zinc-100">{landingPageResult.title}</h4>
-                      <p className="text-[12px] text-zinc-500 mt-1">{landingPageResult.metaDescription}</p>
-                    </div>
-                    <CopyBtn text={landingPageResult.html} field="landing-html" />
-                  </div>
-                  <div className="rounded-lg bg-zinc-800/40 border border-zinc-700/30 p-4 max-h-[500px] overflow-y-auto">
-                    <pre className="text-[11px] text-zinc-400 whitespace-pre-wrap font-mono">{landingPageResult.html?.substring(0, 3000)}...</pre>
-                  </div>
-                  <p className="text-[11px] text-zinc-600 mt-2">Copy the full HTML and host it on your domain or use with a landing page builder.</p>
-                </CardContent>
-              </SectionCard>
-            </>
-          ) : (
-            <EmptyState icon={Layout} title="Generate ready-to-deploy landing pages" subtitle="Site visit, price enquiry, NRI, festive offer, pre-launch pages" />
-          )}
-        </TabsContent>
-
-        {/* -------- PORTALS TAB -------- */}
-        <TabsContent value="portals" className="space-y-4">
-          <Button
-            onClick={onRunPortalOptimizer}
-            disabled={isGeneratingPortal}
-            className="w-full bg-blue-600 hover:bg-blue-500 h-10 text-[13px] font-medium rounded-lg"
-          >
-            {isGeneratingPortal ? (
-              <><Loader2 size={15} className="animate-spin mr-2" />Optimizing listings...</>
-            ) : (
-              <><Building size={15} className="mr-2" />Optimize Portal Listings</>
-            )}
-          </Button>
-
-          {portalResult ? (
-            <>
-              {Object.entries(portalResult.portals || {}).map(([key, portal]: [string, any]) => (
-                <SectionCard key={key}>
-                  <CardContent className="p-5">
-                    <div className="flex items-center justify-between mb-3">
-                      <h4 className="text-[13px] font-semibold text-zinc-200 capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}</h4>
-                      <CopyBtn text={`${portal.title}\n\n${portal.description}`} field={`portal-${key}`} />
-                    </div>
-                    <div className="space-y-3">
-                      <div className="p-3 rounded-lg bg-zinc-800/40 border border-zinc-700/30">
-                        <div className="text-[11px] text-zinc-500 mb-1">Title</div>
-                        <div className="text-[13px] text-zinc-200 font-medium">{portal.title}</div>
-                      </div>
-                      <div className="p-3 rounded-lg bg-zinc-800/40 border border-zinc-700/30">
-                        <div className="text-[11px] text-zinc-500 mb-1">Description</div>
-                        <div className="text-[13px] text-zinc-300 leading-relaxed whitespace-pre-wrap">{portal.description}</div>
-                      </div>
-                      {portal.tags?.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5">
-                          {portal.tags.map((tag: string, i: number) => (
-                            <Badge key={i} variant="outline" className="border-zinc-700/50 text-zinc-400 text-[11px] rounded-md">{tag}</Badge>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </SectionCard>
-              ))}
-
-              {portalResult.googleBusinessProfile && (
-                <SectionCard>
-                  <CardContent className="p-5">
-                    <div className="flex items-center justify-between mb-3">
-                      <h4 className="text-[13px] font-semibold text-zinc-200">Google Business Profile</h4>
-                      <CopyBtn text={portalResult.googleBusinessProfile.description} field="gbp" />
-                    </div>
-                    <div className="p-3 rounded-lg bg-zinc-800/40 border border-zinc-700/30 text-[13px] text-zinc-300 leading-relaxed">{portalResult.googleBusinessProfile.description}</div>
-                  </CardContent>
-                </SectionCard>
-              )}
-            </>
-          ) : (
-            <EmptyState icon={Building} title="Optimize your property portal listings" subtitle="99acres, MagicBricks, Housing.com, Google Business Profile" />
-          )}
-        </TabsContent>
-
-        {/* -------- NEIGHBORHOOD TAB -------- */}
-        <TabsContent value="neighborhood" className="space-y-4">
           <Button
             onClick={onRunNeighborhood}
             disabled={isGeneratingNeighborhood}
@@ -1667,60 +1740,11 @@ export function AnalyticsPanel({
           )}
         </TabsContent>
 
-        {/* -------- PROGRESS UPDATE TAB -------- */}
-        <TabsContent value="progress" className="space-y-4">
-          <div className="flex gap-2 flex-wrap">
-            {[
-              { value: "excavation", label: "Excavation" },
-              { value: "foundation", label: "Foundation" },
-              { value: "structure", label: "Structure" },
-              { value: "finishing", label: "Finishing" },
-              { value: "landscaping", label: "Landscaping" },
-              { value: "handover", label: "Handover" },
-            ].map((phase) => (
-              <Button
-                key={phase.value}
-                onClick={() => onRunProgressUpdate(phase.value)}
-                disabled={isGeneratingProgress}
-                variant="outline"
-                className="border-zinc-700 text-[13px] h-10 rounded-lg hover:border-emerald-500/30 hover:text-emerald-400"
-              >
-                {isGeneratingProgress ? <Loader2 size={14} className="animate-spin mr-2" /> : <HardHat size={14} className="mr-2" />}
-                {phase.label}
-              </Button>
-            ))}
-          </div>
-
-          {progressResult ? (
-            <>
-              {[
-                { key: "linkedinPost", label: "LinkedIn Post" },
-                { key: "buyerWhatsApp", label: "WhatsApp (Existing Buyers)" },
-                { key: "prospectWhatsApp", label: "WhatsApp (Prospects)" },
-                { key: "emailSection", label: "Email Newsletter Section" },
-                { key: "blogPost", label: "Website Blog Post" },
-                { key: "socialCaption", label: "Instagram / Facebook Caption" },
-                { key: "videoScript", label: "YouTube Video Script (60s)" },
-                { key: "smsText", label: "SMS" },
-              ].map(({ key, label }) => progressResult[key] && (
-                <SectionCard key={key}>
-                  <CardContent className="p-5">
-                    <div className="flex items-center justify-between mb-3">
-                      <h4 className="text-[13px] font-semibold text-zinc-200">{label}</h4>
-                      <CopyBtn text={progressResult[key]} field={`progress-${key}`} />
-                    </div>
-                    <div className="p-3.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30 text-[13px] text-zinc-300 whitespace-pre-wrap leading-relaxed">{progressResult[key]}</div>
-                  </CardContent>
-                </SectionCard>
-              ))}
-            </>
-          ) : (
-            <EmptyState icon={HardHat} title="Generate construction progress updates" subtitle="LinkedIn, WhatsApp (buyers + prospects), email, blog, social, video script, SMS" />
-          )}
-        </TabsContent>
-
-        {/* -------- ADS TAB -------- */}
+        {/* ================================================================ */}
+        {/* -------- ADS & PORTALS TAB (Ads + Portals) -------- */}
+        {/* ================================================================ */}
         <TabsContent value="ads" className="space-y-4">
+          {/* --- Ads section --- */}
           <div className="flex gap-2">
             <Button onClick={() => onRunAdsGenerator("both")} disabled={isGeneratingAds} className="flex-1 bg-violet-600 hover:bg-violet-500 h-10 text-[13px] font-medium rounded-lg">
               {isGeneratingAds ? <><Loader2 size={15} className="animate-spin mr-2" />Generating...</> : <><Megaphone size={15} className="mr-2" />Google + Meta Ads</>}
@@ -1831,9 +1855,72 @@ export function AnalyticsPanel({
           ) : (
             <EmptyState icon={Megaphone} title="Generate Google & Meta ad copy" subtitle="Headlines, descriptions, sitelinks, audience targeting, negative keywords" />
           )}
+
+          {/* --- Divider: Portal Optimizer section --- */}
+          <div className="border-t border-zinc-800/40 pt-4 mt-4" />
+
+          <Button
+            onClick={onRunPortalOptimizer}
+            disabled={isGeneratingPortal}
+            className="w-full bg-blue-600 hover:bg-blue-500 h-10 text-[13px] font-medium rounded-lg"
+          >
+            {isGeneratingPortal ? (
+              <><Loader2 size={15} className="animate-spin mr-2" />Optimizing listings...</>
+            ) : (
+              <><Building size={15} className="mr-2" />Optimize Portal Listings</>
+            )}
+          </Button>
+
+          {portalResult ? (
+            <>
+              {Object.entries(portalResult.portals || {}).map(([key, portal]: [string, any]) => (
+                <SectionCard key={key}>
+                  <CardContent className="p-5">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-[13px] font-semibold text-zinc-200 capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}</h4>
+                      <CopyBtn text={`${portal.title}\n\n${portal.description}`} field={`portal-${key}`} />
+                    </div>
+                    <div className="space-y-3">
+                      <div className="p-3 rounded-lg bg-zinc-800/40 border border-zinc-700/30">
+                        <div className="text-[11px] text-zinc-500 mb-1">Title</div>
+                        <div className="text-[13px] text-zinc-200 font-medium">{portal.title}</div>
+                      </div>
+                      <div className="p-3 rounded-lg bg-zinc-800/40 border border-zinc-700/30">
+                        <div className="text-[11px] text-zinc-500 mb-1">Description</div>
+                        <div className="text-[13px] text-zinc-300 leading-relaxed whitespace-pre-wrap">{portal.description}</div>
+                      </div>
+                      {portal.tags?.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {portal.tags.map((tag: string, i: number) => (
+                            <Badge key={i} variant="outline" className="border-zinc-700/50 text-zinc-400 text-[11px] rounded-md">{tag}</Badge>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </SectionCard>
+              ))}
+
+              {portalResult.googleBusinessProfile && (
+                <SectionCard>
+                  <CardContent className="p-5">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-[13px] font-semibold text-zinc-200">Google Business Profile</h4>
+                      <CopyBtn text={portalResult.googleBusinessProfile.description} field="gbp" />
+                    </div>
+                    <div className="p-3 rounded-lg bg-zinc-800/40 border border-zinc-700/30 text-[13px] text-zinc-300 leading-relaxed">{portalResult.googleBusinessProfile.description}</div>
+                  </CardContent>
+                </SectionCard>
+              )}
+            </>
+          ) : (
+            <EmptyState icon={Building} title="Optimize your property portal listings" subtitle="99acres, MagicBricks, Housing.com, Google Business Profile" />
+          )}
         </TabsContent>
 
+        {/* ================================================================ */}
         {/* -------- REPORT TAB -------- */}
+        {/* ================================================================ */}
         <TabsContent value="report" className="space-y-4">
           <Button
             onClick={onRunMarketingReport}
