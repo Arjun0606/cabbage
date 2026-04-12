@@ -223,14 +223,13 @@ export async function runAIVisibility(
     gemini: calculateScore(queryResults, "gemini"),
   };
 
-  // Only average configured LLMs (don't penalize for unconfigured ones)
-  const configuredScores: number[] = [mentionScores.chatgpt];
-  if (process.env.ANTHROPIC_API_KEY) configuredScores.push(mentionScores.claude);
-  if (process.env.PERPLEXITY_API_KEY) configuredScores.push(mentionScores.perplexity);
-  if (process.env.GOOGLE_GEMINI_API_KEY) configuredScores.push(mentionScores.gemini);
-  const mentionScore = configuredScores.length > 0
-    ? Math.round(configuredScores.reduce((a, b) => a + b, 0) / configuredScores.length)
-    : 0;
+  // Focus on ChatGPT + Google AI (Gemini) — what RE buyers actually use
+  // ChatGPT is always available (OpenAI key). Gemini if configured.
+  const chatgptWeight = 0.6;  // ChatGPT is primary for RE buyers
+  const geminiWeight = 0.4;   // Google AI Overviews proxy
+  const mentionScore = process.env.GOOGLE_GEMINI_API_KEY
+    ? Math.round(mentionScores.chatgpt * chatgptWeight + mentionScores.gemini * geminiWeight)
+    : mentionScores.chatgpt;  // If only ChatGPT available, use that
 
   // Readiness score — based on website checks (like Okara's "AI Readiness Score")
   const passedChecks = aiReadiness.filter(c => c.passed).length;

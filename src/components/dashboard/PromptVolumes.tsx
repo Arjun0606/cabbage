@@ -16,26 +16,23 @@ export function PromptVolumes({ aiVisResult, companyName, city }: Props) {
   const totalQueries = aiVisResult.queryResults?.length || 0;
   if (totalQueries === 0) return null;
 
+  // Focus on ChatGPT + Google AI (Gemini) — what RE buyers actually use
+  const chatgptMentions = aiVisResult.queryResults?.filter((q: any) => q.chatgpt?.mentioned).length || 0;
+  const googleAIMentions = aiVisResult.queryResults?.filter((q: any) => q.gemini?.mentioned).length || 0;
+
   const mentionedQueries = aiVisResult.queryResults?.filter(
-    (q: any) => q.chatgpt?.mentioned || q.claude?.mentioned || q.perplexity?.mentioned || q.gemini?.mentioned
+    (q: any) => q.chatgpt?.mentioned || q.gemini?.mentioned
   ).length || 0;
 
   const missingQueries = totalQueries - mentionedQueries;
   const mentionRate = Math.round((mentionedQueries / totalQueries) * 100);
-
-  const perLLM = {
-    chatgpt: aiVisResult.queryResults?.filter((q: any) => q.chatgpt?.mentioned).length || 0,
-    claude: aiVisResult.queryResults?.filter((q: any) => q.claude?.mentioned).length || 0,
-    perplexity: aiVisResult.queryResults?.filter((q: any) => q.perplexity?.mentioned).length || 0,
-    gemini: aiVisResult.queryResults?.filter((q: any) => q.gemini?.mentioned).length || 0,
-  };
 
   let positiveCount = 0;
   let negativeCount = 0;
   let neutralCount = 0;
 
   for (const q of aiVisResult.queryResults || []) {
-    for (const llm of [q.chatgpt, q.claude, q.perplexity, q.gemini]) {
+    for (const llm of [q.chatgpt, q.gemini]) {
       if (llm?.mentioned) {
         if (llm.sentiment === "positive") positiveCount++;
         else if (llm.sentiment === "negative") negativeCount++;
@@ -51,7 +48,7 @@ export function PromptVolumes({ aiVisResult, companyName, city }: Props) {
     negativeCount > positiveCount ? "text-red-400" : "text-zinc-400";
 
   const missingQueryList = (aiVisResult.queryResults || [])
-    .filter((q: any) => !q.chatgpt?.mentioned && !q.claude?.mentioned && !q.perplexity?.mentioned && !q.gemini?.mentioned)
+    .filter((q: any) => !q.chatgpt?.mentioned && !q.gemini?.mentioned)
     .map((q: any) => q.query)
     .slice(0, 5);
 
@@ -96,21 +93,32 @@ export function PromptVolumes({ aiVisResult, companyName, city }: Props) {
           </div>
         </div>
 
-        {/* Per-LLM breakdown */}
-        <div className="grid grid-cols-4 gap-2">
-          {[
-            { name: "ChatGPT", count: perLLM.chatgpt },
-            { name: "Claude", count: perLLM.claude },
-            { name: "Perplexity", count: perLLM.perplexity },
-            { name: "Gemini", count: perLLM.gemini },
-          ].map(({ name, count }) => (
-            <div key={name} className="text-center p-2.5 rounded-lg bg-zinc-800/30 border border-zinc-700/15">
-              <div className={`text-[14px] font-bold ${count > 0 ? "text-zinc-200" : "text-zinc-600"}`}>
-                {count}/{totalQueries}
-              </div>
-              <div className="text-[10px] text-zinc-600 mt-0.5">{name}</div>
+        {/* ChatGPT + Google AI — the only two that matter for RE */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="p-3.5 rounded-xl bg-zinc-800/40 border border-zinc-700/20">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-6 h-6 rounded-md bg-emerald-500/10 flex items-center justify-center text-[10px] font-bold text-emerald-400">G</div>
+              <span className="text-[13px] text-zinc-300 font-medium">ChatGPT</span>
             </div>
-          ))}
+            <div className={`text-xl font-bold ${chatgptMentions > 0 ? "text-zinc-200" : "text-zinc-600"}`}>
+              {chatgptMentions}/{totalQueries}
+            </div>
+            <div className="text-[10px] text-zinc-600 mt-0.5">queries mention your brand</div>
+          </div>
+          <div className="p-3.5 rounded-xl bg-zinc-800/40 border border-zinc-700/20">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-6 h-6 rounded-md bg-blue-500/10 flex items-center justify-center text-[10px] font-bold text-blue-400">G</div>
+              <span className="text-[13px] text-zinc-300 font-medium">Google AI</span>
+            </div>
+            <div className={`text-xl font-bold ${googleAIMentions > 0 ? "text-zinc-200" : "text-zinc-600"}`}>
+              {process.env.NEXT_PUBLIC_GEMINI_CONFIGURED === "true" || googleAIMentions > 0
+                ? `${googleAIMentions}/${totalQueries}`
+                : "—"}
+            </div>
+            <div className="text-[10px] text-zinc-600 mt-0.5">
+              {googleAIMentions > 0 ? "queries mention your brand" : "Add GOOGLE_GEMINI_API_KEY to test"}
+            </div>
+          </div>
         </div>
 
         {/* Missing queries */}

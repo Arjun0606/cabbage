@@ -720,31 +720,25 @@ export function AnalyticsPanel({
 
               <SectionCard>
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-[13px] font-semibold">Visibility by AI Platform</CardTitle>
+                  <CardTitle className="text-[13px] font-semibold">Visibility by Platform</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3.5">
                     {[
-                      { name: "ChatGPT", score: aiVisResult.scores.chatgpt, key: "ChatGPT" },
-                      { name: "Claude", score: aiVisResult.scores.claude, key: "Claude" },
-                      { name: "Perplexity", score: aiVisResult.scores.perplexity, key: "Perplexity" },
-                      { name: "Gemini", score: aiVisResult.scores.gemini, key: "Gemini" },
-                    ].map(({ name, score, key }) => {
-                      const configured = !aiVisResult.configuredLLMs || aiVisResult.configuredLLMs.includes(key);
-                      return (
-                        <div key={name} className="flex items-center justify-between">
-                          <span className={`text-[13px] w-20 ${configured ? "text-zinc-300" : "text-zinc-600"}`}>{name}</span>
-                          <div className="flex items-center gap-3 flex-1 ml-4">
-                            <div className="flex-1 h-2 bg-zinc-800/60 rounded-full overflow-hidden">
-                              <div className={`h-full rounded-full transition-all ${configured ? "bg-violet-500" : "bg-zinc-700"}`} style={{ width: configured ? `${score}%` : "0%" }} />
-                            </div>
-                            <span className="text-[13px] font-mono text-zinc-400 w-16 text-right">
-                              {configured ? score : <span className="text-[11px] text-zinc-600">no key</span>}
-                            </span>
-                          </div>
+                      { name: "ChatGPT", score: aiVisResult.scores.chatgpt, desc: "Used by home buyers researching properties" },
+                      { name: "Google AI", score: aiVisResult.scores.gemini, desc: "Appears in Google Search AI Overviews" },
+                    ].map(({ name, score, desc }) => (
+                      <div key={name}>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[13px] text-zinc-300 font-medium">{name}</span>
+                          <span className="text-[13px] font-mono text-zinc-400">{score}/100</span>
                         </div>
-                      );
-                    })}
+                        <div className="h-2.5 bg-zinc-800/60 rounded-full overflow-hidden mb-1">
+                          <div className="h-full bg-violet-500 rounded-full transition-all" style={{ width: `${score}%` }} />
+                        </div>
+                        <div className="text-[11px] text-zinc-600">{desc}</div>
+                      </div>
+                    ))}
                   </div>
                 </CardContent>
               </SectionCard>
