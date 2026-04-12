@@ -32,7 +32,7 @@ export default function OnboardingPage() {
   // Company
   const [companyName, setCompanyName] = useState("");
   const [website, setWebsite] = useState("");
-  const [city, setCity] = useState("hyderabad");
+  const [city, setCity] = useState("");
   const [description, setDescription] = useState("");
 
   // Projects

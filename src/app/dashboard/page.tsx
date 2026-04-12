@@ -8,7 +8,6 @@ import { ActionsFeed } from "@/components/dashboard/ActionsFeed";
 import { ChatPanel } from "@/components/dashboard/ChatPanel";
 import { TerminalHeader } from "@/components/dashboard/TerminalHeader";
 import { AgentStatusBar } from "@/components/dashboard/AgentStatusBar";
-import { TrendsPanel } from "@/components/dashboard/TrendsPanel";
 import { recordScan, getAllTrends, type TrendData } from "@/lib/scanHistory";
 
 export default function DashboardPage() {
@@ -18,9 +17,9 @@ export default function DashboardPage() {
     website: "",
     city: "",
     sites: [] as { url: string; label: string }[],
-    projects: [] as { name: string; website: string; location: string }[],
+    projects: [] as { name: string; website: string; location: string; configurations?: string; priceRange?: string; reraNumber?: string; amenities?: string; status?: string }[],
     competitors: [] as { name: string; website: string }[],
-    documents: { productInfo: "", competitorAnalysis: "", brandVoice: "", marketingStrategy: "" },
+    documents: { productInfo: "", competitorAnalysis: "", brandVoice: "", marketingStrategy: "", brandValues: "", brandVision: "", targetAudience: "" },
   });
 
   const [auditResult, setAuditResult] = useState<any>(null);

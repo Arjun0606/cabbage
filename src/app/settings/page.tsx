@@ -334,33 +334,21 @@ export default function SettingsPage() {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between mb-4">
                     <div>
-                      <h3 className="text-sm font-medium text-zinc-100">Free Trial</h3>
-                      <p className="text-xs text-zinc-500">200 credits included. 14 days remaining.</p>
+                      <h3 className="text-sm font-medium text-zinc-100">Current Plan</h3>
+                      <p className="text-xs text-zinc-500">Contact us to manage your subscription.</p>
                     </div>
                     <Badge className="bg-emerald-900/50 text-emerald-400">Active</Badge>
                   </div>
-                  <div className="space-y-3">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-zinc-400">Credits used</span>
-                      <span className="text-zinc-200">0 / 200</span>
-                    </div>
-                    <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden">
-                      <div className="h-full bg-emerald-500 rounded-full" style={{ width: "0%" }} />
-                    </div>
-                  </div>
+                  <p className="text-xs text-zinc-400">Your usage and billing details will be available in your account dashboard once connected.</p>
                 </CardContent>
               </Card>
 
               <Card className="bg-zinc-900 border-zinc-800">
                 <CardContent className="p-6 space-y-4">
-                  <h3 className="text-sm font-medium text-zinc-100">Upgrade</h3>
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-3xl font-bold">$499</span>
-                    <span className="text-zinc-500 text-sm">/month</span>
-                  </div>
-                  <p className="text-xs text-zinc-500">1,000 credits/month. All features. Additional credits at $0.40 each.</p>
+                  <h3 className="text-sm font-medium text-zinc-100">Need help?</h3>
+                  <p className="text-xs text-zinc-500">Contact our team for plan details, upgrades, or billing questions.</p>
                   <Link href="/pricing">
-                    <Button className="w-full bg-emerald-600 hover:bg-emerald-700">Upgrade Plan</Button>
+                    <Button className="w-full bg-emerald-600 hover:bg-emerald-700">View Plans</Button>
                   </Link>
                 </CardContent>
               </Card>
@@ -377,7 +365,7 @@ export default function SettingsPage() {
                     </div>
                     <div>
                       <div className="text-sm text-zinc-200">{companyName || "Not configured"}</div>
-                      <div className="text-xs text-zinc-500">Free trial account</div>
+                      <div className="text-xs text-zinc-500">CabbageSEO account</div>
                     </div>
                   </div>
                 </CardContent>

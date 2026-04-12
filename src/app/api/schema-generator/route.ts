@@ -281,7 +281,7 @@ export async function POST(req: NextRequest) {
       developerName: developerName || "",
       city,
       location,
-      configurations: configurations || "2BHK, 3BHK",
+      configurations: configurations || "",
       priceRange: priceRange || "",
       reraNumber: body.reraNumber,
       amenities: body.amenities,
