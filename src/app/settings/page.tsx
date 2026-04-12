@@ -28,12 +28,29 @@ interface Integration {
   name: string;
   description: string;
   icon: string;
-  category: "publishing" | "analytics" | "socials";
+  category: "publishing" | "analytics" | "socials" | "portals";
   connected: boolean;
   fields: { key: string; label: string; placeholder: string; type: "text" | "password" }[];
 }
 
 const INTEGRATIONS: Integration[] = [
+  // Analytics — track performance
+  {
+    id: "gsc", name: "Google Search Console", description: "Monitor keyword rankings, impressions, clicks, and indexing status",
+    icon: "G", category: "analytics", connected: false, fields: [],
+  },
+  {
+    id: "ga4", name: "Google Analytics", description: "Track website traffic, user behavior, and conversion funnels",
+    icon: "GA", category: "analytics", connected: false, fields: [
+      { key: "measurementId", label: "Measurement ID", placeholder: "G-XXXXXXXXXX", type: "text" },
+      { key: "propertyId", label: "Property ID", placeholder: "123456789", type: "text" },
+    ],
+  },
+  {
+    id: "gbp", name: "Google Business Profile", description: "Manage local listings, reviews, and map visibility",
+    icon: "GB", category: "analytics", connected: false, fields: [],
+  },
+  // Publishing — push content to your CMS
   {
     id: "wordpress", name: "WordPress", description: "Publish articles to WordPress.com",
     icon: "W", category: "publishing", connected: false,
@@ -60,13 +77,33 @@ const INTEGRATIONS: Integration[] = [
       { key: "collectionId", label: "Blog Collection ID", placeholder: "Collection ID for articles", type: "text" },
     ],
   },
+  // Portals — property listing platforms
   {
-    id: "gsc", name: "Google Search Console", description: "Monitor SEO performance and indexing",
-    icon: "G", category: "analytics", connected: false, fields: [],
+    id: "99acres", name: "99acres", description: "Track and optimize your 99acres property listings",
+    icon: "99", category: "portals", connected: false, fields: [
+      { key: "sellerUrl", label: "Your Seller Dashboard URL", placeholder: "https://www.99acres.com/seller/...", type: "text" },
+    ],
   },
   {
-    id: "linkedin", name: "LinkedIn", description: "Share professional content",
+    id: "magicbricks", name: "MagicBricks", description: "Track and optimize your MagicBricks property listings",
+    icon: "MB", category: "portals", connected: false, fields: [
+      { key: "sellerUrl", label: "Your Seller Dashboard URL", placeholder: "https://www.magicbricks.com/...", type: "text" },
+    ],
+  },
+  {
+    id: "housing", name: "Housing.com", description: "Track your Housing.com listings and leads",
+    icon: "H", category: "portals", connected: false, fields: [
+      { key: "sellerUrl", label: "Your Seller Dashboard URL", placeholder: "https://www.housing.com/...", type: "text" },
+    ],
+  },
+  // Socials
+  {
+    id: "linkedin", name: "LinkedIn", description: "Share professional content and thought leadership",
     icon: "in", category: "socials", connected: false, fields: [],
+  },
+  {
+    id: "facebook", name: "Facebook / Meta", description: "Manage pages, ads, and engagement",
+    icon: "f", category: "socials", connected: false, fields: [],
   },
 ];
 
@@ -386,6 +423,20 @@ export default function SettingsPage() {
             {/* Integrations */}
             <TabsContent value="integrations" className="pt-6 max-w-3xl space-y-8">
               <div>
+                <h3 className="text-sm font-medium text-zinc-300 mb-1">Analytics &amp; Search</h3>
+                <p className="text-xs text-zinc-600 mb-4">Connect analytics tools to track SEO performance, rankings, and traffic</p>
+                <div className="grid grid-cols-2 gap-4">
+                  {INTEGRATIONS.filter(i => i.category === "analytics").map(renderIntegrationCard)}
+                </div>
+              </div>
+              <div>
+                <h3 className="text-sm font-medium text-zinc-300 mb-1">Property Portals</h3>
+                <p className="text-xs text-zinc-600 mb-4">Connect your property portal accounts to track and optimize listings</p>
+                <div className="grid grid-cols-2 gap-4">
+                  {INTEGRATIONS.filter(i => i.category === "portals").map(renderIntegrationCard)}
+                </div>
+              </div>
+              <div>
                 <h3 className="text-sm font-medium text-zinc-300 mb-1">Article Publishing</h3>
                 <p className="text-xs text-zinc-600 mb-4">Publish articles directly to your CMS or blog platform</p>
                 <div className="grid grid-cols-2 gap-4">
@@ -397,13 +448,6 @@ export default function SettingsPage() {
                 <p className="text-xs text-zinc-600 mb-4">Connect your social accounts to post and share content</p>
                 <div className="grid grid-cols-2 gap-4">
                   {INTEGRATIONS.filter(i => i.category === "socials").map(renderIntegrationCard)}
-                </div>
-              </div>
-              <div>
-                <h3 className="text-sm font-medium text-zinc-300 mb-1">Analytics</h3>
-                <p className="text-xs text-zinc-600 mb-4">Connect analytics tools to track performance</p>
-                <div className="grid grid-cols-2 gap-4">
-                  {INTEGRATIONS.filter(i => i.category === "analytics").map(renderIntegrationCard)}
                 </div>
               </div>
             </TabsContent>
