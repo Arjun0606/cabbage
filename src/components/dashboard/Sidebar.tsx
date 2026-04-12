@@ -4,13 +4,8 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import {
   Sparkles,
-  LayoutDashboard,
-  FolderOpen,
-  Library,
   Bot,
-  Wrench,
   Settings,
-  CreditCard,
   PlusCircle,
 } from "lucide-react";
 
@@ -28,72 +23,76 @@ export function Sidebar({ companyName, creditsUsed = 0, creditsTotal = 1000 }: P
     { href: "/settings", label: "Settings", icon: Settings, active: pathname === "/settings" },
   ];
 
+  const pct = Math.min(100, (creditsUsed / creditsTotal) * 100);
+
   return (
-    <div className="w-56 h-screen bg-zinc-950 border-r border-zinc-800 flex flex-col flex-shrink-0">
+    <div className="w-[56px] h-screen bg-[#0a0a0b] border-r border-zinc-800/60 flex flex-col items-center flex-shrink-0">
       {/* Logo */}
-      <div className="px-4 py-4 border-b border-zinc-800">
-        <Link href="/" className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center">
-            <Sparkles size={14} className="text-emerald-400" />
+      <div className="py-4">
+        <Link href="/" className="block">
+          <div className="w-8 h-8 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center hover:border-zinc-700 transition-colors">
+            <Sparkles size={15} className="text-emerald-400" />
           </div>
-          <span className="font-semibold text-sm text-zinc-100">CabbageSEO</span>
         </Link>
       </div>
 
-      {/* New chat */}
-      <div className="px-3 py-3">
+      {/* New site */}
+      <div className="mb-2">
         <Link href="/">
-          <button className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 transition-colors">
-            <PlusCircle size={14} />
-            New site
+          <button
+            className="w-8 h-8 rounded-lg bg-zinc-900/80 border border-zinc-800/60 flex items-center justify-center text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 hover:border-zinc-700 transition-all"
+            title="New site"
+          >
+            <PlusCircle size={15} />
           </button>
         </Link>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-3 space-y-0.5">
+      <nav className="flex-1 flex flex-col items-center gap-1 pt-1">
         {navItems.map(({ href, label, icon: Icon, active }) => (
           <Link key={href} href={href}>
             <button
-              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors ${
+              className={`w-9 h-9 rounded-lg flex flex-col items-center justify-center gap-0.5 transition-all ${
                 active
-                  ? "bg-zinc-800/80 text-zinc-100"
-                  : "text-zinc-500 hover:bg-zinc-900 hover:text-zinc-300"
+                  ? "bg-zinc-800 text-zinc-100"
+                  : "text-zinc-600 hover:bg-zinc-900 hover:text-zinc-400"
               }`}
+              title={label}
             >
-              <Icon size={15} />
-              {label}
+              <Icon size={16} />
+              <span className="text-[8px] font-medium leading-none">{label}</span>
             </button>
           </Link>
         ))}
       </nav>
 
-      {/* Credits meter */}
-      <div className="px-3 py-3 border-t border-zinc-800">
-        <div className="px-3 py-2 rounded-lg bg-zinc-900/50">
-          <div className="flex items-center justify-between text-[10px] text-zinc-500 mb-1.5">
-            <span>Credits</span>
-            <span>{creditsUsed.toLocaleString()} / {creditsTotal.toLocaleString()}</span>
-          </div>
-          <div className="w-full h-1 bg-zinc-800 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-emerald-500 rounded-full transition-all"
-              style={{ width: `${Math.min(100, (creditsUsed / creditsTotal) * 100)}%` }}
+      {/* Credits ring */}
+      <div className="py-2 mb-1" title={`${creditsUsed} / ${creditsTotal} credits`}>
+        <div className="relative w-8 h-8">
+          <svg width="32" height="32" className="-rotate-90">
+            <circle cx="16" cy="16" r="12" fill="none" stroke="rgb(39 39 42)" strokeWidth="2" />
+            <circle
+              cx="16" cy="16" r="12"
+              fill="none" stroke="rgb(52 211 153)" strokeWidth="2"
+              strokeDasharray={2 * Math.PI * 12}
+              strokeDashoffset={2 * Math.PI * 12 - (pct / 100) * 2 * Math.PI * 12}
+              strokeLinecap="round"
             />
-          </div>
+          </svg>
+          <span className="absolute inset-0 flex items-center justify-center text-[7px] font-bold text-zinc-500">
+            {creditsUsed}
+          </span>
         </div>
       </div>
 
-      {/* Account */}
-      <div className="px-3 py-3 border-t border-zinc-800">
-        <div className="flex items-center gap-2 px-3">
-          <div className="w-7 h-7 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-zinc-400">
-            {companyName ? companyName.charAt(0).toUpperCase() : "?"}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="text-xs text-zinc-300 truncate">{companyName || "No site"}</div>
-            <div className="text-[10px] text-zinc-600">Free trial</div>
-          </div>
+      {/* Account avatar */}
+      <div className="pb-3">
+        <div
+          className="w-8 h-8 rounded-full bg-zinc-800 border border-zinc-700/50 flex items-center justify-center text-[10px] font-bold text-zinc-400"
+          title={companyName || "No site"}
+        >
+          {companyName ? companyName.charAt(0).toUpperCase() : "?"}
         </div>
       </div>
     </div>

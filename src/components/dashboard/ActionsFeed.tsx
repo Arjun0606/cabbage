@@ -1,6 +1,5 @@
 "use client";
 
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   Globe,
@@ -35,60 +34,47 @@ export function ActionsFeed({ auditResult, aiVisResult, backlinkResult, technica
 
   const feedItems: FeedItem[] = [];
 
-  // Add SEO audit actions
   if (auditResult?.fixes?.length) {
     const critical = auditResult.fixes.filter((f: any) => f.severity === "critical").length;
     const high = auditResult.fixes.filter((f: any) => f.severity === "high").length;
-
     feedItems.push({
       id: "seo_fixes",
       icon: <Wrench size={16} />,
-      iconBg: "bg-blue-500/20 text-blue-400",
+      iconBg: "bg-blue-500/15 text-blue-400",
       title: "SEO & Performance Fixes",
       subtitle: `${critical} critical, ${high} high priority`,
       items: auditResult.fixes,
     });
   }
 
-  // Real estate specific issues
   if (auditResult?.realEstateChecks) {
     const failed = auditResult.realEstateChecks.filter((c: any) => !c.passed);
     if (failed.length > 0) {
       feedItems.push({
         id: "re_checks",
         icon: <AlertTriangle size={16} />,
-        iconBg: "bg-orange-500/20 text-orange-400",
+        iconBg: "bg-orange-500/15 text-orange-400",
         title: "Real Estate SEO Issues",
         subtitle: `${failed.length} issues found`,
-        items: failed.map((c: any) => ({
-          title: c.label,
-          severity: "high",
-          description: c.details,
-        })),
+        items: failed.map((c: any) => ({ title: c.label, severity: "high", description: c.details })),
       });
     }
   }
 
-  // AI Visibility recommendations
   if (aiVisResult) {
     const failedChecks = aiVisResult.aiReadiness?.filter((c: any) => !c.passed) || [];
     const missingQueries = aiVisResult.queryResults?.filter(
       (q: any) => !q.chatgpt.mentioned && !q.claude.mentioned && !q.perplexity.mentioned && !q.gemini.mentioned
     ) || [];
-
     if (failedChecks.length > 0 || missingQueries.length > 0) {
       feedItems.push({
         id: "ai_geo",
         icon: <Bot size={16} />,
-        iconBg: "bg-violet-500/20 text-violet-400",
+        iconBg: "bg-violet-500/15 text-violet-400",
         title: "AI/GEO Recommendations",
         subtitle: `${failedChecks.length + missingQueries.length} issues found`,
         items: [
-          ...failedChecks.map((c: any) => ({
-            title: c.check,
-            severity: "high",
-            description: c.details,
-          })),
+          ...failedChecks.map((c: any) => ({ title: c.check, severity: "high", description: c.details })),
           ...missingQueries.slice(0, 5).map((q: any) => ({
             title: `Not found for: "${q.query}"`,
             severity: "medium",
@@ -99,39 +85,32 @@ export function ActionsFeed({ auditResult, aiVisResult, backlinkResult, technica
     }
   }
 
-  // Backlink recommendations
   if (backlinkResult?.recommendations?.length) {
     feedItems.push({
       id: "backlinks",
       icon: <Link2 size={16} />,
-      iconBg: "bg-blue-500/20 text-blue-400",
+      iconBg: "bg-emerald-500/15 text-emerald-400",
       title: "Link Building Opportunities",
       subtitle: `DA ${backlinkResult.domainAuthority}, ${backlinkResult.recommendations.length} recommendations`,
       items: backlinkResult.recommendations.map((r: any) => ({
-        title: r.title,
-        severity: r.priority,
-        description: r.description,
+        title: r.title, severity: r.priority, description: r.description,
       })),
     });
   }
 
-  // Technical issues
   if (technicalResult?.resourceIssues?.length) {
     feedItems.push({
       id: "technical",
       icon: <Wrench size={16} />,
-      iconBg: "bg-zinc-500/20 text-zinc-400",
+      iconBg: "bg-zinc-500/15 text-zinc-400",
       title: "Technical Issues",
       subtitle: `On-Page score: ${technicalResult.onPageScore}/100, ${technicalResult.resourceIssues.length} issues`,
       items: technicalResult.resourceIssues.map((i: any) => ({
-        title: i.issue,
-        severity: i.severity === "error" ? "critical" : "medium",
-        description: "",
+        title: i.issue, severity: i.severity === "error" ? "critical" : "medium", description: "",
       })),
     });
   }
 
-  // Competitor insights
   if (competitorResults?.length) {
     const allInsights = competitorResults.flatMap((r: any) =>
       (r.insights || []).map((i: any) => ({
@@ -144,84 +123,85 @@ export function ActionsFeed({ auditResult, aiVisResult, backlinkResult, technica
       feedItems.push({
         id: "competitors",
         icon: <Users size={16} />,
-        iconBg: "bg-amber-500/20 text-amber-400",
+        iconBg: "bg-amber-500/15 text-amber-400",
         title: "Competitor Insights",
-        subtitle: `${competitorResults.length} competitors analyzed, ${allInsights.length} insights`,
+        subtitle: `${competitorResults.length} competitors, ${allInsights.length} insights`,
         items: allInsights,
       });
     }
   }
 
-  // Placeholder items for future agents
   if (feedItems.length === 0) {
     feedItems.push({
       id: "welcome",
       icon: <Globe size={16} />,
-      iconBg: "bg-emerald-500/20 text-emerald-400",
+      iconBg: "bg-emerald-500/15 text-emerald-400",
       title: "Welcome to CabbageSEO",
       subtitle: "Run your first audit to see recommendations",
     });
   }
 
+  const severityStyles: Record<string, string> = {
+    critical: "border-red-500/30 text-red-400 bg-red-500/5",
+    high: "border-orange-500/30 text-orange-400 bg-orange-500/5",
+    medium: "border-yellow-500/30 text-yellow-400 bg-yellow-500/5",
+    low: "border-zinc-600 text-zinc-500 bg-zinc-800/30",
+  };
+
   return (
-    <div className="bg-zinc-950 p-4">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-medium flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-emerald-500" />
-          Actions Feed
-        </h3>
+    <div className="p-4">
+      <div className="flex items-center gap-2.5 mb-4">
+        <div className="w-2 h-2 rounded-full bg-emerald-500" />
+        <h3 className="text-[13px] font-semibold text-zinc-200">Actions Feed</h3>
       </div>
 
-      <div className="space-y-2">
-        {feedItems.map((item) => (
-          <Card
-            key={item.id}
-            className="bg-zinc-900 border-zinc-800 cursor-pointer hover:bg-zinc-800/50 transition-colors"
-            onClick={() => setExpandedItem(expandedItem === item.id ? null : item.id)}
-          >
-            <CardContent className="p-3">
-              <div className="flex items-start gap-3">
-                <div className={`rounded-md p-1.5 ${item.iconBg}`}>
-                  {item.icon}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-sm font-medium text-zinc-200">{item.title}</h4>
-                    {item.items && (
-                      <ChevronDown
-                        size={14}
-                        className={`text-zinc-500 transition-transform ${
-                          expandedItem === item.id ? "rotate-180" : ""
-                        }`}
-                      />
-                    )}
+      <div className="space-y-2.5">
+        {feedItems.map((item) => {
+          const isExpanded = expandedItem === item.id;
+          return (
+            <div
+              key={item.id}
+              className="rounded-xl bg-zinc-900/60 border border-zinc-800/50 hover:border-zinc-700/50 transition-all cursor-pointer"
+              onClick={() => setExpandedItem(isExpanded ? null : item.id)}
+            >
+              <div className="p-3.5">
+                <div className="flex items-start gap-3">
+                  <div className={`rounded-lg p-2 ${item.iconBg} flex-shrink-0`}>
+                    {item.icon}
                   </div>
-                  <p className="text-xs text-zinc-500 mt-0.5">{item.subtitle}</p>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <h4 className="text-[13px] font-medium text-zinc-200 leading-snug">{item.title}</h4>
+                      {item.items && (
+                        <ChevronDown
+                          size={15}
+                          className={`text-zinc-600 transition-transform flex-shrink-0 ${isExpanded ? "rotate-180" : ""}`}
+                        />
+                      )}
+                    </div>
+                    <p className="text-[12px] text-zinc-500 mt-0.5">{item.subtitle}</p>
+                  </div>
                 </div>
               </div>
 
-              {expandedItem === item.id && item.items && (
-                <div className="mt-3 space-y-2 border-t border-zinc-800 pt-3">
+              {isExpanded && item.items && (
+                <div className="px-3.5 pb-3.5 space-y-2.5 border-t border-zinc-800/40 pt-3">
                   {item.items.map((fix, i) => (
-                    <div key={i} className="text-sm space-y-1">
-                      <div className="flex items-center gap-2">
+                    <div key={i} className="space-y-1">
+                      <div className="flex items-start gap-2">
                         <Badge
                           variant="outline"
-                          className={`text-[10px] ${
-                            fix.severity === "critical"
-                              ? "border-red-800 text-red-400"
-                              : fix.severity === "high"
-                              ? "border-orange-800 text-orange-400"
-                              : "border-yellow-800 text-yellow-400"
-                          }`}
+                          className={`text-[10px] h-5 rounded-md font-medium flex-shrink-0 ${severityStyles[fix.severity] || severityStyles.medium}`}
                         >
                           {fix.severity}
                         </Badge>
-                        <span className="text-zinc-300 text-xs">{fix.title}</span>
+                        <span className="text-[13px] text-zinc-300 leading-snug">{fix.title}</span>
                       </div>
-                      <p className="text-xs text-zinc-500 pl-4">{fix.description}</p>
+                      {fix.description && (
+                        <p className="text-[12px] text-zinc-500 pl-[52px] leading-relaxed">{fix.description}</p>
+                      )}
                       {fix.snippet && (
-                        <pre className="text-[10px] bg-zinc-800 rounded p-2 mt-1 ml-4 overflow-x-auto text-emerald-400">
+                        <pre className="text-[11px] bg-zinc-800/60 rounded-lg p-2.5 ml-[52px] overflow-x-auto text-emerald-400 border border-zinc-700/30">
                           {fix.snippet}
                         </pre>
                       )}
@@ -229,9 +209,9 @@ export function ActionsFeed({ auditResult, aiVisResult, backlinkResult, technica
                   ))}
                 </div>
               )}
-            </CardContent>
-          </Card>
-        ))}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

@@ -1,8 +1,6 @@
 "use client";
 
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Send, Bot, User, Loader2 } from "lucide-react";
+import { Send, Bot, User, Loader2, Paperclip, AtSign } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 
 interface Message {
@@ -16,7 +14,6 @@ interface Props {
   aiVisResult: any;
 }
 
-/** Simple markdown-like rendering for **bold** and \n */
 function renderContent(text: string) {
   return text.split("\n").map((line, i) => (
     <div key={i} className={line === "" ? "h-2" : ""}>
@@ -68,39 +65,61 @@ export function ChatPanel({ company, auditResult, aiVisResult }: Props) {
 
   return (
     <div className="h-full flex flex-col">
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 space-y-3">
+      {/* Header */}
+      <div className="px-4 py-3 border-b border-zinc-800/60 flex-shrink-0">
+        <div className="flex items-center gap-2">
+          <Bot size={15} className="text-emerald-400" />
+          <h3 className="text-[13px] font-semibold text-zinc-200">Talk to AI CMO</h3>
+        </div>
+      </div>
+
+      {/* Messages */}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map((msg, i) => (
-          <div key={i} className="flex gap-2">
-            <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${
-              msg.role === "assistant" ? "bg-emerald-900/50" : "bg-zinc-800"
+          <div key={i} className="flex gap-3">
+            <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${
+              msg.role === "assistant" ? "bg-emerald-500/10 border border-emerald-500/20" : "bg-zinc-800 border border-zinc-700/50"
             }`}>
-              {msg.role === "assistant" ? <Bot size={10} className="text-emerald-400" /> : <User size={10} className="text-zinc-400" />}
+              {msg.role === "assistant" ? <Bot size={13} className="text-emerald-400" /> : <User size={13} className="text-zinc-400" />}
             </div>
-            <div className="text-[13px] text-zinc-300 leading-relaxed min-w-0">
+            <div className="text-[13px] text-zinc-300 leading-relaxed min-w-0 pt-1">
               {renderContent(msg.content)}
             </div>
           </div>
         ))}
         {isLoading && (
-          <div className="flex gap-2 items-center">
-            <Loader2 size={14} className="text-emerald-400 animate-spin" />
-            <span className="text-xs text-zinc-500">Thinking...</span>
+          <div className="flex gap-3 items-center">
+            <div className="w-7 h-7 rounded-full flex items-center justify-center bg-emerald-500/10 border border-emerald-500/20">
+              <Loader2 size={13} className="text-emerald-400 animate-spin" />
+            </div>
+            <span className="text-[13px] text-zinc-500">Thinking...</span>
           </div>
         )}
       </div>
 
-      <div className="p-2 border-t border-zinc-800 flex-shrink-0">
-        <div className="flex gap-1.5">
-          <Input
+      {/* Input */}
+      <div className="p-3 border-t border-zinc-800/60 flex-shrink-0">
+        <div className="flex items-center gap-2 bg-zinc-900/80 border border-zinc-800 rounded-xl px-3 py-1.5">
+          <button className="text-zinc-600 hover:text-zinc-400 transition-colors flex-shrink-0">
+            <Paperclip size={15} />
+          </button>
+          <button className="text-zinc-600 hover:text-zinc-400 transition-colors flex-shrink-0">
+            <AtSign size={15} />
+          </button>
+          <input
             placeholder="Ask me anything..."
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-            className="bg-zinc-800 border-zinc-700 text-[13px] h-8"
+            className="flex-1 bg-transparent text-[13px] text-zinc-200 placeholder:text-zinc-600 outline-none h-8"
           />
-          <Button onClick={sendMessage} disabled={isLoading || !input.trim()} size="sm" className="bg-emerald-600 hover:bg-emerald-700 h-8 w-8 p-0">
-            <Send size={12} />
-          </Button>
+          <button
+            onClick={sendMessage}
+            disabled={isLoading || !input.trim()}
+            className="w-7 h-7 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-30 disabled:hover:bg-emerald-600 flex items-center justify-center transition-all flex-shrink-0"
+          >
+            <Send size={12} className="text-white" />
+          </button>
         </div>
       </div>
     </div>
