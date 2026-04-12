@@ -42,6 +42,20 @@ export default function DashboardPage() {
   const [isGeneratingPartner, setIsGeneratingPartner] = useState(false);
   const [isGeneratingSchema, setIsGeneratingSchema] = useState(false);
   const [selectedProject, setSelectedProject] = useState<number | null>(null);
+
+  // New feature states (round 2)
+  const [landingPageResult, setLandingPageResult] = useState<any>(null);
+  const [portalResult, setPortalResult] = useState<any>(null);
+  const [neighborhoodResult, setNeighborhoodResult] = useState<any>(null);
+  const [progressResult, setProgressResult] = useState<any>(null);
+  const [reportResult, setReportResult] = useState<any>(null);
+  const [adsResult, setAdsResult] = useState<any>(null);
+  const [isGeneratingLanding, setIsGeneratingLanding] = useState(false);
+  const [isGeneratingPortal, setIsGeneratingPortal] = useState(false);
+  const [isGeneratingNeighborhood, setIsGeneratingNeighborhood] = useState(false);
+  const [isGeneratingProgress, setIsGeneratingProgress] = useState(false);
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+  const [isGeneratingAds, setIsGeneratingAds] = useState(false);
   const [trends, setTrends] = useState<Record<string, TrendData>>({
     audit: { current: 0, previous: null, change: 0, direction: "new", history: [] },
     technical: { current: 0, previous: null, change: 0, direction: "new", history: [] },
@@ -298,6 +312,95 @@ export default function DashboardPage() {
     finally { setIsGeneratingSchema(false); }
   };
 
+  // ---- Round 2 feature runners ----
+
+  const runLandingPage = async (pageType: string) => {
+    setIsGeneratingLanding(true);
+    addLog(`> Generating ${pageType} landing page...`);
+    try {
+      const ctx = getProjectContext();
+      const res = await fetch("/api/landing-page", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...ctx, pageType }) });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setLandingPageResult(data);
+      addLog(`> Landing page ready: "${data.title}"`);
+    } catch (err) { addLog(`> Error: ${err instanceof Error ? err.message : "Failed"}`); }
+    finally { setIsGeneratingLanding(false); }
+  };
+
+  const runPortalOptimizer = async () => {
+    setIsGeneratingPortal(true);
+    addLog(`> Optimizing portal listings...`);
+    try {
+      const ctx = getProjectContext();
+      const res = await fetch("/api/portal-optimizer", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(ctx) });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setPortalResult(data);
+      addLog(`> Portal listings optimized for ${Object.keys(data.portals || {}).length} portals`);
+    } catch (err) { addLog(`> Error: ${err instanceof Error ? err.message : "Failed"}`); }
+    finally { setIsGeneratingPortal(false); }
+  };
+
+  const runNeighborhood = async () => {
+    setIsGeneratingNeighborhood(true);
+    const ctx = getProjectContext();
+    addLog(`> Analyzing neighborhood: ${ctx.location}, ${ctx.city}...`);
+    try {
+      const res = await fetch("/api/neighborhood", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ city: ctx.city, location: ctx.location, projectName: ctx.projectName }) });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setNeighborhoodResult(data);
+      addLog(`> Neighborhood: Walk ${data.walkScore}/100, Connectivity ${data.connectivityScore}/100`);
+    } catch (err) { addLog(`> Error: ${err instanceof Error ? err.message : "Failed"}`); }
+    finally { setIsGeneratingNeighborhood(false); }
+  };
+
+  const runProgressUpdate = async (phase: string, completionPct?: number) => {
+    setIsGeneratingProgress(true);
+    addLog(`> Generating construction update (${phase})...`);
+    try {
+      const ctx = getProjectContext();
+      const res = await fetch("/api/progress-update", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...ctx, currentPhase: phase, completionPercentage: completionPct }) });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setProgressResult(data);
+      addLog(`> Progress update content ready`);
+    } catch (err) { addLog(`> Error: ${err instanceof Error ? err.message : "Failed"}`); }
+    finally { setIsGeneratingProgress(false); }
+  };
+
+  const runMarketingReport = async () => {
+    setIsGeneratingReport(true);
+    addLog(`> Generating marketing report...`);
+    try {
+      const res = await fetch("/api/marketing-report", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
+        companyName: company.name, projects: company.projects,
+        auditScores: auditResult?.scores, aiVisibilityScore: aiVisResult?.scores?.overall,
+        domainAuthority: backlinkResult?.domainAuthority, competitorCount: competitorResults?.length,
+      }) });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setReportResult(data);
+      addLog(`> Marketing report ready`);
+    } catch (err) { addLog(`> Error: ${err instanceof Error ? err.message : "Failed"}`); }
+    finally { setIsGeneratingReport(false); }
+  };
+
+  const runAdsGenerator = async (adPlatform: string) => {
+    setIsGeneratingAds(true);
+    addLog(`> Generating ${adPlatform} ad copy...`);
+    try {
+      const ctx = getProjectContext();
+      const res = await fetch("/api/ads-generator", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...ctx, adPlatform }) });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setAdsResult(data);
+      addLog(`> Ad copy ready (${adPlatform})`);
+    } catch (err) { addLog(`> Error: ${err instanceof Error ? err.message : "Failed"}`); }
+    finally { setIsGeneratingAds(false); }
+  };
+
   const runFullScan = async () => {
     const url = company.website;
     if (!url) { addLog("> Set your website URL first"); return; }
@@ -381,6 +484,19 @@ export default function DashboardPage() {
               onRunChannelPartner={runChannelPartner}
               schemaResult={schemaResult} isGeneratingSchema={isGeneratingSchema}
               onRunSchemaGenerator={runSchemaGenerator}
+              // Round 2 features
+              landingPageResult={landingPageResult} isGeneratingLanding={isGeneratingLanding}
+              onRunLandingPage={runLandingPage}
+              portalResult={portalResult} isGeneratingPortal={isGeneratingPortal}
+              onRunPortalOptimizer={runPortalOptimizer}
+              neighborhoodResult={neighborhoodResult} isGeneratingNeighborhood={isGeneratingNeighborhood}
+              onRunNeighborhood={runNeighborhood}
+              progressResult={progressResult} isGeneratingProgress={isGeneratingProgress}
+              onRunProgressUpdate={runProgressUpdate}
+              reportResult={reportResult} isGeneratingReport={isGeneratingReport}
+              onRunMarketingReport={runMarketingReport}
+              adsResult={adsResult} isGeneratingAds={isGeneratingAds}
+              onRunAdsGenerator={runAdsGenerator}
             />
           </div>
 

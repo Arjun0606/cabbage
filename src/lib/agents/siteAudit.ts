@@ -10,14 +10,25 @@ import { aiComplete } from "@/lib/ai";
  * that generic SEO tools and agencies consistently miss.
  */
 const REAL_ESTATE_SEO_CHECKS = [
+  // Compliance — legal requirements
   { id: "rera_visible", label: "RERA / regulatory number visible", category: "Compliance", weight: "critical" },
-  { id: "price_band_clear", label: "Price range displayed", category: "Conversion", weight: "critical" },
+  // Conversion — directly impacts lead generation
+  { id: "price_band_clear", label: "Price range / starting price displayed", category: "Conversion", weight: "critical" },
   { id: "contact_cta", label: "Enquiry CTA above the fold", category: "Conversion", weight: "critical" },
   { id: "whatsapp_link", label: "WhatsApp quick-connect link", category: "Conversion", weight: "critical" },
+  { id: "floor_plan_present", label: "Floor plans / unit layouts on page", category: "Content", weight: "critical" },
+  // Technical — search visibility
   { id: "schema_realestate", label: "RealEstateListing schema markup", category: "Technical", weight: "high" },
-  { id: "floor_plan_present", label: "Floor plans on page", category: "Content", weight: "high" },
-  { id: "emi_calculator", label: "EMI / home loan information", category: "Conversion", weight: "high" },
-  { id: "location_map", label: "Location map with landmarks", category: "Content", weight: "medium" },
+  { id: "llms_txt", label: "llms.txt file for AI crawlers", category: "Technical", weight: "high" },
+  // Content — buyer decision factors
+  { id: "emi_calculator", label: "EMI / home loan calculator", category: "Conversion", weight: "high" },
+  { id: "location_map", label: "Location map with landmarks", category: "Content", weight: "high" },
+  { id: "virtual_tour", label: "Virtual tour / video walkthrough", category: "Content", weight: "high" },
+  { id: "amenities_section", label: "Amenities section with details", category: "Content", weight: "high" },
+  { id: "gallery_images", label: "Project gallery / renders", category: "Content", weight: "medium" },
+  { id: "developer_creds", label: "Builder credentials / track record", category: "Trust", weight: "medium" },
+  { id: "possession_date", label: "Possession / delivery timeline visible", category: "Conversion", weight: "medium" },
+  { id: "legal_docs", label: "Legal documents section (OC/CC/NOC)", category: "Compliance", weight: "medium" },
 ] as const;
 
 // ---------- Types ----------

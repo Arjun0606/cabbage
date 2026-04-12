@@ -23,6 +23,12 @@ import {
   Code,
   Copy,
   Check,
+  Layout,
+  Building,
+  Navigation,
+  HardHat,
+  BarChart3,
+  Megaphone,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { PromptVolumes } from "./PromptVolumes";
@@ -69,6 +75,25 @@ interface Props {
   schemaResult: any;
   isGeneratingSchema: boolean;
   onRunSchemaGenerator: () => void;
+  // Round 2 features
+  landingPageResult: any;
+  isGeneratingLanding: boolean;
+  onRunLandingPage: (pageType: string) => void;
+  portalResult: any;
+  isGeneratingPortal: boolean;
+  onRunPortalOptimizer: () => void;
+  neighborhoodResult: any;
+  isGeneratingNeighborhood: boolean;
+  onRunNeighborhood: () => void;
+  progressResult: any;
+  isGeneratingProgress: boolean;
+  onRunProgressUpdate: (phase: string, pct?: number) => void;
+  reportResult: any;
+  isGeneratingReport: boolean;
+  onRunMarketingReport: () => void;
+  adsResult: any;
+  isGeneratingAds: boolean;
+  onRunAdsGenerator: (platform: string) => void;
 }
 
 function ScoreCircle({ score, label, size = "md" }: { score: number; label: string; size?: "sm" | "md" }) {
@@ -151,6 +176,12 @@ export function AnalyticsPanel({
   festiveCampaignResult, isGeneratingCampaign, onRunFestiveCampaign,
   channelPartnerResult, isGeneratingPartner, onRunChannelPartner,
   schemaResult, isGeneratingSchema, onRunSchemaGenerator,
+  landingPageResult, isGeneratingLanding, onRunLandingPage,
+  portalResult, isGeneratingPortal, onRunPortalOptimizer,
+  neighborhoodResult, isGeneratingNeighborhood, onRunNeighborhood,
+  progressResult, isGeneratingProgress, onRunProgressUpdate,
+  reportResult, isGeneratingReport, onRunMarketingReport,
+  adsResult, isGeneratingAds, onRunAdsGenerator,
 }: Props) {
   const [auditUrl, setAuditUrl] = useState(websiteUrl || "");
   useEffect(() => { if (websiteUrl && !auditUrl) setAuditUrl(websiteUrl); }, [websiteUrl]);
@@ -222,6 +253,12 @@ export function AnalyticsPanel({
           <TabsTrigger value="partners" className="text-[13px] rounded-md px-3 py-1.5">Partners</TabsTrigger>
           <TabsTrigger value="schema" className="text-[13px] rounded-md px-3 py-1.5">Schema</TabsTrigger>
           <TabsTrigger value="locality" className="text-[13px] rounded-md px-3 py-1.5">Locality</TabsTrigger>
+          <TabsTrigger value="landing" className="text-[13px] rounded-md px-3 py-1.5">Landing Pages</TabsTrigger>
+          <TabsTrigger value="portals" className="text-[13px] rounded-md px-3 py-1.5">Portals</TabsTrigger>
+          <TabsTrigger value="neighborhood" className="text-[13px] rounded-md px-3 py-1.5">Neighborhood</TabsTrigger>
+          <TabsTrigger value="progress" className="text-[13px] rounded-md px-3 py-1.5">Progress</TabsTrigger>
+          <TabsTrigger value="ads" className="text-[13px] rounded-md px-3 py-1.5">Ads</TabsTrigger>
+          <TabsTrigger value="report" className="text-[13px] rounded-md px-3 py-1.5">Report</TabsTrigger>
         </TabsList>
 
         {/* -------- HEALTH TAB -------- */}
@@ -1396,6 +1433,499 @@ export function AnalyticsPanel({
             </>
           ) : (
             <EmptyState icon={Code} title="Generate structured data for your property" subtitle="RealEstateListing, Organization, FAQ, BreadcrumbList, LocalBusiness schemas" />
+          )}
+        </TabsContent>
+
+        {/* -------- LANDING PAGES TAB -------- */}
+        <TabsContent value="landing" className="space-y-4">
+          <div className="flex gap-2 flex-wrap">
+            {[
+              { value: "site_visit", label: "Site Visit Page", icon: Layout },
+              { value: "price_enquiry", label: "Price Enquiry", icon: Building },
+              { value: "nri", label: "NRI Landing Page", icon: Globe },
+              { value: "festive_offer", label: "Festive Offer", icon: PartyPopper },
+              { value: "pre_launch", label: "Pre-Launch", icon: Megaphone },
+            ].map(({ value, label, icon: Ic }) => (
+              <Button
+                key={value}
+                onClick={() => onRunLandingPage(value)}
+                disabled={isGeneratingLanding}
+                variant="outline"
+                className="border-zinc-700 text-[13px] h-10 rounded-lg hover:border-emerald-500/30 hover:text-emerald-400"
+              >
+                {isGeneratingLanding ? <Loader2 size={14} className="animate-spin mr-2" /> : <Ic size={14} className="mr-2" />}
+                {label}
+              </Button>
+            ))}
+          </div>
+
+          {landingPageResult ? (
+            <>
+              <SectionCard>
+                <CardContent className="p-5">
+                  <div className="flex items-start justify-between mb-3">
+                    <div>
+                      <Badge className="bg-emerald-500/10 text-emerald-400 border-0 text-[10px] h-5 rounded-md mb-2">{landingPageResult.pageType}</Badge>
+                      <h4 className="text-[15px] font-semibold text-zinc-100">{landingPageResult.title}</h4>
+                      <p className="text-[12px] text-zinc-500 mt-1">{landingPageResult.metaDescription}</p>
+                    </div>
+                    <CopyBtn text={landingPageResult.html} field="landing-html" />
+                  </div>
+                  <div className="rounded-lg bg-zinc-800/40 border border-zinc-700/30 p-4 max-h-[500px] overflow-y-auto">
+                    <pre className="text-[11px] text-zinc-400 whitespace-pre-wrap font-mono">{landingPageResult.html?.substring(0, 3000)}...</pre>
+                  </div>
+                  <p className="text-[11px] text-zinc-600 mt-2">Copy the full HTML and host it on your domain or use with a landing page builder.</p>
+                </CardContent>
+              </SectionCard>
+            </>
+          ) : (
+            <EmptyState icon={Layout} title="Generate ready-to-deploy landing pages" subtitle="Site visit, price enquiry, NRI, festive offer, pre-launch pages" />
+          )}
+        </TabsContent>
+
+        {/* -------- PORTALS TAB -------- */}
+        <TabsContent value="portals" className="space-y-4">
+          <Button
+            onClick={onRunPortalOptimizer}
+            disabled={isGeneratingPortal}
+            className="w-full bg-blue-600 hover:bg-blue-500 h-10 text-[13px] font-medium rounded-lg"
+          >
+            {isGeneratingPortal ? (
+              <><Loader2 size={15} className="animate-spin mr-2" />Optimizing listings...</>
+            ) : (
+              <><Building size={15} className="mr-2" />Optimize Portal Listings</>
+            )}
+          </Button>
+
+          {portalResult ? (
+            <>
+              {Object.entries(portalResult.portals || {}).map(([key, portal]: [string, any]) => (
+                <SectionCard key={key}>
+                  <CardContent className="p-5">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-[13px] font-semibold text-zinc-200 capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}</h4>
+                      <CopyBtn text={`${portal.title}\n\n${portal.description}`} field={`portal-${key}`} />
+                    </div>
+                    <div className="space-y-3">
+                      <div className="p-3 rounded-lg bg-zinc-800/40 border border-zinc-700/30">
+                        <div className="text-[11px] text-zinc-500 mb-1">Title</div>
+                        <div className="text-[13px] text-zinc-200 font-medium">{portal.title}</div>
+                      </div>
+                      <div className="p-3 rounded-lg bg-zinc-800/40 border border-zinc-700/30">
+                        <div className="text-[11px] text-zinc-500 mb-1">Description</div>
+                        <div className="text-[13px] text-zinc-300 leading-relaxed whitespace-pre-wrap">{portal.description}</div>
+                      </div>
+                      {portal.tags?.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {portal.tags.map((tag: string, i: number) => (
+                            <Badge key={i} variant="outline" className="border-zinc-700/50 text-zinc-400 text-[11px] rounded-md">{tag}</Badge>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </SectionCard>
+              ))}
+
+              {portalResult.googleBusinessProfile && (
+                <SectionCard>
+                  <CardContent className="p-5">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-[13px] font-semibold text-zinc-200">Google Business Profile</h4>
+                      <CopyBtn text={portalResult.googleBusinessProfile.description} field="gbp" />
+                    </div>
+                    <div className="p-3 rounded-lg bg-zinc-800/40 border border-zinc-700/30 text-[13px] text-zinc-300 leading-relaxed">{portalResult.googleBusinessProfile.description}</div>
+                  </CardContent>
+                </SectionCard>
+              )}
+            </>
+          ) : (
+            <EmptyState icon={Building} title="Optimize your property portal listings" subtitle="99acres, MagicBricks, Housing.com, Google Business Profile" />
+          )}
+        </TabsContent>
+
+        {/* -------- NEIGHBORHOOD TAB -------- */}
+        <TabsContent value="neighborhood" className="space-y-4">
+          <Button
+            onClick={onRunNeighborhood}
+            disabled={isGeneratingNeighborhood}
+            className="w-full bg-emerald-600 hover:bg-emerald-500 h-10 text-[13px] font-medium rounded-lg"
+          >
+            {isGeneratingNeighborhood ? (
+              <><Loader2 size={15} className="animate-spin mr-2" />Analyzing neighborhood...</>
+            ) : (
+              <><Navigation size={15} className="mr-2" />Analyze Neighborhood</>
+            )}
+          </Button>
+
+          {neighborhoodResult ? (
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                <SectionCard>
+                  <CardContent className="p-5 text-center">
+                    <div className="text-3xl font-bold text-emerald-400">{neighborhoodResult.walkScore}</div>
+                    <div className="text-[11px] text-zinc-500 mt-1 font-medium">Walk Score</div>
+                  </CardContent>
+                </SectionCard>
+                <SectionCard>
+                  <CardContent className="p-5 text-center">
+                    <div className="text-3xl font-bold text-blue-400">{neighborhoodResult.connectivityScore}</div>
+                    <div className="text-[11px] text-zinc-500 mt-1 font-medium">Connectivity Score</div>
+                  </CardContent>
+                </SectionCard>
+              </div>
+
+              {neighborhoodResult.connectivity && (
+                <SectionCard>
+                  <CardContent className="p-5">
+                    <h4 className="text-[13px] font-semibold text-zinc-200 mb-3">Connectivity</h4>
+                    <div className="grid grid-cols-2 gap-2">
+                      {Object.entries(neighborhoodResult.connectivity).map(([key, val]: [string, any]) => val && (
+                        <div key={key} className="p-2.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30">
+                          <div className="text-[11px] text-zinc-500 capitalize">{key}</div>
+                          <div className="text-[13px] text-zinc-300">{val}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </SectionCard>
+              )}
+
+              {[
+                { key: "education", label: "Education", data: neighborhoodResult.education },
+                { key: "healthcare", label: "Healthcare", data: neighborhoodResult.healthcare },
+                { key: "shopping", label: "Shopping & Entertainment", data: neighborhoodResult.shopping },
+                { key: "itHubs", label: "IT / Business Hubs", data: neighborhoodResult.itHubs },
+              ].map(({ key, label, data }) => data?.length > 0 && (
+                <SectionCard key={key}>
+                  <CardContent className="p-5">
+                    <h4 className="text-[13px] font-semibold text-zinc-200 mb-3">{label}</h4>
+                    <div className="space-y-1.5">
+                      {data.map((item: any, i: number) => (
+                        <div key={i} className="flex items-center justify-between py-1 text-[13px]">
+                          <span className="text-zinc-300">{item.name}</span>
+                          <span className="text-[12px] text-zinc-500">{item.distance || item.type}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </SectionCard>
+              ))}
+
+              {neighborhoodResult.upcomingInfra?.length > 0 && (
+                <SectionCard>
+                  <CardContent className="p-5">
+                    <h4 className="text-[13px] font-semibold text-zinc-200 mb-3">Upcoming Infrastructure</h4>
+                    <div className="space-y-2.5">
+                      {neighborhoodResult.upcomingInfra.map((infra: any, i: number) => (
+                        <div key={i} className="p-3 rounded-lg bg-zinc-800/40 border border-zinc-700/30">
+                          <div className="text-[13px] text-zinc-200 font-medium">{infra.project}</div>
+                          <div className="text-[12px] text-zinc-500 mt-0.5">{infra.timeline} — {infra.impact}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </SectionCard>
+              )}
+
+              {neighborhoodResult.whyLiveHere?.length > 0 && (
+                <SectionCard>
+                  <CardContent className="p-5">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-[13px] font-semibold text-zinc-200">Why Live Here (Marketing Copy)</h4>
+                      <CopyBtn text={neighborhoodResult.whyLiveHere.join("\n")} field="why-live" />
+                    </div>
+                    <div className="space-y-1.5">
+                      {neighborhoodResult.whyLiveHere.map((point: string, i: number) => (
+                        <div key={i} className="text-[13px] text-zinc-300 flex items-start gap-2">
+                          <span className="text-emerald-400 mt-0.5 flex-shrink-0">&#8226;</span> {point}
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </SectionCard>
+              )}
+
+              {neighborhoodResult.seoContent?.length > 0 && (
+                <SectionCard>
+                  <CardContent className="p-5">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-[13px] font-semibold text-zinc-200">SEO Content (Ready to Use)</h4>
+                      <CopyBtn text={neighborhoodResult.seoContent.join("\n\n")} field="seo-content" />
+                    </div>
+                    <div className="space-y-3">
+                      {neighborhoodResult.seoContent.map((para: string, i: number) => (
+                        <p key={i} className="text-[13px] text-zinc-400 leading-relaxed">{para}</p>
+                      ))}
+                    </div>
+                  </CardContent>
+                </SectionCard>
+              )}
+            </>
+          ) : (
+            <EmptyState icon={Navigation} title="Analyze the neighborhood around your project" subtitle="Walk score, connectivity, schools, hospitals, IT hubs, infrastructure" />
+          )}
+        </TabsContent>
+
+        {/* -------- PROGRESS UPDATE TAB -------- */}
+        <TabsContent value="progress" className="space-y-4">
+          <div className="flex gap-2 flex-wrap">
+            {[
+              { value: "excavation", label: "Excavation" },
+              { value: "foundation", label: "Foundation" },
+              { value: "structure", label: "Structure" },
+              { value: "finishing", label: "Finishing" },
+              { value: "landscaping", label: "Landscaping" },
+              { value: "handover", label: "Handover" },
+            ].map((phase) => (
+              <Button
+                key={phase.value}
+                onClick={() => onRunProgressUpdate(phase.value)}
+                disabled={isGeneratingProgress}
+                variant="outline"
+                className="border-zinc-700 text-[13px] h-10 rounded-lg hover:border-emerald-500/30 hover:text-emerald-400"
+              >
+                {isGeneratingProgress ? <Loader2 size={14} className="animate-spin mr-2" /> : <HardHat size={14} className="mr-2" />}
+                {phase.label}
+              </Button>
+            ))}
+          </div>
+
+          {progressResult ? (
+            <>
+              {[
+                { key: "linkedinPost", label: "LinkedIn Post" },
+                { key: "buyerWhatsApp", label: "WhatsApp (Existing Buyers)" },
+                { key: "prospectWhatsApp", label: "WhatsApp (Prospects)" },
+                { key: "emailSection", label: "Email Newsletter Section" },
+                { key: "blogPost", label: "Website Blog Post" },
+                { key: "socialCaption", label: "Instagram / Facebook Caption" },
+                { key: "videoScript", label: "YouTube Video Script (60s)" },
+                { key: "smsText", label: "SMS" },
+              ].map(({ key, label }) => progressResult[key] && (
+                <SectionCard key={key}>
+                  <CardContent className="p-5">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-[13px] font-semibold text-zinc-200">{label}</h4>
+                      <CopyBtn text={progressResult[key]} field={`progress-${key}`} />
+                    </div>
+                    <div className="p-3.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30 text-[13px] text-zinc-300 whitespace-pre-wrap leading-relaxed">{progressResult[key]}</div>
+                  </CardContent>
+                </SectionCard>
+              ))}
+            </>
+          ) : (
+            <EmptyState icon={HardHat} title="Generate construction progress updates" subtitle="LinkedIn, WhatsApp (buyers + prospects), email, blog, social, video script, SMS" />
+          )}
+        </TabsContent>
+
+        {/* -------- ADS TAB -------- */}
+        <TabsContent value="ads" className="space-y-4">
+          <div className="flex gap-2">
+            <Button onClick={() => onRunAdsGenerator("both")} disabled={isGeneratingAds} className="flex-1 bg-violet-600 hover:bg-violet-500 h-10 text-[13px] font-medium rounded-lg">
+              {isGeneratingAds ? <><Loader2 size={15} className="animate-spin mr-2" />Generating...</> : <><Megaphone size={15} className="mr-2" />Google + Meta Ads</>}
+            </Button>
+            <Button onClick={() => onRunAdsGenerator("google")} disabled={isGeneratingAds} variant="outline" className="border-zinc-700 h-10 text-[13px] rounded-lg">Google Only</Button>
+            <Button onClick={() => onRunAdsGenerator("meta")} disabled={isGeneratingAds} variant="outline" className="border-zinc-700 h-10 text-[13px] rounded-lg">Meta Only</Button>
+          </div>
+
+          {adsResult ? (
+            <>
+              {adsResult.googleAds && (
+                <>
+                  <SectionCard>
+                    <CardContent className="p-5">
+                      <h4 className="text-[13px] font-semibold text-zinc-200 mb-3">Google Ads — Headlines ({adsResult.googleAds.headlines?.length})</h4>
+                      <div className="flex flex-wrap gap-1.5">
+                        {adsResult.googleAds.headlines?.map((h: string, i: number) => (
+                          <Badge key={i} variant="secondary" className="bg-zinc-800/60 text-zinc-300 text-[12px] rounded-md border border-zinc-700/30 h-7 px-2.5">{h}</Badge>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </SectionCard>
+                  <SectionCard>
+                    <CardContent className="p-5">
+                      <h4 className="text-[13px] font-semibold text-zinc-200 mb-3">Google Ads — Descriptions</h4>
+                      <div className="space-y-2">
+                        {adsResult.googleAds.descriptions?.map((d: string, i: number) => (
+                          <div key={i} className="p-3 rounded-lg bg-zinc-800/40 border border-zinc-700/30 text-[13px] text-zinc-300 flex justify-between gap-2">
+                            <span>{d}</span><CopyBtn text={d} field={`gad-d-${i}`} />
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </SectionCard>
+                  {adsResult.googleAds.sitelinks?.length > 0 && (
+                    <SectionCard>
+                      <CardContent className="p-5">
+                        <h4 className="text-[13px] font-semibold text-zinc-200 mb-3">Sitelink Extensions</h4>
+                        <div className="grid grid-cols-2 gap-2">
+                          {adsResult.googleAds.sitelinks.map((s: any, i: number) => (
+                            <div key={i} className="p-2.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30">
+                              <div className="text-[13px] text-blue-400 font-medium">{typeof s === 'string' ? s : s.text || s.title}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </SectionCard>
+                  )}
+                </>
+              )}
+
+              {adsResult.metaAds?.length > 0 && (
+                <SectionCard>
+                  <CardContent className="p-5">
+                    <h4 className="text-[13px] font-semibold text-zinc-200 mb-3">Meta / Facebook / Instagram Ads</h4>
+                    <div className="space-y-3">
+                      {adsResult.metaAds.map((ad: any, i: number) => (
+                        <div key={i} className="p-3.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30 space-y-2">
+                          <div className="text-[13px] text-zinc-200 font-medium">{ad.headline}</div>
+                          <div className="text-[12px] text-zinc-400">{ad.primaryText}</div>
+                          {ad.audience && <div className="text-[11px] text-zinc-600">Audience: {typeof ad.audience === 'string' ? ad.audience : JSON.stringify(ad.audience)}</div>}
+                          <div className="flex items-center gap-2">
+                            {ad.cta && <Badge className="bg-blue-500/10 text-blue-400 border-0 text-[10px] h-5 rounded-md">{ad.cta}</Badge>}
+                            {ad.format && <Badge variant="outline" className="border-zinc-700/50 text-zinc-500 text-[10px] rounded-md">{ad.format}</Badge>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </SectionCard>
+              )}
+
+              {adsResult.negativeKeywords?.length > 0 && (
+                <SectionCard>
+                  <CardContent className="p-5">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-[13px] font-semibold text-zinc-200">Negative Keywords</h4>
+                      <CopyBtn text={adsResult.negativeKeywords.join("\n")} field="neg-kw" />
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {adsResult.negativeKeywords.map((kw: string, i: number) => (
+                        <Badge key={i} variant="outline" className="border-red-500/20 text-red-400/70 text-[11px] rounded-md">{kw}</Badge>
+                      ))}
+                    </div>
+                  </CardContent>
+                </SectionCard>
+              )}
+
+              {adsResult.budgetSplit && (
+                <SectionCard>
+                  <CardContent className="p-5">
+                    <h4 className="text-[13px] font-semibold text-zinc-200 mb-3">Budget Allocation</h4>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="p-3 rounded-lg bg-zinc-800/40 border border-zinc-700/30 text-center">
+                        <div className="text-xl font-bold text-zinc-200">{adsResult.budgetSplit.google}%</div>
+                        <div className="text-[11px] text-zinc-500 mt-1">Google Ads</div>
+                      </div>
+                      <div className="p-3 rounded-lg bg-zinc-800/40 border border-zinc-700/30 text-center">
+                        <div className="text-xl font-bold text-zinc-200">{adsResult.budgetSplit.meta}%</div>
+                        <div className="text-[11px] text-zinc-500 mt-1">Meta Ads</div>
+                      </div>
+                    </div>
+                    {adsResult.budgetSplit.reason && <p className="text-[12px] text-zinc-500 mt-2">{adsResult.budgetSplit.reason}</p>}
+                  </CardContent>
+                </SectionCard>
+              )}
+            </>
+          ) : (
+            <EmptyState icon={Megaphone} title="Generate Google & Meta ad copy" subtitle="Headlines, descriptions, sitelinks, audience targeting, negative keywords" />
+          )}
+        </TabsContent>
+
+        {/* -------- REPORT TAB -------- */}
+        <TabsContent value="report" className="space-y-4">
+          <Button
+            onClick={onRunMarketingReport}
+            disabled={isGeneratingReport}
+            className="w-full bg-zinc-700 hover:bg-zinc-600 h-10 text-[13px] font-medium rounded-lg"
+          >
+            {isGeneratingReport ? (
+              <><Loader2 size={15} className="animate-spin mr-2" />Generating report...</>
+            ) : (
+              <><BarChart3 size={15} className="mr-2" />Generate Monthly Marketing Report</>
+            )}
+          </Button>
+
+          {reportResult ? (
+            <>
+              <SectionCard>
+                <CardContent className="p-5">
+                  <h4 className="text-[13px] font-semibold text-zinc-200 mb-2">Executive Summary</h4>
+                  <p className="text-[13px] text-zinc-300 leading-relaxed">{reportResult.executiveSummary}</p>
+                </CardContent>
+              </SectionCard>
+
+              {[
+                { key: "seoSection", label: "SEO Performance" },
+                { key: "aiGeoSection", label: "AI / GEO Visibility" },
+                { key: "contentSection", label: "Content Performance" },
+                { key: "competitiveSection", label: "Competitive Intelligence" },
+              ].map(({ key, label }) => reportResult[key] && (
+                <SectionCard key={key}>
+                  <CardContent className="p-5">
+                    <h4 className="text-[13px] font-semibold text-zinc-200 mb-2">{label}</h4>
+                    <p className="text-[13px] text-zinc-400 leading-relaxed whitespace-pre-wrap">{reportResult[key]}</p>
+                  </CardContent>
+                </SectionCard>
+              ))}
+
+              {reportResult.recommendations?.length > 0 && (
+                <SectionCard>
+                  <CardContent className="p-5">
+                    <h4 className="text-[13px] font-semibold text-zinc-200 mb-3">Recommendations for Next Month</h4>
+                    <div className="space-y-1.5">
+                      {reportResult.recommendations.map((rec: string, i: number) => (
+                        <div key={i} className="text-[13px] text-zinc-300 flex items-start gap-2">
+                          <span className="text-emerald-400 font-bold mt-0.5 flex-shrink-0">{i + 1}.</span> {rec}
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </SectionCard>
+              )}
+
+              {reportResult.kpis?.length > 0 && (
+                <SectionCard>
+                  <CardContent className="p-5">
+                    <h4 className="text-[13px] font-semibold text-zinc-200 mb-3">KPI Dashboard</h4>
+                    <div className="grid grid-cols-3 gap-3">
+                      {reportResult.kpis.map((kpi: any, i: number) => (
+                        <div key={i} className="p-3 rounded-lg bg-zinc-800/40 border border-zinc-700/30 text-center">
+                          <div className="text-lg font-bold text-zinc-100">{kpi.value}</div>
+                          <div className="text-[11px] text-zinc-500 mt-0.5">{kpi.metric}</div>
+                          {kpi.trend && <div className={`text-[10px] mt-0.5 ${kpi.trend === 'up' ? 'text-emerald-400' : kpi.trend === 'down' ? 'text-red-400' : 'text-zinc-600'}`}>{kpi.trend === 'up' ? '↑' : kpi.trend === 'down' ? '↓' : '→'} {kpi.target && `Target: ${kpi.target}`}</div>}
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </SectionCard>
+              )}
+
+              {reportResult.costSavings && (
+                <SectionCard>
+                  <CardContent className="p-5">
+                    <h4 className="text-[13px] font-semibold text-zinc-200 mb-3">Cost Savings vs Agency</h4>
+                    <div className="grid grid-cols-3 gap-3 text-center">
+                      <div className="p-3 rounded-lg bg-zinc-800/40 border border-zinc-700/30">
+                        <div className="text-lg font-bold text-red-400">{reportResult.costSavings.agencyCost}</div>
+                        <div className="text-[11px] text-zinc-500 mt-0.5">Agency Cost</div>
+                      </div>
+                      <div className="p-3 rounded-lg bg-zinc-800/40 border border-zinc-700/30">
+                        <div className="text-lg font-bold text-emerald-400">{reportResult.costSavings.cabbageCost}</div>
+                        <div className="text-[11px] text-zinc-500 mt-0.5">CabbageSEO</div>
+                      </div>
+                      <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                        <div className="text-lg font-bold text-emerald-400">{reportResult.costSavings.savings}</div>
+                        <div className="text-[11px] text-emerald-400/70 mt-0.5">You Save</div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </SectionCard>
+              )}
+            </>
+          ) : (
+            <EmptyState icon={BarChart3} title="Generate a board-ready monthly marketing report" subtitle="Run scans first for data-driven reporting" />
           )}
         </TabsContent>
       </Tabs>
