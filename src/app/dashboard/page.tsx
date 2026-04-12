@@ -74,19 +74,68 @@ export default function DashboardPage() {
   // Which panel is shown on the left: "company" or "chat"
   const [leftPanel, setLeftPanel] = useState<"company" | "chat">("company");
 
+  // Load company: try Supabase first, fall back to localStorage
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem("cabbageseo_company");
-      if (saved) {
-        const data = JSON.parse(saved);
-        setCompany(data);
-        addLog(`> Loaded: ${data.name}`);
-        addLog("> Ready — hit 'Run Full Scan' to start");
-        setTrends(getAllTrends(data.website));
-      } else {
-        addLog("> No site configured. Visit the homepage to add one.");
-      }
-    } catch { addLog("> Ready"); }
+    (async () => {
+      try {
+        // First load from localStorage for instant display
+        const saved = localStorage.getItem("cabbageseo_company");
+        let localData: any = null;
+        if (saved) {
+          localData = JSON.parse(saved);
+          setCompany(localData);
+          setTrends(getAllTrends(localData.website));
+        }
+
+        // Then try to sync from Supabase (if configured)
+        if (localData?.website) {
+          try {
+            const res = await fetch(`/api/companies?website=${encodeURIComponent(localData.website)}`);
+            const { company: dbCompany } = await res.json();
+            if (dbCompany) {
+              // Merge DB data with local shape
+              const merged = {
+                ...localData,
+                name: dbCompany.name || localData.name,
+                description: dbCompany.description || localData.description,
+                website: dbCompany.website || localData.website,
+                city: dbCompany.city || localData.city,
+                projects: dbCompany.projects?.map((p: any) => ({
+                  name: p.name, website: p.website, location: p.location,
+                  configurations: p.configurations, priceRange: p.price_range,
+                  reraNumber: p.rera_number, amenities: p.amenities, status: p.status,
+                })) || localData.projects,
+                competitors: dbCompany.competitors?.map((c: any) => ({
+                  name: c.name, website: c.website,
+                })) || localData.competitors,
+                documents: {
+                  productInfo: dbCompany.product_info || localData.documents?.productInfo || "",
+                  brandVoice: dbCompany.brand_voice || localData.documents?.brandVoice || "",
+                  brandValues: dbCompany.brand_values || localData.documents?.brandValues || "",
+                  brandVision: dbCompany.brand_vision || localData.documents?.brandVision || "",
+                  targetAudience: dbCompany.target_audience || localData.documents?.targetAudience || "",
+                  marketingStrategy: dbCompany.marketing_strategy || localData.documents?.marketingStrategy || "",
+                  competitorAnalysis: dbCompany.competitor_analysis || localData.documents?.competitorAnalysis || "",
+                },
+                _companyId: dbCompany.id,
+              };
+              setCompany(merged);
+              localStorage.setItem("cabbageseo_company", JSON.stringify(merged));
+              addLog(`> Synced from cloud: ${merged.name}`);
+            }
+          } catch {
+            // Supabase not configured — that's fine, use localStorage
+          }
+        }
+
+        if (localData) {
+          addLog(`> Loaded: ${localData.name}`);
+          addLog("> Ready — hit 'Run Full Scan' to start");
+        } else {
+          addLog("> No site configured. Visit the homepage to add one.");
+        }
+      } catch { addLog("> Ready"); }
+    })();
   }, []);
 
   // GSC callback
@@ -102,8 +151,20 @@ export default function DashboardPage() {
     }
   }, []);
 
+  // Save company: localStorage immediately + debounced Supabase sync
   useEffect(() => {
-    if (company.name) localStorage.setItem("cabbageseo_company", JSON.stringify(company));
+    if (!company.name) return;
+    localStorage.setItem("cabbageseo_company", JSON.stringify(company));
+
+    // Debounce Supabase sync (2s after last change)
+    const timer = setTimeout(() => {
+      fetch("/api/companies", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(company),
+      }).catch(() => { /* Supabase not configured, that's fine */ });
+    }, 2000);
+    return () => clearTimeout(timer);
   }, [company]);
 
   const addLog = (msg: string) => setTerminalLogs((prev) => [...prev, msg]);

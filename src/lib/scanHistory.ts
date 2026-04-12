@@ -1,10 +1,8 @@
 /**
- * Scan History — local persistence layer.
+ * Scan History — dual persistence layer.
  *
- * Stores every scan result with timestamp in localStorage.
- * Shows trends: "Your score was X on April 1, now Y on April 11."
- *
- * Migrates to Supabase when database is connected — same API shape.
+ * Saves to localStorage for instant access + syncs to Supabase
+ * via /api/history for cloud persistence and cross-device sync.
  */
 
 export interface ScanRecord {
@@ -36,13 +34,13 @@ function getHistory(): ScanRecord[] {
 }
 
 function saveHistory(records: ScanRecord[]) {
-  // Keep last 200 records max
   const trimmed = records.slice(-200);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));
 }
 
 /**
  * Record a new scan result.
+ * Saves to localStorage immediately + fires async Supabase sync.
  */
 export function recordScan(
   type: ScanRecord["type"],
@@ -60,11 +58,30 @@ export function recordScan(
     summary,
   });
   saveHistory(records);
+
+  // Also sync to Supabase (fire and forget)
+  try {
+    const companyData = localStorage.getItem("cabbageseo_company");
+    const companyId = companyData ? JSON.parse(companyData)?._companyId : null;
+    if (companyId) {
+      fetch("/api/history", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          companyId,
+          scanType: type,
+          url,
+          score,
+          results: { summary },
+          triggeredBy: "manual",
+        }),
+      }).catch(() => { /* Supabase not configured */ });
+    }
+  } catch { /* ignore */ }
 }
 
 /**
  * Get trend data for a specific scan type and URL.
- * Returns current score, previous score, change, direction, and history.
  */
 export function getTrend(type: ScanRecord["type"], url?: string): TrendData {
   const records = getHistory()
