@@ -95,6 +95,13 @@ interface Props {
   adsResult: any;
   isGeneratingAds: boolean;
   onRunAdsGenerator: (platform: string) => void;
+  // GEO improvement
+  llmsTxtResult: any;
+  isGeneratingLlmsTxt: boolean;
+  onRunLlmsTxt: () => void;
+  geoImprovementResult: any;
+  isGeneratingGeoImprovement: boolean;
+  onRunGeoImprovement: () => void;
 }
 
 function ScoreCircle({ score, label, size = "md" }: { score: number; label: string; size?: "sm" | "md" }) {
@@ -183,6 +190,8 @@ export function AnalyticsPanel({
   progressResult, isGeneratingProgress, onRunProgressUpdate,
   reportResult, isGeneratingReport, onRunMarketingReport,
   adsResult, isGeneratingAds, onRunAdsGenerator,
+  llmsTxtResult, isGeneratingLlmsTxt, onRunLlmsTxt,
+  geoImprovementResult, isGeneratingGeoImprovement, onRunGeoImprovement,
 }: Props) {
   const [auditUrl, setAuditUrl] = useState(websiteUrl || "");
   useEffect(() => { if (websiteUrl && !auditUrl) setAuditUrl(websiteUrl); }, [websiteUrl]);
@@ -703,6 +712,123 @@ export function AnalyticsPanel({
                   ))}
                 </CardContent>
               </SectionCard>
+
+              {/* ---- IMPROVE YOUR SCORE ---- */}
+              <div className="border-t border-zinc-800/40 pt-4 mt-4" />
+
+              <div className="flex gap-3">
+                <Button
+                  onClick={onRunLlmsTxt}
+                  disabled={isGeneratingLlmsTxt}
+                  className="flex-1 bg-violet-600 hover:bg-violet-500 h-10 text-[13px] font-medium rounded-lg"
+                >
+                  {isGeneratingLlmsTxt ? <><Loader2 size={15} className="animate-spin mr-2" />Generating...</> : "Generate llms.txt"}
+                </Button>
+                <Button
+                  onClick={onRunGeoImprovement}
+                  disabled={isGeneratingGeoImprovement}
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-500 h-10 text-[13px] font-medium rounded-lg"
+                >
+                  {isGeneratingGeoImprovement ? <><Loader2 size={15} className="animate-spin mr-2" />Planning...</> : "Get Improvement Plan"}
+                </Button>
+              </div>
+
+              {/* llms.txt result */}
+              {llmsTxtResult && (
+                <SectionCard>
+                  <CardContent className="p-5">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-[13px] font-semibold text-zinc-200">llms.txt — Upload to your website root</h4>
+                      <CopyBtn text={llmsTxtResult.llmsTxt} field="llms-txt" />
+                    </div>
+                    <div className="rounded-lg bg-zinc-800/40 border border-zinc-700/30 p-4 max-h-[300px] overflow-y-auto mb-3">
+                      <pre className="text-[11px] text-emerald-400 whitespace-pre-wrap font-mono">{llmsTxtResult.llmsTxt}</pre>
+                    </div>
+                    {llmsTxtResult.instructions?.length > 0 && (
+                      <div className="space-y-1.5">
+                        <h5 className="text-[12px] font-medium text-zinc-400">How to install:</h5>
+                        {llmsTxtResult.instructions.map((step: string, i: number) => (
+                          <div key={i} className="text-[12px] text-zinc-500 flex items-start gap-2">
+                            <span className="text-emerald-400 font-bold flex-shrink-0">{i + 1}.</span> {step}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {llmsTxtResult.llmsFullTxt && (
+                      <div className="mt-4 pt-3 border-t border-zinc-800/40">
+                        <div className="flex items-center justify-between mb-2">
+                          <h5 className="text-[12px] font-medium text-zinc-400">llms-full.txt (detailed version)</h5>
+                          <CopyBtn text={llmsTxtResult.llmsFullTxt} field="llms-full" />
+                        </div>
+                        <div className="rounded-lg bg-zinc-800/40 border border-zinc-700/30 p-4 max-h-[200px] overflow-y-auto">
+                          <pre className="text-[11px] text-zinc-400 whitespace-pre-wrap font-mono">{llmsTxtResult.llmsFullTxt}</pre>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </SectionCard>
+              )}
+
+              {/* GEO Improvement Plan */}
+              {geoImprovementResult && (
+                <>
+                  <SectionCard>
+                    <CardContent className="p-5">
+                      <div className="flex items-center justify-between mb-4">
+                        <h4 className="text-[15px] font-semibold text-zinc-100">GEO Improvement Plan</h4>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[13px] text-red-400 font-bold">{geoImprovementResult.currentScore}%</span>
+                          <span className="text-zinc-600">→</span>
+                          <span className="text-[13px] text-emerald-400 font-bold">{geoImprovementResult.targetScore}%</span>
+                        </div>
+                      </div>
+                      <p className="text-[12px] text-zinc-500 mb-4">Timeline: {geoImprovementResult.expectedTimeline}</p>
+
+                      {geoImprovementResult.quickWins?.length > 0 && (
+                        <div className="rounded-lg bg-emerald-500/5 border border-emerald-500/15 p-3.5 mb-4">
+                          <h5 className="text-[12px] font-semibold text-emerald-400 mb-2">Quick Wins (do these today)</h5>
+                          {geoImprovementResult.quickWins.map((win: string, i: number) => (
+                            <div key={i} className="text-[12px] text-zinc-300 flex items-start gap-2 py-0.5">
+                              <span className="text-emerald-400 flex-shrink-0">&#8226;</span> {win}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {geoImprovementResult.weeks?.map((week: any, wi: number) => (
+                        <div key={wi} className="mb-4">
+                          <h5 className="text-[13px] font-semibold text-zinc-200 mb-2">
+                            Week {week.week}: {week.theme}
+                          </h5>
+                          <div className="space-y-2">
+                            {week.actions?.map((action: any, ai: number) => (
+                              <div key={ai} className="p-3 rounded-lg bg-zinc-800/40 border border-zinc-700/30">
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="flex-1">
+                                    <div className="text-[13px] text-zinc-200">{action.action}</div>
+                                    <div className="text-[11px] text-zinc-500 mt-0.5">{action.why}</div>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                                    <Badge variant="outline" className={`text-[9px] rounded-md h-4 ${
+                                      action.priority === "must-do" ? "border-red-500/30 text-red-400" :
+                                      action.priority === "should-do" ? "border-yellow-500/30 text-yellow-400" :
+                                      "border-zinc-700 text-zinc-500"
+                                    }`}>{action.priority}</Badge>
+                                    {action.timeEstimate && <span className="text-[10px] text-zinc-600">{action.timeEstimate}</span>}
+                                  </div>
+                                </div>
+                                {action.cabbageFeature && (
+                                  <div className="mt-1.5 text-[10px] text-violet-400">Use: {action.cabbageFeature}</div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </CardContent>
+                  </SectionCard>
+                </>
+              )}
             </>
           ) : (
             <EmptyState icon={Bot} title="Check how your brand appears in AI answers" subtitle="Set your company name first, then click the button above" />

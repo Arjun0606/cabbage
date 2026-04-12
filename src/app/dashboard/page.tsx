@@ -56,6 +56,10 @@ export default function DashboardPage() {
   const [isGeneratingProgress, setIsGeneratingProgress] = useState(false);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [isGeneratingAds, setIsGeneratingAds] = useState(false);
+  const [llmsTxtResult, setLlmsTxtResult] = useState<any>(null);
+  const [geoImprovementResult, setGeoImprovementResult] = useState<any>(null);
+  const [isGeneratingLlmsTxt, setIsGeneratingLlmsTxt] = useState(false);
+  const [isGeneratingGeoImprovement, setIsGeneratingGeoImprovement] = useState(false);
   const [trends, setTrends] = useState<Record<string, TrendData>>({
     audit: { current: 0, previous: null, change: 0, direction: "new", history: [] },
     technical: { current: 0, previous: null, change: 0, direction: "new", history: [] },
@@ -462,6 +466,54 @@ export default function DashboardPage() {
     finally { setIsGeneratingAds(false); }
   };
 
+  // ---- GEO improvement runners ----
+
+  const runLlmsTxt = async () => {
+    setIsGeneratingLlmsTxt(true);
+    addLog(`> Generating llms.txt...`);
+    try {
+      const res = await fetch("/api/llms-txt", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          companyName: company.name, website: company.website, city: company.city,
+          description: company.description, projects: company.projects, usps: company.description,
+        }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setLlmsTxtResult(data);
+      addLog(`> llms.txt ready — upload to your website root`);
+    } catch (err) { addLog(`> Error: ${err instanceof Error ? err.message : "Failed"}`); }
+    finally { setIsGeneratingLlmsTxt(false); }
+  };
+
+  const runGeoImprovement = async () => {
+    setIsGeneratingGeoImprovement(true);
+    addLog(`> Generating GEO improvement plan...`);
+    try {
+      const missingQueries = (aiVisResult?.queryResults || [])
+        .filter((q: any) => !q.chatgpt?.mentioned && !q.claude?.mentioned && !q.perplexity?.mentioned && !q.gemini?.mentioned)
+        .map((q: any) => q.query);
+      const failedChecks = (aiVisResult?.aiReadiness || [])
+        .filter((c: any) => !c.passed)
+        .map((c: any) => c.check);
+      const res = await fetch("/api/geo-improvement", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          companyName: company.name, website: company.website, city: company.city,
+          currentScore: aiVisResult?.scores?.overall || 0,
+          currentMentionRate: 0, missingQueries, failedChecks,
+          projects: company.projects.map((p: any) => ({ name: p.name, location: p.location })),
+        }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setGeoImprovementResult(data);
+      addLog(`> GEO plan: ${data.currentScore}→${data.targetScore} in ${data.expectedTimeline}`);
+    } catch (err) { addLog(`> Error: ${err instanceof Error ? err.message : "Failed"}`); }
+    finally { setIsGeneratingGeoImprovement(false); }
+  };
+
   const runFullScan = async () => {
     const url = company.website;
     if (!url) { addLog("> Set your website URL first"); return; }
@@ -558,6 +610,10 @@ export default function DashboardPage() {
               onRunMarketingReport={runMarketingReport}
               adsResult={adsResult} isGeneratingAds={isGeneratingAds}
               onRunAdsGenerator={runAdsGenerator}
+              llmsTxtResult={llmsTxtResult} isGeneratingLlmsTxt={isGeneratingLlmsTxt}
+              onRunLlmsTxt={runLlmsTxt}
+              geoImprovementResult={geoImprovementResult} isGeneratingGeoImprovement={isGeneratingGeoImprovement}
+              onRunGeoImprovement={runGeoImprovement}
             />
           </div>
 
