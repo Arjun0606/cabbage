@@ -32,6 +32,17 @@ export default function DashboardPage() {
   const [contentPlanResult, setContentPlanResult] = useState<any>(null);
   const [localityResult, setLocalityResult] = useState<any>(null);
   const [isGeneratingContent, setIsGeneratingContent] = useState(false);
+
+  // New feature states
+  const [articleResult, setArticleResult] = useState<any>(null);
+  const [festiveCampaignResult, setFestiveCampaignResult] = useState<any>(null);
+  const [channelPartnerResult, setChannelPartnerResult] = useState<any>(null);
+  const [schemaResult, setSchemaResult] = useState<any>(null);
+  const [isGeneratingArticle, setIsGeneratingArticle] = useState(false);
+  const [isGeneratingCampaign, setIsGeneratingCampaign] = useState(false);
+  const [isGeneratingPartner, setIsGeneratingPartner] = useState(false);
+  const [isGeneratingSchema, setIsGeneratingSchema] = useState(false);
+  const [selectedProject, setSelectedProject] = useState<number | null>(null);
   const [trends, setTrends] = useState<Record<string, TrendData>>({
     audit: { current: 0, previous: null, change: 0, direction: "new", history: [] },
     technical: { current: 0, previous: null, change: 0, direction: "new", history: [] },
@@ -203,6 +214,91 @@ export default function DashboardPage() {
     } catch (err) { addLog(`> Error: ${err instanceof Error ? err.message : "Failed"}`); }
   };
 
+  // ---- New feature runners ----
+
+  const getProjectContext = () => {
+    const p = selectedProject !== null ? company.projects[selectedProject] : null;
+    return {
+      projectName: p?.name || company.name,
+      developerName: company.name,
+      location: p?.location || company.city || "",
+      city: company.city || "",
+      configurations: (p as any)?.configurations || "",
+      priceRange: (p as any)?.priceRange || "",
+      usps: company.description || "",
+      reraNumber: (p as any)?.reraNumber || "",
+      website: p?.website || company.website,
+    };
+  };
+
+  const runArticleWriter = async (topic: string, targetKeyword: string, articleType: string) => {
+    setIsGeneratingArticle(true);
+    addLog(`> Writing article: "${topic}"...`);
+    try {
+      const ctx = getProjectContext();
+      const res = await fetch("/api/article-writer", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...ctx, topic, targetKeyword, articleType }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setArticleResult(data);
+      addLog(`> Article: "${data.title}" — ${data.wordCount} words`);
+    } catch (err) { addLog(`> Error: ${err instanceof Error ? err.message : "Article failed"}`); }
+    finally { setIsGeneratingArticle(false); }
+  };
+
+  const runFestiveCampaign = async (targetFestival?: string) => {
+    setIsGeneratingCampaign(true);
+    addLog(`> Generating festive campaign${targetFestival ? ` for ${targetFestival}` : ""}...`);
+    try {
+      const ctx = getProjectContext();
+      const res = await fetch("/api/festive-campaigns", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...ctx, targetFestival }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setFestiveCampaignResult(data);
+      addLog(`> Campaign: ${data.festival} — "${data.tagline}"`);
+    } catch (err) { addLog(`> Error: ${err instanceof Error ? err.message : "Campaign failed"}`); }
+    finally { setIsGeneratingCampaign(false); }
+  };
+
+  const runChannelPartner = async () => {
+    setIsGeneratingPartner(true);
+    addLog(`> Generating channel partner pack...`);
+    try {
+      const ctx = getProjectContext();
+      const res = await fetch("/api/channel-partner", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(ctx),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setChannelPartnerResult(data);
+      addLog(`> Channel partner pack ready`);
+    } catch (err) { addLog(`> Error: ${err instanceof Error ? err.message : "Failed"}`); }
+    finally { setIsGeneratingPartner(false); }
+  };
+
+  const runSchemaGenerator = async () => {
+    setIsGeneratingSchema(true);
+    addLog(`> Generating property schema...`);
+    try {
+      const ctx = getProjectContext();
+      const res = await fetch("/api/schema-generator", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(ctx),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setSchemaResult(data);
+      addLog(`> Schema generated — ${Object.keys(data.schemas || {}).length} types`);
+    } catch (err) { addLog(`> Error: ${err instanceof Error ? err.message : "Failed"}`); }
+    finally { setIsGeneratingSchema(false); }
+  };
+
   const runFullScan = async () => {
     const url = company.website;
     if (!url) { addLog("> Set your website URL first"); return; }
@@ -275,6 +371,17 @@ export default function DashboardPage() {
               localityResult={localityResult} isGeneratingContent={isGeneratingContent}
               onRunContent={runContent} onRunContentPlan={runContentPlan}
               onRunLocalitySearch={runLocalitySearch} trends={trends}
+              // New features
+              projects={company.projects}
+              selectedProject={selectedProject} onSelectProject={setSelectedProject}
+              articleResult={articleResult} isGeneratingArticle={isGeneratingArticle}
+              onRunArticleWriter={runArticleWriter}
+              festiveCampaignResult={festiveCampaignResult} isGeneratingCampaign={isGeneratingCampaign}
+              onRunFestiveCampaign={runFestiveCampaign}
+              channelPartnerResult={channelPartnerResult} isGeneratingPartner={isGeneratingPartner}
+              onRunChannelPartner={runChannelPartner}
+              schemaResult={schemaResult} isGeneratingSchema={isGeneratingSchema}
+              onRunSchemaGenerator={runSchemaGenerator}
             />
           </div>
 

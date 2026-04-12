@@ -17,6 +17,12 @@ import {
   Wrench,
   FileText,
   MapPin,
+  PenTool,
+  PartyPopper,
+  Users,
+  Code,
+  Copy,
+  Check,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { PromptVolumes } from "./PromptVolumes";
@@ -47,6 +53,22 @@ interface Props {
   onRunContentPlan: () => void;
   onRunLocalitySearch: () => void;
   trends: Record<string, any>;
+  // New features
+  projects: { name: string; website: string; location: string }[];
+  selectedProject: number | null;
+  onSelectProject: (idx: number | null) => void;
+  articleResult: any;
+  isGeneratingArticle: boolean;
+  onRunArticleWriter: (topic: string, targetKeyword: string, articleType: string) => void;
+  festiveCampaignResult: any;
+  isGeneratingCampaign: boolean;
+  onRunFestiveCampaign: (festival?: string) => void;
+  channelPartnerResult: any;
+  isGeneratingPartner: boolean;
+  onRunChannelPartner: () => void;
+  schemaResult: any;
+  isGeneratingSchema: boolean;
+  onRunSchemaGenerator: () => void;
 }
 
 function ScoreCircle({ score, label, size = "md" }: { score: number; label: string; size?: "sm" | "md" }) {
@@ -124,20 +146,81 @@ export function AnalyticsPanel({
   websiteUrl, allSites, companyName, city,
   contentResult, contentPlanResult, localityResult, isGeneratingContent,
   onRunContent, onRunContentPlan, onRunLocalitySearch, trends,
+  projects, selectedProject, onSelectProject,
+  articleResult, isGeneratingArticle, onRunArticleWriter,
+  festiveCampaignResult, isGeneratingCampaign, onRunFestiveCampaign,
+  channelPartnerResult, isGeneratingPartner, onRunChannelPartner,
+  schemaResult, isGeneratingSchema, onRunSchemaGenerator,
 }: Props) {
   const [auditUrl, setAuditUrl] = useState(websiteUrl || "");
   useEffect(() => { if (websiteUrl && !auditUrl) setAuditUrl(websiteUrl); }, [websiteUrl]);
 
+  // Article writer form state
+  const [articleTopic, setArticleTopic] = useState("");
+  const [articleKeyword, setArticleKeyword] = useState("");
+  const [articleType, setArticleType] = useState("locality_guide");
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+
+  const copyToClipboard = (text: string, field: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedField(field);
+    setTimeout(() => setCopiedField(null), 2000);
+  };
+
+  const CopyBtn = ({ text, field }: { text: string; field: string }) => (
+    <button
+      onClick={(e) => { e.stopPropagation(); copyToClipboard(text, field); }}
+      className="text-zinc-600 hover:text-zinc-300 transition-colors p-1 rounded"
+      title="Copy"
+    >
+      {copiedField === field ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
+    </button>
+  );
+
   return (
     <div className="p-5">
+      {/* Project selector — pick which project context to use */}
+      {projects.length > 0 && (
+        <div className="flex items-center gap-2 flex-wrap mb-3">
+          <span className="text-[12px] text-zinc-500 font-medium">Project:</span>
+          <button
+            onClick={() => onSelectProject(null)}
+            className={`text-[12px] px-2.5 py-1 rounded-lg border transition-all ${
+              selectedProject === null
+                ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                : "bg-zinc-900/50 border-zinc-800/50 text-zinc-500 hover:text-zinc-300"
+            }`}
+          >
+            All / Company
+          </button>
+          {projects.map((p, i) => (
+            <button
+              key={i}
+              onClick={() => onSelectProject(i)}
+              className={`text-[12px] px-2.5 py-1 rounded-lg border transition-all ${
+                selectedProject === i
+                  ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                  : "bg-zinc-900/50 border-zinc-800/50 text-zinc-500 hover:text-zinc-300"
+              }`}
+            >
+              {p.name || `Project ${i + 1}`}
+            </button>
+          ))}
+        </div>
+      )}
+
       <Tabs defaultValue="health" className="space-y-5">
-        <TabsList className="bg-zinc-900/60 border border-zinc-800/50 rounded-lg p-0.5 h-auto">
+        <TabsList className="bg-zinc-900/60 border border-zinc-800/50 rounded-lg p-0.5 h-auto flex-wrap">
           <TabsTrigger value="health" className="text-[13px] rounded-md px-3 py-1.5">Health</TabsTrigger>
           <TabsTrigger value="links" className="text-[13px] rounded-md px-3 py-1.5">Links</TabsTrigger>
           <TabsTrigger value="technical" className="text-[13px] rounded-md px-3 py-1.5">Technical</TabsTrigger>
           <TabsTrigger value="aigeo" className="text-[13px] rounded-md px-3 py-1.5">AI/GEO</TabsTrigger>
           <TabsTrigger value="checks" className="text-[13px] rounded-md px-3 py-1.5">Checks</TabsTrigger>
           <TabsTrigger value="content" className="text-[13px] rounded-md px-3 py-1.5">Content</TabsTrigger>
+          <TabsTrigger value="articles" className="text-[13px] rounded-md px-3 py-1.5">Articles</TabsTrigger>
+          <TabsTrigger value="campaigns" className="text-[13px] rounded-md px-3 py-1.5">Campaigns</TabsTrigger>
+          <TabsTrigger value="partners" className="text-[13px] rounded-md px-3 py-1.5">Partners</TabsTrigger>
+          <TabsTrigger value="schema" className="text-[13px] rounded-md px-3 py-1.5">Schema</TabsTrigger>
           <TabsTrigger value="locality" className="text-[13px] rounded-md px-3 py-1.5">Locality</TabsTrigger>
         </TabsList>
 
@@ -889,6 +972,430 @@ export function AnalyticsPanel({
             </>
           ) : (
             <EmptyState icon={MapPin} title="Discover localities, buyer profiles, and keywords" subtitle="Set your city first, then click the button above" />
+          )}
+        </TabsContent>
+
+        {/* -------- ARTICLES TAB -------- */}
+        <TabsContent value="articles" className="space-y-4">
+          <SectionCard>
+            <CardContent className="p-5 space-y-4">
+              <h4 className="text-[13px] font-semibold text-zinc-200 flex items-center gap-2">
+                <PenTool size={15} className="text-emerald-400" />
+                Full Article Writer
+              </h4>
+              <div className="grid grid-cols-2 gap-3">
+                <Input
+                  placeholder="Article topic or title..."
+                  value={articleTopic}
+                  onChange={(e) => setArticleTopic(e.target.value)}
+                  className="bg-zinc-900/80 border-zinc-800 text-[13px] h-10 placeholder:text-zinc-600"
+                />
+                <Input
+                  placeholder="Target keyword..."
+                  value={articleKeyword}
+                  onChange={(e) => setArticleKeyword(e.target.value)}
+                  className="bg-zinc-900/80 border-zinc-800 text-[13px] h-10 placeholder:text-zinc-600"
+                />
+              </div>
+              <div className="flex gap-2 flex-wrap">
+                {[
+                  { value: "locality_guide", label: "Locality Guide" },
+                  { value: "project_showcase", label: "Project Showcase" },
+                  { value: "market_analysis", label: "Market Analysis" },
+                  { value: "buyer_guide", label: "Buyer Guide" },
+                  { value: "comparison", label: "Comparison" },
+                  { value: "investment", label: "Investment" },
+                  { value: "nri_guide", label: "NRI Guide" },
+                ].map((t) => (
+                  <button
+                    key={t.value}
+                    onClick={() => setArticleType(t.value)}
+                    className={`text-[12px] px-3 py-1.5 rounded-lg border transition-all ${
+                      articleType === t.value
+                        ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                        : "bg-zinc-900/50 border-zinc-800/50 text-zinc-500 hover:text-zinc-300"
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+              <Button
+                onClick={() => onRunArticleWriter(articleTopic, articleKeyword, articleType)}
+                disabled={isGeneratingArticle || !articleTopic || !articleKeyword}
+                className="w-full bg-emerald-600 hover:bg-emerald-500 h-10 text-[13px] font-medium rounded-lg"
+              >
+                {isGeneratingArticle ? (
+                  <><Loader2 size={15} className="animate-spin mr-2" />Writing article...</>
+                ) : (
+                  <><PenTool size={15} className="mr-2" />Generate Full Article</>
+                )}
+              </Button>
+            </CardContent>
+          </SectionCard>
+
+          {articleResult && (
+            <>
+              <SectionCard>
+                <CardContent className="p-5">
+                  <div className="flex items-start justify-between mb-3">
+                    <div>
+                      <h4 className="text-[15px] font-semibold text-zinc-100">{articleResult.title}</h4>
+                      <p className="text-[12px] text-zinc-500 mt-1">{articleResult.metaDescription}</p>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <Badge className="bg-emerald-500/10 text-emerald-400 border-0 text-[10px] h-5 rounded-md">{articleResult.wordCount} words</Badge>
+                      <CopyBtn text={articleResult.content} field="article" />
+                    </div>
+                  </div>
+                  <div className="rounded-lg bg-zinc-800/40 border border-zinc-700/30 p-5 max-h-[500px] overflow-y-auto">
+                    <div className="text-[13px] text-zinc-300 leading-relaxed whitespace-pre-wrap">{articleResult.content}</div>
+                  </div>
+                </CardContent>
+              </SectionCard>
+
+              {articleResult.faqs?.length > 0 && (
+                <SectionCard>
+                  <CardContent className="p-5">
+                    <h4 className="text-[13px] font-semibold text-zinc-200 mb-3">FAQs (AI/GEO Optimized)</h4>
+                    <div className="space-y-3">
+                      {articleResult.faqs.map((faq: any, i: number) => (
+                        <div key={i} className="p-3.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30">
+                          <div className="text-[13px] font-medium text-zinc-200 mb-1">{faq.question}</div>
+                          <div className="text-[12px] text-zinc-400 leading-relaxed">{faq.answer}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </SectionCard>
+              )}
+
+              {articleResult.suggestedInternalLinks?.length > 0 && (
+                <SectionCard>
+                  <CardContent className="p-5">
+                    <h4 className="text-[13px] font-semibold text-zinc-200 mb-3">Suggested Internal Links</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {articleResult.suggestedInternalLinks.map((link: string, i: number) => (
+                        <Badge key={i} variant="outline" className="border-zinc-700/50 text-zinc-400 text-[12px] rounded-lg h-7 px-2.5">{link}</Badge>
+                      ))}
+                    </div>
+                  </CardContent>
+                </SectionCard>
+              )}
+            </>
+          )}
+
+          {!articleResult && !isGeneratingArticle && (
+            <EmptyState icon={PenTool} title="Generate full SEO articles" subtitle="Locality guides, market analysis, NRI guides, project showcases, and more" />
+          )}
+        </TabsContent>
+
+        {/* -------- CAMPAIGNS TAB -------- */}
+        <TabsContent value="campaigns" className="space-y-4">
+          <Button
+            onClick={() => onRunFestiveCampaign()}
+            disabled={isGeneratingCampaign}
+            className="w-full bg-orange-600 hover:bg-orange-500 h-10 text-[13px] font-medium rounded-lg"
+          >
+            {isGeneratingCampaign ? (
+              <><Loader2 size={15} className="animate-spin mr-2" />Generating campaign...</>
+            ) : (
+              <><PartyPopper size={15} className="mr-2" />Generate Festive Campaign</>
+            )}
+          </Button>
+
+          <div className="flex gap-2 flex-wrap">
+            {["Diwali", "Navratri", "Ugadi", "Akshaya Tritiya", "Independence Day", "Christmas", "New Year", "Holi"].map((f) => (
+              <button
+                key={f}
+                onClick={() => onRunFestiveCampaign(f)}
+                disabled={isGeneratingCampaign}
+                className="text-[12px] px-3 py-1.5 rounded-lg border bg-zinc-900/50 border-zinc-800/50 text-zinc-500 hover:text-orange-400 hover:border-orange-500/20 transition-all disabled:opacity-40"
+              >
+                {f}
+              </button>
+            ))}
+          </div>
+
+          {festiveCampaignResult ? (
+            <>
+              <SectionCard>
+                <CardContent className="p-5">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Badge className="bg-orange-500/10 text-orange-400 border-0 text-[11px] h-5 rounded-md">{festiveCampaignResult.festival}</Badge>
+                  </div>
+                  <h4 className="text-[15px] font-semibold text-zinc-100">{festiveCampaignResult.campaignTheme}</h4>
+                  <p className="text-[13px] text-orange-400 mt-1 italic">&ldquo;{festiveCampaignResult.tagline}&rdquo;</p>
+                </CardContent>
+              </SectionCard>
+
+              {festiveCampaignResult.whatsappMessages?.length > 0 && (
+                <SectionCard>
+                  <CardContent className="p-5">
+                    <h4 className="text-[13px] font-semibold text-zinc-200 mb-3">WhatsApp Broadcasts ({festiveCampaignResult.whatsappMessages.length})</h4>
+                    <div className="space-y-2.5">
+                      {festiveCampaignResult.whatsappMessages.map((msg: string, i: number) => (
+                        <div key={i} className="p-3.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30 flex justify-between gap-2">
+                          <div className="text-[13px] text-zinc-300 whitespace-pre-wrap leading-relaxed">{msg}</div>
+                          <CopyBtn text={msg} field={`wa-${i}`} />
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </SectionCard>
+              )}
+
+              {festiveCampaignResult.linkedinPosts?.length > 0 && (
+                <SectionCard>
+                  <CardContent className="p-5">
+                    <h4 className="text-[13px] font-semibold text-zinc-200 mb-3">LinkedIn Posts</h4>
+                    <div className="space-y-2.5">
+                      {festiveCampaignResult.linkedinPosts.map((post: string, i: number) => (
+                        <div key={i} className="p-3.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30 flex justify-between gap-2">
+                          <div className="text-[13px] text-zinc-300 whitespace-pre-wrap leading-relaxed">{post}</div>
+                          <CopyBtn text={post} field={`li-${i}`} />
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </SectionCard>
+              )}
+
+              {festiveCampaignResult.adCopy?.length > 0 && (
+                <SectionCard>
+                  <CardContent className="p-5">
+                    <h4 className="text-[13px] font-semibold text-zinc-200 mb-3">Ad Copy</h4>
+                    <div className="space-y-2.5">
+                      {festiveCampaignResult.adCopy.map((ad: string, i: number) => (
+                        <div key={i} className="p-3.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30 flex justify-between gap-2">
+                          <div className="text-[13px] text-zinc-300 whitespace-pre-wrap leading-relaxed">{ad}</div>
+                          <CopyBtn text={ad} field={`ad-${i}`} />
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </SectionCard>
+              )}
+
+              {festiveCampaignResult.emailContent && (
+                <SectionCard>
+                  <CardContent className="p-5">
+                    <h4 className="text-[13px] font-semibold text-zinc-200 mb-3">Email Template</h4>
+                    <div className="p-3.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30">
+                      <div className="text-[13px] font-medium text-zinc-200 mb-2">Subject: {festiveCampaignResult.emailContent.subject}</div>
+                      <div className="text-[13px] text-zinc-300 whitespace-pre-wrap leading-relaxed">{festiveCampaignResult.emailContent.body}</div>
+                      <div className="mt-2 flex justify-end">
+                        <CopyBtn text={`Subject: ${festiveCampaignResult.emailContent.subject}\n\n${festiveCampaignResult.emailContent.body}`} field="email" />
+                      </div>
+                    </div>
+                  </CardContent>
+                </SectionCard>
+              )}
+
+              {festiveCampaignResult.googleAds?.length > 0 && (
+                <SectionCard>
+                  <CardContent className="p-5">
+                    <h4 className="text-[13px] font-semibold text-zinc-200 mb-3">Google Ads Copy</h4>
+                    <div className="space-y-2.5">
+                      {festiveCampaignResult.googleAds.map((ad: any, i: number) => (
+                        <div key={i} className="p-3.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30">
+                          <div className="text-[13px] font-medium text-zinc-200">{ad.headline}</div>
+                          <div className="text-[12px] text-zinc-400 mt-1">{ad.description}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </SectionCard>
+              )}
+
+              {festiveCampaignResult.landingPage && (
+                <SectionCard>
+                  <CardContent className="p-5">
+                    <h4 className="text-[13px] font-semibold text-zinc-200 mb-3">Landing Page Copy</h4>
+                    <div className="p-3.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30">
+                      <div className="text-[15px] font-bold text-zinc-100">{festiveCampaignResult.landingPage.headline}</div>
+                      <div className="text-[13px] text-zinc-400 mt-1">{festiveCampaignResult.landingPage.subheading}</div>
+                      {festiveCampaignResult.landingPage.bullets?.length > 0 && (
+                        <ul className="mt-3 space-y-1.5">
+                          {festiveCampaignResult.landingPage.bullets.map((b: string, i: number) => (
+                            <li key={i} className="text-[13px] text-zinc-300 flex items-start gap-2">
+                              <span className="text-emerald-400 mt-0.5">&#8226;</span> {b}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </CardContent>
+                </SectionCard>
+              )}
+
+              {festiveCampaignResult.smsText && (
+                <SectionCard>
+                  <CardContent className="p-5">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-[13px] font-semibold text-zinc-200">SMS Text</h4>
+                      <CopyBtn text={festiveCampaignResult.smsText} field="sms" />
+                    </div>
+                    <div className="mt-2 p-3 rounded-lg bg-zinc-800/40 border border-zinc-700/30 text-[13px] text-zinc-300">{festiveCampaignResult.smsText}</div>
+                  </CardContent>
+                </SectionCard>
+              )}
+            </>
+          ) : (
+            <EmptyState icon={PartyPopper} title="Generate festive campaign content" subtitle="Diwali, Navratri, Ugadi, Akshaya Tritiya — multi-channel campaigns" />
+          )}
+        </TabsContent>
+
+        {/* -------- PARTNERS TAB -------- */}
+        <TabsContent value="partners" className="space-y-4">
+          <Button
+            onClick={onRunChannelPartner}
+            disabled={isGeneratingPartner}
+            className="w-full bg-blue-600 hover:bg-blue-500 h-10 text-[13px] font-medium rounded-lg"
+          >
+            {isGeneratingPartner ? (
+              <><Loader2 size={15} className="animate-spin mr-2" />Generating broker pack...</>
+            ) : (
+              <><Users size={15} className="mr-2" />Generate Channel Partner Pack</>
+            )}
+          </Button>
+
+          {channelPartnerResult ? (
+            <>
+              {channelPartnerResult.whatsappForward && (
+                <SectionCard>
+                  <CardContent className="p-5">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-[13px] font-semibold text-zinc-200">WhatsApp Forward Message</h4>
+                      <CopyBtn text={channelPartnerResult.whatsappForward} field="cp-wa" />
+                    </div>
+                    <div className="p-3.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30 text-[13px] text-zinc-300 whitespace-pre-wrap leading-relaxed">{channelPartnerResult.whatsappForward}</div>
+                  </CardContent>
+                </SectionCard>
+              )}
+
+              {channelPartnerResult.onePager && (
+                <SectionCard>
+                  <CardContent className="p-5">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-[13px] font-semibold text-zinc-200">Project One-Pager</h4>
+                      <CopyBtn text={channelPartnerResult.onePager} field="cp-onepager" />
+                    </div>
+                    <div className="p-3.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30 text-[13px] text-zinc-300 whitespace-pre-wrap leading-relaxed">{channelPartnerResult.onePager}</div>
+                  </CardContent>
+                </SectionCard>
+              )}
+
+              {channelPartnerResult.emailTemplate && (
+                <SectionCard>
+                  <CardContent className="p-5">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-[13px] font-semibold text-zinc-200">Broker Email Template</h4>
+                      <CopyBtn text={`Subject: ${channelPartnerResult.emailTemplate.subject}\n\n${channelPartnerResult.emailTemplate.body}`} field="cp-email" />
+                    </div>
+                    <div className="p-3.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30">
+                      <div className="text-[13px] font-medium text-zinc-200 mb-2">Subject: {channelPartnerResult.emailTemplate.subject}</div>
+                      <div className="text-[13px] text-zinc-300 whitespace-pre-wrap leading-relaxed">{channelPartnerResult.emailTemplate.body}</div>
+                    </div>
+                  </CardContent>
+                </SectionCard>
+              )}
+
+              {channelPartnerResult.pitchScript && (
+                <SectionCard>
+                  <CardContent className="p-5">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-[13px] font-semibold text-zinc-200">30-Second Pitch Script</h4>
+                      <CopyBtn text={channelPartnerResult.pitchScript} field="cp-pitch" />
+                    </div>
+                    <div className="p-3.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30 text-[13px] text-zinc-300 whitespace-pre-wrap leading-relaxed">{channelPartnerResult.pitchScript}</div>
+                  </CardContent>
+                </SectionCard>
+              )}
+
+              {channelPartnerResult.brokerFAQs?.length > 0 && (
+                <SectionCard>
+                  <CardContent className="p-5">
+                    <h4 className="text-[13px] font-semibold text-zinc-200 mb-3">Broker FAQ (Objection Handling)</h4>
+                    <div className="space-y-3">
+                      {channelPartnerResult.brokerFAQs.map((faq: any, i: number) => (
+                        <div key={i} className="p-3.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30">
+                          <div className="text-[13px] font-medium text-zinc-200 mb-1">Q: {faq.question}</div>
+                          <div className="text-[12px] text-zinc-400 leading-relaxed">A: {faq.answer}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </SectionCard>
+              )}
+
+              {channelPartnerResult.comparisonPoints?.length > 0 && (
+                <SectionCard>
+                  <CardContent className="p-5">
+                    <h4 className="text-[13px] font-semibold text-zinc-200 mb-3">Comparison Talking Points</h4>
+                    <div className="space-y-1.5">
+                      {channelPartnerResult.comparisonPoints.map((point: string, i: number) => (
+                        <div key={i} className="text-[13px] text-zinc-300 flex items-start gap-2">
+                          <span className="text-emerald-400 mt-0.5 flex-shrink-0">&#8226;</span> {point}
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </SectionCard>
+              )}
+            </>
+          ) : (
+            <EmptyState icon={Users} title="Generate channel partner content packs" subtitle="WhatsApp forwards, one-pagers, email templates, pitch scripts for brokers" />
+          )}
+        </TabsContent>
+
+        {/* -------- SCHEMA TAB -------- */}
+        <TabsContent value="schema" className="space-y-4">
+          <Button
+            onClick={onRunSchemaGenerator}
+            disabled={isGeneratingSchema}
+            className="w-full bg-violet-600 hover:bg-violet-500 h-10 text-[13px] font-medium rounded-lg"
+          >
+            {isGeneratingSchema ? (
+              <><Loader2 size={15} className="animate-spin mr-2" />Generating schemas...</>
+            ) : (
+              <><Code size={15} className="mr-2" />Generate Property Schema (JSON-LD)</>
+            )}
+          </Button>
+
+          {schemaResult ? (
+            <>
+              <SectionCard>
+                <CardContent className="p-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-[13px] font-semibold text-zinc-200">Ready-to-Paste HTML Snippet</h4>
+                    <CopyBtn text={schemaResult.htmlSnippet} field="schema-html" />
+                  </div>
+                  <p className="text-[12px] text-zinc-500 mb-3">Copy this into your website&apos;s &lt;head&gt; tag for rich search results and AI visibility.</p>
+                  <div className="rounded-lg bg-zinc-800/40 border border-zinc-700/30 p-4 max-h-[400px] overflow-y-auto">
+                    <pre className="text-[11px] text-emerald-400 whitespace-pre-wrap font-mono">{schemaResult.htmlSnippet}</pre>
+                  </div>
+                </CardContent>
+              </SectionCard>
+
+              <div className="grid grid-cols-2 gap-3">
+                {Object.entries(schemaResult.schemas || {}).map(([key, schema]) => (
+                  <SectionCard key={key}>
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <Badge className="bg-violet-500/10 text-violet-400 border-0 text-[10px] h-5 rounded-md">{key}</Badge>
+                        <CopyBtn text={JSON.stringify(schema, null, 2)} field={`schema-${key}`} />
+                      </div>
+                      <div className="rounded-lg bg-zinc-800/40 border border-zinc-700/30 p-3 max-h-[200px] overflow-y-auto">
+                        <pre className="text-[10px] text-zinc-400 whitespace-pre-wrap font-mono">{JSON.stringify(schema, null, 2).substring(0, 500)}...</pre>
+                      </div>
+                    </CardContent>
+                  </SectionCard>
+                ))}
+              </div>
+            </>
+          ) : (
+            <EmptyState icon={Code} title="Generate structured data for your property" subtitle="RealEstateListing, Organization, FAQ, BreadcrumbList, LocalBusiness schemas" />
           )}
         </TabsContent>
       </Tabs>
