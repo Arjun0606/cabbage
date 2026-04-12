@@ -11,9 +11,12 @@ export interface AIVisibilityResult {
     perplexity: number;
     gemini: number;
     overall: number;
+    readiness: number;  // Website readiness score (schema, meta, etc.) — like Okara's "AI Readiness Score"
+    mentions: number;   // Actual mention score across LLMs
   };
   queryResults: QueryResult[];
   aiReadiness: AIReadinessCheck[];
+  configuredLLMs: string[];  // Which LLMs actually had API keys configured
 }
 
 interface QueryResult {
@@ -184,11 +187,16 @@ export async function runAIVisibility(
   // Run AI readiness checks
   const aiReadiness = await checkAIReadiness(websiteUrl);
 
-  // Query each LLM for each search query (in batches to avoid rate limits)
+  // Detect which LLMs are actually configured
+  const configuredLLMs: string[] = ["ChatGPT"]; // OpenAI is always available
+  if (process.env.ANTHROPIC_API_KEY) configuredLLMs.push("Claude");
+  if (process.env.PERPLEXITY_API_KEY) configuredLLMs.push("Perplexity");
+  if (process.env.GOOGLE_GEMINI_API_KEY) configuredLLMs.push("Gemini");
+
+  // Query each LLM for each search query
   const queryResults: QueryResult[] = [];
 
   for (const query of queries) {
-    // Run all 4 LLMs in parallel per query
     const [chatgptRes, claudeRes, perplexityRes, geminiRes] = await Promise.all([
       queryForVisibility("openai", query).catch(() => ""),
       queryClaudeForVisibility(query).catch(() => ""),
@@ -204,26 +212,45 @@ export async function runAIVisibility(
       gemini: analyzeMention(geminiRes, brand, projects),
     });
 
-    // Small delay between queries to respect rate limits
     await new Promise((r) => setTimeout(r, 500));
   }
 
-  const scores = {
+  // Mention scores per LLM
+  const mentionScores = {
     chatgpt: calculateScore(queryResults, "chatgpt"),
     claude: calculateScore(queryResults, "claude"),
     perplexity: calculateScore(queryResults, "perplexity"),
     gemini: calculateScore(queryResults, "gemini"),
-    overall: 0,
   };
-  scores.overall = Math.round(
-    (scores.chatgpt + scores.claude + scores.perplexity + scores.gemini) / 4
-  );
+
+  // Only average configured LLMs (don't penalize for unconfigured ones)
+  const configuredScores: number[] = [mentionScores.chatgpt];
+  if (process.env.ANTHROPIC_API_KEY) configuredScores.push(mentionScores.claude);
+  if (process.env.PERPLEXITY_API_KEY) configuredScores.push(mentionScores.perplexity);
+  if (process.env.GOOGLE_GEMINI_API_KEY) configuredScores.push(mentionScores.gemini);
+  const mentionScore = configuredScores.length > 0
+    ? Math.round(configuredScores.reduce((a, b) => a + b, 0) / configuredScores.length)
+    : 0;
+
+  // Readiness score — based on website checks (like Okara's "AI Readiness Score")
+  const passedChecks = aiReadiness.filter(c => c.passed).length;
+  const readinessScore = Math.round((passedChecks / aiReadiness.length) * 100);
+
+  // Overall = weighted blend: 40% readiness + 60% mentions
+  // This way a site with good structure but no mentions still shows ~30-40
+  const overallScore = Math.round(readinessScore * 0.4 + mentionScore * 0.6);
 
   return {
     brand,
     projects,
-    scores,
+    scores: {
+      ...mentionScores,
+      overall: overallScore,
+      readiness: readinessScore,
+      mentions: mentionScore,
+    },
     queryResults,
     aiReadiness,
+    configuredLLMs,
   };
 }

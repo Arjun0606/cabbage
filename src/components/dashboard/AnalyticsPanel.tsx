@@ -268,6 +268,38 @@ export function AnalyticsPanel({
         {/* -------- HEALTH TAB (Health + Technical + Checks) -------- */}
         {/* ================================================================ */}
         <TabsContent value="health" className="space-y-4">
+          {/* GSC Connect Prompt — like Okara */}
+          <SectionCard>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                    <Search size={16} className="text-blue-400" />
+                  </div>
+                  <div>
+                    <div className="text-[13px] font-medium text-zinc-200">Connect Google Services</div>
+                    <div className="text-[12px] text-zinc-500">Search Console — Impressions &amp; rankings</div>
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="border-zinc-700 text-[12px] h-8 rounded-lg"
+                  onClick={async () => {
+                    try {
+                      const res = await fetch("/api/integrations/gsc");
+                      const data = await res.json();
+                      if (data.authUrl) window.location.href = data.authUrl;
+                      else alert("Set GOOGLE_CLIENT_ID in environment variables to enable GSC.");
+                    } catch { alert("GSC requires Google OAuth credentials."); }
+                  }}
+                >
+                  Connect
+                </Button>
+              </div>
+            </CardContent>
+          </SectionCard>
+
           <TrendsPanel trends={trends} url={websiteUrl} />
 
           {allSites.length > 1 && (
@@ -664,10 +696,23 @@ export function AnalyticsPanel({
                   <CardTitle className="text-[13px] font-semibold">AI Readiness Score</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex items-center gap-4">
-                    <ScoreCircle score={aiVisResult.scores.overall} label="Overall" size="md" />
-                    <div className="text-[13px] text-zinc-500">
-                      {aiVisResult.aiReadiness.filter((c: any) => c.passed).length}/{aiVisResult.aiReadiness.length} checks passed
+                  <div className="flex items-center gap-6">
+                    <ScoreCircle score={aiVisResult.scores.readiness ?? aiVisResult.scores.overall} label="Readiness" size="md" />
+                    <div className="space-y-1.5">
+                      <div className="text-[13px] text-zinc-400">
+                        {aiVisResult.aiReadiness.filter((c: any) => c.passed).length}/{aiVisResult.aiReadiness.length} checks passed
+                      </div>
+                      {aiVisResult.scores.mentions !== undefined && (
+                        <div className="text-[12px] text-zinc-500">
+                          Mention score: <span className={aiVisResult.scores.mentions > 0 ? "text-emerald-400" : "text-red-400"}>{aiVisResult.scores.mentions}%</span>
+                          {" "}across {aiVisResult.configuredLLMs?.length || 1} AI platform{(aiVisResult.configuredLLMs?.length || 1) > 1 ? "s" : ""}
+                        </div>
+                      )}
+                      {aiVisResult.configuredLLMs && aiVisResult.configuredLLMs.length < 4 && (
+                        <div className="text-[11px] text-yellow-500/70">
+                          Only testing: {aiVisResult.configuredLLMs.join(", ")}. Add more API keys in Vercel for broader coverage.
+                        </div>
+                      )}
                     </div>
                   </div>
                 </CardContent>
@@ -680,21 +725,26 @@ export function AnalyticsPanel({
                 <CardContent>
                   <div className="space-y-3.5">
                     {[
-                      { name: "ChatGPT", score: aiVisResult.scores.chatgpt },
-                      { name: "Claude", score: aiVisResult.scores.claude },
-                      { name: "Perplexity", score: aiVisResult.scores.perplexity },
-                      { name: "Gemini", score: aiVisResult.scores.gemini },
-                    ].map(({ name, score }) => (
-                      <div key={name} className="flex items-center justify-between">
-                        <span className="text-[13px] text-zinc-300 w-20">{name}</span>
-                        <div className="flex items-center gap-3 flex-1 ml-4">
-                          <div className="flex-1 h-2 bg-zinc-800/60 rounded-full overflow-hidden">
-                            <div className="h-full bg-violet-500 rounded-full transition-all" style={{ width: `${score}%` }} />
+                      { name: "ChatGPT", score: aiVisResult.scores.chatgpt, key: "ChatGPT" },
+                      { name: "Claude", score: aiVisResult.scores.claude, key: "Claude" },
+                      { name: "Perplexity", score: aiVisResult.scores.perplexity, key: "Perplexity" },
+                      { name: "Gemini", score: aiVisResult.scores.gemini, key: "Gemini" },
+                    ].map(({ name, score, key }) => {
+                      const configured = !aiVisResult.configuredLLMs || aiVisResult.configuredLLMs.includes(key);
+                      return (
+                        <div key={name} className="flex items-center justify-between">
+                          <span className={`text-[13px] w-20 ${configured ? "text-zinc-300" : "text-zinc-600"}`}>{name}</span>
+                          <div className="flex items-center gap-3 flex-1 ml-4">
+                            <div className="flex-1 h-2 bg-zinc-800/60 rounded-full overflow-hidden">
+                              <div className={`h-full rounded-full transition-all ${configured ? "bg-violet-500" : "bg-zinc-700"}`} style={{ width: configured ? `${score}%` : "0%" }} />
+                            </div>
+                            <span className="text-[13px] font-mono text-zinc-400 w-16 text-right">
+                              {configured ? score : <span className="text-[11px] text-zinc-600">no key</span>}
+                            </span>
                           </div>
-                          <span className="text-[13px] font-mono text-zinc-400 w-8 text-right">{score}</span>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </CardContent>
               </SectionCard>
