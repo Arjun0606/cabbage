@@ -84,18 +84,41 @@ function buildRealEstateListingSchema(input: SchemaInput) {
 function buildOrganizationSchema(input: SchemaInput) {
   const schema: Record<string, unknown> = {
     "@context": "https://schema.org",
-    "@type": "Organization",
+    "@type": ["Organization", "RealEstateAgent"],
     name: input.developerName,
-    description: `${input.developerName} is a real estate developer with projects in ${input.city}.`,
+    description: `${input.developerName} is a real estate developer with residential projects in ${input.city}. ${input.configurations ? `Offerings include ${input.configurations}.` : ""}`,
     address: {
       "@type": "PostalAddress",
       addressRegion: input.city,
       addressCountry: "IN",
     },
+    areaServed: {
+      "@type": "City",
+      name: input.city,
+    },
+    knowsAbout: [
+      "Real Estate Development",
+      "Residential Properties",
+      `Real Estate in ${input.city}`,
+      "Home Buying",
+      "Property Investment",
+    ],
   };
 
   if (input.website) {
     schema.url = input.website;
+    // sameAs — the single most important property for GEO.
+    // AI systems use sameAs to verify entities exist across platforms.
+    // Developers should replace these with their actual profile URLs.
+    schema.sameAs = [
+      `${input.website}/about`,
+      `https://www.google.com/maps/search/${encodeURIComponent(input.developerName + " " + input.city)}`,
+      `https://www.linkedin.com/company/${input.developerName.toLowerCase().replace(/\s+/g, "-")}`,
+      `https://www.youtube.com/@${input.developerName.toLowerCase().replace(/\s+/g, "")}`,
+      `https://www.facebook.com/${input.developerName.toLowerCase().replace(/\s+/g, "")}`,
+      `https://www.99acres.com/search/builder/${input.developerName.toLowerCase().replace(/\s+/g, "-")}`,
+      `https://www.justdial.com/${input.city}/${input.developerName.replace(/\s+/g, "-")}`,
+    ];
   }
 
   return schema;

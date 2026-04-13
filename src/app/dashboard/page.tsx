@@ -60,6 +60,12 @@ export default function DashboardPage() {
   const [geoImprovementResult, setGeoImprovementResult] = useState<any>(null);
   const [isGeneratingLlmsTxt, setIsGeneratingLlmsTxt] = useState(false);
   const [isGeneratingGeoImprovement, setIsGeneratingGeoImprovement] = useState(false);
+  const [crawlerAccessResult, setCrawlerAccessResult] = useState<any>(null);
+  const [brandPresenceResult, setBrandPresenceResult] = useState<any>(null);
+  const [citabilityResult, setCitabilityResult] = useState<any>(null);
+  const [isCheckingCrawlers, setIsCheckingCrawlers] = useState(false);
+  const [isCheckingBrand, setIsCheckingBrand] = useState(false);
+  const [isCheckingCitability, setIsCheckingCitability] = useState(false);
   const [trends, setTrends] = useState<Record<string, TrendData>>({
     audit: { current: 0, previous: null, change: 0, direction: "new", history: [] },
     technical: { current: 0, previous: null, change: 0, direction: "new", history: [] },
@@ -466,6 +472,50 @@ export default function DashboardPage() {
     finally { setIsGeneratingAds(false); }
   };
 
+  // ---- GEO deep analysis runners ----
+
+  const runCrawlerAccess = async () => {
+    if (!company.website) { addLog("> Set website URL first"); return; }
+    setIsCheckingCrawlers(true);
+    addLog(`> Checking AI crawler access...`);
+    try {
+      const res = await fetch("/api/crawler-access", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url: company.website }) });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setCrawlerAccessResult(data);
+      addLog(`> Crawler access: ${data.score}/100 — ${data.criticalIssues?.length || 0} critical issues`);
+    } catch (err) { addLog(`> Error: ${err instanceof Error ? err.message : "Failed"}`); }
+    finally { setIsCheckingCrawlers(false); }
+  };
+
+  const runBrandPresence = async () => {
+    if (!company.name) { addLog("> Set company name first"); return; }
+    setIsCheckingBrand(true);
+    addLog(`> Scanning brand presence...`);
+    try {
+      const res = await fetch("/api/brand-presence", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ brand: company.name, website: company.website, city: company.city }) });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setBrandPresenceResult(data);
+      addLog(`> Brand presence: ${data.score}/100`);
+    } catch (err) { addLog(`> Error: ${err instanceof Error ? err.message : "Failed"}`); }
+    finally { setIsCheckingBrand(false); }
+  };
+
+  const runCitabilityAudit = async () => {
+    if (!company.website) { addLog("> Set website URL first"); return; }
+    setIsCheckingCitability(true);
+    addLog(`> Auditing content citability...`);
+    try {
+      const res = await fetch("/api/citability-audit", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url: company.website, projectName: company.name }) });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setCitabilityResult(data);
+      addLog(`> Citability: ${data.overallScore}/100`);
+    } catch (err) { addLog(`> Error: ${err instanceof Error ? err.message : "Failed"}`); }
+    finally { setIsCheckingCitability(false); }
+  };
+
   // ---- GEO improvement runners ----
 
   const runLlmsTxt = async () => {
@@ -614,6 +664,12 @@ export default function DashboardPage() {
               onRunLlmsTxt={runLlmsTxt}
               geoImprovementResult={geoImprovementResult} isGeneratingGeoImprovement={isGeneratingGeoImprovement}
               onRunGeoImprovement={runGeoImprovement}
+              crawlerAccessResult={crawlerAccessResult} isCheckingCrawlers={isCheckingCrawlers}
+              onRunCrawlerAccess={runCrawlerAccess}
+              brandPresenceResult={brandPresenceResult} isCheckingBrand={isCheckingBrand}
+              onRunBrandPresence={runBrandPresence}
+              citabilityResult={citabilityResult} isCheckingCitability={isCheckingCitability}
+              onRunCitabilityAudit={runCitabilityAudit}
             />
           </div>
 

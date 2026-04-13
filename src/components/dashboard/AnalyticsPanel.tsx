@@ -102,6 +102,16 @@ interface Props {
   geoImprovementResult: any;
   isGeneratingGeoImprovement: boolean;
   onRunGeoImprovement: () => void;
+  // GEO deep analysis
+  crawlerAccessResult: any;
+  isCheckingCrawlers: boolean;
+  onRunCrawlerAccess: () => void;
+  brandPresenceResult: any;
+  isCheckingBrand: boolean;
+  onRunBrandPresence: () => void;
+  citabilityResult: any;
+  isCheckingCitability: boolean;
+  onRunCitabilityAudit: () => void;
 }
 
 function ScoreCircle({ score, label, size = "md" }: { score: number; label: string; size?: "sm" | "md" }) {
@@ -192,6 +202,9 @@ export function AnalyticsPanel({
   adsResult, isGeneratingAds, onRunAdsGenerator,
   llmsTxtResult, isGeneratingLlmsTxt, onRunLlmsTxt,
   geoImprovementResult, isGeneratingGeoImprovement, onRunGeoImprovement,
+  crawlerAccessResult, isCheckingCrawlers, onRunCrawlerAccess,
+  brandPresenceResult, isCheckingBrand, onRunBrandPresence,
+  citabilityResult, isCheckingCitability, onRunCitabilityAudit,
 }: Props) {
   const [auditUrl, setAuditUrl] = useState(websiteUrl || "");
   useEffect(() => { if (websiteUrl && !auditUrl) setAuditUrl(websiteUrl); }, [websiteUrl]);
@@ -686,6 +699,135 @@ export function AnalyticsPanel({
               <><Bot size={15} className="mr-2" />Check AI Visibility (GEO)</>
             )}
           </Button>
+
+          {/* Deep GEO Analysis — runs independently of AI visibility check */}
+          <div className="grid grid-cols-3 gap-2">
+            <Button onClick={onRunCrawlerAccess} disabled={isCheckingCrawlers} variant="outline" className="border-zinc-700 text-[12px] h-9 rounded-lg">
+              {isCheckingCrawlers ? <Loader2 size={13} className="animate-spin mr-1.5" /> : <Search size={13} className="mr-1.5" />}
+              Crawler Access
+            </Button>
+            <Button onClick={onRunBrandPresence} disabled={isCheckingBrand} variant="outline" className="border-zinc-700 text-[12px] h-9 rounded-lg">
+              {isCheckingBrand ? <Loader2 size={13} className="animate-spin mr-1.5" /> : <Globe size={13} className="mr-1.5" />}
+              Brand Presence
+            </Button>
+            <Button onClick={onRunCitabilityAudit} disabled={isCheckingCitability} variant="outline" className="border-zinc-700 text-[12px] h-9 rounded-lg">
+              {isCheckingCitability ? <Loader2 size={13} className="animate-spin mr-1.5" /> : <FileText size={13} className="mr-1.5" />}
+              Citability Audit
+            </Button>
+          </div>
+
+          {/* Crawler Access Results */}
+          {crawlerAccessResult && (
+            <SectionCard>
+              <CardContent className="p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-[13px] font-semibold text-zinc-200">AI Crawler Access</h4>
+                  <ScoreCircle score={crawlerAccessResult.score} label="Access" size="sm" />
+                </div>
+                <div className="space-y-1.5">
+                  {crawlerAccessResult.crawlerAccess?.filter((c: any) => c.tier === 1).map((c: any, i: number) => (
+                    <div key={i} className="flex items-center justify-between py-1 text-[13px]">
+                      <span className="text-zinc-300">{c.crawler}</span>
+                      <Badge className={`text-[10px] h-5 rounded-md border-0 ${
+                        c.status === "allowed" ? "bg-emerald-500/10 text-emerald-400" :
+                        c.status === "blocked" ? "bg-red-500/10 text-red-400" :
+                        "bg-zinc-800 text-zinc-500"
+                      }`}>{c.status}</Badge>
+                    </div>
+                  ))}
+                </div>
+                {crawlerAccessResult.criticalIssues?.length > 0 && (
+                  <div className="mt-3 rounded-lg bg-red-950/20 border border-red-900/25 p-3">
+                    {crawlerAccessResult.criticalIssues.map((issue: string, i: number) => (
+                      <div key={i} className="text-[12px] text-red-400 flex items-start gap-2 py-0.5">
+                        <XCircle size={13} className="mt-0.5 flex-shrink-0" /> {issue}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="mt-3 grid grid-cols-4 gap-2">
+                  {Object.entries(crawlerAccessResult.aiFiles || {}).map(([key, val]: [string, any]) => (
+                    <div key={key} className="text-center p-2 rounded-lg bg-zinc-800/40 border border-zinc-700/20">
+                      <div className={`text-[11px] font-medium ${val?.exists ? "text-emerald-400" : "text-red-400"}`}>
+                        {val?.exists ? "Found" : "Missing"}
+                      </div>
+                      <div className="text-[10px] text-zinc-600 mt-0.5">{key}</div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </SectionCard>
+          )}
+
+          {/* Brand Presence Results */}
+          {brandPresenceResult && (
+            <SectionCard>
+              <CardContent className="p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-[13px] font-semibold text-zinc-200">Brand Presence</h4>
+                  <ScoreCircle score={brandPresenceResult.score} label="Presence" size="sm" />
+                </div>
+                <div className="space-y-1.5">
+                  {brandPresenceResult.platforms?.map((p: any, i: number) => (
+                    <div key={i} className="flex items-center justify-between py-1 text-[13px]">
+                      <div className="flex items-center gap-2">
+                        <span className="text-zinc-300">{p.platform}</span>
+                        <Badge variant="outline" className={`text-[9px] h-4 rounded-md ${
+                          p.importance === "critical" ? "border-red-500/30 text-red-400" : "border-zinc-700 text-zinc-500"
+                        }`}>{p.importance}</Badge>
+                      </div>
+                      <Badge className={`text-[10px] h-5 rounded-md border-0 ${
+                        p.status === "likely_present" ? "bg-emerald-500/10 text-emerald-400" :
+                        p.status === "likely_absent" ? "bg-red-500/10 text-red-400" :
+                        "bg-zinc-800 text-zinc-500"
+                      }`}>{p.status === "likely_present" ? "Present" : p.status === "likely_absent" ? "Missing" : "Unknown"}</Badge>
+                    </div>
+                  ))}
+                </div>
+                {brandPresenceResult.recommendations?.length > 0 && (
+                  <div className="mt-3 space-y-1">
+                    {brandPresenceResult.recommendations.slice(0, 3).map((r: string, i: number) => (
+                      <div key={i} className="text-[12px] text-zinc-500 flex items-start gap-2">
+                        <span className="text-emerald-400 flex-shrink-0">&#8226;</span> {r}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </SectionCard>
+          )}
+
+          {/* Citability Audit Results */}
+          {citabilityResult && (
+            <SectionCard>
+              <CardContent className="p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-[13px] font-semibold text-zinc-200">Content Citability</h4>
+                  <ScoreCircle score={citabilityResult.overallScore} label="Citability" size="sm" />
+                </div>
+                <div className="grid grid-cols-5 gap-2 mb-3">
+                  {Object.entries(citabilityResult.dimensions || {}).map(([key, dim]: [string, any]) => (
+                    <div key={key} className="text-center p-2 rounded-lg bg-zinc-800/40 border border-zinc-700/20">
+                      <div className={`text-[14px] font-bold ${dim.score >= 60 ? "text-emerald-400" : dim.score >= 40 ? "text-yellow-400" : "text-red-400"}`}>
+                        {dim.score}
+                      </div>
+                      <div className="text-[9px] text-zinc-600 mt-0.5 leading-tight">{key.replace(/([A-Z])/g, ' $1').trim()}</div>
+                    </div>
+                  ))}
+                </div>
+                {citabilityResult.quickWins?.length > 0 && (
+                  <div className="rounded-lg bg-emerald-500/5 border border-emerald-500/15 p-3">
+                    <h5 className="text-[11px] font-semibold text-emerald-400 mb-1.5">Quick Wins</h5>
+                    {citabilityResult.quickWins.map((w: string, i: number) => (
+                      <div key={i} className="text-[12px] text-zinc-300 flex items-start gap-2 py-0.5">
+                        <span className="text-emerald-400 flex-shrink-0">&#8226;</span> {w}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </SectionCard>
+          )}
 
           {aiVisResult ? (
             <>
