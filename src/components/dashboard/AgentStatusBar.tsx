@@ -62,7 +62,7 @@ export function AgentStatusBar({
       name: "AI/GEO",
       icon: <Bot size={13} />,
       status: isCheckingAI ? "running" : aiVisResult ? "done" : "idle",
-      resultCount: aiVisResult?.scores?.overall,
+      resultCount: aiVisResult?.scores?.readiness ?? aiVisResult?.scores?.overall,
     },
     {
       id: "backlinks",

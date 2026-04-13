@@ -50,17 +50,23 @@ export async function POST(req: NextRequest) {
 
     html = htmlResult.status === "fulfilled" ? (htmlResult.value || "") : "";
 
-    // HTML-based checks — these always work regardless of PageSpeed
+    // HTML-based checks — same 15 checks as full audit for consistent scoring
     const hasRera = /rera|registration\s*no/i.test(html);
     const hasPrice = /₹|rs\.|lakh|lakhs|crore|cr\b|price|starting\s*from/i.test(html);
-    const hasWhatsApp = /whatsapp|wa\.me|api\.whatsapp/i.test(html);
-    const hasSchema = /schema\.org|application\/ld\+json/i.test(html);
-    const hasFloorPlan = /floor\s*plan|layout|master\s*plan/i.test(html);
     const hasCTA = /enqui|contact|book\s*(a|your)?\s*visit|schedule|callback|get\s*in\s*touch/i.test(
       html.substring(0, Math.min(html.length, 8000))
     );
+    const hasWhatsApp = /whatsapp|wa\.me|api\.whatsapp/i.test(html);
+    const hasFloorPlan = /floor\s*plan|layout|master\s*plan/i.test(html);
+    const hasSchema = /schema\.org|application\/ld\+json/i.test(html);
     const hasEMI = /emi|loan|calculator|home\s*loan|finance/i.test(html);
     const hasLocationMap = /google.*maps|map.*embed|location.*map|proximity|landmark/i.test(html);
+    const hasVirtualTour = /virtual\s*tour|360|walkthrough|video\s*tour|youtube/i.test(html);
+    const hasAmenities = /ameniti|amenity|swimming|pool|gym|clubhouse|garden|parking/i.test(html);
+    const hasGallery = /gallery|photos|images|renders|render/i.test(html);
+    const hasBuilderCreds = /years?\s*of\s*(experience|trust)|projects?\s*delivered|happy\s*(families|customers)|track\s*record/i.test(html);
+    const hasPossession = /possession|delivery|ready\s*to\s*move|hand\s*over|completion/i.test(html);
+    const hasLegalDocs = /oc\b|cc\b|occupancy|completion\s*certificate|noc|legal\s*document/i.test(html);
 
     // Site file checks
     const baseUrl = new URL(normalizedUrl).origin;
@@ -73,8 +79,8 @@ export async function POST(req: NextRequest) {
         .catch(() => false),
     ]);
 
-    // Calculate scores
-    const reChecks = [hasRera, hasPrice, hasWhatsApp, hasSchema, hasFloorPlan, hasCTA, hasEMI, hasLocationMap];
+    // Same 15 checks as full audit — consistent scores
+    const reChecks = [hasRera, hasPrice, hasCTA, hasWhatsApp, hasFloorPlan, hasSchema, hasLlmsTxt, hasEMI, hasLocationMap, hasVirtualTour, hasAmenities, hasGallery, hasBuilderCreds, hasPossession, hasLegalDocs];
     const reScore = Math.round((reChecks.filter(Boolean).length / reChecks.length) * 100);
 
     let overallScore: number;
@@ -88,14 +94,16 @@ export async function POST(req: NextRequest) {
     // AI-generated top 5 fixes
     const fixText = await aiLight(
       "You are CabbageSEO. Give exactly 5 high-impact fixes for this website. Be specific and actionable. Return a JSON array of 5 strings, each under 120 characters.",
-      `Website: ${normalizedUrl}
+      `Real estate website: ${normalizedUrl}
 ${perfScore >= 0 ? `Performance: ${perfScore}/100, SEO: ${seoScore}/100` : "PageSpeed data unavailable"}
-RERA visible: ${hasRera}, Pricing shown: ${hasPrice}, WhatsApp: ${hasWhatsApp}
-Schema markup: ${hasSchema}, Floor plans: ${hasFloorPlan}, CTA above fold: ${hasCTA}
-EMI/Loan info: ${hasEMI}, Location map: ${hasLocationMap}
-llms.txt: ${hasLlmsTxt}, Sitemap: ${hasSitemap}
+RERA visible: ${hasRera}, Pricing: ${hasPrice}, CTA above fold: ${hasCTA}, WhatsApp: ${hasWhatsApp}
+Floor plans: ${hasFloorPlan}, Schema: ${hasSchema}, llms.txt: ${hasLlmsTxt}
+EMI/Loan: ${hasEMI}, Location map: ${hasLocationMap}, Virtual tour: ${hasVirtualTour}
+Amenities: ${hasAmenities}, Gallery: ${hasGallery}, Builder credentials: ${hasBuilderCreds}
+Possession date: ${hasPossession}, Legal docs: ${hasLegalDocs}, Sitemap: ${hasSitemap}
+RE Score: ${reScore}/100 (${reChecks.filter(Boolean).length}/${reChecks.length} checks passed)
 
-Return JSON array of exactly 5 one-line fix recommendations, most impactful first.`,
+Return JSON array of exactly 5 one-line fix recommendations for this real estate developer website, most impactful first.`,
       800
     );
     const fixMatch = fixText.match(/\[[\s\S]*\]/);
@@ -115,13 +123,19 @@ Return JSON array of exactly 5 one-line fix recommendations, most impactful firs
       checks: {
         rera: hasRera,
         pricing: hasPrice,
-        whatsapp: hasWhatsApp,
-        schema: hasSchema,
-        floorPlans: hasFloorPlan,
         ctaAboveFold: hasCTA,
+        whatsapp: hasWhatsApp,
+        floorPlans: hasFloorPlan,
+        schema: hasSchema,
+        llmsTxt: hasLlmsTxt,
         emiLoan: hasEMI,
         locationMap: hasLocationMap,
-        llmsTxt: hasLlmsTxt,
+        virtualTour: hasVirtualTour,
+        amenities: hasAmenities,
+        gallery: hasGallery,
+        builderCredentials: hasBuilderCreds,
+        possessionDate: hasPossession,
+        legalDocs: hasLegalDocs,
         sitemap: hasSitemap,
       },
       fixes,
