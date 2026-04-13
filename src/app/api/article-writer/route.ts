@@ -67,26 +67,33 @@ export async function POST(req: NextRequest) {
 
     const typeInstruction = ARTICLE_TYPE_INSTRUCTIONS[articleType as ArticleType];
 
-    const systemPrompt = `You are an expert real estate content writer specializing in Indian real estate. You write SEO-optimized, engaging, and informative articles that rank well on Google and get cited by AI search engines (Google AI Overview, ChatGPT, Perplexity).
+    const systemPrompt = `You are an expert real estate content writer who writes articles specifically optimized to be CITED BY AI SEARCH ENGINES (ChatGPT, Google AI Overview, Perplexity). You understand Generative Engine Optimization (GEO) deeply.
 
-Your writing style:
-- Professional yet conversational — avoid jargon overload
-- Data-driven with specific numbers, distances, and facts
-- Locally relevant — mention real landmarks, roads, neighborhoods, and infrastructure projects
-- Structured with clear H2/H3 headings for scannability
-- Naturally incorporate the target keyword (aim for 1-1.5% keyword density)
-- Include calls-to-action that feel helpful, not pushy
-- End with a FAQ section (3-5 questions) with concise, direct answers optimized for AI/GEO visibility
+CRITICAL — AI CITABILITY RULES (based on Princeton/Georgia Tech research):
 
-IMPORTANT: Return your response as valid JSON with this exact structure:
+1. QUESTION-BASED HEADINGS: Every H2 must be a question that a home buyer would ask. Example: "## What is the price of 3BHK flats in Gachibowli?" NOT "## Pricing Details"
+
+2. ANSWER TARGET PATTERN: Immediately after every question H2, write a 40-60 word direct answer paragraph. This is what Google AI Overview and ChatGPT extract. Start with a definition or direct answer: "${projectName} is..." or "The price of..." — NOT "Let's explore..." or "In this section..."
+
+3. PASSAGE LENGTH: Key paragraphs should be 134-167 words — research shows this is the optimal length for AI citation. Each passage must be SELF-CONTAINED (understandable without reading anything else on the page).
+
+4. LOW PRONOUN DENSITY: Never say "it", "they", "this project", "their". Always use the full name: "${projectName}", "${developerName}", "${location}". AI extracts individual passages — pronouns make them meaningless out of context.
+
+5. STATISTICAL DENSITY: Every passage must contain at least ONE specific number: price per sq ft (₹X,XXX/sq ft), distance (X km from Y), area (X,XXX sq ft), year, percentage, or named source. NO vague quantifiers like "many", "several", "affordable".
+
+6. NAMED ENTITIES: Use full names of real landmarks, schools, hospitals, metro stations, IT parks, highways near ${location}. AI systems verify entities — real names get cited, generic descriptions don't.
+
+7. FAQ SECTION: End with 5-8 FAQs. Each answer must be 40-60 words, start with a direct factual statement, and include a specific number.
+
+Return valid JSON:
 {
-  "title": "SEO-optimized title (50-60 chars ideally, must include target keyword)",
-  "metaDescription": "Compelling meta description (150-160 chars, includes target keyword and a value proposition)",
-  "content": "Full article in markdown format with ## and ### headings. 1500-2000 words.",
+  "title": "Question-format title including target keyword (50-60 chars)",
+  "metaDescription": "Direct answer to the title question (150-160 chars, includes keyword + specific number)",
+  "content": "Full article in markdown. 1500-2000 words. Every H2 is a question. Every first paragraph after H2 is a 40-60 word direct answer.",
   "faqs": [
-    { "question": "...", "answer": "..." }
+    { "question": "Specific buyer question", "answer": "40-60 word direct answer starting with a fact, including a number" }
   ],
-  "suggestedInternalLinks": ["topic or page that should link to/from this article"]
+  "suggestedInternalLinks": ["related topics"]
 }`;
 
     const userPrompt = `Write a full SEO-optimized article with the following details:
@@ -109,14 +116,17 @@ IMPORTANT: Return your response as valid JSON with this exact structure:
 
 **Requirements:**
 1. Write 1500-2000 words
-2. Use ## for H2 headings and ### for H3 subheadings
-3. Naturally weave "${targetKeyword}" throughout the article (8-12 occurrences)
-4. Reference real areas, landmarks, roads, and infrastructure near ${location}, ${city}
-5. Include a compelling introduction that hooks the reader
-6. Add 2-3 CTA sections naturally within the article (e.g., "Schedule a Site Visit", "Download Brochure", "Talk to Our Experts")
-7. End with a FAQ section of 3-5 questions that people commonly ask about this topic
-8. Suggest 4-6 internal link topics that relate to this article
-9. Make every paragraph valuable — no filler content
+2. EVERY H2 heading MUST be a question (e.g., "## What is the price of 3BHK in ${location}?" not "## Pricing")
+3. After EVERY H2, the FIRST paragraph must be a 40-60 word direct answer starting with a fact or definition
+4. Key paragraphs should be 134-167 words, self-contained, zero pronouns (use full names)
+5. Include specific numbers in every paragraph: ₹ prices, sq ft areas, km distances, years, percentages
+6. Reference REAL landmarks, schools, hospitals, metro stations, IT parks near ${location}, ${city} by name
+7. Target keyword "${targetKeyword}" should appear 8-12 times naturally
+8. Add 2-3 CTA sections (Schedule a Site Visit, Download Brochure, Talk to Our Experts)
+9. End with 5-8 FAQ questions — each answer 40-60 words, starts with a direct fact, includes a number
+10. Suggest 4-6 internal link topics
+11. NO filler phrases like "In today's fast-paced world", "Let's dive in", "Looking for your dream home?"
+12. EVERY paragraph must teach the reader something specific they didn't know
 
 Return ONLY valid JSON. No markdown code blocks around the JSON.`;
 

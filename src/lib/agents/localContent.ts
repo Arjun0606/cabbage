@@ -35,7 +35,7 @@ export async function generateLocalContent(
   const localityData = await searchLocality(city, location, projectName, configurations, priceRange);
 
   // Generate social/blog content via AI
-  const system = `You are a content strategist for real estate. Generate marketing content for a specific project. Be specific to the location and use local context. Output valid JSON only.`;
+  const system = `You are a GEO-optimized content strategist for Indian real estate. Every piece of content you create is designed to be CITED BY AI SEARCH ENGINES (ChatGPT, Google AI Overview). Output valid JSON only.`;
 
   const prompt = `Generate marketing content for:
 - Project: ${projectName} by ${developerName}
@@ -48,10 +48,12 @@ export async function generateLocalContent(
 
 Return JSON:
 {
-  "blogTopics": [5 topics with { "title", "targetKeyword", "estimatedWordCount", "outline": [5 sections] }],
-  "linkedinPosts": [3 LinkedIn posts for the marketing head / founder, 150-200 words each, professional thought-leadership tone],
-  "whatsappMessages": [5 WhatsApp broadcasts for the sales team to send to prospect lists, under 100 words each, personal and direct]
-}`;
+  "blogTopics": [5 topics — each title MUST be a question buyers ask (e.g., "What is the price of 3BHK flats in ${location}?"), with { "title": "question format", "targetKeyword", "estimatedWordCount": 1500-2000, "outline": [5 sections, each as a question] }],
+  "linkedinPosts": [3 LinkedIn posts for the marketing head, 150-200 words each. Each must include: 1 specific statistic (price/sq ft, growth %, distance), the full project name (never "our project"), and a clear insight — NOT marketing fluff],
+  "whatsappMessages": [5 WhatsApp broadcasts, under 100 words each. Include specific price, location, and RERA number. Personal tone but factual, not salesy]
+}
+
+IMPORTANT: Blog topic titles must be QUESTIONS that home buyers type into ChatGPT/Google, not marketing headlines. Example: "What are the best 3BHK apartments near Hitech City under ₹1.5 Cr?" NOT "Discover Your Dream Home in Hitech City".`;
 
   const text = await aiComplete(system, prompt, 3000);
   const jsonMatch = text.match(/\{[\s\S]*\}/);
