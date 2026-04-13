@@ -23,7 +23,8 @@ export function Sidebar({ companyName, creditsUsed = 0, creditsTotal = 1000 }: P
     { href: "/settings", label: "Settings", icon: Settings, active: pathname === "/settings" },
   ];
 
-  const pct = Math.min(100, (creditsUsed / creditsTotal) * 100);
+  const remaining = creditsTotal - creditsUsed;
+  const pct = Math.min(100, (remaining / creditsTotal) * 100);
 
   return (
     <div className="w-[56px] h-screen bg-[#0a0a0b] border-r border-zinc-800/60 flex flex-col items-center flex-shrink-0">
@@ -67,8 +68,8 @@ export function Sidebar({ companyName, creditsUsed = 0, creditsTotal = 1000 }: P
         ))}
       </nav>
 
-      {/* Credits ring */}
-      <div className="py-2 mb-1" title={`${creditsUsed} / ${creditsTotal} credits`}>
+      {/* Credits ring — shows remaining */}
+      <div className="py-2 mb-1" title={`${remaining.toLocaleString()} credits remaining`}>
         <div className="relative w-8 h-8">
           <svg width="32" height="32" className="-rotate-90">
             <circle cx="16" cy="16" r="12" fill="none" stroke="rgb(39 39 42)" strokeWidth="2" />
@@ -81,7 +82,7 @@ export function Sidebar({ companyName, creditsUsed = 0, creditsTotal = 1000 }: P
             />
           </svg>
           <span className="absolute inset-0 flex items-center justify-center text-[7px] font-bold text-zinc-500">
-            {creditsUsed}
+            {remaining > 999 ? "1K" : remaining}
           </span>
         </div>
       </div>

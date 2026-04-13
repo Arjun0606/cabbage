@@ -87,7 +87,7 @@ export default function Home() {
           <Sparkles size={16} />
         </div>
         <Input
-          placeholder="example.com"
+          placeholder="yourcompany.com"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleScan()}
