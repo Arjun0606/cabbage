@@ -183,6 +183,23 @@ export default function DashboardPage() {
 
   // ---- Agent runners ----
 
+  // Helper: compare current score to previous and log the change
+  const logScoreChange = (label: string, newScore: number, scanType: string) => {
+    const prev = trends[scanType];
+    if (prev && prev.current > 0 && prev.current !== newScore) {
+      const diff = newScore - prev.current;
+      if (diff > 0) {
+        addLog(`> ${label}: ${newScore}/100 — up ${diff} points from last scan`);
+      } else if (diff < 0) {
+        addLog(`> ${label}: ${newScore}/100 — down ${Math.abs(diff)} points — needs attention`);
+      } else {
+        addLog(`> ${label}: ${newScore}/100 — no change`);
+      }
+    } else {
+      addLog(`> ${label}: ${newScore}/100`);
+    }
+  };
+
   const runAudit = async (url: string) => {
     setIsAuditing(true);
     addLog(`> Auditing ${url}...`);
@@ -192,8 +209,9 @@ export default function DashboardPage() {
       if (data.error) throw new Error(data.error);
       setAuditResult(data);
       recordScan("audit", url, data.scores.overall, `${data.fixes?.length || 0} fixes`);
+      logScoreChange("SEO Audit", data.scores.overall, "audit");
+      addLog(`> ${data.fixes?.length || 0} fixes found, ${data.realEstateChecks?.filter((c: any) => !c.passed).length || 0} RE checks failed`);
       refreshTrends();
-      addLog(`> Audit: ${data.scores.overall}/100 — ${data.fixes?.length || 0} fixes`);
     } catch (err) { addLog(`> Error: ${err instanceof Error ? err.message : "Audit failed"}`); }
     finally { setIsAuditing(false); }
   };
@@ -201,15 +219,22 @@ export default function DashboardPage() {
   const runAIVisibility = async () => {
     if (!company.name) { addLog("> Set company name first"); return; }
     setIsCheckingAI(true);
-    addLog(`> Checking AI visibility...`);
+    addLog(`> Checking AI visibility across ChatGPT + Google AI...`);
     try {
       const res = await fetch("/api/ai-visibility", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ websiteUrl: company.website, brand: company.name, projects: company.projects.map(p => p.name), city: company.city }) });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       setAiVisResult(data);
-      recordScan("ai_visibility", company.website, data.scores.overall, "GPT/Claude/Perplexity/Gemini");
+      recordScan("ai_visibility", company.website, data.scores.overall, `Readiness: ${data.scores.readiness}%, Mentions: ${data.scores.mentions}%`);
+      logScoreChange("AI Readiness", data.scores.readiness || data.scores.overall, "ai_visibility");
+      const mentioned = data.queryResults?.filter((q: any) => q.chatgpt?.mentioned || q.gemini?.mentioned).length || 0;
+      const total = data.queryResults?.length || 0;
+      if (mentioned === 0) {
+        addLog(`> ChatGPT + Google AI: 0/${total} queries mention ${company.name} — use the Improvement Plan below`);
+      } else {
+        addLog(`> ChatGPT + Google AI: ${mentioned}/${total} queries mention ${company.name}`);
+      }
       refreshTrends();
-      addLog(`> AI Visibility: ${data.scores.overall}/100`);
     } catch (err) { addLog(`> Error: ${err instanceof Error ? err.message : "Failed"}`); }
     finally { setIsCheckingAI(false); }
   };
@@ -223,8 +248,9 @@ export default function DashboardPage() {
       if (data.error) throw new Error(data.error);
       setBacklinkResult(data);
       recordScan("backlinks", url, data.domainAuthority, `${data.referringDomains} domains`);
+      logScoreChange("Backlinks DA", data.domainAuthority, "backlinks");
+      addLog(`> ${data.referringDomains?.toLocaleString()} referring domains, ${data.totalBacklinks?.toLocaleString()} total backlinks`);
       refreshTrends();
-      addLog(`> Backlinks: DA ${data.domainAuthority}, ${data.referringDomains} domains`);
     } catch (err) { addLog(`> Error: ${err instanceof Error ? err.message : "Failed"}`); }
     finally { setIsCheckingBacklinks(false); }
   };
@@ -238,8 +264,9 @@ export default function DashboardPage() {
       if (data.error) throw new Error(data.error);
       setTechnicalResult(data);
       recordScan("technical", url, data.onPageScore, `TTFB ${data.serverTiming.ttfb}ms`);
+      logScoreChange("Technical", data.onPageScore, "technical");
+      addLog(`> TTFB: ${data.serverTiming.ttfb}ms, ${data.resourceIssues?.length || 0} issues`);
       refreshTrends();
-      addLog(`> Technical: ${data.onPageScore}/100`);
     } catch (err) { addLog(`> Error: ${err instanceof Error ? err.message : "Failed"}`); }
     finally { setIsCheckingTechnical(false); }
   };
@@ -568,12 +595,22 @@ export default function DashboardPage() {
     const url = company.website;
     if (!url) { addLog("> Set your website URL first"); return; }
     addLog("> Full scan started...");
+    addLog("> Technical SEO scan...");
+    addLog("> Analyzing backlinks...");
+    addLog("> Checking AI visibility...");
     await Promise.all([
       runAudit(url), runTechnical(url), runBacklinks(url),
       ...(company.name ? [runAIVisibility()] : []),
     ]);
     if (company.competitors.length > 0) await runCompetitorAnalysis();
-    addLog("> Full scan complete");
+    addLog("✓ Full scan complete");
+
+    // Retention hook: show what to do next
+    const today = new Date();
+    const dayOfMonth = today.getDate();
+    if (dayOfMonth <= 30) {
+      addLog(`> Today is Day ${dayOfMonth} of your improvement plan — check the AI/GEO tab for today's action`);
+    }
   };
 
   return (
