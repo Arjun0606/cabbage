@@ -3,15 +3,15 @@ import { generateLocalContent } from "@/lib/agents/localContent";
 
 export async function POST(req: NextRequest) {
   try {
+    const body = await req.json();
     const {
-      projectName,
-      developerName,
-      location,
-      city,
-      configurations,
-      priceRange,
-      usps,
-    } = await req.json();
+      projectName, developerName, location, city,
+      configurations, priceRange, usps,
+      // Brand context (optional — enriches content quality)
+      brandVoice, brandValues, brandVision, targetAudience,
+      productInfo, marketingStrategy, amenities, reraNumber,
+      status, allProjects, competitors,
+    } = body;
 
     if (!projectName || !location || !city) {
       return NextResponse.json(
@@ -20,14 +20,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const brandContext = (brandVoice || brandValues || targetAudience || productInfo || amenities || reraNumber)
+      ? { brandVoice, brandValues, brandVision, targetAudience, productInfo, marketingStrategy, amenities, reraNumber, status, allProjects, competitors }
+      : undefined;
+
     const result = await generateLocalContent(
       projectName,
       developerName || "",
       location,
       city,
-      configurations || "2BHK, 3BHK",
+      configurations || "",
       priceRange || "",
-      usps || ""
+      usps || "",
+      brandContext
     );
 
     return NextResponse.json(result);

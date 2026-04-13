@@ -29,18 +29,15 @@ const ARTICLE_TYPE_INSTRUCTIONS: Record<ArticleType, string> = {
 
 export async function POST(req: NextRequest) {
   try {
+    const body = await req.json();
     const {
-      projectName,
-      developerName,
-      location,
-      city,
-      configurations,
-      priceRange,
-      usps,
-      topic,
-      targetKeyword,
-      articleType,
-    } = await req.json();
+      projectName, developerName, location, city,
+      configurations, priceRange, usps, topic, targetKeyword, articleType,
+      // Brand context
+      brandVoice, brandValues, brandVision, targetAudience,
+      productInfo, amenities, reraNumber, status,
+      allProjects, competitors,
+    } = body;
 
     if (!projectName || !location || !city) {
       return NextResponse.json(
@@ -106,9 +103,21 @@ Return valid JSON:
 - Developer: ${developerName || "Not specified"}
 - Location: ${location}
 - City: ${city}
-- Configurations: ${configurations || "2BHK, 3BHK"}
+- Configurations: ${configurations || "Not specified"}
 - Price Range: ${priceRange || "Not specified"}
 - USPs: ${usps || "Not specified"}
+${reraNumber ? `- RERA: ${reraNumber}` : ""}
+${amenities ? `- Amenities: ${amenities}` : ""}
+${status ? `- Status: ${status}` : ""}
+
+${brandVoice || brandValues || targetAudience || productInfo ? `**Brand Context (write in this brand's voice):**
+${brandVoice ? `- Voice & Tone: ${brandVoice.substring(0, 400)}` : ""}
+${brandValues ? `- Values: ${brandValues.substring(0, 400)}` : ""}
+${brandVision ? `- Vision: ${brandVision.substring(0, 300)}` : ""}
+${targetAudience ? `- Target Buyers: ${targetAudience.substring(0, 400)}` : ""}
+${productInfo ? `- Product Info: ${productInfo.substring(0, 400)}` : ""}` : ""}
+${allProjects?.length > 1 ? `\n**Other projects by ${developerName}:** ${allProjects.filter((p: any) => p.name !== projectName).map((p: any) => `${p.name} (${p.location})`).join(", ")}` : ""}
+${competitors?.length ? `**Competitors:** ${competitors.join(", ")}` : ""}
 
 **SEO Details:**
 - Topic: ${topic || articleType.replace(/_/g, " ")}

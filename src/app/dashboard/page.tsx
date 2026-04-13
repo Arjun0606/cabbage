@@ -290,7 +290,8 @@ export default function DashboardPage() {
     setIsGeneratingContent(true);
     addLog(`> Generating content...`);
     try {
-      const res = await fetch("/api/local-content", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ projectName: company.name, developerName: company.name, location: company.city || "the market", city: company.city || "the market", configurations: "", priceRange: "", usps: company.description || "" }) });
+      const ctx = getProjectContext();
+      const res = await fetch("/api/local-content", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(ctx) });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       setContentResult(data);
@@ -304,7 +305,8 @@ export default function DashboardPage() {
     setIsGeneratingContent(true);
     addLog(`> Generating 4-week plan...`);
     try {
-      const res = await fetch("/api/content-plan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ projectName: company.name, developerName: company.name, location: company.city || "the market", city: company.city || "the market", configurations: "", priceRange: "", usps: company.description || "" }) });
+      const ctx = getProjectContext();
+      const res = await fetch("/api/content-plan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(ctx) });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       setContentPlanResult(data);
@@ -327,6 +329,7 @@ export default function DashboardPage() {
 
   // ---- New feature runners ----
 
+  // Rich context builder — feeds ALL brand knowledge into every content generator
   const getProjectContext = () => {
     const p = selectedProject !== null ? company.projects[selectedProject] : null;
     return {
@@ -338,7 +341,22 @@ export default function DashboardPage() {
       priceRange: (p as any)?.priceRange || "",
       usps: company.description || "",
       reraNumber: (p as any)?.reraNumber || "",
+      amenities: (p as any)?.amenities || "",
       website: p?.website || company.website,
+      status: (p as any)?.status || "",
+      // Brand context — this is what makes content genuinely relevant
+      brandVoice: company.documents?.brandVoice || "",
+      brandValues: company.documents?.brandValues || "",
+      brandVision: company.documents?.brandVision || "",
+      targetAudience: company.documents?.targetAudience || "",
+      productInfo: company.documents?.productInfo || "",
+      marketingStrategy: company.documents?.marketingStrategy || "",
+      // All projects summary for cross-referencing
+      allProjects: (company.projects || []).map((proj: any) => ({
+        name: proj.name, location: proj.location, configurations: proj.configurations,
+        priceRange: proj.priceRange, status: proj.status,
+      })),
+      competitors: (company.competitors || []).map((c: any) => c.name),
     };
   };
 
