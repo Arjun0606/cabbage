@@ -65,7 +65,8 @@ function analyzeMention(
     if (allTerms.some((term) => sentLower.includes(term))) {
       mentioned = true;
       position = i + 1;
-      context = sentences[i].trim();
+      // Truncate and sanitize context to prevent JSON serialization issues
+      context = sentences[i].trim().substring(0, 300).replace(/[\x00-\x1F]/g, " ");
       break;
     }
   }
