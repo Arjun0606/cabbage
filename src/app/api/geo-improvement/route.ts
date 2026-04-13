@@ -1,362 +1,199 @@
 import { NextRequest, NextResponse } from "next/server";
 import { aiComplete } from "@/lib/ai";
 
-// ---------- Types ----------
-
-interface Project {
-  name: string;
-  location: string;
-}
-
 interface ActionItem {
+  day: number;
   action: string;
   why: string;
-  cabbageFeature?: string;
+  cabbageFeature: string;
   priority: "must-do" | "should-do" | "nice-to-have";
   timeEstimate: string;
-}
-
-interface Week {
-  week: number;
-  theme: string;
-  actions: ActionItem[];
+  category: "technical" | "content" | "authority" | "monitoring";
 }
 
 interface GeoImprovementPlan {
   currentScore: number;
   targetScore: number;
-  weeks: Week[];
+  days: ActionItem[];
   quickWins: string[];
   expectedTimeline: string;
+  weekSummaries: { week: number; theme: string; expectedScore: number }[];
 }
-
-// ---------- Route Handler ----------
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-
-    const {
-      companyName,
-      website,
-      city,
-      currentScore,
-      currentMentionRate,
-      missingQueries,
-      failedChecks,
-      projects,
-    } = body;
+    const { companyName, website, city, currentScore, currentMentionRate, missingQueries, failedChecks, projects } = body;
 
     if (!companyName || !website) {
-      return NextResponse.json(
-        { error: "companyName and website are required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "companyName and website are required" }, { status: 400 });
     }
 
     const score = currentScore ?? 0;
-    const mentionRate = currentMentionRate ?? 0;
+    const projectList = (projects || []).map((p: any) => `- ${p.name} (${p.location})`).join("\n");
+    const missingList = (missingQueries || []).map((q: string) => `- "${q}"`).join("\n");
+    const failedList = (failedChecks || []).map((c: string) => `- ${c}`).join("\n");
 
-    const projectList = (projects || [])
-      .map((p: Project) => `- ${p.name} (${p.location})`)
-      .join("\n");
+    const systemPrompt = `You are a GEO specialist for Indian real estate. You create 30-day daily action plans. Return valid JSON only.`;
 
-    const missingList = (missingQueries || [])
-      .map((q: string) => `- "${q}"`)
-      .join("\n");
+    const userPrompt = `Create a 30-day DAILY action plan for ${companyName} (${website}) in ${city || "India"}.
+Current AI visibility: ${score}%. Mention rate: ${currentMentionRate || 0}%.
+Projects: ${projectList || "Not specified"}
+Missing AI queries: ${missingList || "Not specified"}
+Failed checks: ${failedList || "Not specified"}
 
-    const failedList = (failedChecks || [])
-      .map((c: string) => `- ${c}`)
-      .join("\n");
-
-    const systemPrompt = `You are a GEO (Generative Engine Optimization) specialist for Indian real estate companies. You create detailed, prioritized action plans to improve AI visibility — meaning how often AI search engines (ChatGPT, Perplexity, Google AI Overview, Gemini) mention and recommend a real estate brand.
-
-You MUST return valid JSON only. No markdown fences, no extra text.`;
-
-    const userPrompt = `Create a 4-week GEO improvement action plan for:
-
-**Company:** ${companyName}
-**Website:** ${website}
-**City:** ${city || "Not specified"}
-**Current AI Visibility Score:** ${score}%
-**Current Mention Rate:** ${mentionRate}%
-**Projects:**
-${projectList || "No projects specified"}
-
-**Queries where AI does NOT mention this brand:**
-${missingList || "Not specified"}
-
-**Failed checks:**
-${failedList || "Not specified"}
-
-Return this exact JSON structure:
+Return JSON:
 {
   "currentScore": ${score},
-  "targetScore": <realistic target after 4 weeks — typically current + 30-50 points, max 70>,
-  "weeks": [
-    {
-      "week": 1,
-      "theme": "Foundation — Become Discoverable (${score}% → ${Math.min(score + 20, 100)}%)",
-      "actions": [
-        {
-          "action": "<specific, clear action in non-technical language>",
-          "why": "<why this helps AI visibility — which platforms it impacts>",
-          "cabbageFeature": "<which CabbageSEO tab/feature generates this, or null>",
-          "priority": "must-do",
-          "timeEstimate": "5 min"
-        }
-      ]
-    },
-    {
-      "week": 2,
-      "theme": "Content Depth — Give AI More to Reference (${Math.min(score + 20, 100)}% → ${Math.min(score + 35, 100)}%)",
-      "actions": [...]
-    },
-    {
-      "week": 3,
-      "theme": "Authority Building — Become the Recommended Choice (${Math.min(score + 35, 100)}% → ${Math.min(score + 50, 100)}%)",
-      "actions": [...]
-    },
-    {
-      "week": 4,
-      "theme": "Monitoring & Refinement",
-      "actions": [...]
-    }
+  "targetScore": <realistic target after 30 days, typically +30-50 points>,
+  "weekSummaries": [
+    { "week": 1, "theme": "Foundation — Technical SEO & AI Readiness", "expectedScore": ${Math.min(score + 15, 100)} },
+    { "week": 2, "theme": "Content — Location Pages & Articles", "expectedScore": ${Math.min(score + 25, 100)} },
+    { "week": 3, "theme": "Authority — Portals, GBP & Brand Mentions", "expectedScore": ${Math.min(score + 35, 100)} },
+    { "week": 4, "theme": "Optimize — Measure, Fix Gaps, Double Down", "expectedScore": ${Math.min(score + 45, 100)} }
   ],
-  "quickWins": ["<3-5 things they can do RIGHT NOW in under 10 minutes each>"],
-  "expectedTimeline": "<realistic timeline description>"
+  "days": [
+    {
+      "day": 1,
+      "action": "Upload llms.txt to your website root — this tells AI crawlers about your brand and projects",
+      "why": "Without llms.txt, AI crawlers don't know what your site is about. This is the #1 quick win for GEO.",
+      "cabbageFeature": "AI/GEO tab → Generate llms.txt",
+      "priority": "must-do",
+      "timeEstimate": "10 min",
+      "category": "technical"
+    },
+    ... (30 days total)
+  ],
+  "quickWins": ["5 things to do TODAY"],
+  "expectedTimeline": "30 days to go from ${score}% to ~${Math.min(score + 45, 70)}%"
 }
 
-IMPORTANT GUIDELINES:
-- Week 1 actions (Foundation): Upload llms.txt (CabbageSEO generates it), add FAQ schema to homepage and project pages (use Schema tab), add RealEstateListing structured data (use Schema tab), fix meta descriptions to be keyword-rich, ensure each project page has 1000+ words of unique content.
-- Week 2 actions (Content Depth): Publish 3-5 location guide articles (use Article Writer), publish comparison articles vs nearby projects, add detailed amenity descriptions not just bullet lists, create "Why [Location]" pages for each project micro-market.
-- Week 3 actions (Authority Building): Get listed on property portals (99acres, MagicBricks, Housing.com) with full descriptions, create a Wikipedia-style About page, publish thought leadership on LinkedIn, get press coverage or builder association mentions.
-- Week 4 actions (Monitoring): Re-run AI Visibility scan, identify which queries now mention the brand, double down on content for remaining missing queries, update FAQ pages with questions AI models are asking.
+RULES:
+- Exactly 30 days, one clear action per day
+- Each action should take 15-45 minutes MAX (these are busy marketing teams)
+- Reference specific CabbageSEO features: "AI/GEO tab → Generate llms.txt", "Content tab → Full Articles", "Content tab → Landing Pages", "Schema tab", "Ads & Portals tab → Portal Optimizer", "AI/GEO tab → Citability Audit", "Content tab → Festive Campaigns", "Content tab → Channel Partners", "Health tab → Run Audit", "Locality tab → Neighborhood", "Report tab", "AI/GEO tab → Brand Presence", "AI/GEO tab → Crawler Access"
+- If it's a manual action (not in CabbageSEO), say "Manual — [where to do it]"
+- Categories: "technical" (schema, robots, speed), "content" (articles, pages, posts), "authority" (portals, GBP, mentions), "monitoring" (re-scan, compare, adjust)
 
-For each action specify:
-- priority: "must-do" / "should-do" / "nice-to-have"
-- timeEstimate: "5 min" / "15 min" / "30 min" / "1 hour" / "2 hours"
-- cabbageFeature: reference specific CabbageSEO features like "llms.txt Generator", "Schema Generator", "Article Writer", "AI Visibility Scanner", "Content Planner", or null if it's a manual action
+Day-by-day structure:
+Week 1 (Days 1-7) — Technical Foundation:
+Day 1: Upload llms.txt (CabbageSEO generates it)
+Day 2: Add RealEstateListing + Organization schema to homepage
+Day 3: Add FAQ schema to each project page
+Day 4: Check and fix AI crawler access (robots.txt)
+Day 5: Run citability audit, rewrite worst-scoring page's H2s as questions
+Day 6: Fix meta descriptions for all project pages (keyword-rich, include city + config + price)
+Day 7: Run full SEO audit and fix top 3 critical issues
 
-Include 5-6 actions per week. Personalize based on the company name, city, projects, and missing queries provided.
+Week 2 (Days 8-14) — Content Depth:
+Day 8: Write locality guide article for main project location
+Day 9: Write "Why invest in [Location]" article
+Day 10: Write comparison article: your project vs 2 competitors
+Day 11: Write buyer guide for your city
+Day 12: Write NRI guide if applicable
+Day 13: Create FAQ page with 20 questions buyers ask about your projects
+Day 14: Re-run AI visibility check — measure improvement
 
-Quick wins should be things they can literally do in the next 10 minutes using CabbageSEO.`;
+Week 3 (Days 15-21) — Authority & Portals:
+Day 15: Optimize 99acres listing using Portal Optimizer
+Day 16: Optimize MagicBricks listing
+Day 17: Optimize Housing.com listing
+Day 18: Update Google Business Profile
+Day 19: Publish 2 LinkedIn posts (use Content tab)
+Day 20: Run brand presence scan — identify remaining gaps
+Day 21: Generate and send channel partner content pack to top 5 brokers
 
-    const raw = await aiComplete(systemPrompt, userPrompt, 3000);
+Week 4 (Days 22-28) — Optimize & Scale:
+Day 22: Generate festive campaign content for next upcoming festival
+Day 23: Write location guide for 2nd project location
+Day 24: Create landing page for site visits
+Day 25: Generate Google + Meta ad copy
+Day 26: Run neighborhood analysis for all project locations
+Day 27: Generate construction progress update content
+Day 28: Re-run full AI visibility scan — measure improvement from Day 1
 
-    // Parse the AI response
+Days 29-30 — Report & Plan:
+Day 29: Generate monthly marketing report
+Day 30: Review report, identify top 3 priorities for next month, share report with management
+
+Personalize EVERYTHING to ${companyName}, ${city}, and the specific projects and missing queries listed above.`;
+
+    const raw = await aiComplete(systemPrompt, userPrompt, 4000);
+
     let plan: GeoImprovementPlan;
     try {
       const cleaned = raw.replace(/^```(?:json)?\s*/, "").replace(/\s*```$/, "");
       plan = JSON.parse(cleaned);
     } catch {
-      // Fallback: return a sensible default plan
-      plan = buildFallbackPlan(companyName, website, city, score, projects || []);
+      plan = buildFallbackPlan(companyName, city, score, projects || []);
     }
 
-    // Ensure score fields are present
     plan.currentScore = score;
-    if (!plan.targetScore) {
-      plan.targetScore = Math.min(score + 45, 70);
-    }
+    if (!plan.targetScore) plan.targetScore = Math.min(score + 45, 70);
 
     return NextResponse.json(plan);
   } catch (error) {
-    console.error("GEO improvement error:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "GEO improvement plan generation failed" },
+      { error: error instanceof Error ? error.message : "Plan generation failed" },
       { status: 500 }
     );
   }
 }
 
-// ---------- Fallback Plan ----------
+function buildFallbackPlan(companyName: string, city: string, currentScore: number, projects: any[]): GeoImprovementPlan {
+  const projectName = projects[0]?.name || companyName;
+  const location = projects[0]?.location || city || "your city";
 
-function buildFallbackPlan(
-  companyName: string,
-  website: string,
-  city: string,
-  currentScore: number,
-  projects: Project[]
-): GeoImprovementPlan {
-  const projectNames = projects.map((p) => p.name).join(", ") || "your projects";
+  const days: ActionItem[] = [
+    { day: 1, action: `Upload llms.txt to ${companyName}'s website root`, why: "Tells AI crawlers about your brand — #1 GEO quick win", cabbageFeature: "AI/GEO tab → Generate llms.txt", priority: "must-do", timeEstimate: "10 min", category: "technical" },
+    { day: 2, action: `Add RealEstateListing + Organization schema to homepage`, why: "Structured data helps AI understand your projects in machine-readable format", cabbageFeature: "Content tab → Schema", priority: "must-do", timeEstimate: "15 min", category: "technical" },
+    { day: 3, action: `Add FAQ schema to ${projectName} project page`, why: "FAQ schema gets directly pulled into Google AI Overviews", cabbageFeature: "Content tab → Schema", priority: "must-do", timeEstimate: "15 min", category: "technical" },
+    { day: 4, action: `Check robots.txt — ensure GPTBot and Google-Extended are NOT blocked`, why: "If you block AI crawlers, no amount of content will help", cabbageFeature: "AI/GEO tab → Crawler Access", priority: "must-do", timeEstimate: "10 min", category: "technical" },
+    { day: 5, action: `Run citability audit and rewrite your worst page's headings as questions`, why: "Question-based H2s are what Google AI Overviews extract", cabbageFeature: "AI/GEO tab → Citability Audit", priority: "must-do", timeEstimate: "30 min", category: "technical" },
+    { day: 6, action: `Rewrite meta descriptions for all project pages — include city, config, price`, why: "AI models use meta descriptions as summaries — generic ones get ignored", cabbageFeature: "", priority: "must-do", timeEstimate: "30 min", category: "technical" },
+    { day: 7, action: `Run full SEO audit and fix top 3 critical issues`, why: "Technical SEO is the foundation — broken pages can't rank anywhere", cabbageFeature: "Health tab → Run Audit", priority: "must-do", timeEstimate: "45 min", category: "technical" },
+    { day: 8, action: `Write locality guide: "Living in ${location} — Complete Guide"`, why: "Location guides are the #1 content type that AI cites for area queries", cabbageFeature: "Content tab → Full Articles → Locality Guide", priority: "must-do", timeEstimate: "20 min", category: "content" },
+    { day: 9, action: `Write "Why Invest in ${location}" article`, why: "Investment articles get cited when buyers ask ChatGPT about property investment", cabbageFeature: "Content tab → Full Articles → Investment", priority: "must-do", timeEstimate: "20 min", category: "content" },
+    { day: 10, action: `Write comparison article: ${projectName} vs top 2 competitors`, why: "Comparison content is exactly what AI recommends when buyers ask 'which is better'", cabbageFeature: "Content tab → Full Articles → Comparison", priority: "must-do", timeEstimate: "20 min", category: "content" },
+    { day: 11, action: `Write buyer guide for ${city}`, why: "Buyer guides answer process questions — RERA, documentation, loans — that AI gets asked constantly", cabbageFeature: "Content tab → Full Articles → Buyer Guide", priority: "should-do", timeEstimate: "20 min", category: "content" },
+    { day: 12, action: `Write NRI buyer guide for ${projectName}`, why: "NRI queries are high-intent and underserved in AI answers", cabbageFeature: "Content tab → Full Articles → NRI Guide", priority: "should-do", timeEstimate: "20 min", category: "content" },
+    { day: 13, action: `Create FAQ page with 20 questions buyers ask about ${projectName}`, why: "FAQ pages with question-answer pairs are the most-cited format by AI", cabbageFeature: "Content tab → Full Articles → Buyer Guide", priority: "must-do", timeEstimate: "30 min", category: "content" },
+    { day: 14, action: `Re-run AI visibility check — measure improvement from Day 1`, why: "Track your progress — you should see readiness score jump significantly", cabbageFeature: "AI/GEO tab → Check AI Visibility", priority: "must-do", timeEstimate: "5 min", category: "monitoring" },
+    { day: 15, action: `Optimize 99acres listing for ${projectName}`, why: "Portal listings feed into AI answers — optimized descriptions rank better", cabbageFeature: "Ads & Portals tab → Portal Optimizer", priority: "must-do", timeEstimate: "20 min", category: "authority" },
+    { day: 16, action: `Optimize MagicBricks listing for ${projectName}`, why: "MagicBricks is frequently cited by ChatGPT for Indian real estate", cabbageFeature: "Ads & Portals tab → Portal Optimizer", priority: "must-do", timeEstimate: "20 min", category: "authority" },
+    { day: 17, action: `Optimize Housing.com listing for ${projectName}`, why: "More portal presence = higher chance of AI citing you", cabbageFeature: "Ads & Portals tab → Portal Optimizer", priority: "should-do", timeEstimate: "20 min", category: "authority" },
+    { day: 18, action: `Update Google Business Profile with full description and photos`, why: "Google AI Overviews draws heavily from Google Business Profile data", cabbageFeature: "Manual — business.google.com", priority: "must-do", timeEstimate: "30 min", category: "authority" },
+    { day: 19, action: `Publish 2 LinkedIn posts about ${projectName}`, why: "LinkedIn content builds brand authority that AI models recognize", cabbageFeature: "Content tab → Content Topics", priority: "should-do", timeEstimate: "15 min", category: "authority" },
+    { day: 20, action: `Run brand presence scan — identify remaining gaps`, why: "Check which platforms still don't mention your brand", cabbageFeature: "AI/GEO tab → Brand Presence", priority: "should-do", timeEstimate: "5 min", category: "monitoring" },
+    { day: 21, action: `Send channel partner content pack to top 5 brokers`, why: "Broker mentions and referrals create organic brand signals AI picks up", cabbageFeature: "Content tab → Channel Partners", priority: "should-do", timeEstimate: "15 min", category: "authority" },
+    { day: 22, action: `Generate festive campaign content for the next upcoming festival`, why: "Seasonal content shows freshness — AI models prefer recently updated sites", cabbageFeature: "Content tab → Festive Campaigns", priority: "nice-to-have", timeEstimate: "15 min", category: "content" },
+    { day: 23, action: `Write locality guide for 2nd project location`, why: "Each location guide captures a new set of buyer queries in AI", cabbageFeature: "Content tab → Full Articles → Locality Guide", priority: "should-do", timeEstimate: "20 min", category: "content" },
+    { day: 24, action: `Create site visit landing page for ${projectName}`, why: "Dedicated landing pages with structured data rank in AI shopping results", cabbageFeature: "Content tab → Landing Pages", priority: "should-do", timeEstimate: "15 min", category: "content" },
+    { day: 25, action: `Generate Google + Meta ad copy for ${projectName}`, why: "Paid ads drive branded search volume, which AI models track as authority signal", cabbageFeature: "Ads & Portals tab → Google + Meta Ads", priority: "nice-to-have", timeEstimate: "15 min", category: "authority" },
+    { day: 26, action: `Run neighborhood analysis for ${location}`, why: "Neighborhood data enriches your location pages and improves citability", cabbageFeature: "Locality tab → Neighborhood", priority: "should-do", timeEstimate: "10 min", category: "content" },
+    { day: 27, action: `Publish construction progress update for ${projectName}`, why: "Progress updates show the project is active and trustworthy", cabbageFeature: "Content tab → Construction Updates", priority: "nice-to-have", timeEstimate: "15 min", category: "content" },
+    { day: 28, action: `Re-run FULL AI visibility scan — compare with Day 1 and Day 14`, why: "This is your 4-week checkpoint — expect 25-40 point improvement", cabbageFeature: "AI/GEO tab → Check AI Visibility", priority: "must-do", timeEstimate: "5 min", category: "monitoring" },
+    { day: 29, action: `Generate monthly marketing report`, why: "Show your management/board the ROI — scores improved, content published, visibility gained", cabbageFeature: "Report tab", priority: "must-do", timeEstimate: "5 min", category: "monitoring" },
+    { day: 30, action: `Review report, set 3 priorities for next month, share with team`, why: "Consistent monthly cycles compound — month 2 is where AI mention rates really climb", cabbageFeature: "Report tab", priority: "must-do", timeEstimate: "30 min", category: "monitoring" },
+  ];
 
   return {
     currentScore,
     targetScore: Math.min(currentScore + 45, 70),
-    weeks: [
-      {
-        week: 1,
-        theme: `Foundation — Become Discoverable (${currentScore}% → ${Math.min(currentScore + 20, 100)}%)`,
-        actions: [
-          {
-            action: `Upload llms.txt to ${website}/llms.txt — this tells AI crawlers what ${companyName} is about`,
-            why: "AI models like ChatGPT and Perplexity check for llms.txt to understand your company. Without it, they have no structured way to learn about your projects.",
-            cabbageFeature: "llms.txt Generator",
-            priority: "must-do",
-            timeEstimate: "5 min",
-          },
-          {
-            action: `Add FAQ schema markup to your homepage and each project page`,
-            why: "FAQ schema helps Google AI Overview and Gemini pull your answers directly when users ask questions about projects in ${city}.",
-            cabbageFeature: "Schema Generator",
-            priority: "must-do",
-            timeEstimate: "15 min",
-          },
-          {
-            action: `Add RealEstateListing structured data to each project page`,
-            why: "Structured data helps AI models understand your project details (price, location, configurations) in a machine-readable format.",
-            cabbageFeature: "Schema Generator",
-            priority: "must-do",
-            timeEstimate: "15 min",
-          },
-          {
-            action: `Rewrite meta descriptions for all project pages to include city, location, price range, and configurations`,
-            why: "AI models often use meta descriptions as a summary. Generic descriptions like 'Welcome to our project' get ignored.",
-            cabbageFeature: "",
-            priority: "must-do",
-            timeEstimate: "30 min",
-          },
-          {
-            action: `Ensure every project page has at least 1000 words of unique, detailed content`,
-            why: "AI models prefer pages with comprehensive information. Thin pages with just a form and bullet points rarely get cited.",
-            cabbageFeature: "Article Writer",
-            priority: "should-do",
-            timeEstimate: "2 hours",
-          },
-        ],
-      },
-      {
-        week: 2,
-        theme: `Content Depth — Give AI More to Reference (${Math.min(currentScore + 20, 100)}% → ${Math.min(currentScore + 35, 100)}%)`,
-        actions: [
-          {
-            action: `Publish 3-5 location guide articles for areas where ${projectNames} are located`,
-            why: "When someone asks 'best areas to buy in ${city}', AI models look for comprehensive location guides. These articles make you the source.",
-            cabbageFeature: "Article Writer",
-            priority: "must-do",
-            timeEstimate: "1 hour",
-          },
-          {
-            action: `Publish comparison articles: '${projects[0]?.name || "Your Project"} vs other projects in ${projects[0]?.location || city}'`,
-            why: "Comparison queries are extremely common in AI search. If you publish the comparison, AI cites your version.",
-            cabbageFeature: "Article Writer",
-            priority: "should-do",
-            timeEstimate: "1 hour",
-          },
-          {
-            action: `Convert bullet-point amenity lists into detailed amenity descriptions with photos`,
-            why: "AI models extract and summarize descriptive text. Bullet points like 'Swimming Pool, Gym' give AI nothing useful to cite.",
-            cabbageFeature: "",
-            priority: "should-do",
-            timeEstimate: "2 hours",
-          },
-          {
-            action: `Create 'Why ${projects[0]?.location || city}' micro-market guide pages`,
-            why: "These pages target the exact queries AI models answer: 'Why should I buy in [location]?' — and your brand gets mentioned in the answer.",
-            cabbageFeature: "Article Writer",
-            priority: "should-do",
-            timeEstimate: "1 hour",
-          },
-          {
-            action: `Add a detailed pricing page with transparent price breakdowns per configuration`,
-            why: "Price transparency signals credibility. AI models prefer citing sources that provide clear, detailed pricing.",
-            cabbageFeature: "",
-            priority: "nice-to-have",
-            timeEstimate: "1 hour",
-          },
-        ],
-      },
-      {
-        week: 3,
-        theme: `Authority Building — Become the Recommended Choice (${Math.min(currentScore + 35, 100)}% → ${Math.min(currentScore + 50, 100)}%)`,
-        actions: [
-          {
-            action: `Ensure ${companyName} is listed on 99acres, MagicBricks, and Housing.com with complete project descriptions`,
-            why: "AI models cross-reference multiple sources. Being mentioned on property portals corroborates your brand and increases citation likelihood.",
-            cabbageFeature: "",
-            priority: "must-do",
-            timeEstimate: "2 hours",
-          },
-          {
-            action: `Create a comprehensive Wikipedia-style 'About ${companyName}' page with company history, milestones, and leadership`,
-            why: "AI models heavily weight authoritative 'About' pages. A detailed company page helps models confidently recommend your brand.",
-            cabbageFeature: "",
-            priority: "should-do",
-            timeEstimate: "2 hours",
-          },
-          {
-            action: `Publish 2-3 thought leadership articles on LinkedIn about the ${city} real estate market`,
-            why: "Perplexity and ChatGPT index LinkedIn content. Thought leadership positions ${companyName} as an authority in ${city} real estate.",
-            cabbageFeature: "",
-            priority: "should-do",
-            timeEstimate: "2 hours",
-          },
-          {
-            action: `Get mentioned in local press or builder association directories (CREDAI, NAREDCO)`,
-            why: "Third-party mentions are the strongest signal for AI models. A press mention makes AI far more likely to recommend your brand.",
-            cabbageFeature: "",
-            priority: "nice-to-have",
-            timeEstimate: "2 hours",
-          },
-          {
-            action: `Collect and publish detailed customer testimonials with project names and locations`,
-            why: "Testimonials add social proof that AI models can reference when recommending developers.",
-            cabbageFeature: "",
-            priority: "nice-to-have",
-            timeEstimate: "1 hour",
-          },
-        ],
-      },
-      {
-        week: 4,
-        theme: "Monitoring & Refinement",
-        actions: [
-          {
-            action: `Re-run the AI Visibility scan on CabbageSEO to measure your new score`,
-            why: "You need to measure progress. The scan checks all major AI platforms and shows exactly which queries now mention ${companyName}.",
-            cabbageFeature: "AI Visibility Scanner",
-            priority: "must-do",
-            timeEstimate: "5 min",
-          },
-          {
-            action: `Review which queries now mention ${companyName} vs which still don't`,
-            why: "This tells you where your content strategy is working and where you need to double down.",
-            cabbageFeature: "AI Visibility Scanner",
-            priority: "must-do",
-            timeEstimate: "15 min",
-          },
-          {
-            action: `For remaining missing queries, create targeted content pages addressing those exact questions`,
-            why: "Each missing query is a specific content gap. Creating a page that answers that exact question is the fastest path to getting cited.",
-            cabbageFeature: "Article Writer",
-            priority: "should-do",
-            timeEstimate: "2 hours",
-          },
-          {
-            action: `Update FAQ sections with the actual questions AI models are asking about your projects`,
-            why: "AI models often surface FAQ content directly. Aligning your FAQs with real AI queries increases match rate.",
-            cabbageFeature: "Schema Generator",
-            priority: "should-do",
-            timeEstimate: "30 min",
-          },
-          {
-            action: `Set up a monthly AI Visibility check schedule to track progress over time`,
-            why: "GEO is not a one-time fix. Monthly monitoring ensures you stay visible as AI models update their knowledge.",
-            cabbageFeature: "AI Visibility Scanner",
-            priority: "nice-to-have",
-            timeEstimate: "5 min",
-          },
-        ],
-      },
-    ],
+    days,
     quickWins: [
-      "Generate and upload llms.txt using CabbageSEO — takes 2 minutes",
-      "Generate FAQ schema for your homepage using the Schema tab — paste it in your HTML head",
-      "Generate RealEstateListing schema for your top project — paste it in the project page",
-      "Rewrite your homepage meta description to include your brand name, city, and what you build",
-      "Add your company name and project names to your page titles (many developers forget this)",
+      "Generate and upload llms.txt (AI/GEO tab → 10 min)",
+      "Generate property schema and paste into your website head (Content tab → Schema → 15 min)",
+      "Run Crawler Access check — make sure you're not blocking GPTBot (AI/GEO tab → 2 min)",
+      "Run Citability Audit — see what's wrong with your content structure (AI/GEO tab → 3 min)",
+      "Optimize your 99acres listing description (Ads & Portals tab → 20 min)",
     ],
-    expectedTimeline: `With consistent effort, ${companyName} can realistically move from ${currentScore}% to ${Math.min(currentScore + 45, 70)}% AI visibility within 4-6 weeks. The biggest jump (0% to 20%) happens in Week 1 just from llms.txt and structured data. Content depth in Weeks 2-3 compounds over time as AI models re-index.`,
+    expectedTimeline: `30 days to go from ${currentScore}% to ~${Math.min(currentScore + 45, 70)}%. Most improvement in first 2 weeks.`,
+    weekSummaries: [
+      { week: 1, theme: "Foundation — Technical SEO & AI Readiness", expectedScore: Math.min(currentScore + 15, 100) },
+      { week: 2, theme: "Content Depth — Location Pages & Articles", expectedScore: Math.min(currentScore + 25, 100) },
+      { week: 3, theme: "Authority — Portals, GBP & Brand Mentions", expectedScore: Math.min(currentScore + 35, 100) },
+      { week: 4, theme: "Optimize — Measure, Fix Gaps, Double Down", expectedScore: Math.min(currentScore + 45, 100) },
+    ],
   };
 }

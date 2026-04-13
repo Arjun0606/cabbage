@@ -955,24 +955,37 @@ export function AnalyticsPanel({
                 </SectionCard>
               )}
 
-              {/* GEO Improvement Plan */}
+              {/* 30-Day Daily GEO Improvement Plan */}
               {geoImprovementResult && (
                 <>
                   <SectionCard>
                     <CardContent className="p-5">
-                      <div className="flex items-center justify-between mb-4">
-                        <h4 className="text-[15px] font-semibold text-zinc-100">GEO Improvement Plan</h4>
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="text-[15px] font-semibold text-zinc-100">30-Day Daily Action Plan</h4>
                         <div className="flex items-center gap-2">
                           <span className="text-[13px] text-red-400 font-bold">{geoImprovementResult.currentScore}%</span>
                           <span className="text-zinc-600">→</span>
                           <span className="text-[13px] text-emerald-400 font-bold">{geoImprovementResult.targetScore}%</span>
                         </div>
                       </div>
-                      <p className="text-[12px] text-zinc-500 mb-4">Timeline: {geoImprovementResult.expectedTimeline}</p>
+                      <p className="text-[12px] text-zinc-500 mb-4">{geoImprovementResult.expectedTimeline}</p>
+
+                      {/* Week progress bar */}
+                      {geoImprovementResult.weekSummaries?.length > 0 && (
+                        <div className="grid grid-cols-4 gap-2 mb-4">
+                          {geoImprovementResult.weekSummaries.map((w: any) => (
+                            <div key={w.week} className="p-2.5 rounded-lg bg-zinc-800/40 border border-zinc-700/20 text-center">
+                              <div className="text-[10px] text-zinc-500 font-medium">Week {w.week}</div>
+                              <div className="text-[14px] font-bold text-zinc-200 mt-0.5">{w.expectedScore}%</div>
+                              <div className="text-[9px] text-zinc-600 mt-0.5 leading-tight">{w.theme.split("—")[0]?.trim()}</div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
 
                       {geoImprovementResult.quickWins?.length > 0 && (
                         <div className="rounded-lg bg-emerald-500/5 border border-emerald-500/15 p-3.5 mb-4">
-                          <h5 className="text-[12px] font-semibold text-emerald-400 mb-2">Quick Wins (do these today)</h5>
+                          <h5 className="text-[12px] font-semibold text-emerald-400 mb-2">Do these RIGHT NOW (5-15 min each)</h5>
                           {geoImprovementResult.quickWins.map((win: string, i: number) => (
                             <div key={i} className="text-[12px] text-zinc-300 flex items-start gap-2 py-0.5">
                               <span className="text-emerald-400 flex-shrink-0">&#8226;</span> {win}
@@ -981,36 +994,45 @@ export function AnalyticsPanel({
                         </div>
                       )}
 
-                      {geoImprovementResult.weeks?.map((week: any, wi: number) => (
-                        <div key={wi} className="mb-4">
-                          <h5 className="text-[13px] font-semibold text-zinc-200 mb-2">
-                            Week {week.week}: {week.theme}
-                          </h5>
-                          <div className="space-y-2">
-                            {week.actions?.map((action: any, ai: number) => (
-                              <div key={ai} className="p-3 rounded-lg bg-zinc-800/40 border border-zinc-700/30">
-                                <div className="flex items-start justify-between gap-2">
-                                  <div className="flex-1">
-                                    <div className="text-[13px] text-zinc-200">{action.action}</div>
-                                    <div className="text-[11px] text-zinc-500 mt-0.5">{action.why}</div>
-                                  </div>
-                                  <div className="flex items-center gap-1.5 flex-shrink-0">
-                                    <Badge variant="outline" className={`text-[9px] rounded-md h-4 ${
-                                      action.priority === "must-do" ? "border-red-500/30 text-red-400" :
-                                      action.priority === "should-do" ? "border-yellow-500/30 text-yellow-400" :
-                                      "border-zinc-700 text-zinc-500"
-                                    }`}>{action.priority}</Badge>
-                                    {action.timeEstimate && <span className="text-[10px] text-zinc-600">{action.timeEstimate}</span>}
+                      {/* Daily actions */}
+                      <div className="space-y-1.5">
+                        {(geoImprovementResult.days || []).map((day: any) => {
+                          const catColor = day.category === "technical" ? "bg-blue-500/10 text-blue-400" :
+                            day.category === "content" ? "bg-emerald-500/10 text-emerald-400" :
+                            day.category === "authority" ? "bg-orange-500/10 text-orange-400" :
+                            "bg-violet-500/10 text-violet-400";
+                          const weekNum = Math.ceil(day.day / 7);
+                          const isNewWeek = day.day % 7 === 1;
+
+                          return (
+                            <div key={day.day}>
+                              {isNewWeek && day.day > 1 && (
+                                <div className="border-t border-zinc-800/40 pt-3 mt-3 mb-2">
+                                  <span className="text-[11px] font-semibold text-zinc-500">Week {weekNum}</span>
+                                </div>
+                              )}
+                              <div className="flex items-start gap-3 p-2.5 rounded-lg hover:bg-zinc-800/20 transition-colors">
+                                <div className="w-7 h-7 rounded-lg bg-zinc-800/60 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                  <span className="text-[11px] font-bold text-zinc-400">{day.day}</span>
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-[13px] text-zinc-200 leading-snug">{day.action}</div>
+                                  <div className="flex items-center gap-2 mt-1">
+                                    <Badge className={`text-[9px] h-4 rounded-md border-0 ${catColor}`}>{day.category}</Badge>
+                                    <span className="text-[10px] text-zinc-600">{day.timeEstimate}</span>
+                                    {day.cabbageFeature && <span className="text-[10px] text-violet-400/70">{day.cabbageFeature}</span>}
                                   </div>
                                 </div>
-                                {action.cabbageFeature && (
-                                  <div className="mt-1.5 text-[10px] text-violet-400">Use: {action.cabbageFeature}</div>
-                                )}
+                                <Badge variant="outline" className={`text-[9px] rounded-md h-4 flex-shrink-0 ${
+                                  day.priority === "must-do" ? "border-red-500/30 text-red-400" :
+                                  day.priority === "should-do" ? "border-yellow-500/30 text-yellow-400" :
+                                  "border-zinc-700 text-zinc-500"
+                                }`}>{day.priority}</Badge>
                               </div>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
+                            </div>
+                          );
+                        })}
+                      </div>
                     </CardContent>
                   </SectionCard>
                 </>
