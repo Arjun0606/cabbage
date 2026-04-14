@@ -231,10 +231,10 @@ export function AnalyticsPanel({
   const CopyBtn = ({ text, field }: { text: string; field: string }) => (
     <button
       onClick={(e) => { e.stopPropagation(); copyToClipboard(text, field); }}
-      className="text-zinc-500 hover:text-zinc-300 transition-colors p-1 rounded"
+      className="absolute top-3 right-3 text-[11px] font-medium px-2 py-1 rounded-md bg-zinc-800 text-zinc-400 border border-zinc-700/50 hover:bg-zinc-700 hover:text-zinc-200 active:scale-[0.97] transition-all opacity-0 group-hover:opacity-100"
       title="Copy"
     >
-      {copiedField === field ? <Check size={13} className="text-zinc-100" /> : <Copy size={13} />}
+      {copiedField === field ? <><Check size={11} className="inline mr-1 text-[#7CB342]" />Copied</> : <><Copy size={11} className="inline mr-1" />Copy</>}
     </button>
   );
 
@@ -676,13 +676,18 @@ export function AnalyticsPanel({
               {technicalResult.resourceIssues?.length > 0 && (
                 <SectionCard>
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-[13px] font-semibold text-zinc-400">Resource Issues ({technicalResult.resourceIssues.length})</CardTitle>
+                    <CardTitle className="text-[13px] font-semibold text-zinc-300">Resource Issues ({technicalResult.resourceIssues.length})</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-1">
                     {technicalResult.resourceIssues.map((issue: any, i: number) => (
-                      <div key={i} className="flex items-center gap-2.5 py-1.5 text-[13px]">
-                        <AlertTriangle size={15} className={issue.severity === "error" ? "text-red-400" : "text-zinc-400"} />
-                        <span className="text-zinc-300">{issue.issue}</span>
+                      <div key={i} className={`flex items-center justify-between py-2 text-[13px] ${issue.severity === "error" ? "bg-red-500/[0.03] -mx-4 px-4 rounded-lg" : ""}`}>
+                        <div className="flex items-center gap-2.5">
+                          <AlertTriangle size={15} className={issue.severity === "error" ? "text-red-400" : "text-amber-400"} />
+                          <span className="text-zinc-200">{issue.issue}</span>
+                        </div>
+                        <Badge variant="outline" className={`text-[10px] rounded-md h-5 flex-shrink-0 ${issue.severity === "error" ? "border-red-500/30 text-red-400" : "border-amber-500/30 text-amber-400"}`}>
+                          {issue.severity}
+                        </Badge>
                       </div>
                     ))}
                   </CardContent>
@@ -702,8 +707,9 @@ export function AnalyticsPanel({
             <>
               <SectionCard>
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-[13px] font-semibold">
-                    Passed ({auditResult.seoHealth.filter((c: any) => c.status === "pass").length})
+                  <CardTitle className="text-[13px] font-semibold flex items-center gap-2">
+                    <span className="text-[#7CB342]">Passed</span>
+                    <span className="text-zinc-500 font-normal">({auditResult.seoHealth.filter((c: any) => c.status === "pass").length})</span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-1">
@@ -711,29 +717,30 @@ export function AnalyticsPanel({
                     .filter((c: any) => c.status === "pass")
                     .map((check: any, i: number) => (
                       <div key={i} className="flex items-center gap-2.5 py-1.5 text-[13px]">
-                        <CheckCircle2 size={15} className="text-zinc-100" />
+                        <CheckCircle2 size={15} className="text-[#7CB342]" />
                         <span className="text-zinc-300">{check.check}</span>
-                        <span className="text-zinc-500 text-[12px] ml-auto">{check.value}</span>
+                        <span className="text-[#7CB342] text-[12px] ml-auto font-medium">{check.value}</span>
                       </div>
                     ))}
                 </CardContent>
               </SectionCard>
 
               {auditResult.seoHealth.some((c: any) => c.status !== "pass") && (
-                <SectionCard>
+                <SectionCard className="border-red-500/10">
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-[13px] font-semibold text-zinc-400">
-                      Issues ({auditResult.seoHealth.filter((c: any) => c.status !== "pass").length})
+                    <CardTitle className="text-[13px] font-semibold flex items-center gap-2">
+                      <span className="text-red-400">Issues</span>
+                      <span className="text-zinc-500 font-normal">({auditResult.seoHealth.filter((c: any) => c.status !== "pass").length})</span>
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-1">
                     {auditResult.seoHealth
                       .filter((c: any) => c.status !== "pass")
                       .map((check: any, i: number) => (
-                        <div key={i} className="flex items-center gap-2.5 py-1.5 text-[13px]">
+                        <div key={i} className="flex items-center gap-2.5 py-2 text-[13px] bg-red-500/[0.03] -mx-4 px-4 rounded-lg">
                           <StatusIcon status={check.status} />
-                          <span className="text-zinc-300">{check.check}</span>
-                          <span className="text-red-400 text-[12px] ml-auto">{check.value}</span>
+                          <span className="text-zinc-200">{check.check}</span>
+                          <span className={`text-[12px] ml-auto font-medium ${check.status === "warn" ? "text-amber-400" : "text-red-400"}`}>{check.value}</span>
                         </div>
                       ))}
                   </CardContent>
@@ -986,12 +993,35 @@ export function AnalyticsPanel({
                   <CardTitle className="text-[13px] font-semibold">AI/GEO Checklist</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-1">
-                  {aiVisResult.aiReadiness.map((check: any, i: number) => (
-                    <div key={i} className="flex items-center gap-2.5 py-1.5 text-[13px]">
-                      {check.passed ? <CheckCircle2 size={15} className="text-zinc-100" /> : <XCircle size={15} className="text-red-400" />}
-                      <span className="text-zinc-300">{check.check}</span>
-                    </div>
-                  ))}
+                  {aiVisResult.aiReadiness.map((check: any, i: number) => {
+                    const getGeoFix = (): { label: string; onClick: () => void } | null => {
+                      if (check.passed) return null;
+                      const c = (check.check || "").toLowerCase();
+                      if (c.includes("llms") || c.includes("txt")) return { label: "Generate", onClick: onRunLlmsTxt };
+                      if (c.includes("schema") || c.includes("markup")) return { label: "Generate", onClick: onRunSchemaGenerator };
+                      if (c.includes("crawler") || c.includes("robots")) return { label: "Check", onClick: onRunCrawlerAccess };
+                      if (c.includes("brand") || c.includes("mention")) return { label: "Scan", onClick: onRunBrandPresence };
+                      if (c.includes("citation") || c.includes("citab")) return { label: "Audit", onClick: onRunCitabilityAudit };
+                      return { label: "Fix", onClick: onRunGeoImprovement };
+                    };
+                    const fix = getGeoFix();
+                    return (
+                      <div key={i} className={`flex items-center justify-between py-2 text-[13px] ${!check.passed ? "bg-red-500/[0.03] -mx-4 px-4 rounded-lg" : ""}`}>
+                        <div className="flex items-center gap-2.5">
+                          {check.passed ? <CheckCircle2 size={15} className="text-[#7CB342]" /> : <XCircle size={15} className="text-red-400" />}
+                          <span className={check.passed ? "text-zinc-300" : "text-zinc-200"}>{check.check}</span>
+                        </div>
+                        {fix && (
+                          <button
+                            onClick={fix.onClick}
+                            className="text-[11px] font-medium px-2.5 py-1 rounded-md bg-[#7CB342]/10 text-[#7CB342] border border-[#7CB342]/20 hover:bg-[#7CB342]/20 active:scale-[0.97] transition-all flex-shrink-0"
+                          >
+                            {fix.label}
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
                 </CardContent>
               </SectionCard>
 
@@ -1267,16 +1297,24 @@ export function AnalyticsPanel({
                   </CardHeader>
                   <CardContent className="space-y-3">
                     {backlinkResult.recommendations.map((rec: any, i: number) => (
-                      <div key={i} className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className={`text-[10px] rounded-md h-5 ${
-                            rec.priority === "high" ? "border-zinc-700 text-zinc-400 bg-zinc-800/40" :
-                            rec.priority === "medium" ? "border-zinc-700 text-zinc-400 bg-zinc-800" :
-                            "border-zinc-700/50 text-zinc-500"
-                          }`}>{rec.priority}</Badge>
-                          <span className="text-[13px] text-zinc-300 font-medium">{rec.title}</span>
+                      <div key={i} className="p-3 rounded-lg bg-zinc-800/20 border border-white/[0.04] space-y-1.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className={`text-[10px] rounded-md h-5 ${
+                              rec.priority === "high" ? "border-red-500/30 text-red-400 bg-red-500/8" :
+                              rec.priority === "medium" ? "border-amber-500/30 text-amber-400 bg-amber-500/8" :
+                              "border-zinc-700/50 text-zinc-500"
+                            }`}>{rec.priority}</Badge>
+                            <span className="text-[13px] text-zinc-200 font-medium">{rec.title}</span>
+                          </div>
+                          <button
+                            onClick={() => navigator.clipboard.writeText(`${rec.title}: ${rec.description}`)}
+                            className="text-[11px] font-medium px-2.5 py-1 rounded-md bg-zinc-800 text-zinc-300 border border-zinc-700/50 hover:bg-zinc-700 active:scale-[0.97] transition-all flex-shrink-0"
+                          >
+                            Copy
+                          </button>
                         </div>
-                        <p className="text-[12px] text-zinc-500 pl-[52px] leading-relaxed">{rec.description}</p>
+                        <p className="text-[12px] text-zinc-400 leading-relaxed">{rec.description}</p>
                       </div>
                     ))}
                   </CardContent>
@@ -1323,8 +1361,19 @@ export function AnalyticsPanel({
                         <div className="space-y-3">
                           {contentResult.blogTopics.map((topic: any, i: number) => (
                             <div key={i} className="p-3.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30 space-y-1.5">
-                              <div className="text-[13px] text-zinc-200 font-medium">{topic.title}</div>
-                              <div className="text-[11px] text-zinc-100 font-medium">Keyword: {topic.targetKeyword}</div>
+                              <div className="flex items-start justify-between gap-2">
+                                <div>
+                                  <div className="text-[13px] text-zinc-200 font-medium">{topic.title}</div>
+                                  <div className="text-[11px] text-zinc-100 font-medium mt-0.5">Keyword: {topic.targetKeyword}</div>
+                                </div>
+                                <button
+                                  onClick={() => onRunArticleWriter(topic.title, topic.targetKeyword, "blog")}
+                                  disabled={isGeneratingArticle}
+                                  className="text-[11px] font-medium px-2.5 py-1 rounded-md bg-[#7CB342]/10 text-[#7CB342] border border-[#7CB342]/20 hover:bg-[#7CB342]/20 active:scale-[0.97] transition-all flex-shrink-0 disabled:opacity-40"
+                                >
+                                  {isGeneratingArticle ? "Writing..." : "Write Article"}
+                                </button>
+                              </div>
                               {topic.outline && (
                                 <div className="text-[12px] text-zinc-500 mt-1.5 space-y-0.5">
                                   {topic.outline.map((s: string, j: number) => <div key={j}>&#8226; {s}</div>)}
@@ -1343,7 +1392,10 @@ export function AnalyticsPanel({
                         <h4 className="text-[13px] font-semibold text-zinc-200 mb-4">LinkedIn Posts ({contentResult.linkedinPosts.length})</h4>
                         <div className="space-y-2.5">
                           {contentResult.linkedinPosts.map((post: string, i: number) => (
-                            <div key={i} className="p-3.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30 text-[13px] text-zinc-300 whitespace-pre-wrap leading-relaxed">{post}</div>
+                            <div key={i} className="p-3.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30 relative group">
+                              <div className="text-[13px] text-zinc-300 whitespace-pre-wrap leading-relaxed pr-8">{post}</div>
+                              <CopyBtn text={post} field={`linkedin-${i}`} />
+                            </div>
                           ))}
                         </div>
                       </CardContent>
@@ -1356,7 +1408,10 @@ export function AnalyticsPanel({
                         <h4 className="text-[13px] font-semibold text-zinc-200 mb-4">WhatsApp Broadcasts ({contentResult.whatsappMessages.length})</h4>
                         <div className="space-y-2.5">
                           {contentResult.whatsappMessages.map((msg: string, i: number) => (
-                            <div key={i} className="p-3.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30 text-[13px] text-zinc-300 whitespace-pre-wrap leading-relaxed">{msg}</div>
+                            <div key={i} className="p-3.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30 relative group">
+                              <div className="text-[13px] text-zinc-300 whitespace-pre-wrap leading-relaxed pr-8">{msg}</div>
+                              <CopyBtn text={msg} field={`whatsapp-${i}`} />
+                            </div>
                           ))}
                         </div>
                       </CardContent>
