@@ -996,15 +996,34 @@ export function AnalyticsPanel({
                         </div>
                       )}
 
-                      {/* Daily actions */}
+                      {/* Daily actions — execution engine */}
                       <div className="space-y-1.5">
                         {(geoImprovementResult.days || []).map((day: any) => {
-                          const catColor = day.category === "technical" ? "bg-zinc-800 text-zinc-300" :
-                            day.category === "content" ? "bg-zinc-800 text-zinc-300" :
-                            day.category === "authority" ? "bg-zinc-800 text-zinc-300" :
-                            "bg-zinc-800 text-zinc-300";
                           const weekNum = Math.ceil(day.day / 7);
                           const isNewWeek = day.day % 7 === 1;
+
+                          // Map cabbageFeature to an action
+                          const getAction = (): { label: string; onClick: () => void } | null => {
+                            const f = (day.cabbageFeature || "").toLowerCase();
+                            if (f.includes("llms.txt")) return { label: "Generate", onClick: onRunLlmsTxt };
+                            if (f.includes("schema")) return { label: "Generate", onClick: onRunSchemaGenerator };
+                            if (f.includes("crawler")) return { label: "Check", onClick: onRunCrawlerAccess };
+                            if (f.includes("citability")) return { label: "Audit", onClick: onRunCitabilityAudit };
+                            if (f.includes("brand presence")) return { label: "Scan", onClick: onRunBrandPresence };
+                            if (f.includes("visibility") || f.includes("ai/geo tab")) return { label: "Scan", onClick: onRunAIVisibility };
+                            if (f.includes("audit") || f.includes("health")) return { label: "Scan", onClick: () => onRunAudit(websiteUrl) };
+                            if (f.includes("article") || f.includes("content tab")) return { label: "Open", onClick: () => onTabChange("content") };
+                            if (f.includes("portal") || f.includes("ads")) return { label: "Open", onClick: () => onRunPortalOptimizer() };
+                            if (f.includes("neighborhood") || f.includes("locality")) return { label: "Open", onClick: () => onTabChange("locality") };
+                            if (f.includes("report")) return { label: "Generate", onClick: onRunMarketingReport };
+                            if (f.includes("campaign") || f.includes("festive")) return { label: "Open", onClick: () => onTabChange("content") };
+                            if (f.includes("partner") || f.includes("channel")) return { label: "Generate", onClick: onRunChannelPartner };
+                            if (f.includes("landing")) return { label: "Open", onClick: () => onTabChange("content") };
+                            if (f.includes("progress")) return { label: "Open", onClick: () => onTabChange("content") };
+                            return null;
+                          };
+
+                          const action = getAction();
 
                           return (
                             <div key={day.day}>
@@ -1013,23 +1032,29 @@ export function AnalyticsPanel({
                                   <span className="text-[11px] font-semibold text-zinc-500">Week {weekNum}</span>
                                 </div>
                               )}
-                              <div className="flex items-start gap-3 p-2.5 rounded-lg hover:bg-zinc-800/20 transition-colors">
+                              <div className="flex items-start gap-3 p-2.5 rounded-lg hover:bg-zinc-800/20 transition-colors group">
                                 <div className="w-7 h-7 rounded-lg bg-zinc-800/60 flex items-center justify-center flex-shrink-0 mt-0.5">
                                   <span className="text-[11px] font-bold text-zinc-400">{day.day}</span>
                                 </div>
                                 <div className="flex-1 min-w-0">
                                   <div className="text-[13px] text-zinc-200 leading-snug">{day.action}</div>
-                                  <div className="flex items-center gap-2 mt-1">
-                                    <Badge className={`text-[9px] h-4 rounded-md border-0 ${catColor}`}>{day.category}</Badge>
+                                  <div className="flex items-center gap-2 mt-1.5">
                                     <span className="text-[10px] text-zinc-600">{day.timeEstimate}</span>
-                                    {day.cabbageFeature && <span className="text-[10px] text-zinc-400/70">{day.cabbageFeature}</span>}
+                                    <Badge variant="outline" className={`text-[9px] rounded-md h-4 ${
+                                      day.priority === "must-do" ? "border-red-500/30 text-red-400" :
+                                      day.priority === "should-do" ? "border-zinc-700 text-zinc-400" :
+                                      "border-zinc-700 text-zinc-500"
+                                    }`}>{day.priority}</Badge>
+                                    {action && (
+                                      <button
+                                        onClick={action.onClick}
+                                        className="text-[11px] font-medium text-[#7CB342] hover:text-[#8BC34A] transition-colors opacity-0 group-hover:opacity-100"
+                                      >
+                                        {action.label} →
+                                      </button>
+                                    )}
                                   </div>
                                 </div>
-                                <Badge variant="outline" className={`text-[9px] rounded-md h-4 flex-shrink-0 ${
-                                  day.priority === "must-do" ? "border-red-500/30 text-red-400" :
-                                  day.priority === "should-do" ? "border-zinc-700 text-zinc-400" :
-                                  "border-zinc-700 text-zinc-500"
-                                }`}>{day.priority}</Badge>
                               </div>
                             </div>
                           );
