@@ -44,7 +44,7 @@ export function PromptVolumes({ aiVisResult, companyName, city }: Props) {
   const totalMentions = positiveCount + negativeCount + neutralCount;
   const sentimentLabel = positiveCount > negativeCount ? "Positive" :
     negativeCount > positiveCount ? "Negative" : "Neutral";
-  const sentimentColor = positiveCount > negativeCount ? "text-emerald-400" :
+  const sentimentColor = positiveCount > negativeCount ? "text-zinc-100" :
     negativeCount > positiveCount ? "text-red-400" : "text-zinc-400";
 
   const missingQueryList = (aiVisResult.queryResults || [])
@@ -56,7 +56,7 @@ export function PromptVolumes({ aiVisResult, companyName, city }: Props) {
     <Card className="bg-zinc-900/60 border-zinc-800/50 rounded-xl">
       <CardHeader className="pb-3">
         <CardTitle className="text-[13px] font-semibold flex items-center gap-2">
-          <MessageSquare size={15} className="text-violet-400" />
+          <MessageSquare size={15} className="text-zinc-400" />
           AI Search Presence
           <Badge variant="secondary" className="text-[10px] bg-zinc-800/60 text-zinc-500 ml-auto border-0 rounded-md h-5 px-1.5">
             {totalQueries} queries tested
@@ -67,7 +67,7 @@ export function PromptVolumes({ aiVisResult, companyName, city }: Props) {
         {/* Core metrics */}
         <div className="grid grid-cols-3 gap-3">
           <div className="text-center p-3.5 rounded-xl bg-zinc-800/40 border border-zinc-700/20">
-            <div className={`text-2xl font-bold ${mentionRate > 50 ? "text-emerald-400" : mentionRate > 20 ? "text-yellow-400" : "text-red-400"}`}>
+            <div className={`text-2xl font-bold ${mentionRate > 50 ? "text-zinc-100" : mentionRate > 20 ? "text-zinc-400" : "text-red-400"}`}>
               {mentionRate}%
             </div>
             <div className="text-[11px] text-zinc-500 mt-1 font-medium">Mention rate</div>
@@ -76,7 +76,7 @@ export function PromptVolumes({ aiVisResult, companyName, city }: Props) {
 
           <div className="text-center p-3.5 rounded-xl bg-zinc-800/40 border border-zinc-700/20">
             <div className="flex items-center justify-center gap-1">
-              {positiveCount > negativeCount ? <TrendingUp size={15} className="text-emerald-400" /> :
+              {positiveCount > negativeCount ? <TrendingUp size={15} className="text-zinc-100" /> :
                negativeCount > positiveCount ? <TrendingDown size={15} className="text-red-400" /> :
                <Minus size={15} className="text-zinc-400" />}
             </div>
@@ -85,7 +85,7 @@ export function PromptVolumes({ aiVisResult, companyName, city }: Props) {
           </div>
 
           <div className="text-center p-3.5 rounded-xl bg-zinc-800/40 border border-zinc-700/20">
-            <div className={`text-2xl font-bold ${missingQueries === 0 ? "text-emerald-400" : "text-red-400"}`}>
+            <div className={`text-2xl font-bold ${missingQueries === 0 ? "text-zinc-100" : "text-red-400"}`}>
               {missingQueries}
             </div>
             <div className="text-[11px] text-zinc-500 mt-1 font-medium">Queries missing</div>
@@ -97,7 +97,7 @@ export function PromptVolumes({ aiVisResult, companyName, city }: Props) {
         <div className="grid grid-cols-2 gap-3">
           <div className="p-3.5 rounded-xl bg-zinc-800/40 border border-zinc-700/20">
             <div className="flex items-center gap-2 mb-2">
-              <div className="w-6 h-6 rounded-md bg-emerald-500/10 flex items-center justify-center text-[10px] font-bold text-emerald-400">G</div>
+              <div className="w-6 h-6 rounded-md bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-zinc-300">G</div>
               <span className="text-[13px] text-zinc-300 font-medium">ChatGPT</span>
             </div>
             <div className={`text-xl font-bold ${chatgptMentions > 0 ? "text-zinc-200" : "text-zinc-600"}`}>
@@ -107,7 +107,7 @@ export function PromptVolumes({ aiVisResult, companyName, city }: Props) {
           </div>
           <div className="p-3.5 rounded-xl bg-zinc-800/40 border border-zinc-700/20">
             <div className="flex items-center gap-2 mb-2">
-              <div className="w-6 h-6 rounded-md bg-blue-500/10 flex items-center justify-center text-[10px] font-bold text-blue-400">G</div>
+              <div className="w-6 h-6 rounded-md bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-zinc-300">G</div>
               <span className="text-[13px] text-zinc-300 font-medium">Google AI</span>
             </div>
             <div className={`text-xl font-bold ${googleAIMentions > 0 ? "text-zinc-200" : "text-zinc-600"}`}>

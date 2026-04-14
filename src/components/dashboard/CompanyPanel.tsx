@@ -209,7 +209,7 @@ export function CompanyPanel({ company, setCompany }: Props) {
                 onClick={() => setExpandedProject(expandedProject === idx ? null : idx)}
                 className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left hover:bg-zinc-800/30 transition-colors"
               >
-                <div className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" />
+                <div className="w-2 h-2 rounded-full bg-zinc-100 flex-shrink-0" />
                 <span className="text-[13px] text-zinc-300 flex-1 truncate">
                   {project.name || `Project ${idx + 1}`}
                 </span>
@@ -260,7 +260,7 @@ export function CompanyPanel({ company, setCompany }: Props) {
 
           <button
             onClick={addProject}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-dashed border-zinc-700/50 text-[12px] text-zinc-500 hover:text-emerald-400 hover:border-emerald-500/30 transition-all"
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-dashed border-zinc-700/50 text-[12px] text-zinc-500 hover:text-zinc-100 hover:border-zinc-500 transition-all"
           >
             <Plus size={13} /> Add project
           </button>
@@ -280,11 +280,11 @@ export function CompanyPanel({ company, setCompany }: Props) {
         <div className="space-y-1.5">
           {company.website && (
             <div className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-zinc-900/60 border border-zinc-800/50">
-              <div className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" />
+              <div className="w-2 h-2 rounded-full bg-zinc-100 flex-shrink-0" />
               <span className="text-[13px] text-zinc-300 truncate flex-1">
                 {company.website.replace(/^https?:\/\//, "").replace(/\/$/, "")}
               </span>
-              <Badge variant="secondary" className="text-[10px] bg-emerald-500/10 text-emerald-400 border-0 h-5 px-1.5 rounded-md font-medium">
+              <Badge variant="secondary" className="text-[10px] bg-zinc-800 text-zinc-300 border-0 h-5 px-1.5 rounded-md font-medium">
                 Main
               </Badge>
             </div>
@@ -292,7 +292,7 @@ export function CompanyPanel({ company, setCompany }: Props) {
 
           {(company.sites || []).map((site, i) => (
             <div key={i} className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-zinc-900/60 border border-zinc-800/50">
-              <div className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" />
+              <div className="w-2 h-2 rounded-full bg-zinc-500 flex-shrink-0" />
               <span className="text-[13px] text-zinc-300 truncate flex-1">{site.label}</span>
               <button onClick={() => removeSite(i)} className="text-zinc-600 hover:text-red-400 transition-colors p-0.5">
                 <X size={13} />
@@ -333,7 +333,7 @@ export function CompanyPanel({ company, setCompany }: Props) {
                 <Icon size={15} className="text-zinc-500 group-hover:text-zinc-400 transition-colors" />
                 <span className="flex-1 text-left">{label}</span>
                 {company.documents[key as keyof typeof company.documents] ? (
-                  <Badge variant="secondary" className="text-[10px] bg-emerald-500/10 text-emerald-400 border-0 h-5 px-1.5 rounded-md">
+                  <Badge variant="secondary" className="text-[10px] bg-zinc-800 text-zinc-300 border-0 h-5 px-1.5 rounded-md">
                     Set
                   </Badge>
                 ) : (

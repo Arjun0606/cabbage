@@ -40,7 +40,7 @@ export function ActionsFeed({ auditResult, aiVisResult, backlinkResult, technica
     feedItems.push({
       id: "seo_fixes",
       icon: <Wrench size={16} />,
-      iconBg: "bg-blue-500/15 text-blue-400",
+      iconBg: "bg-zinc-800 text-zinc-400",
       title: "SEO & Performance Fixes",
       subtitle: `${critical} critical, ${high} high priority`,
       items: auditResult.fixes,
@@ -53,7 +53,7 @@ export function ActionsFeed({ auditResult, aiVisResult, backlinkResult, technica
       feedItems.push({
         id: "re_checks",
         icon: <AlertTriangle size={16} />,
-        iconBg: "bg-orange-500/15 text-orange-400",
+        iconBg: "bg-zinc-800 text-zinc-400",
         title: "Real Estate SEO Issues",
         subtitle: `${failed.length} issues found`,
         items: failed.map((c: any) => ({ title: c.label, severity: "high", description: c.details })),
@@ -70,7 +70,7 @@ export function ActionsFeed({ auditResult, aiVisResult, backlinkResult, technica
       feedItems.push({
         id: "ai_geo",
         icon: <Bot size={16} />,
-        iconBg: "bg-violet-500/15 text-violet-400",
+        iconBg: "bg-zinc-800 text-zinc-400",
         title: "AI/GEO Recommendations",
         subtitle: `${failedChecks.length + missingQueries.length} issues found`,
         items: [
@@ -89,7 +89,7 @@ export function ActionsFeed({ auditResult, aiVisResult, backlinkResult, technica
     feedItems.push({
       id: "backlinks",
       icon: <Link2 size={16} />,
-      iconBg: "bg-emerald-500/15 text-emerald-400",
+      iconBg: "bg-zinc-800 text-zinc-400",
       title: "Link Building Opportunities",
       subtitle: `DA ${backlinkResult.domainAuthority}, ${backlinkResult.recommendations.length} recommendations`,
       items: backlinkResult.recommendations.map((r: any) => ({
@@ -123,7 +123,7 @@ export function ActionsFeed({ auditResult, aiVisResult, backlinkResult, technica
       feedItems.push({
         id: "competitors",
         icon: <Users size={16} />,
-        iconBg: "bg-amber-500/15 text-amber-400",
+        iconBg: "bg-zinc-800 text-zinc-400",
         title: "Competitor Insights",
         subtitle: `${competitorResults.length} competitors, ${allInsights.length} insights`,
         items: allInsights,
@@ -135,7 +135,7 @@ export function ActionsFeed({ auditResult, aiVisResult, backlinkResult, technica
     feedItems.push({
       id: "welcome",
       icon: <Globe size={16} />,
-      iconBg: "bg-emerald-500/15 text-emerald-400",
+      iconBg: "bg-zinc-800 text-zinc-400",
       title: "Welcome to CabbageSEO",
       subtitle: "Run your first audit to see recommendations",
     });
@@ -143,15 +143,15 @@ export function ActionsFeed({ auditResult, aiVisResult, backlinkResult, technica
 
   const severityStyles: Record<string, string> = {
     critical: "border-red-500/30 text-red-400 bg-red-500/5",
-    high: "border-orange-500/30 text-orange-400 bg-orange-500/5",
-    medium: "border-yellow-500/30 text-yellow-400 bg-yellow-500/5",
-    low: "border-zinc-600 text-zinc-500 bg-zinc-800/30",
+    high: "border-zinc-600 text-zinc-300 bg-zinc-800/30",
+    medium: "border-zinc-700 text-zinc-400 bg-zinc-800/30",
+    low: "border-zinc-700 text-zinc-500 bg-zinc-800/30",
   };
 
   return (
     <div className="p-4">
       <div className="flex items-center gap-2.5 mb-4">
-        <div className="w-2 h-2 rounded-full bg-emerald-500" />
+        <div className="w-2 h-2 rounded-full bg-zinc-100" />
         <h3 className="text-[13px] font-semibold text-zinc-200">Actions Feed</h3>
       </div>
 
@@ -201,7 +201,7 @@ export function ActionsFeed({ auditResult, aiVisResult, backlinkResult, technica
                         <p className="text-[12px] text-zinc-500 pl-[52px] leading-relaxed">{fix.description}</p>
                       )}
                       {fix.snippet && (
-                        <pre className="text-[11px] bg-zinc-800/60 rounded-lg p-2.5 ml-[52px] overflow-x-auto text-emerald-400 border border-zinc-700/30">
+                        <pre className="text-[11px] bg-zinc-800/60 rounded-lg p-2.5 ml-[52px] overflow-x-auto text-zinc-300 border border-zinc-700/30">
                           {fix.snippet}
                         </pre>
                       )}

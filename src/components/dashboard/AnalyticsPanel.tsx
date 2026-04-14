@@ -116,15 +116,15 @@ interface Props {
 
 function ScoreCircle({ score, label, size = "md" }: { score: number; label: string; size?: "sm" | "md" }) {
   const color =
-    score >= 90 ? "text-emerald-400" :
-    score >= 70 ? "text-yellow-400" :
-    score >= 50 ? "text-orange-400" :
+    score >= 90 ? "text-zinc-100" :
+    score >= 70 ? "text-zinc-300" :
+    score >= 50 ? "text-zinc-400" :
     "text-red-400";
 
   const bgColor =
-    score >= 90 ? "stroke-emerald-400" :
-    score >= 70 ? "stroke-yellow-400" :
-    score >= 50 ? "stroke-orange-400" :
+    score >= 90 ? "stroke-zinc-100" :
+    score >= 70 ? "stroke-zinc-300" :
+    score >= 50 ? "stroke-zinc-400" :
     "stroke-red-400";
 
   const r = size === "sm" ? 22 : 32;
@@ -157,8 +157,8 @@ function ScoreCircle({ score, label, size = "md" }: { score: number; label: stri
 }
 
 function StatusIcon({ status }: { status: "pass" | "warn" | "fail" }) {
-  if (status === "pass") return <CheckCircle2 size={15} className="text-emerald-400" />;
-  if (status === "warn") return <AlertTriangle size={15} className="text-yellow-400" />;
+  if (status === "pass") return <CheckCircle2 size={15} className="text-zinc-100" />;
+  if (status === "warn") return <AlertTriangle size={15} className="text-zinc-400" />;
   return <XCircle size={15} className="text-red-400" />;
 }
 
@@ -230,7 +230,7 @@ export function AnalyticsPanel({
       className="text-zinc-600 hover:text-zinc-300 transition-colors p-1 rounded"
       title="Copy"
     >
-      {copiedField === field ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
+      {copiedField === field ? <Check size={13} className="text-zinc-100" /> : <Copy size={13} />}
     </button>
   );
 
@@ -244,7 +244,7 @@ export function AnalyticsPanel({
             onClick={() => onSelectProject(null)}
             className={`text-[12px] px-2.5 py-1 rounded-lg border transition-all ${
               selectedProject === null
-                ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                ? "bg-zinc-800/40 border-zinc-700 text-zinc-100"
                 : "bg-zinc-900/50 border-zinc-800/50 text-zinc-500 hover:text-zinc-300"
             }`}
           >
@@ -256,7 +256,7 @@ export function AnalyticsPanel({
               onClick={() => onSelectProject(i)}
               className={`text-[12px] px-2.5 py-1 rounded-lg border transition-all ${
                 selectedProject === i
-                  ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                  ? "bg-zinc-800/40 border-zinc-700 text-zinc-100"
                   : "bg-zinc-900/50 border-zinc-800/50 text-zinc-500 hover:text-zinc-300"
               }`}
             >
@@ -286,8 +286,8 @@ export function AnalyticsPanel({
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-blue-500/10 flex items-center justify-center">
-                    <Search size={16} className="text-blue-400" />
+                  <div className="w-9 h-9 rounded-lg bg-zinc-800 flex items-center justify-center">
+                    <Search size={16} className="text-zinc-400" />
                   </div>
                   <div>
                     <div className="text-[13px] font-medium text-zinc-200">Connect Google Services</div>
@@ -323,7 +323,7 @@ export function AnalyticsPanel({
                   onClick={() => setAuditUrl(site.url)}
                   className={`text-[12px] px-3 py-1.5 rounded-lg border transition-all ${
                     auditUrl === site.url
-                      ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                      ? "bg-zinc-800/40 border-zinc-700 text-zinc-100"
                       : "bg-zinc-900/50 border-zinc-800/50 text-zinc-500 hover:text-zinc-300 hover:border-zinc-700"
                   }`}
                 >
@@ -346,7 +346,7 @@ export function AnalyticsPanel({
               onClick={() => onRunAudit(auditUrl)}
               disabled={isAuditing || !auditUrl}
               size="sm"
-              className="bg-emerald-600 hover:bg-emerald-500 h-10 w-10 p-0 rounded-lg"
+              className="bg-zinc-100 text-zinc-900 hover:bg-white h-10 w-10 p-0 rounded-lg"
             >
               {isAuditing ? <Loader2 size={15} className="animate-spin" /> : <Search size={15} />}
             </Button>
@@ -423,8 +423,8 @@ export function AnalyticsPanel({
                           <span className="text-zinc-300">{check.check}</span>
                         </div>
                         <span className={
-                          check.status === "pass" ? "text-emerald-400 text-[12px]" :
-                          check.status === "warn" ? "text-yellow-400 text-[12px]" :
+                          check.status === "pass" ? "text-zinc-100 text-[12px]" :
+                          check.status === "warn" ? "text-zinc-400 text-[12px]" :
                           "text-red-400 text-[12px]"
                         }>
                           {check.value}
@@ -439,7 +439,7 @@ export function AnalyticsPanel({
                 <CardHeader className="pb-3">
                   <CardTitle className="text-[13px] font-semibold flex items-center gap-2">
                     Real Estate Checks
-                    <Badge variant="secondary" className="text-[10px] bg-emerald-500/10 text-emerald-400 border-0 rounded-md h-5 px-1.5">
+                    <Badge variant="secondary" className="text-[10px] bg-zinc-800 text-zinc-300 border-0 rounded-md h-5 px-1.5">
                       CabbageSEO Exclusive
                     </Badge>
                   </CardTitle>
@@ -448,7 +448,7 @@ export function AnalyticsPanel({
                   {auditResult.realEstateChecks.map((check: any, i: number) => (
                     <div key={i} className="flex items-center justify-between py-1.5 text-[13px]">
                       <div className="flex items-center gap-2.5">
-                        {check.passed ? <CheckCircle2 size={15} className="text-emerald-400" /> : <XCircle size={15} className="text-red-400" />}
+                        {check.passed ? <CheckCircle2 size={15} className="text-zinc-100" /> : <XCircle size={15} className="text-red-400" />}
                         <span className="text-zinc-300">{check.label}</span>
                       </div>
                       <Badge variant="outline" className="text-[10px] border-zinc-700/50 text-zinc-500 rounded-md">
@@ -542,7 +542,7 @@ export function AnalyticsPanel({
                       <span className="text-zinc-400">{label}</span>
                       <div className="flex items-center gap-3">
                         <div className="w-28 h-2 bg-zinc-800/60 rounded-full overflow-hidden">
-                          <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${Math.min(100, value)}%` }} />
+                          <div className="h-full bg-zinc-100 rounded-full" style={{ width: `${Math.min(100, value)}%` }} />
                         </div>
                         <span className="text-[12px] text-zinc-400 w-10 text-right">{value}%</span>
                       </div>
@@ -561,7 +561,7 @@ export function AnalyticsPanel({
                       <div key={tag} className="flex items-center gap-3 text-[13px]">
                         <span className="text-zinc-500 font-mono w-7 text-right">{tag.toUpperCase()}</span>
                         <div className="flex-1 h-2 bg-zinc-800/60 rounded-full overflow-hidden">
-                          <div className="h-full bg-blue-500 rounded-full" style={{ width: `${Math.min(100, (count as number) * 5)}%` }} />
+                          <div className="h-full bg-zinc-100 rounded-full" style={{ width: `${Math.min(100, (count as number) * 5)}%` }} />
                         </div>
                         <span className="text-[12px] text-zinc-400 w-6 text-right">{count as number}</span>
                       </div>
@@ -577,14 +577,14 @@ export function AnalyticsPanel({
                 <CardContent className="space-y-1.5">
                   {technicalResult.socialMediaTags.openGraph.map((tag: any, i: number) => (
                     <div key={i} className="flex items-start gap-2.5 py-0.5 text-[12px]">
-                      <CheckCircle2 size={13} className="text-emerald-400 mt-0.5 flex-shrink-0" />
+                      <CheckCircle2 size={13} className="text-zinc-100 mt-0.5 flex-shrink-0" />
                       <span className="text-zinc-500 font-mono">{tag.property}:</span>
                       <span className="text-zinc-400 truncate">{tag.content}</span>
                     </div>
                   ))}
                   {technicalResult.socialMediaTags.twitter.map((tag: any, i: number) => (
                     <div key={`tw-${i}`} className="flex items-start gap-2.5 py-0.5 text-[12px]">
-                      <CheckCircle2 size={13} className="text-emerald-400 mt-0.5 flex-shrink-0" />
+                      <CheckCircle2 size={13} className="text-zinc-100 mt-0.5 flex-shrink-0" />
                       <span className="text-zinc-500 font-mono">{tag.property}:</span>
                       <span className="text-zinc-400 truncate">{tag.content}</span>
                     </div>
@@ -603,7 +603,7 @@ export function AnalyticsPanel({
                   {Object.entries(technicalResult.siteFiles).map(([name, file]: [string, any]) => (
                     <div key={name} className="flex items-center justify-between py-1.5 text-[13px]">
                       <div className="flex items-center gap-2.5">
-                        {file.exists ? <CheckCircle2 size={15} className="text-emerald-400" /> : <XCircle size={15} className="text-red-400" />}
+                        {file.exists ? <CheckCircle2 size={15} className="text-zinc-100" /> : <XCircle size={15} className="text-red-400" />}
                         <span className="text-zinc-300 font-mono">{name.replace(/([A-Z])/g, '.$1').toLowerCase()}</span>
                       </div>
                       <span className="text-[12px] text-zinc-500">{file.exists ? `${file.status} ${(file.size / 1024).toFixed(0)}KB` : "Not found"}</span>
@@ -615,12 +615,12 @@ export function AnalyticsPanel({
               {technicalResult.resourceIssues?.length > 0 && (
                 <SectionCard>
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-[13px] font-semibold text-yellow-400">Resource Issues ({technicalResult.resourceIssues.length})</CardTitle>
+                    <CardTitle className="text-[13px] font-semibold text-zinc-400">Resource Issues ({technicalResult.resourceIssues.length})</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-1">
                     {technicalResult.resourceIssues.map((issue: any, i: number) => (
                       <div key={i} className="flex items-center gap-2.5 py-1.5 text-[13px]">
-                        <AlertTriangle size={15} className={issue.severity === "error" ? "text-red-400" : "text-yellow-400"} />
+                        <AlertTriangle size={15} className={issue.severity === "error" ? "text-red-400" : "text-zinc-400"} />
                         <span className="text-zinc-300">{issue.issue}</span>
                       </div>
                     ))}
@@ -650,7 +650,7 @@ export function AnalyticsPanel({
                     .filter((c: any) => c.status === "pass")
                     .map((check: any, i: number) => (
                       <div key={i} className="flex items-center gap-2.5 py-1.5 text-[13px]">
-                        <CheckCircle2 size={15} className="text-emerald-400" />
+                        <CheckCircle2 size={15} className="text-zinc-100" />
                         <span className="text-zinc-300">{check.check}</span>
                         <span className="text-zinc-600 text-[12px] ml-auto">{check.value}</span>
                       </div>
@@ -661,7 +661,7 @@ export function AnalyticsPanel({
               {auditResult.seoHealth.some((c: any) => c.status !== "pass") && (
                 <SectionCard>
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-[13px] font-semibold text-yellow-400">
+                    <CardTitle className="text-[13px] font-semibold text-zinc-400">
                       Issues ({auditResult.seoHealth.filter((c: any) => c.status !== "pass").length})
                     </CardTitle>
                   </CardHeader>
@@ -691,7 +691,7 @@ export function AnalyticsPanel({
           <Button
             onClick={onRunAIVisibility}
             disabled={isCheckingAI}
-            className="w-full bg-violet-600 hover:bg-violet-500 h-10 text-[13px] font-medium rounded-lg"
+            className="w-full bg-zinc-100 text-zinc-900 hover:bg-white h-10 text-[13px] font-medium rounded-lg"
           >
             {isCheckingAI ? (
               <><Loader2 size={15} className="animate-spin mr-2" />Querying AI models...</>
@@ -729,7 +729,7 @@ export function AnalyticsPanel({
                     <div key={i} className="flex items-center justify-between py-1 text-[13px]">
                       <span className="text-zinc-300">{c.crawler}</span>
                       <Badge className={`text-[10px] h-5 rounded-md border-0 ${
-                        c.status === "allowed" ? "bg-emerald-500/10 text-emerald-400" :
+                        c.status === "allowed" ? "bg-zinc-800 text-zinc-300" :
                         c.status === "blocked" ? "bg-red-500/10 text-red-400" :
                         "bg-zinc-800 text-zinc-500"
                       }`}>{c.status}</Badge>
@@ -748,7 +748,7 @@ export function AnalyticsPanel({
                 <div className="mt-3 grid grid-cols-4 gap-2">
                   {Object.entries(crawlerAccessResult.aiFiles || {}).map(([key, val]: [string, any]) => (
                     <div key={key} className="text-center p-2 rounded-lg bg-zinc-800/40 border border-zinc-700/20">
-                      <div className={`text-[11px] font-medium ${val?.exists ? "text-emerald-400" : "text-red-400"}`}>
+                      <div className={`text-[11px] font-medium ${val?.exists ? "text-zinc-100" : "text-red-400"}`}>
                         {val?.exists ? "Found" : "Missing"}
                       </div>
                       <div className="text-[10px] text-zinc-600 mt-0.5">{key}</div>
@@ -777,7 +777,7 @@ export function AnalyticsPanel({
                         }`}>{p.importance}</Badge>
                       </div>
                       <Badge className={`text-[10px] h-5 rounded-md border-0 ${
-                        p.status === "likely_present" ? "bg-emerald-500/10 text-emerald-400" :
+                        p.status === "likely_present" ? "bg-zinc-800 text-zinc-300" :
                         p.status === "likely_absent" ? "bg-red-500/10 text-red-400" :
                         "bg-zinc-800 text-zinc-500"
                       }`}>{p.status === "likely_present" ? "Present" : p.status === "likely_absent" ? "Missing" : "Unknown"}</Badge>
@@ -788,7 +788,7 @@ export function AnalyticsPanel({
                   <div className="mt-3 space-y-1">
                     {brandPresenceResult.recommendations.slice(0, 3).map((r: string, i: number) => (
                       <div key={i} className="text-[12px] text-zinc-500 flex items-start gap-2">
-                        <span className="text-emerald-400 flex-shrink-0">&#8226;</span> {r}
+                        <span className="text-zinc-100 flex-shrink-0">&#8226;</span> {r}
                       </div>
                     ))}
                   </div>
@@ -808,7 +808,7 @@ export function AnalyticsPanel({
                 <div className="grid grid-cols-5 gap-2 mb-3">
                   {Object.entries(citabilityResult.dimensions || {}).map(([key, dim]: [string, any]) => (
                     <div key={key} className="text-center p-2 rounded-lg bg-zinc-800/40 border border-zinc-700/20">
-                      <div className={`text-[14px] font-bold ${dim.score >= 60 ? "text-emerald-400" : dim.score >= 40 ? "text-yellow-400" : "text-red-400"}`}>
+                      <div className={`text-[14px] font-bold ${dim.score >= 60 ? "text-zinc-100" : dim.score >= 40 ? "text-zinc-400" : "text-red-400"}`}>
                         {dim.score}
                       </div>
                       <div className="text-[9px] text-zinc-600 mt-0.5 leading-tight">{key.replace(/([A-Z])/g, ' $1').trim()}</div>
@@ -816,11 +816,11 @@ export function AnalyticsPanel({
                   ))}
                 </div>
                 {citabilityResult.quickWins?.length > 0 && (
-                  <div className="rounded-lg bg-emerald-500/5 border border-emerald-500/15 p-3">
-                    <h5 className="text-[11px] font-semibold text-emerald-400 mb-1.5">Quick Wins</h5>
+                  <div className="rounded-lg bg-zinc-800/40 border border-zinc-700 p-3">
+                    <h5 className="text-[11px] font-semibold text-zinc-100 mb-1.5">Quick Wins</h5>
                     {citabilityResult.quickWins.map((w: string, i: number) => (
                       <div key={i} className="text-[12px] text-zinc-300 flex items-start gap-2 py-0.5">
-                        <span className="text-emerald-400 flex-shrink-0">&#8226;</span> {w}
+                        <span className="text-zinc-100 flex-shrink-0">&#8226;</span> {w}
                       </div>
                     ))}
                   </div>
@@ -846,12 +846,12 @@ export function AnalyticsPanel({
                       </div>
                       {aiVisResult.scores.mentions !== undefined && (
                         <div className="text-[12px] text-zinc-500">
-                          Mention score: <span className={aiVisResult.scores.mentions > 0 ? "text-emerald-400" : "text-red-400"}>{aiVisResult.scores.mentions}%</span>
+                          Mention score: <span className={aiVisResult.scores.mentions > 0 ? "text-zinc-100" : "text-red-400"}>{aiVisResult.scores.mentions}%</span>
                           {" "}across {aiVisResult.configuredLLMs?.length || 1} AI platform{(aiVisResult.configuredLLMs?.length || 1) > 1 ? "s" : ""}
                         </div>
                       )}
                       {aiVisResult.configuredLLMs && aiVisResult.configuredLLMs.length < 4 && (
-                        <div className="text-[11px] text-yellow-500/70">
+                        <div className="text-[11px] text-zinc-400">
                           Only testing: {aiVisResult.configuredLLMs.join(", ")}. Add more API keys in Vercel for broader coverage.
                         </div>
                       )}
@@ -876,7 +876,7 @@ export function AnalyticsPanel({
                           <span className="text-[13px] font-mono text-zinc-400">{score}/100</span>
                         </div>
                         <div className="h-2.5 bg-zinc-800/60 rounded-full overflow-hidden mb-1">
-                          <div className="h-full bg-violet-500 rounded-full transition-all" style={{ width: `${score}%` }} />
+                          <div className="h-full bg-zinc-100 rounded-full transition-all" style={{ width: `${score}%` }} />
                         </div>
                         <div className="text-[11px] text-zinc-600">{desc}</div>
                       </div>
@@ -892,7 +892,7 @@ export function AnalyticsPanel({
                 <CardContent className="space-y-1">
                   {aiVisResult.aiReadiness.map((check: any, i: number) => (
                     <div key={i} className="flex items-center gap-2.5 py-1.5 text-[13px]">
-                      {check.passed ? <CheckCircle2 size={15} className="text-emerald-400" /> : <XCircle size={15} className="text-red-400" />}
+                      {check.passed ? <CheckCircle2 size={15} className="text-zinc-100" /> : <XCircle size={15} className="text-red-400" />}
                       <span className="text-zinc-300">{check.check}</span>
                     </div>
                   ))}
@@ -906,14 +906,14 @@ export function AnalyticsPanel({
                 <Button
                   onClick={onRunLlmsTxt}
                   disabled={isGeneratingLlmsTxt}
-                  className="flex-1 bg-violet-600 hover:bg-violet-500 h-10 text-[13px] font-medium rounded-lg"
+                  className="flex-1 bg-zinc-100 text-zinc-900 hover:bg-white h-10 text-[13px] font-medium rounded-lg"
                 >
                   {isGeneratingLlmsTxt ? <><Loader2 size={15} className="animate-spin mr-2" />Generating...</> : "Generate llms.txt"}
                 </Button>
                 <Button
                   onClick={onRunGeoImprovement}
                   disabled={isGeneratingGeoImprovement}
-                  className="flex-1 bg-emerald-600 hover:bg-emerald-500 h-10 text-[13px] font-medium rounded-lg"
+                  className="flex-1 bg-zinc-100 text-zinc-900 hover:bg-white h-10 text-[13px] font-medium rounded-lg"
                 >
                   {isGeneratingGeoImprovement ? <><Loader2 size={15} className="animate-spin mr-2" />Planning...</> : "Get Improvement Plan"}
                 </Button>
@@ -928,14 +928,14 @@ export function AnalyticsPanel({
                       <CopyBtn text={llmsTxtResult.llmsTxt} field="llms-txt" />
                     </div>
                     <div className="rounded-lg bg-zinc-800/40 border border-zinc-700/30 p-4 max-h-[300px] overflow-y-auto mb-3">
-                      <pre className="text-[11px] text-emerald-400 whitespace-pre-wrap font-mono">{llmsTxtResult.llmsTxt}</pre>
+                      <pre className="text-[11px] text-zinc-100 whitespace-pre-wrap font-mono">{llmsTxtResult.llmsTxt}</pre>
                     </div>
                     {llmsTxtResult.instructions?.length > 0 && (
                       <div className="space-y-1.5">
                         <h5 className="text-[12px] font-medium text-zinc-400">How to install:</h5>
                         {llmsTxtResult.instructions.map((step: string, i: number) => (
                           <div key={i} className="text-[12px] text-zinc-500 flex items-start gap-2">
-                            <span className="text-emerald-400 font-bold flex-shrink-0">{i + 1}.</span> {step}
+                            <span className="text-zinc-100 font-bold flex-shrink-0">{i + 1}.</span> {step}
                           </div>
                         ))}
                       </div>
@@ -965,7 +965,7 @@ export function AnalyticsPanel({
                         <div className="flex items-center gap-2">
                           <span className="text-[13px] text-red-400 font-bold">{geoImprovementResult.currentScore}%</span>
                           <span className="text-zinc-600">→</span>
-                          <span className="text-[13px] text-emerald-400 font-bold">{geoImprovementResult.targetScore}%</span>
+                          <span className="text-[13px] text-zinc-100 font-bold">{geoImprovementResult.targetScore}%</span>
                         </div>
                       </div>
                       <p className="text-[12px] text-zinc-500 mb-4">{geoImprovementResult.expectedTimeline}</p>
@@ -984,11 +984,11 @@ export function AnalyticsPanel({
                       )}
 
                       {geoImprovementResult.quickWins?.length > 0 && (
-                        <div className="rounded-lg bg-emerald-500/5 border border-emerald-500/15 p-3.5 mb-4">
-                          <h5 className="text-[12px] font-semibold text-emerald-400 mb-2">Do these RIGHT NOW (5-15 min each)</h5>
+                        <div className="rounded-lg bg-zinc-800/40 border border-zinc-700 p-3.5 mb-4">
+                          <h5 className="text-[12px] font-semibold text-zinc-100 mb-2">Do these RIGHT NOW (5-15 min each)</h5>
                           {geoImprovementResult.quickWins.map((win: string, i: number) => (
                             <div key={i} className="text-[12px] text-zinc-300 flex items-start gap-2 py-0.5">
-                              <span className="text-emerald-400 flex-shrink-0">&#8226;</span> {win}
+                              <span className="text-zinc-100 flex-shrink-0">&#8226;</span> {win}
                             </div>
                           ))}
                         </div>
@@ -997,10 +997,10 @@ export function AnalyticsPanel({
                       {/* Daily actions */}
                       <div className="space-y-1.5">
                         {(geoImprovementResult.days || []).map((day: any) => {
-                          const catColor = day.category === "technical" ? "bg-blue-500/10 text-blue-400" :
-                            day.category === "content" ? "bg-emerald-500/10 text-emerald-400" :
-                            day.category === "authority" ? "bg-orange-500/10 text-orange-400" :
-                            "bg-violet-500/10 text-violet-400";
+                          const catColor = day.category === "technical" ? "bg-zinc-800 text-zinc-300" :
+                            day.category === "content" ? "bg-zinc-800 text-zinc-300" :
+                            day.category === "authority" ? "bg-zinc-800 text-zinc-300" :
+                            "bg-zinc-800 text-zinc-300";
                           const weekNum = Math.ceil(day.day / 7);
                           const isNewWeek = day.day % 7 === 1;
 
@@ -1020,12 +1020,12 @@ export function AnalyticsPanel({
                                   <div className="flex items-center gap-2 mt-1">
                                     <Badge className={`text-[9px] h-4 rounded-md border-0 ${catColor}`}>{day.category}</Badge>
                                     <span className="text-[10px] text-zinc-600">{day.timeEstimate}</span>
-                                    {day.cabbageFeature && <span className="text-[10px] text-violet-400/70">{day.cabbageFeature}</span>}
+                                    {day.cabbageFeature && <span className="text-[10px] text-zinc-400/70">{day.cabbageFeature}</span>}
                                   </div>
                                 </div>
                                 <Badge variant="outline" className={`text-[9px] rounded-md h-4 flex-shrink-0 ${
                                   day.priority === "must-do" ? "border-red-500/30 text-red-400" :
-                                  day.priority === "should-do" ? "border-yellow-500/30 text-yellow-400" :
+                                  day.priority === "should-do" ? "border-zinc-700 text-zinc-400" :
                                   "border-zinc-700 text-zinc-500"
                                 }`}>{day.priority}</Badge>
                               </div>
@@ -1050,7 +1050,7 @@ export function AnalyticsPanel({
           <Button
             onClick={() => onRunBacklinks(auditUrl || websiteUrl)}
             disabled={isCheckingBacklinks || (!auditUrl && !websiteUrl)}
-            className="w-full bg-blue-600 hover:bg-blue-500 h-10 text-[13px] font-medium rounded-lg"
+            className="w-full bg-zinc-100 text-zinc-900 hover:bg-white h-10 text-[13px] font-medium rounded-lg"
           >
             {isCheckingBacklinks ? (
               <><Loader2 size={15} className="animate-spin mr-2" />Analyzing backlinks...</>
@@ -1066,7 +1066,7 @@ export function AnalyticsPanel({
                   <CardTitle className="text-[13px] font-semibold flex items-center gap-2">
                     Backlink Overview
                     <Badge variant="secondary" className={`text-[10px] rounded-md h-5 px-1.5 border-0 ${
-                      backlinkResult.dataSource === "moz_api" ? "bg-emerald-500/10 text-emerald-400" : "bg-zinc-800 text-zinc-500"
+                      backlinkResult.dataSource === "moz_api" ? "bg-zinc-800 text-zinc-300" : "bg-zinc-800 text-zinc-500"
                     }`}>
                       {backlinkResult.dataSource === "moz_api" ? "Moz verified" : "AI estimated"}
                     </Badge>
@@ -1104,7 +1104,7 @@ export function AnalyticsPanel({
                             DA {ref.authority}
                           </Badge>
                           <Badge variant="secondary" className={`text-[10px] rounded-md h-5 px-1.5 border-0 ${
-                            ref.type === "dofollow" ? "bg-emerald-500/10 text-emerald-400" : "bg-zinc-800 text-zinc-500"
+                            ref.type === "dofollow" ? "bg-zinc-800 text-zinc-300" : "bg-zinc-800 text-zinc-500"
                           }`}>
                             {ref.type}
                           </Badge>
@@ -1125,8 +1125,8 @@ export function AnalyticsPanel({
                       <div key={i} className="space-y-1">
                         <div className="flex items-center gap-2">
                           <Badge variant="outline" className={`text-[10px] rounded-md h-5 ${
-                            rec.priority === "high" ? "border-orange-500/30 text-orange-400 bg-orange-500/5" :
-                            rec.priority === "medium" ? "border-yellow-500/30 text-yellow-400 bg-yellow-500/5" :
+                            rec.priority === "high" ? "border-zinc-700 text-zinc-400 bg-zinc-800/40" :
+                            rec.priority === "medium" ? "border-zinc-700 text-zinc-400 bg-zinc-800" :
                             "border-zinc-700/50 text-zinc-500"
                           }`}>{rec.priority}</Badge>
                           <span className="text-[13px] text-zinc-300 font-medium">{rec.title}</span>
@@ -1154,14 +1154,14 @@ export function AnalyticsPanel({
             className="w-full flex items-center justify-between px-4 py-3 rounded-lg bg-zinc-900/60 border border-zinc-800/50 text-left hover:border-zinc-700 transition-all"
           >
             <span className="flex items-center gap-2 text-[13px] font-semibold text-zinc-200">
-              <FileText size={15} className="text-emerald-400" /> Content Topics
+              <FileText size={15} className="text-zinc-100" /> Content Topics
             </span>
             <ChevronDown size={14} className={`text-zinc-500 transition-transform ${contentSection === "topics" ? "rotate-180" : ""}`} />
           </button>
           {contentSection === "topics" && (
             <div className="space-y-4">
               <div className="flex gap-2">
-                <Button onClick={onRunContent} disabled={isGeneratingContent} className="flex-1 bg-emerald-600 hover:bg-emerald-500 h-10 text-[13px] font-medium rounded-lg">
+                <Button onClick={onRunContent} disabled={isGeneratingContent} className="flex-1 bg-zinc-100 text-zinc-900 hover:bg-white h-10 text-[13px] font-medium rounded-lg">
                   {isGeneratingContent ? <><Loader2 size={15} className="animate-spin mr-2" />Generating...</> : "Generate Content"}
                 </Button>
                 <Button onClick={onRunContentPlan} disabled={isGeneratingContent} variant="outline" className="border-zinc-700 h-10 text-[13px] rounded-lg">
@@ -1179,7 +1179,7 @@ export function AnalyticsPanel({
                           {contentResult.blogTopics.map((topic: any, i: number) => (
                             <div key={i} className="p-3.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30 space-y-1.5">
                               <div className="text-[13px] text-zinc-200 font-medium">{topic.title}</div>
-                              <div className="text-[11px] text-emerald-400 font-medium">Keyword: {topic.targetKeyword}</div>
+                              <div className="text-[11px] text-zinc-100 font-medium">Keyword: {topic.targetKeyword}</div>
                               {topic.outline && (
                                 <div className="text-[12px] text-zinc-500 mt-1.5 space-y-0.5">
                                   {topic.outline.map((s: string, j: number) => <div key={j}>&#8226; {s}</div>)}
@@ -1226,7 +1226,7 @@ export function AnalyticsPanel({
                           {contentResult.localityPages.map((page: any, i: number) => (
                             <div key={i} className="p-3 rounded-lg bg-zinc-800/40 border border-zinc-700/30">
                               <div className="text-[13px] text-zinc-200">{page.title}</div>
-                              <div className="text-[11px] text-emerald-400 font-medium mt-0.5">{page.targetKeyword}</div>
+                              <div className="text-[11px] text-zinc-100 font-medium mt-0.5">{page.targetKeyword}</div>
                             </div>
                           ))}
                         </div>
@@ -1243,7 +1243,7 @@ export function AnalyticsPanel({
                         <div className="space-y-3">
                           {contentPlanResult.weeklyPlan.map((week: any, i: number) => (
                             <div key={i} className="p-3.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30 space-y-1.5">
-                              <div className="text-[12px] font-semibold text-emerald-400">Week {week.week}</div>
+                              <div className="text-[12px] font-semibold text-zinc-100">Week {week.week}</div>
                               <div className="text-[13px] text-zinc-300">Blog: {week.blog?.title}</div>
                               <div className="text-[12px] text-zinc-500">Keyword: {week.blog?.targetKeyword}</div>
                               <div className="text-[12px] text-zinc-500">{week.socialPosts} social posts planned</div>
@@ -1285,7 +1285,7 @@ export function AnalyticsPanel({
             className="w-full flex items-center justify-between px-4 py-3 rounded-lg bg-zinc-900/60 border border-zinc-800/50 text-left hover:border-zinc-700 transition-all"
           >
             <span className="flex items-center gap-2 text-[13px] font-semibold text-zinc-200">
-              <PenTool size={15} className="text-emerald-400" /> Full Articles
+              <PenTool size={15} className="text-zinc-100" /> Full Articles
             </span>
             <ChevronDown size={14} className={`text-zinc-500 transition-transform ${contentSection === "articles" ? "rotate-180" : ""}`} />
           </button>
@@ -1294,7 +1294,7 @@ export function AnalyticsPanel({
               <SectionCard>
                 <CardContent className="p-5 space-y-4">
                   <h4 className="text-[13px] font-semibold text-zinc-200 flex items-center gap-2">
-                    <PenTool size={15} className="text-emerald-400" />
+                    <PenTool size={15} className="text-zinc-100" />
                     Full Article Writer
                   </h4>
                   <div className="grid grid-cols-2 gap-3">
@@ -1326,7 +1326,7 @@ export function AnalyticsPanel({
                         onClick={() => setArticleType(t.value)}
                         className={`text-[12px] px-3 py-1.5 rounded-lg border transition-all ${
                           articleType === t.value
-                            ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                            ? "bg-zinc-800/40 border-zinc-700 text-zinc-100"
                             : "bg-zinc-900/50 border-zinc-800/50 text-zinc-500 hover:text-zinc-300"
                         }`}
                       >
@@ -1337,7 +1337,7 @@ export function AnalyticsPanel({
                   <Button
                     onClick={() => onRunArticleWriter(articleTopic, articleKeyword, articleType)}
                     disabled={isGeneratingArticle || !articleTopic || !articleKeyword}
-                    className="w-full bg-emerald-600 hover:bg-emerald-500 h-10 text-[13px] font-medium rounded-lg"
+                    className="w-full bg-zinc-100 text-zinc-900 hover:bg-white h-10 text-[13px] font-medium rounded-lg"
                   >
                     {isGeneratingArticle ? (
                       <><Loader2 size={15} className="animate-spin mr-2" />Writing article...</>
@@ -1358,7 +1358,7 @@ export function AnalyticsPanel({
                           <p className="text-[12px] text-zinc-500 mt-1">{articleResult.metaDescription}</p>
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0">
-                          <Badge className="bg-emerald-500/10 text-emerald-400 border-0 text-[10px] h-5 rounded-md">{articleResult.wordCount} words</Badge>
+                          <Badge className="bg-zinc-800 text-zinc-300 border-0 text-[10px] h-5 rounded-md">{articleResult.wordCount} words</Badge>
                           <CopyBtn text={articleResult.content} field="article" />
                         </div>
                       </div>
@@ -1411,7 +1411,7 @@ export function AnalyticsPanel({
             className="w-full flex items-center justify-between px-4 py-3 rounded-lg bg-zinc-900/60 border border-zinc-800/50 text-left hover:border-zinc-700 transition-all"
           >
             <span className="flex items-center gap-2 text-[13px] font-semibold text-zinc-200">
-              <PartyPopper size={15} className="text-orange-400" /> Festive Campaigns
+              <PartyPopper size={15} className="text-zinc-400" /> Festive Campaigns
             </span>
             <ChevronDown size={14} className={`text-zinc-500 transition-transform ${contentSection === "campaigns" ? "rotate-180" : ""}`} />
           </button>
@@ -1420,7 +1420,7 @@ export function AnalyticsPanel({
               <Button
                 onClick={() => onRunFestiveCampaign()}
                 disabled={isGeneratingCampaign}
-                className="w-full bg-orange-600 hover:bg-orange-500 h-10 text-[13px] font-medium rounded-lg"
+                className="w-full bg-zinc-100 text-zinc-900 hover:bg-white h-10 text-[13px] font-medium rounded-lg"
               >
                 {isGeneratingCampaign ? (
                   <><Loader2 size={15} className="animate-spin mr-2" />Generating campaign...</>
@@ -1435,7 +1435,7 @@ export function AnalyticsPanel({
                     key={f}
                     onClick={() => onRunFestiveCampaign(f)}
                     disabled={isGeneratingCampaign}
-                    className="text-[12px] px-3 py-1.5 rounded-lg border bg-zinc-900/50 border-zinc-800/50 text-zinc-500 hover:text-orange-400 hover:border-orange-500/20 transition-all disabled:opacity-40"
+                    className="text-[12px] px-3 py-1.5 rounded-lg border bg-zinc-900/50 border-zinc-800/50 text-zinc-500 hover:text-zinc-400 hover:border-zinc-600 transition-all disabled:opacity-40"
                   >
                     {f}
                   </button>
@@ -1447,10 +1447,10 @@ export function AnalyticsPanel({
                   <SectionCard>
                     <CardContent className="p-5">
                       <div className="flex items-center gap-2 mb-2">
-                        <Badge className="bg-orange-500/10 text-orange-400 border-0 text-[11px] h-5 rounded-md">{festiveCampaignResult.festival}</Badge>
+                        <Badge className="bg-zinc-800 text-zinc-300 border-0 text-[11px] h-5 rounded-md">{festiveCampaignResult.festival}</Badge>
                       </div>
                       <h4 className="text-[15px] font-semibold text-zinc-100">{festiveCampaignResult.campaignTheme}</h4>
-                      <p className="text-[13px] text-orange-400 mt-1 italic">&ldquo;{festiveCampaignResult.tagline}&rdquo;</p>
+                      <p className="text-[13px] text-zinc-400 mt-1 italic">&ldquo;{festiveCampaignResult.tagline}&rdquo;</p>
                     </CardContent>
                   </SectionCard>
 
@@ -1544,7 +1544,7 @@ export function AnalyticsPanel({
                             <ul className="mt-3 space-y-1.5">
                               {festiveCampaignResult.landingPage.bullets.map((b: string, i: number) => (
                                 <li key={i} className="text-[13px] text-zinc-300 flex items-start gap-2">
-                                  <span className="text-emerald-400 mt-0.5">&#8226;</span> {b}
+                                  <span className="text-zinc-100 mt-0.5">&#8226;</span> {b}
                                 </li>
                               ))}
                             </ul>
@@ -1578,7 +1578,7 @@ export function AnalyticsPanel({
             className="w-full flex items-center justify-between px-4 py-3 rounded-lg bg-zinc-900/60 border border-zinc-800/50 text-left hover:border-zinc-700 transition-all"
           >
             <span className="flex items-center gap-2 text-[13px] font-semibold text-zinc-200">
-              <Users size={15} className="text-blue-400" /> Channel Partners
+              <Users size={15} className="text-zinc-400" /> Channel Partners
             </span>
             <ChevronDown size={14} className={`text-zinc-500 transition-transform ${contentSection === "partners" ? "rotate-180" : ""}`} />
           </button>
@@ -1587,7 +1587,7 @@ export function AnalyticsPanel({
               <Button
                 onClick={onRunChannelPartner}
                 disabled={isGeneratingPartner}
-                className="w-full bg-blue-600 hover:bg-blue-500 h-10 text-[13px] font-medium rounded-lg"
+                className="w-full bg-zinc-100 text-zinc-900 hover:bg-white h-10 text-[13px] font-medium rounded-lg"
               >
                 {isGeneratingPartner ? (
                   <><Loader2 size={15} className="animate-spin mr-2" />Generating broker pack...</>
@@ -1672,7 +1672,7 @@ export function AnalyticsPanel({
                         <div className="space-y-1.5">
                           {channelPartnerResult.comparisonPoints.map((point: string, i: number) => (
                             <div key={i} className="text-[13px] text-zinc-300 flex items-start gap-2">
-                              <span className="text-emerald-400 mt-0.5 flex-shrink-0">&#8226;</span> {point}
+                              <span className="text-zinc-100 mt-0.5 flex-shrink-0">&#8226;</span> {point}
                             </div>
                           ))}
                         </div>
@@ -1692,7 +1692,7 @@ export function AnalyticsPanel({
             className="w-full flex items-center justify-between px-4 py-3 rounded-lg bg-zinc-900/60 border border-zinc-800/50 text-left hover:border-zinc-700 transition-all"
           >
             <span className="flex items-center gap-2 text-[13px] font-semibold text-zinc-200">
-              <Layout size={15} className="text-violet-400" /> Landing Pages
+              <Layout size={15} className="text-zinc-400" /> Landing Pages
             </span>
             <ChevronDown size={14} className={`text-zinc-500 transition-transform ${contentSection === "landing" ? "rotate-180" : ""}`} />
           </button>
@@ -1711,7 +1711,7 @@ export function AnalyticsPanel({
                     onClick={() => onRunLandingPage(value)}
                     disabled={isGeneratingLanding}
                     variant="outline"
-                    className="border-zinc-700 text-[13px] h-10 rounded-lg hover:border-emerald-500/30 hover:text-emerald-400"
+                    className="border-zinc-700 text-[13px] h-10 rounded-lg hover:border-zinc-600 hover:text-zinc-100"
                   >
                     {isGeneratingLanding ? <Loader2 size={14} className="animate-spin mr-2" /> : <Ic size={14} className="mr-2" />}
                     {label}
@@ -1724,7 +1724,7 @@ export function AnalyticsPanel({
                   <CardContent className="p-5">
                     <div className="flex items-start justify-between mb-3">
                       <div>
-                        <Badge className="bg-emerald-500/10 text-emerald-400 border-0 text-[10px] h-5 rounded-md mb-2">{landingPageResult.pageType}</Badge>
+                        <Badge className="bg-zinc-800 text-zinc-300 border-0 text-[10px] h-5 rounded-md mb-2">{landingPageResult.pageType}</Badge>
                         <h4 className="text-[15px] font-semibold text-zinc-100">{landingPageResult.title}</h4>
                         <p className="text-[12px] text-zinc-500 mt-1">{landingPageResult.metaDescription}</p>
                       </div>
@@ -1748,7 +1748,7 @@ export function AnalyticsPanel({
             className="w-full flex items-center justify-between px-4 py-3 rounded-lg bg-zinc-900/60 border border-zinc-800/50 text-left hover:border-zinc-700 transition-all"
           >
             <span className="flex items-center gap-2 text-[13px] font-semibold text-zinc-200">
-              <HardHat size={15} className="text-yellow-400" /> Construction Updates
+              <HardHat size={15} className="text-zinc-400" /> Construction Updates
             </span>
             <ChevronDown size={14} className={`text-zinc-500 transition-transform ${contentSection === "progress" ? "rotate-180" : ""}`} />
           </button>
@@ -1768,7 +1768,7 @@ export function AnalyticsPanel({
                     onClick={() => onRunProgressUpdate(phase.value)}
                     disabled={isGeneratingProgress}
                     variant="outline"
-                    className="border-zinc-700 text-[13px] h-10 rounded-lg hover:border-emerald-500/30 hover:text-emerald-400"
+                    className="border-zinc-700 text-[13px] h-10 rounded-lg hover:border-zinc-600 hover:text-zinc-100"
                   >
                     {isGeneratingProgress ? <Loader2 size={14} className="animate-spin mr-2" /> : <HardHat size={14} className="mr-2" />}
                     {phase.label}
@@ -1811,7 +1811,7 @@ export function AnalyticsPanel({
             className="w-full flex items-center justify-between px-4 py-3 rounded-lg bg-zinc-900/60 border border-zinc-800/50 text-left hover:border-zinc-700 transition-all"
           >
             <span className="flex items-center gap-2 text-[13px] font-semibold text-zinc-200">
-              <Code size={15} className="text-violet-400" /> Property Schema
+              <Code size={15} className="text-zinc-400" /> Property Schema
             </span>
             <ChevronDown size={14} className={`text-zinc-500 transition-transform ${contentSection === "schema" ? "rotate-180" : ""}`} />
           </button>
@@ -1820,7 +1820,7 @@ export function AnalyticsPanel({
               <Button
                 onClick={onRunSchemaGenerator}
                 disabled={isGeneratingSchema}
-                className="w-full bg-violet-600 hover:bg-violet-500 h-10 text-[13px] font-medium rounded-lg"
+                className="w-full bg-zinc-100 text-zinc-900 hover:bg-white h-10 text-[13px] font-medium rounded-lg"
               >
                 {isGeneratingSchema ? (
                   <><Loader2 size={15} className="animate-spin mr-2" />Generating schemas...</>
@@ -1839,7 +1839,7 @@ export function AnalyticsPanel({
                       </div>
                       <p className="text-[12px] text-zinc-500 mb-3">Copy this into your website&apos;s &lt;head&gt; tag for rich search results and AI visibility.</p>
                       <div className="rounded-lg bg-zinc-800/40 border border-zinc-700/30 p-4 max-h-[400px] overflow-y-auto">
-                        <pre className="text-[11px] text-emerald-400 whitespace-pre-wrap font-mono">{schemaResult.htmlSnippet}</pre>
+                        <pre className="text-[11px] text-zinc-100 whitespace-pre-wrap font-mono">{schemaResult.htmlSnippet}</pre>
                       </div>
                     </CardContent>
                   </SectionCard>
@@ -1849,7 +1849,7 @@ export function AnalyticsPanel({
                       <SectionCard key={key}>
                         <CardContent className="p-4">
                           <div className="flex items-center justify-between mb-2">
-                            <Badge className="bg-violet-500/10 text-violet-400 border-0 text-[10px] h-5 rounded-md">{key}</Badge>
+                            <Badge className="bg-zinc-800 text-zinc-300 border-0 text-[10px] h-5 rounded-md">{key}</Badge>
                             <CopyBtn text={JSON.stringify(schema, null, 2)} field={`schema-${key}`} />
                           </div>
                           <div className="rounded-lg bg-zinc-800/40 border border-zinc-700/30 p-3 max-h-[200px] overflow-y-auto">
@@ -1871,7 +1871,7 @@ export function AnalyticsPanel({
         {/* -------- LOCALITY TAB (Locality + Neighborhood) -------- */}
         {/* ================================================================ */}
         <TabsContent value="locality" className="space-y-4">
-          <Button onClick={onRunLocalitySearch} disabled={!city} className="w-full bg-violet-600 hover:bg-violet-500 h-10 text-[13px] font-medium rounded-lg">
+          <Button onClick={onRunLocalitySearch} disabled={!city} className="w-full bg-zinc-100 text-zinc-900 hover:bg-white h-10 text-[13px] font-medium rounded-lg">
             <MapPin size={15} className="mr-2" />
             Discover Localities in {city || "your city"}
           </Button>
@@ -1956,7 +1956,7 @@ export function AnalyticsPanel({
           <Button
             onClick={onRunNeighborhood}
             disabled={isGeneratingNeighborhood}
-            className="w-full bg-emerald-600 hover:bg-emerald-500 h-10 text-[13px] font-medium rounded-lg"
+            className="w-full bg-zinc-100 text-zinc-900 hover:bg-white h-10 text-[13px] font-medium rounded-lg"
           >
             {isGeneratingNeighborhood ? (
               <><Loader2 size={15} className="animate-spin mr-2" />Analyzing neighborhood...</>
@@ -1970,13 +1970,13 @@ export function AnalyticsPanel({
               <div className="grid grid-cols-2 gap-3">
                 <SectionCard>
                   <CardContent className="p-5 text-center">
-                    <div className="text-3xl font-bold text-emerald-400">{neighborhoodResult.walkScore}</div>
+                    <div className="text-3xl font-bold text-zinc-100">{neighborhoodResult.walkScore}</div>
                     <div className="text-[11px] text-zinc-500 mt-1 font-medium">Walk Score</div>
                   </CardContent>
                 </SectionCard>
                 <SectionCard>
                   <CardContent className="p-5 text-center">
-                    <div className="text-3xl font-bold text-blue-400">{neighborhoodResult.connectivityScore}</div>
+                    <div className="text-3xl font-bold text-zinc-400">{neighborhoodResult.connectivityScore}</div>
                     <div className="text-[11px] text-zinc-500 mt-1 font-medium">Connectivity Score</div>
                   </CardContent>
                 </SectionCard>
@@ -2045,7 +2045,7 @@ export function AnalyticsPanel({
                     <div className="space-y-1.5">
                       {neighborhoodResult.whyLiveHere.map((point: string, i: number) => (
                         <div key={i} className="text-[13px] text-zinc-300 flex items-start gap-2">
-                          <span className="text-emerald-400 mt-0.5 flex-shrink-0">&#8226;</span> {point}
+                          <span className="text-zinc-100 mt-0.5 flex-shrink-0">&#8226;</span> {point}
                         </div>
                       ))}
                     </div>
@@ -2080,7 +2080,7 @@ export function AnalyticsPanel({
         <TabsContent value="ads" className="space-y-4">
           {/* --- Ads section --- */}
           <div className="flex gap-2">
-            <Button onClick={() => onRunAdsGenerator("both")} disabled={isGeneratingAds} className="flex-1 bg-violet-600 hover:bg-violet-500 h-10 text-[13px] font-medium rounded-lg">
+            <Button onClick={() => onRunAdsGenerator("both")} disabled={isGeneratingAds} className="flex-1 bg-zinc-100 text-zinc-900 hover:bg-white h-10 text-[13px] font-medium rounded-lg">
               {isGeneratingAds ? <><Loader2 size={15} className="animate-spin mr-2" />Generating...</> : <><Megaphone size={15} className="mr-2" />Google + Meta Ads</>}
             </Button>
             <Button onClick={() => onRunAdsGenerator("google")} disabled={isGeneratingAds} variant="outline" className="border-zinc-700 h-10 text-[13px] rounded-lg">Google Only</Button>
@@ -2120,7 +2120,7 @@ export function AnalyticsPanel({
                         <div className="grid grid-cols-2 gap-2">
                           {adsResult.googleAds.sitelinks.map((s: any, i: number) => (
                             <div key={i} className="p-2.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30">
-                              <div className="text-[13px] text-blue-400 font-medium">{typeof s === 'string' ? s : s.text || s.title}</div>
+                              <div className="text-[13px] text-zinc-400 font-medium">{typeof s === 'string' ? s : s.text || s.title}</div>
                             </div>
                           ))}
                         </div>
@@ -2141,7 +2141,7 @@ export function AnalyticsPanel({
                           <div className="text-[12px] text-zinc-400">{ad.primaryText}</div>
                           {ad.audience && <div className="text-[11px] text-zinc-600">Audience: {typeof ad.audience === 'string' ? ad.audience : JSON.stringify(ad.audience)}</div>}
                           <div className="flex items-center gap-2">
-                            {ad.cta && <Badge className="bg-blue-500/10 text-blue-400 border-0 text-[10px] h-5 rounded-md">{ad.cta}</Badge>}
+                            {ad.cta && <Badge className="bg-zinc-800 text-zinc-300 border-0 text-[10px] h-5 rounded-md">{ad.cta}</Badge>}
                             {ad.format && <Badge variant="outline" className="border-zinc-700/50 text-zinc-500 text-[10px] rounded-md">{ad.format}</Badge>}
                           </div>
                         </div>
@@ -2196,7 +2196,7 @@ export function AnalyticsPanel({
           <Button
             onClick={onRunPortalOptimizer}
             disabled={isGeneratingPortal}
-            className="w-full bg-blue-600 hover:bg-blue-500 h-10 text-[13px] font-medium rounded-lg"
+            className="w-full bg-zinc-100 text-zinc-900 hover:bg-white h-10 text-[13px] font-medium rounded-lg"
           >
             {isGeneratingPortal ? (
               <><Loader2 size={15} className="animate-spin mr-2" />Optimizing listings...</>
@@ -2298,7 +2298,7 @@ export function AnalyticsPanel({
                     <div className="space-y-1.5">
                       {reportResult.recommendations.map((rec: string, i: number) => (
                         <div key={i} className="text-[13px] text-zinc-300 flex items-start gap-2">
-                          <span className="text-emerald-400 font-bold mt-0.5 flex-shrink-0">{i + 1}.</span> {rec}
+                          <span className="text-zinc-100 font-bold mt-0.5 flex-shrink-0">{i + 1}.</span> {rec}
                         </div>
                       ))}
                     </div>
@@ -2315,7 +2315,7 @@ export function AnalyticsPanel({
                         <div key={i} className="p-3 rounded-lg bg-zinc-800/40 border border-zinc-700/30 text-center">
                           <div className="text-lg font-bold text-zinc-100">{kpi.value}</div>
                           <div className="text-[11px] text-zinc-500 mt-0.5">{kpi.metric}</div>
-                          {kpi.trend && <div className={`text-[10px] mt-0.5 ${kpi.trend === 'up' ? 'text-emerald-400' : kpi.trend === 'down' ? 'text-red-400' : 'text-zinc-600'}`}>{kpi.trend === 'up' ? '↑' : kpi.trend === 'down' ? '↓' : '→'} {kpi.target && `Target: ${kpi.target}`}</div>}
+                          {kpi.trend && <div className={`text-[10px] mt-0.5 ${kpi.trend === 'up' ? 'text-zinc-100' : kpi.trend === 'down' ? 'text-red-400' : 'text-zinc-600'}`}>{kpi.trend === 'up' ? '↑' : kpi.trend === 'down' ? '↓' : '→'} {kpi.target && `Target: ${kpi.target}`}</div>}
                         </div>
                       ))}
                     </div>
@@ -2333,12 +2333,12 @@ export function AnalyticsPanel({
                         <div className="text-[11px] text-zinc-500 mt-0.5">Agency Cost</div>
                       </div>
                       <div className="p-3 rounded-lg bg-zinc-800/40 border border-zinc-700/30">
-                        <div className="text-lg font-bold text-emerald-400">{reportResult.costSavings.cabbageCost}</div>
+                        <div className="text-lg font-bold text-zinc-100">{reportResult.costSavings.cabbageCost}</div>
                         <div className="text-[11px] text-zinc-500 mt-0.5">CabbageSEO</div>
                       </div>
-                      <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-                        <div className="text-lg font-bold text-emerald-400">{reportResult.costSavings.savings}</div>
-                        <div className="text-[11px] text-emerald-400/70 mt-0.5">You Save</div>
+                      <div className="p-3 rounded-lg bg-zinc-800 border border-zinc-700">
+                        <div className="text-lg font-bold text-zinc-100">{reportResult.costSavings.savings}</div>
+                        <div className="text-[11px] text-zinc-100/70 mt-0.5">You Save</div>
                       </div>
                     </div>
                   </CardContent>

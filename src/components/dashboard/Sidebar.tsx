@@ -32,7 +32,7 @@ export function Sidebar({ companyName, creditsUsed = 0, creditsTotal = 1000 }: P
       <div className="py-4">
         <Link href="/" className="block">
           <div className="w-8 h-8 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center hover:border-zinc-700 transition-colors">
-            <Sparkles size={15} className="text-emerald-400" />
+            <Sparkles size={15} className="text-zinc-100" />
           </div>
         </Link>
       </div>
@@ -75,7 +75,7 @@ export function Sidebar({ companyName, creditsUsed = 0, creditsTotal = 1000 }: P
             <circle cx="16" cy="16" r="12" fill="none" stroke="rgb(39 39 42)" strokeWidth="2" />
             <circle
               cx="16" cy="16" r="12"
-              fill="none" stroke="rgb(52 211 153)" strokeWidth="2"
+              fill="none" stroke="rgb(228 228 231)" strokeWidth="2"
               strokeDasharray={2 * Math.PI * 12}
               strokeDashoffset={2 * Math.PI * 12 - (pct / 100) * 2 * Math.PI * 12}
               strokeLinecap="round"

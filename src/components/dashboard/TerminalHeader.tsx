@@ -26,7 +26,7 @@ export function TerminalHeader({ logs, onRunFullScan, hasWebsite }: Props) {
       {/* Header bar */}
       <div className="flex items-center justify-between px-5 py-2.5">
         <div className="flex items-center gap-2.5">
-          <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_6px_rgba(16,185,129,0.4)]" />
+          <div className="w-2 h-2 rounded-full bg-zinc-100 animate-pulse shadow-[0_0_6px_rgba(228,228,231,0.4)]" />
           <span className="text-[13px] font-mono text-zinc-400 tracking-tight">
             CabbageSEO Terminal &bull; Running Daily
           </span>
@@ -41,7 +41,7 @@ export function TerminalHeader({ logs, onRunFullScan, hasWebsite }: Props) {
             <Button
               size="sm"
               onClick={onRunFullScan}
-              className="bg-emerald-600 hover:bg-emerald-500 text-[13px] font-medium h-8 px-4 rounded-lg shadow-[0_0_12px_rgba(16,185,129,0.15)]"
+              className="bg-zinc-100 text-zinc-900 hover:bg-white text-[13px] font-medium h-8 px-4 rounded-lg"
             >
               <Zap size={13} className="mr-1.5" />
               Run Full Scan
@@ -70,9 +70,9 @@ export function TerminalHeader({ logs, onRunFullScan, hasWebsite }: Props) {
                   log.startsWith("> Error")
                     ? "text-red-400"
                     : log.startsWith(">")
-                    ? "text-emerald-400/90"
+                    ? "text-zinc-300"
                     : log.startsWith("✓")
-                    ? "text-emerald-500"
+                    ? "text-zinc-100"
                     : "text-zinc-500"
                 }
               >

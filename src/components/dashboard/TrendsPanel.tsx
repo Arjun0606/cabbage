@@ -16,13 +16,13 @@ function TrendIndicator({ trend }: { trend: TrendData }) {
   }
 
   const icon = trend.direction === "improving"
-    ? <TrendingUp size={13} className="text-emerald-400" />
+    ? <TrendingUp size={13} className="text-zinc-100" />
     : trend.direction === "declining"
     ? <TrendingDown size={13} className="text-red-400" />
     : <Minus size={13} className="text-zinc-500" />;
 
   const color = trend.direction === "improving"
-    ? "text-emerald-400"
+    ? "text-zinc-100"
     : trend.direction === "declining"
     ? "text-red-400"
     : "text-zinc-500";
@@ -56,7 +56,7 @@ function MiniChart({ history }: { history: { date: string; score: number }[] }) 
       <polyline
         points={points}
         fill="none"
-        stroke="rgb(52 211 153)"
+        stroke="rgb(228 228 231)"
         strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -79,10 +79,10 @@ export function TrendsPanel({ trends }: Props) {
     <Card className="bg-zinc-900/60 border-zinc-800/50 rounded-xl">
       <CardContent className="p-5">
         <div className="flex items-center gap-2.5 mb-4">
-          <BarChart3 size={15} className="text-emerald-400" />
+          <BarChart3 size={15} className="text-zinc-100" />
           <h4 className="text-[13px] font-semibold text-zinc-200">Progress Over Time</h4>
           {trendItems.some(t => t.trend.direction === "improving") && (
-            <Badge className="bg-emerald-500/10 text-emerald-400 text-[10px] ml-auto border-0 rounded-md h-5 px-1.5">Improving</Badge>
+            <Badge className="bg-zinc-800 text-zinc-300 text-[10px] ml-auto border-0 rounded-md h-5 px-1.5">Improving</Badge>
           )}
         </div>
 

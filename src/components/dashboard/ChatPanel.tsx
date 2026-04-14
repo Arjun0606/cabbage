@@ -68,7 +68,7 @@ export function ChatPanel({ company, auditResult, aiVisResult }: Props) {
       {/* Header */}
       <div className="px-4 py-3 border-b border-zinc-800/60 flex-shrink-0">
         <div className="flex items-center gap-2">
-          <Bot size={15} className="text-emerald-400" />
+          <Bot size={15} className="text-zinc-100" />
           <h3 className="text-[13px] font-semibold text-zinc-200">Talk to AI CMO</h3>
         </div>
       </div>
@@ -78,9 +78,9 @@ export function ChatPanel({ company, auditResult, aiVisResult }: Props) {
         {messages.map((msg, i) => (
           <div key={i} className="flex gap-3">
             <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${
-              msg.role === "assistant" ? "bg-emerald-500/10 border border-emerald-500/20" : "bg-zinc-800 border border-zinc-700/50"
+              msg.role === "assistant" ? "bg-zinc-800 border border-zinc-700" : "bg-zinc-800 border border-zinc-700/50"
             }`}>
-              {msg.role === "assistant" ? <Bot size={13} className="text-emerald-400" /> : <User size={13} className="text-zinc-400" />}
+              {msg.role === "assistant" ? <Bot size={13} className="text-zinc-100" /> : <User size={13} className="text-zinc-400" />}
             </div>
             <div className="text-[13px] text-zinc-300 leading-relaxed min-w-0 pt-1">
               {renderContent(msg.content)}
@@ -89,8 +89,8 @@ export function ChatPanel({ company, auditResult, aiVisResult }: Props) {
         ))}
         {isLoading && (
           <div className="flex gap-3 items-center">
-            <div className="w-7 h-7 rounded-full flex items-center justify-center bg-emerald-500/10 border border-emerald-500/20">
-              <Loader2 size={13} className="text-emerald-400 animate-spin" />
+            <div className="w-7 h-7 rounded-full flex items-center justify-center bg-zinc-800 border border-zinc-700">
+              <Loader2 size={13} className="text-zinc-300 animate-spin" />
             </div>
             <span className="text-[13px] text-zinc-500">Thinking...</span>
           </div>
@@ -116,9 +116,9 @@ export function ChatPanel({ company, auditResult, aiVisResult }: Props) {
           <button
             onClick={sendMessage}
             disabled={isLoading || !input.trim()}
-            className="w-7 h-7 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-30 disabled:hover:bg-emerald-600 flex items-center justify-center transition-all flex-shrink-0"
+            className="w-7 h-7 rounded-lg bg-zinc-100 hover:bg-white disabled:opacity-30 disabled:hover:bg-zinc-100 flex items-center justify-center transition-all flex-shrink-0"
           >
-            <Send size={12} className="text-white" />
+            <Send size={12} className="text-zinc-900" />
           </button>
         </div>
       </div>

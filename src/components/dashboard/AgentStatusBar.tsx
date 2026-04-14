@@ -85,12 +85,12 @@ export function AgentStatusBar({
 
   const statusConfig: Record<string, { pill: string; dot: string }> = {
     running: {
-      pill: "bg-blue-500/10 border-blue-500/20 text-blue-400",
-      dot: "bg-blue-400 animate-pulse shadow-[0_0_6px_rgba(59,130,246,0.5)]",
+      pill: "bg-zinc-800 border-zinc-600 text-zinc-300 animate-pulse",
+      dot: "bg-zinc-300 animate-pulse",
     },
     done: {
-      pill: "bg-emerald-500/10 border-emerald-500/20 text-emerald-400",
-      dot: "bg-emerald-400",
+      pill: "bg-zinc-800 border-zinc-700 text-zinc-300",
+      dot: "bg-zinc-100",
     },
     error: {
       pill: "bg-red-500/10 border-red-500/20 text-red-400",
@@ -115,13 +115,13 @@ export function AgentStatusBar({
               <span>{agent.name}</span>
 
               {agent.status === "done" && agent.resultCount !== undefined && (
-                <Badge variant="secondary" className="text-[10px] h-[18px] px-1.5 rounded-full bg-emerald-500/15 text-emerald-400 border-0 font-semibold">
+                <Badge variant="secondary" className="text-[10px] h-[18px] px-1.5 rounded-full bg-zinc-800 text-zinc-300 border-0 font-semibold">
                   {agent.resultCount}
                 </Badge>
               )}
 
               {agent.status === "running" && (
-                <span className="text-[10px] text-blue-400 animate-pulse font-medium">...</span>
+                <span className="text-[10px] text-zinc-300 animate-pulse font-medium">...</span>
               )}
             </div>
           );
