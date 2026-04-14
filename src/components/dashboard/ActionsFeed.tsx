@@ -151,7 +151,7 @@ export function ActionsFeed({ auditResult, aiVisResult, backlinkResult, technica
   return (
     <div className="p-4">
       <div className="flex items-center gap-2.5 mb-4">
-        <div className="w-2 h-2 rounded-full bg-zinc-100" />
+        <div className="w-2 h-2 rounded-full bg-[#7CB342]" />
         <h3 className="text-[13px] font-semibold text-zinc-200">Actions Feed</h3>
       </div>
 

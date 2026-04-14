@@ -653,13 +653,13 @@ export default function DashboardPage() {
             <div className="flex border-b border-zinc-800/60 flex-shrink-0">
               <button
                 onClick={() => setLeftPanel("company")}
-                className={`flex-1 py-2.5 text-[13px] font-medium transition-colors ${leftPanel === "company" ? "text-zinc-100 border-b-2 border-zinc-100" : "text-zinc-500 hover:text-zinc-300"}`}
+                className={`flex-1 py-2.5 text-[13px] font-medium transition-colors ${leftPanel === "company" ? "text-zinc-100 border-b-2 border-[#7CB342]" : "text-zinc-500 hover:text-zinc-300"}`}
               >
                 Company
               </button>
               <button
                 onClick={() => setLeftPanel("chat")}
-                className={`flex-1 py-2.5 text-[13px] font-medium transition-colors ${leftPanel === "chat" ? "text-zinc-100 border-b-2 border-zinc-100" : "text-zinc-500 hover:text-zinc-300"}`}
+                className={`flex-1 py-2.5 text-[13px] font-medium transition-colors ${leftPanel === "chat" ? "text-zinc-100 border-b-2 border-[#7CB342]" : "text-zinc-500 hover:text-zinc-300"}`}
               >
                 Chat
               </button>

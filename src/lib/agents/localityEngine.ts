@@ -210,19 +210,23 @@ export async function generateSearchQueries(
 ): Promise<string[]> {
   const system = "Return a JSON array of strings only.";
 
-  const prompt = `Generate 20 real estate search queries that home buyers in ${city} would type into Google or ask ChatGPT when looking for residential properties.
+  const prompt = `Generate 20 search queries that home buyers in ${city} would actually type into ChatGPT or Google when looking for residential properties.
 ${locality ? `Focus on the ${locality} area.` : ""}
 ${projects.length > 0 ? `Include queries where someone might discover: ${projects.join(", ")}` : ""}
 
-Mix of:
-- Configuration queries ("best 3BHK in [area]")
-- Budget queries ("apartments under [price]")
-- Comparison queries ("[project] vs [competitor]")
-- Builder queries ("top builders in [city] 2026")
-- Area queries ("is [locality] good for investment")
-- General queries ("new launch projects [city]")
+ALL QUERIES MUST BE IN ENGLISH. Indian buyers search in English on ChatGPT and Google.
 
-Use the local language terms and currency. Return JSON array of 20 strings.`;
+Mix of:
+- "best 3BHK apartments in ${locality || city} under 1.5 crore"
+- "top builders in ${city} 2026"
+- "${locality || city} vs [nearby area] which is better to buy"
+- "is ${locality || city} good for real estate investment"
+- "new launch projects in ${city} 2026"
+- "flats near [IT park/metro/school] in ${city}"
+- "apartments with good resale value in ${city}"
+- "${projects[0] || "project"} reviews and pricing"
+
+Use Indian currency (Cr, Lakh) but write everything in English. Return JSON array of 20 strings.`;
 
   const text = await aiLight(system, prompt, 1000);
   const jsonMatch = text.match(/\[[\s\S]*\]/);

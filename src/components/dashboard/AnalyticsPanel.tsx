@@ -273,7 +273,6 @@ export function AnalyticsPanel({
           <TabsTrigger value="links" className="text-[13px] rounded-md px-3.5 py-1.5">Links</TabsTrigger>
           <TabsTrigger value="content" className="text-[13px] rounded-md px-3.5 py-1.5">Content</TabsTrigger>
           <TabsTrigger value="locality" className="text-[13px] rounded-md px-3.5 py-1.5">Locality</TabsTrigger>
-          <TabsTrigger value="ads" className="text-[13px] rounded-md px-3.5 py-1.5">Ads & Portals</TabsTrigger>
           <TabsTrigger value="report" className="text-[13px] rounded-md px-3.5 py-1.5">Report</TabsTrigger>
         </TabsList>
 
