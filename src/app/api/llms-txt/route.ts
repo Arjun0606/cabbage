@@ -52,9 +52,9 @@ function inferSpecialization(projects: Project[]): string {
 
 function inferRegions(city: string, projects: Project[]): string {
   const locations = new Set<string>();
-  locations.add(city);
+  if (city) locations.add(city);
   for (const p of projects) {
-    // Extract city-level info from location if it differs
+    if (!p.location) continue;
     const parts = p.location.split(",").map((s) => s.trim());
     for (const part of parts) {
       if (part.length > 2) locations.add(part);
@@ -71,44 +71,43 @@ export async function POST(req: NextRequest) {
 
     const { companyName, website, city, description, projects, usps } = body;
 
-    if (!companyName || !website || !city || !projects?.length) {
+    if (!companyName || !website) {
       return NextResponse.json(
-        { error: "companyName, website, city, and at least one project are required" },
+        { error: "companyName and website are required" },
         { status: 400 }
       );
     }
 
     const cleanWebsite = website.replace(/\/$/, "");
-    const specialization = inferSpecialization(projects);
-    const regions = inferRegions(city, projects);
+    const specialization = projects?.length ? inferSpecialization(projects) : "real estate";
+    const regions = inferRegions(city || "", projects || []);
 
     // ---------- Build llms.txt (concise version) ----------
 
-    const projectLines = projects.map((p) => buildProjectLine(p, cleanWebsite)).join("\n");
+    const projectLines = (projects || []).map((p) => buildProjectLine(p, cleanWebsite)).join("\n");
 
-    const projectPageLinks = projects
+    const projectPageLinks = (projects || [])
       .map((p) => {
         const url = p.website || `${cleanWebsite}/projects/${slugify(p.name)}`;
         return `- [${p.name}](${url}): ${p.configurations} in ${p.location}, starting ${p.priceRange}`;
       })
       .join("\n");
 
+    const locationLine = city ? ` headquartered in ${city},` : "";
+    const regionsLine = regions ? `- Regions: ${regions}\n` : "";
+    const hqLine = city ? `- Headquarters: ${city}\n` : "";
+    const projectsSection = projectLines ? `## Projects\n\n${projectLines}\n\n` : "";
+
     const llmsTxt = `# ${companyName}
 
-> ${description}
+> ${description || `${companyName} is a real estate developer.`}
 
-${companyName} is a real estate developer headquartered in ${city}, specializing in ${specialization.toLowerCase()} projects.${usps ? ` ${usps}` : ""} The company operates across ${regions} and is known for delivering RERA-registered developments.
+${companyName} is a real estate developer${locationLine} specializing in ${specialization.toLowerCase()} projects.${usps ? ` ${usps}` : ""}${regions ? ` The company operates across ${regions}.` : ""}
 
-## Projects
+${projectsSection}## Key Information
 
-${projectLines}
-
-## Key Information
-
-- Headquarters: ${city}
-- Specialization: ${specialization}
-- Regions: ${regions}
-- RERA Registered: Yes
+${hqLine}- Specialization: ${specialization}
+${regionsLine}- Website: ${cleanWebsite}
 - Contact: ${cleanWebsite}/contact
 
 ## Pages
@@ -120,12 +119,12 @@ ${projectPageLinks}`;
 
     // ---------- Build llms-full.txt via AI (detailed version) ----------
 
-    const projectSummaries = projects
+    const projectSummaries = (projects || [])
       .map(
         (p) =>
           `- ${p.name}: ${p.location}, ${p.configurations}, ${p.priceRange}${p.reraNumber ? `, RERA: ${p.reraNumber}` : ""}`
       )
-      .join("\n");
+      .join("\n") || "No projects listed yet";
 
     const systemPrompt = `You generate llms-full.txt files for real estate developer websites. This file follows the llms.txt standard — it helps AI models understand a company and its projects in detail.
 
@@ -135,8 +134,8 @@ Output ONLY the raw text content (no markdown code fences, no JSON wrapping). Us
 
 **Company:** ${companyName}
 **Website:** ${cleanWebsite}
-**City:** ${city}
-**Description:** ${description}
+**City:** ${city || "Not specified"}
+**Description:** ${description || "Real estate developer"}
 **USPs:** ${usps || "Not specified"}
 **Projects:**
 ${projectSummaries}
@@ -164,11 +163,9 @@ Use this EXACT structure:
 
 ## Key Information
 
-- Headquarters: ${city}
-- Founded: Established developer
+${city ? `- Headquarters: ${city}\n` : ""}- Founded: Established developer
 - Specialization: ${specialization}
-- Regions: ${regions}
-- RERA Registered: Yes
+${regions ? `- Regions: ${regions}\n` : ""}- RERA Registered: Yes
 - Contact: ${cleanWebsite}/contact
 
 ## Why Choose ${companyName}
@@ -180,7 +177,7 @@ Use this EXACT structure:
 - [About Us](${cleanWebsite}/about): Company history, vision, leadership team
 - [Projects](${cleanWebsite}/projects): Complete portfolio of ${specialization.toLowerCase()} projects
 - [Contact](${cleanWebsite}/contact): Enquiry form, phone numbers, email, office address
-${projects.map((p) => `- [${p.name}](${p.website || `${cleanWebsite}/projects/${slugify(p.name)}`}): Detailed project page with floor plans, pricing, and amenities`).join("\n")}`;
+${(projects || []).map((p) => `- [${p.name}](${p.website || `${cleanWebsite}/projects/${slugify(p.name)}`}): Detailed project page with floor plans, pricing, and amenities`).join("\n")}`;
 
     const llmsFullTxt = await aiComplete(systemPrompt, userPrompt, 3000);
 
