@@ -66,9 +66,11 @@ export function ChatPanel({ company, auditResult, aiVisResult }: Props) {
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="px-4 py-3 border-b border-zinc-800/60 flex-shrink-0">
+      <div className="px-4 py-3 border-b border-white/[0.06] flex-shrink-0">
         <div className="flex items-center gap-2">
-          <Bot size={15} className="text-zinc-100" />
+          <div className="w-5 h-5 rounded-md bg-[#7CB342]/10 flex items-center justify-center">
+            <Bot size={12} className="text-[#7CB342]" />
+          </div>
           <h3 className="text-[13px] font-semibold text-zinc-200">Talk to AI CMO</h3>
         </div>
       </div>
@@ -78,32 +80,36 @@ export function ChatPanel({ company, auditResult, aiVisResult }: Props) {
         {messages.map((msg, i) => (
           <div key={i} className="flex gap-3">
             <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${
-              msg.role === "assistant" ? "bg-zinc-800 border border-zinc-700" : "bg-zinc-800 border border-zinc-700/50"
+              msg.role === "assistant" ? "bg-[#7CB342]/10 border border-[#7CB342]/20" : "bg-zinc-800 border border-white/[0.06]"
             }`}>
-              {msg.role === "assistant" ? <Bot size={13} className="text-zinc-100" /> : <User size={13} className="text-zinc-400" />}
+              {msg.role === "assistant" ? <Bot size={13} className="text-[#7CB342]" /> : <User size={13} className="text-zinc-400" />}
             </div>
-            <div className="text-[13px] text-zinc-300 leading-relaxed min-w-0 pt-1">
+            <div className={`text-[13px] leading-relaxed min-w-0 pt-1 ${msg.role === "user" ? "text-zinc-400" : "text-zinc-300"}`}>
               {renderContent(msg.content)}
             </div>
           </div>
         ))}
         {isLoading && (
           <div className="flex gap-3 items-center">
-            <div className="w-7 h-7 rounded-full flex items-center justify-center bg-zinc-800 border border-zinc-700">
-              <Loader2 size={13} className="text-zinc-300 animate-spin" />
+            <div className="w-7 h-7 rounded-full flex items-center justify-center bg-[#7CB342]/10 border border-[#7CB342]/20">
+              <Loader2 size={13} className="text-[#7CB342] animate-spin" />
             </div>
-            <span className="text-[13px] text-zinc-500">Thinking...</span>
+            <div className="flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-zinc-500 animate-bounce" style={{ animationDelay: "0ms" }} />
+              <span className="w-1.5 h-1.5 rounded-full bg-zinc-500 animate-bounce" style={{ animationDelay: "150ms" }} />
+              <span className="w-1.5 h-1.5 rounded-full bg-zinc-500 animate-bounce" style={{ animationDelay: "300ms" }} />
+            </div>
           </div>
         )}
       </div>
 
       {/* Input */}
-      <div className="p-3 border-t border-zinc-800/60 flex-shrink-0">
-        <div className="flex items-center gap-2 bg-zinc-900/80 border border-zinc-800 rounded-xl px-3 py-1.5">
-          <button className="text-zinc-600 hover:text-zinc-400 transition-colors flex-shrink-0">
+      <div className="p-3 border-t border-white/[0.06] flex-shrink-0">
+        <div className="flex items-center gap-2 bg-zinc-900/80 border border-white/[0.06] rounded-xl px-3 py-1.5 focus-within:border-[#7CB342]/30 transition-colors duration-150">
+          <button className="text-zinc-600 hover:text-zinc-400 active:scale-[0.97] transition-all duration-150 flex-shrink-0">
             <Paperclip size={15} />
           </button>
-          <button className="text-zinc-600 hover:text-zinc-400 transition-colors flex-shrink-0">
+          <button className="text-zinc-600 hover:text-zinc-400 active:scale-[0.97] transition-all duration-150 flex-shrink-0">
             <AtSign size={15} />
           </button>
           <input
@@ -116,7 +122,7 @@ export function ChatPanel({ company, auditResult, aiVisResult }: Props) {
           <button
             onClick={sendMessage}
             disabled={isLoading || !input.trim()}
-            className="w-7 h-7 rounded-lg bg-zinc-100 hover:bg-white disabled:opacity-30 disabled:hover:bg-zinc-100 flex items-center justify-center transition-all flex-shrink-0"
+            className="w-7 h-7 rounded-lg bg-[#7CB342] hover:bg-[#8BC34A] disabled:opacity-30 disabled:hover:bg-[#7CB342] flex items-center justify-center active:scale-[0.97] transition-all duration-150 flex-shrink-0"
           >
             <Send size={12} className="text-zinc-900" />
           </button>

@@ -117,17 +117,17 @@ interface Props {
 }
 
 function ScoreCircle({ score, label, size = "md" }: { score: number; label: string; size?: "sm" | "md" }) {
-  const color =
-    score >= 90 ? "text-zinc-100" :
-    score >= 70 ? "text-zinc-300" :
-    score >= 50 ? "text-zinc-400" :
-    "text-red-400";
+  const strokeColor =
+    score >= 90 ? "#7CB342" :
+    score >= 70 ? "#7CB342" :
+    score >= 50 ? "#F59E0B" :
+    "#EF4444";
 
-  const bgColor =
-    score >= 90 ? "stroke-zinc-100" :
-    score >= 70 ? "stroke-zinc-300" :
-    score >= 50 ? "stroke-zinc-400" :
-    "stroke-red-400";
+  const textColor =
+    score >= 90 ? "text-[#7CB342]" :
+    score >= 70 ? "text-[#7CB342]" :
+    score >= 50 ? "text-amber-400" :
+    "text-red-400";
 
   const r = size === "sm" ? 22 : 32;
   const circumference = 2 * Math.PI * r;
@@ -139,17 +139,18 @@ function ScoreCircle({ score, label, size = "md" }: { score: number; label: stri
         <svg width={r * 2 + 8} height={r * 2 + 8} className="-rotate-90">
           <circle
             cx={r + 4} cy={r + 4} r={r}
-            fill="none" stroke="rgb(39 39 42 / 0.6)" strokeWidth="3"
+            fill="none" stroke="rgb(39 39 42 / 0.4)" strokeWidth="3"
           />
           <circle
             cx={r + 4} cy={r + 4} r={r}
-            fill="none" className={bgColor} strokeWidth="3"
+            fill="none" stroke={strokeColor} strokeWidth="3"
             strokeDasharray={circumference}
             strokeDashoffset={offset}
             strokeLinecap="round"
+            className="transition-all duration-700"
           />
         </svg>
-        <span className={`absolute inset-0 flex items-center justify-center font-bold ${size === "sm" ? "text-[13px]" : "text-base"} ${color}`}>
+        <span className={`absolute inset-0 flex items-center justify-center font-bold tabular-nums ${size === "sm" ? "text-[13px]" : "text-base"} ${textColor}`}>
           {score}
         </span>
       </div>
@@ -159,14 +160,14 @@ function ScoreCircle({ score, label, size = "md" }: { score: number; label: stri
 }
 
 function StatusIcon({ status }: { status: "pass" | "warn" | "fail" }) {
-  if (status === "pass") return <CheckCircle2 size={15} className="text-zinc-100" />;
-  if (status === "warn") return <AlertTriangle size={15} className="text-zinc-400" />;
+  if (status === "pass") return <CheckCircle2 size={15} className="text-[#7CB342]" />;
+  if (status === "warn") return <AlertTriangle size={15} className="text-amber-400" />;
   return <XCircle size={15} className="text-red-400" />;
 }
 
 function SectionCard({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
-    <Card className={`bg-zinc-900/60 border-zinc-800/50 rounded-xl ${className}`}>
+    <Card className={`bg-zinc-900/60 border-white/[0.06] rounded-xl hover:border-white/[0.1] transition-colors duration-150 ${className}`}>
       {children}
     </Card>
   );
@@ -175,7 +176,7 @@ function SectionCard({ children, className = "" }: { children: React.ReactNode; 
 function EmptyState({ icon: Icon, title, subtitle }: { icon: any; title: string; subtitle: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-20 text-zinc-500">
-      <div className="w-16 h-16 rounded-2xl bg-zinc-800/30 flex items-center justify-center mb-4">
+      <div className="w-16 h-16 rounded-2xl bg-zinc-800/30 border border-white/[0.04] flex items-center justify-center mb-4">
         <Icon size={28} className="opacity-40" />
       </div>
       <p className="text-[13px] font-medium text-zinc-400">{title}</p>

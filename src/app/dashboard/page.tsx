@@ -656,23 +656,24 @@ export default function DashboardPage() {
           isCheckingTechnical={isCheckingTechnical} isCheckingCompetitors={isCheckingCompetitors}
           auditResult={auditResult} aiVisResult={aiVisResult} backlinkResult={backlinkResult}
           technicalResult={technicalResult} competitorResults={competitorResults}
+          onNavigateToTab={setActiveTab}
         />
 
         {/* Main content — 3 columns */}
         <div className="flex-1 flex min-h-0">
           {/* LEFT: Company or Chat (toggled) */}
-          <div className="w-[320px] flex-shrink-0 border-r border-zinc-800/60 flex flex-col min-h-0">
+          <div className="w-[320px] flex-shrink-0 border-r border-white/[0.06] flex flex-col min-h-0">
             {/* Toggle tabs */}
-            <div className="flex border-b border-zinc-800/60 flex-shrink-0">
+            <div className="flex border-b border-white/[0.06] flex-shrink-0">
               <button
                 onClick={() => setLeftPanel("company")}
-                className={`flex-1 py-2.5 text-[13px] font-medium transition-colors ${leftPanel === "company" ? "text-zinc-100 border-b-2 border-[#7CB342]" : "text-zinc-500 hover:text-zinc-300"}`}
+                className={`flex-1 py-2.5 text-[13px] font-medium transition-colors duration-150 ${leftPanel === "company" ? "text-zinc-100 border-b-2 border-[#7CB342]" : "text-zinc-500 hover:text-zinc-300"}`}
               >
                 Company
               </button>
               <button
                 onClick={() => setLeftPanel("chat")}
-                className={`flex-1 py-2.5 text-[13px] font-medium transition-colors ${leftPanel === "chat" ? "text-zinc-100 border-b-2 border-[#7CB342]" : "text-zinc-500 hover:text-zinc-300"}`}
+                className={`flex-1 py-2.5 text-[13px] font-medium transition-colors duration-150 ${leftPanel === "chat" ? "text-zinc-100 border-b-2 border-[#7CB342]" : "text-zinc-500 hover:text-zinc-300"}`}
               >
                 Chat
               </button>
@@ -743,7 +744,7 @@ export default function DashboardPage() {
           </div>
 
           {/* RIGHT: Actions Feed — scrollable */}
-          <div className="w-[340px] flex-shrink-0 border-l border-zinc-800/60 overflow-y-auto min-h-0">
+          <div className="w-[340px] flex-shrink-0 border-l border-white/[0.06] overflow-y-auto min-h-0">
             <ActionsFeed
               auditResult={auditResult} aiVisResult={aiVisResult} backlinkResult={backlinkResult}
               technicalResult={technicalResult} competitorResults={competitorResults}

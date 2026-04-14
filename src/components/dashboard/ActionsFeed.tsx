@@ -9,6 +9,8 @@ import {
   Wrench,
   Link2,
   Users,
+  Copy,
+  Check,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -33,6 +35,13 @@ interface FeedItem {
 
 export function ActionsFeed({ auditResult, aiVisResult, backlinkResult, technicalResult, competitorResults, onNavigateToTab }: Props) {
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
+  const [copiedSnippet, setCopiedSnippet] = useState<string | null>(null);
+
+  const copySnippet = (text: string, id: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedSnippet(id);
+    setTimeout(() => setCopiedSnippet(null), 2000);
+  };
 
   const feedItems: FeedItem[] = [];
 
@@ -149,9 +158,9 @@ export function ActionsFeed({ auditResult, aiVisResult, backlinkResult, technica
   }
 
   const severityStyles: Record<string, string> = {
-    critical: "border-red-500/30 text-red-400 bg-red-500/5",
-    high: "border-zinc-600 text-zinc-300 bg-zinc-800/30",
-    medium: "border-zinc-700 text-zinc-400 bg-zinc-800/30",
+    critical: "border-red-500/30 text-red-400 bg-red-500/8",
+    high: "border-amber-500/30 text-amber-400 bg-amber-500/8",
+    medium: "border-zinc-600 text-zinc-400 bg-zinc-800/30",
     low: "border-zinc-700 text-zinc-500 bg-zinc-800/30",
   };
 
@@ -168,7 +177,7 @@ export function ActionsFeed({ auditResult, aiVisResult, backlinkResult, technica
           return (
             <div
               key={item.id}
-              className="rounded-xl bg-zinc-900/60 border border-zinc-800/50 hover:border-zinc-700/50 transition-all cursor-pointer"
+              className="rounded-xl bg-zinc-900/60 border border-white/[0.06] hover:border-white/[0.1] transition-all duration-150 cursor-pointer"
               onClick={() => setExpandedItem(isExpanded ? null : item.id)}
             >
               <div className="p-3.5">
@@ -186,17 +195,15 @@ export function ActionsFeed({ auditResult, aiVisResult, backlinkResult, technica
                         />
                       )}
                     </div>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <p className="text-[12px] text-zinc-500">{item.subtitle}</p>
-                      {item.actionTab && onNavigateToTab && (
-                        <button
-                          onClick={(e) => { e.stopPropagation(); onNavigateToTab(item.actionTab!); }}
-                          className="text-[11px] text-[#7CB342] hover:text-[#8BC34A] font-medium transition-colors"
-                        >
-                          Fix →
-                        </button>
-                      )}
-                    </div>
+                    <p className="text-[12px] text-zinc-500 mt-0.5">{item.subtitle}</p>
+                    {item.actionTab && onNavigateToTab && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onNavigateToTab(item.actionTab!); }}
+                        className="mt-2 inline-flex items-center gap-1.5 text-[12px] font-medium px-3 py-1.5 rounded-lg bg-[#7CB342]/10 text-[#7CB342] border border-[#7CB342]/20 hover:bg-[#7CB342]/20 hover:border-[#7CB342]/30 active:scale-[0.97] transition-all"
+                      >
+                        View &amp; Fix →
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -218,9 +225,18 @@ export function ActionsFeed({ auditResult, aiVisResult, backlinkResult, technica
                         <p className="text-[12px] text-zinc-500 pl-[52px] leading-relaxed">{fix.description}</p>
                       )}
                       {fix.snippet && (
-                        <pre className="text-[11px] bg-zinc-800/60 rounded-lg p-2.5 ml-[52px] overflow-x-auto text-zinc-300 border border-zinc-700/30">
-                          {fix.snippet}
-                        </pre>
+                        <div className="relative ml-[52px] group/snippet">
+                          <pre className="text-[11px] bg-zinc-800/60 rounded-lg p-2.5 pr-9 overflow-x-auto text-zinc-300 border border-zinc-700/30">
+                            {fix.snippet}
+                          </pre>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); copySnippet(fix.snippet!, `${item.id}-${i}`); }}
+                            className="absolute top-2 right-2 p-1 rounded text-zinc-600 hover:text-zinc-300 opacity-0 group-hover/snippet:opacity-100 transition-all"
+                            title="Copy code"
+                          >
+                            {copiedSnippet === `${item.id}-${i}` ? <Check size={13} className="text-[#7CB342]" /> : <Copy size={13} />}
+                          </button>
+                        </div>
                       )}
                     </div>
                   ))}

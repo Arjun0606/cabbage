@@ -168,25 +168,25 @@ export function CompanyPanel({ company, setCompany }: Props) {
             placeholder="Company name"
             value={company.name}
             onChange={(e) => setCompany({ ...company, name: e.target.value })}
-            className="bg-zinc-900/80 border-zinc-800 text-[13px] h-9 placeholder:text-zinc-600"
+            className="bg-zinc-900/80 border-white/[0.06] text-[13px] h-9 placeholder:text-zinc-600 focus:border-[#7CB342]/40 focus:ring-[#7CB342]/10 transition-colors"
           />
           <Input
             placeholder="https://www.example.com/"
             value={company.website}
             onChange={(e) => setCompany({ ...company, website: e.target.value })}
-            className="bg-zinc-900/80 border-zinc-800 text-[13px] h-9 placeholder:text-zinc-600"
+            className="bg-zinc-900/80 border-white/[0.06] text-[13px] h-9 placeholder:text-zinc-600 focus:border-[#7CB342]/40 focus:ring-[#7CB342]/10 transition-colors"
           />
           <Input
             placeholder="Primary city"
             value={company.city}
             onChange={(e) => setCompany({ ...company, city: e.target.value })}
-            className="bg-zinc-900/80 border-zinc-800 text-[13px] h-9 placeholder:text-zinc-600"
+            className="bg-zinc-900/80 border-white/[0.06] text-[13px] h-9 placeholder:text-zinc-600 focus:border-[#7CB342]/40 focus:ring-[#7CB342]/10 transition-colors"
           />
           <Textarea
             placeholder="About the company..."
             value={company.description}
             onChange={(e) => setCompany({ ...company, description: e.target.value })}
-            className="bg-zinc-900/80 border-zinc-800 text-[13px] min-h-[72px] placeholder:text-zinc-600 leading-relaxed"
+            className="bg-zinc-900/80 border-white/[0.06] text-[13px] min-h-[72px] placeholder:text-zinc-600 leading-relaxed focus:border-[#7CB342]/40 focus:ring-[#7CB342]/10 transition-colors"
           />
         </div>
       </section>
@@ -204,12 +204,12 @@ export function CompanyPanel({ company, setCompany }: Props) {
 
         <div className="space-y-2">
           {(company.projects || []).map((project, idx) => (
-            <div key={idx} className="rounded-lg border border-zinc-800/50 bg-zinc-900/40 overflow-hidden">
+            <div key={idx} className="rounded-lg border border-white/[0.06] bg-zinc-900/40 overflow-hidden hover:border-white/[0.1] transition-colors duration-150">
               <button
                 onClick={() => setExpandedProject(expandedProject === idx ? null : idx)}
-                className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left hover:bg-zinc-800/30 transition-colors"
+                className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left hover:bg-zinc-800/30 active:scale-[0.99] transition-all duration-150"
               >
-                <div className="w-2 h-2 rounded-full bg-zinc-100 flex-shrink-0" />
+                <div className="w-2 h-2 rounded-full bg-[#7CB342] flex-shrink-0" />
                 <span className="text-[13px] text-zinc-300 flex-1 truncate">
                   {project.name || `Project ${idx + 1}`}
                 </span>
@@ -260,7 +260,7 @@ export function CompanyPanel({ company, setCompany }: Props) {
 
           <button
             onClick={addProject}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-dashed border-zinc-700/50 text-[12px] text-zinc-500 hover:text-zinc-100 hover:border-zinc-500 transition-all"
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-dashed border-zinc-700/50 text-[12px] text-zinc-500 hover:text-[#7CB342] hover:border-[#7CB342]/30 hover:bg-[#7CB342]/5 active:scale-[0.99] transition-all duration-150"
           >
             <Plus size={13} /> Add project
           </button>
@@ -279,8 +279,8 @@ export function CompanyPanel({ company, setCompany }: Props) {
 
         <div className="space-y-1.5">
           {company.website && (
-            <div className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-zinc-900/60 border border-zinc-800/50">
-              <div className="w-2 h-2 rounded-full bg-zinc-100 flex-shrink-0" />
+            <div className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-zinc-900/60 border border-white/[0.06]">
+              <div className="w-2 h-2 rounded-full bg-[#7CB342] flex-shrink-0" />
               <span className="text-[13px] text-zinc-300 truncate flex-1">
                 {company.website.replace(/^https?:\/\//, "").replace(/\/$/, "")}
               </span>
@@ -291,7 +291,7 @@ export function CompanyPanel({ company, setCompany }: Props) {
           )}
 
           {(company.sites || []).map((site, i) => (
-            <div key={i} className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-zinc-900/60 border border-zinc-800/50">
+            <div key={i} className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-zinc-900/60 border border-white/[0.06]">
               <div className="w-2 h-2 rounded-full bg-zinc-500 flex-shrink-0" />
               <span className="text-[13px] text-zinc-300 truncate flex-1">{site.label}</span>
               <button onClick={() => removeSite(i)} className="text-zinc-600 hover:text-red-400 transition-colors p-0.5">

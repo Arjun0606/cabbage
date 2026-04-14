@@ -22,18 +22,18 @@ export function TerminalHeader({ logs, onRunFullScan, hasWebsite }: Props) {
   }, [logs]);
 
   return (
-    <div className="bg-[#0a0a0b] border-b border-zinc-800/60">
+    <div className="bg-[#0c0c0d] border-b border-white/[0.06]">
       {/* Header bar */}
       <div className="flex items-center justify-between px-5 py-2.5">
         <div className="flex items-center gap-2.5">
-          <div className="w-2 h-2 rounded-full bg-[#7CB342] animate-pulse shadow-[0_0_6px_rgba(124,179,66,0.4)]" />
+          <div className="w-2 h-2 rounded-full bg-[#7CB342] animate-pulse shadow-[0_0_8px_rgba(124,179,66,0.5)]" />
           <span className="text-[13px] font-mono text-zinc-400 tracking-tight">
             CabbageSEO Terminal &bull; Running Daily
           </span>
         </div>
         <div className="flex items-center gap-2">
           <Link href="/settings">
-            <button className="w-7 h-7 rounded-md flex items-center justify-center text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/60 transition-all">
+            <button className="w-7 h-7 rounded-md flex items-center justify-center text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/60 active:scale-[0.97] transition-all duration-150">
               <Settings size={15} />
             </button>
           </Link>
@@ -41,7 +41,7 @@ export function TerminalHeader({ logs, onRunFullScan, hasWebsite }: Props) {
             <Button
               size="sm"
               onClick={onRunFullScan}
-              className="bg-[#7CB342] text-zinc-950 hover:bg-[#8BC34A] text-[13px] font-medium h-8 px-4 rounded-lg"
+              className="bg-[#7CB342] text-zinc-950 hover:bg-[#8BC34A] active:scale-[0.97] text-[13px] font-medium h-8 px-4 rounded-lg shadow-[0_0_12px_rgba(124,179,66,0.15)] transition-all duration-150"
             >
               <Zap size={13} className="mr-1.5" />
               Run Full Scan
@@ -49,7 +49,7 @@ export function TerminalHeader({ logs, onRunFullScan, hasWebsite }: Props) {
           )}
           <button
             onClick={() => setExpanded(!expanded)}
-            className="w-7 h-7 rounded-md flex items-center justify-center text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/60 transition-all"
+            className="w-7 h-7 rounded-md flex items-center justify-center text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/60 active:scale-[0.97] transition-all duration-150"
           >
             {expanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
           </button>
@@ -72,7 +72,7 @@ export function TerminalHeader({ logs, onRunFullScan, hasWebsite }: Props) {
                     : log.startsWith(">")
                     ? "text-zinc-300"
                     : log.startsWith("✓")
-                    ? "text-zinc-100"
+                    ? "text-[#7CB342] font-medium"
                     : "text-zinc-500"
                 }
               >

@@ -15,6 +15,7 @@ interface AgentStatus {
   icon: React.ReactNode;
   status: "idle" | "running" | "done" | "error";
   resultCount?: number;
+  tab?: string;
 }
 
 interface Props {
@@ -28,6 +29,7 @@ interface Props {
   backlinkResult: any;
   technicalResult: any;
   competitorResults: any[];
+  onNavigateToTab?: (tab: string) => void;
 }
 
 export function AgentStatusBar({
@@ -41,6 +43,7 @@ export function AgentStatusBar({
   backlinkResult,
   technicalResult,
   competitorResults,
+  onNavigateToTab,
 }: Props) {
   const agents: AgentStatus[] = [
     {
@@ -49,6 +52,7 @@ export function AgentStatusBar({
       icon: <Search size={13} />,
       status: isAuditing ? "running" : auditResult ? "done" : "idle",
       resultCount: auditResult?.fixes?.length,
+      tab: "health",
     },
     {
       id: "technical",
@@ -56,6 +60,7 @@ export function AgentStatusBar({
       icon: <Wrench size={13} />,
       status: isCheckingTechnical ? "running" : technicalResult ? "done" : "idle",
       resultCount: technicalResult?.resourceIssues?.length,
+      tab: "health",
     },
     {
       id: "ai_visibility",
@@ -63,6 +68,7 @@ export function AgentStatusBar({
       icon: <Bot size={13} />,
       status: isCheckingAI ? "running" : aiVisResult ? "done" : "idle",
       resultCount: aiVisResult?.scores?.readiness ?? aiVisResult?.scores?.overall,
+      tab: "aigeo",
     },
     {
       id: "backlinks",
@@ -70,6 +76,7 @@ export function AgentStatusBar({
       icon: <Link2 size={13} />,
       status: isCheckingBacklinks ? "running" : backlinkResult ? "done" : "idle",
       resultCount: backlinkResult?.domainAuthority,
+      tab: "links",
     },
     {
       id: "competitors",
@@ -77,6 +84,7 @@ export function AgentStatusBar({
       icon: <Users size={13} />,
       status: isCheckingCompetitors ? "running" : competitorResults?.length > 0 ? "done" : "idle",
       resultCount: competitorResults?.length,
+      tab: "health",
     },
   ];
 
@@ -105,10 +113,14 @@ export function AgentStatusBar({
       <div className="flex items-center gap-2 overflow-x-auto">
         {visibleAgents.map((agent) => {
           const cfg = statusConfig[agent.status];
+          const isClickable = agent.status === "done" && agent.tab && onNavigateToTab;
           return (
-            <div
+            <button
               key={agent.id}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-[12px] font-medium whitespace-nowrap border transition-all ${cfg.pill}`}
+              onClick={() => isClickable && onNavigateToTab!(agent.tab!)}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-[12px] font-medium whitespace-nowrap border transition-all ${cfg.pill} ${
+                isClickable ? "cursor-pointer hover:border-zinc-500 hover:bg-zinc-700/80 active:scale-[0.97]" : ""
+              }`}
             >
               <div className={`w-[6px] h-[6px] rounded-full flex-shrink-0 ${cfg.dot}`} />
               {agent.icon}
@@ -123,7 +135,7 @@ export function AgentStatusBar({
               {agent.status === "running" && (
                 <span className="text-[10px] text-zinc-300 animate-pulse font-medium">...</span>
               )}
-            </div>
+            </button>
           );
         })}
       </div>
