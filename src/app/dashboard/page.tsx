@@ -86,6 +86,37 @@ export default function DashboardPage() {
   // Which panel is shown on the left: "company" or "chat"
   const [leftPanel, setLeftPanel] = useState<"company" | "chat">("company");
 
+  // ---- Credit system ----
+  const CREDITS_TOTAL = 1000;
+  const [creditsUsed, setCreditsUsed] = useState(0);
+
+  // Load credits from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem("cabbageseo_credits_used");
+    if (saved) setCreditsUsed(parseInt(saved, 10) || 0);
+  }, []);
+
+  const CREDIT_COSTS: Record<string, number> = {
+    audit: 1, technical: 1, ai_visibility: 2, backlinks: 1, competitors: 2,
+    content: 3, content_plan: 3, article: 5, campaign: 3, partner: 3,
+    schema: 2, landing: 5, portal: 2, neighborhood: 3, progress: 2,
+    report: 5, ads: 3, llms_txt: 2, geo_improvement: 3, crawler: 1,
+    brand_presence: 2, citability: 2, chat: 1, locality: 1,
+  };
+
+  const spendCredits = (action: string): boolean => {
+    const cost = CREDIT_COSTS[action] || 1;
+    const remaining = CREDITS_TOTAL - creditsUsed;
+    if (remaining < cost) {
+      addLog(`> Not enough credits (need ${cost}, have ${remaining}). Upgrade your plan.`);
+      return false;
+    }
+    const next = creditsUsed + cost;
+    setCreditsUsed(next);
+    localStorage.setItem("cabbageseo_credits_used", String(next));
+    return true;
+  };
+
   // Load company: try Supabase first, fall back to localStorage
   useEffect(() => {
     (async () => {
@@ -203,6 +234,7 @@ export default function DashboardPage() {
   };
 
   const runAudit = async (url: string) => {
+    if (!spendCredits("audit")) return;
     setIsAuditing(true);
     addLog(`> Auditing ${url}...`);
     try {
@@ -220,6 +252,7 @@ export default function DashboardPage() {
 
   const runAIVisibility = async () => {
     if (!company.name) { addLog("> Set company name first"); return; }
+    if (!spendCredits("ai_visibility")) return;
     setIsCheckingAI(true);
     addLog(`> Checking AI visibility across ChatGPT + Google AI...`);
     try {
@@ -253,6 +286,7 @@ export default function DashboardPage() {
   };
 
   const runBacklinks = async (url: string) => {
+    if (!spendCredits("backlinks")) return;
     setIsCheckingBacklinks(true);
     addLog(`> Analyzing backlinks...`);
     try {
@@ -269,6 +303,7 @@ export default function DashboardPage() {
   };
 
   const runTechnical = async (url: string) => {
+    if (!spendCredits("technical")) return;
     setIsCheckingTechnical(true);
     addLog(`> Technical SEO scan...`);
     try {
@@ -286,6 +321,7 @@ export default function DashboardPage() {
 
   const runCompetitorAnalysis = async () => {
     if (!company.competitors.length) { addLog("> Add competitors first"); return; }
+    if (!spendCredits("competitors")) return;
     setIsCheckingCompetitors(true);
     addLog(`> Analyzing ${company.competitors.length} competitors...`);
     try {
@@ -300,6 +336,7 @@ export default function DashboardPage() {
 
   const runContent = async () => {
     if (!company.name) { addLog("> Set company name first"); return; }
+    if (!spendCredits("content")) return;
     setIsGeneratingContent(true);
     addLog(`> Generating content...`);
     try {
@@ -315,6 +352,7 @@ export default function DashboardPage() {
 
   const runContentPlan = async () => {
     if (!company.name) { addLog("> Set company name first"); return; }
+    if (!spendCredits("content_plan")) return;
     setIsGeneratingContent(true);
     addLog(`> Generating 4-week plan...`);
     try {
@@ -330,6 +368,7 @@ export default function DashboardPage() {
 
   const runLocalitySearch = async () => {
     if (!company.city) { addLog("> Set city first"); return; }
+    if (!spendCredits("locality")) return;
     addLog(`> Discovering localities in ${company.city}...`);
     try {
       const res = await fetch("/api/locality/search", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ city: company.city, locality: company.city }) });
@@ -374,6 +413,7 @@ export default function DashboardPage() {
   };
 
   const runArticleWriter = async (topic: string, targetKeyword: string, articleType: string) => {
+    if (!spendCredits("article")) return;
     setIsGeneratingArticle(true);
     addLog(`> Writing article: "${topic}"...`);
     try {
@@ -391,6 +431,7 @@ export default function DashboardPage() {
   };
 
   const runFestiveCampaign = async (targetFestival?: string) => {
+    if (!spendCredits("campaign")) return;
     setIsGeneratingCampaign(true);
     addLog(`> Generating festive campaign${targetFestival ? ` for ${targetFestival}` : ""}...`);
     try {
@@ -408,6 +449,7 @@ export default function DashboardPage() {
   };
 
   const runChannelPartner = async () => {
+    if (!spendCredits("partner")) return;
     setIsGeneratingPartner(true);
     addLog(`> Generating channel partner pack...`);
     try {
@@ -425,6 +467,7 @@ export default function DashboardPage() {
   };
 
   const runSchemaGenerator = async () => {
+    if (!spendCredits("schema")) return;
     setIsGeneratingSchema(true);
     addLog(`> Generating property schema...`);
     try {
@@ -444,6 +487,7 @@ export default function DashboardPage() {
   // ---- Round 2 feature runners ----
 
   const runLandingPage = async (pageType: string) => {
+    if (!spendCredits("landing")) return;
     setIsGeneratingLanding(true);
     addLog(`> Generating ${pageType} landing page...`);
     try {
@@ -458,6 +502,7 @@ export default function DashboardPage() {
   };
 
   const runPortalOptimizer = async () => {
+    if (!spendCredits("portal")) return;
     setIsGeneratingPortal(true);
     addLog(`> Optimizing portal listings...`);
     try {
@@ -472,6 +517,7 @@ export default function DashboardPage() {
   };
 
   const runNeighborhood = async () => {
+    if (!spendCredits("neighborhood")) return;
     setIsGeneratingNeighborhood(true);
     const ctx = getProjectContext();
     addLog(`> Analyzing neighborhood: ${ctx.location}, ${ctx.city}...`);
@@ -486,6 +532,7 @@ export default function DashboardPage() {
   };
 
   const runProgressUpdate = async (phase: string, completionPct?: number) => {
+    if (!spendCredits("progress")) return;
     setIsGeneratingProgress(true);
     addLog(`> Generating construction update (${phase})...`);
     try {
@@ -500,6 +547,7 @@ export default function DashboardPage() {
   };
 
   const runMarketingReport = async () => {
+    if (!spendCredits("report")) return;
     setIsGeneratingReport(true);
     addLog(`> Generating marketing report...`);
     try {
@@ -517,6 +565,7 @@ export default function DashboardPage() {
   };
 
   const runAdsGenerator = async (adPlatform: string) => {
+    if (!spendCredits("ads")) return;
     setIsGeneratingAds(true);
     addLog(`> Generating ${adPlatform} ad copy...`);
     try {
@@ -534,6 +583,7 @@ export default function DashboardPage() {
 
   const runCrawlerAccess = async () => {
     if (!company.website) { addLog("> Set website URL first"); return; }
+    if (!spendCredits("crawler")) return;
     setIsCheckingCrawlers(true);
     addLog(`> Checking AI crawler access...`);
     try {
@@ -548,6 +598,7 @@ export default function DashboardPage() {
 
   const runBrandPresence = async () => {
     if (!company.name) { addLog("> Set company name first"); return; }
+    if (!spendCredits("brand_presence")) return;
     setIsCheckingBrand(true);
     addLog(`> Scanning brand presence...`);
     try {
@@ -562,6 +613,7 @@ export default function DashboardPage() {
 
   const runCitabilityAudit = async () => {
     if (!company.website) { addLog("> Set website URL first"); return; }
+    if (!spendCredits("citability")) return;
     setIsCheckingCitability(true);
     addLog(`> Auditing content citability...`);
     try {
@@ -577,6 +629,7 @@ export default function DashboardPage() {
   // ---- GEO improvement runners ----
 
   const runLlmsTxt = async () => {
+    if (!spendCredits("llms_txt")) return;
     setIsGeneratingLlmsTxt(true);
     addLog(`> Generating llms.txt...`);
     try {
@@ -596,6 +649,7 @@ export default function DashboardPage() {
   };
 
   const runGeoImprovement = async () => {
+    if (!spendCredits("geo_improvement")) return;
     setIsGeneratingGeoImprovement(true);
     addLog(`> Generating GEO improvement plan...`);
     try {
@@ -646,7 +700,7 @@ export default function DashboardPage() {
 
   return (
     <div className="h-screen bg-[#0a0a0b] text-zinc-100 flex overflow-hidden">
-      <Sidebar companyName={company.name} />
+      <Sidebar companyName={company.name} creditsUsed={creditsUsed} creditsTotal={CREDITS_TOTAL} />
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Terminal + Agent bar */}
@@ -740,6 +794,7 @@ export default function DashboardPage() {
               onRunBrandPresence={runBrandPresence}
               citabilityResult={citabilityResult} isCheckingCitability={isCheckingCitability}
               onRunCitabilityAudit={runCitabilityAudit}
+              creditCosts={CREDIT_COSTS}
             />
           </div>
 

@@ -34,6 +34,7 @@ import {
 import { useState, useEffect } from "react";
 import { PromptVolumes } from "./PromptVolumes";
 import { TrendsPanel } from "./TrendsPanel";
+import { EditableBlock } from "./EditableBlock";
 
 interface Props {
   activeTab: string;
@@ -114,6 +115,7 @@ interface Props {
   citabilityResult: any;
   isCheckingCitability: boolean;
   onRunCitabilityAudit: () => void;
+  creditCosts?: Record<string, number>;
 }
 
 function ScoreCircle({ score, label, size = "md" }: { score: number; label: string; size?: "sm" | "md" }) {
@@ -209,7 +211,9 @@ export function AnalyticsPanel({
   crawlerAccessResult, isCheckingCrawlers, onRunCrawlerAccess,
   brandPresenceResult, isCheckingBrand, onRunBrandPresence,
   citabilityResult, isCheckingCitability, onRunCitabilityAudit,
+  creditCosts = {},
 }: Props) {
+  const cost = (action: string) => creditCosts[action] || 0;
   const [auditUrl, setAuditUrl] = useState(websiteUrl || "");
   useEffect(() => { if (websiteUrl && !auditUrl) setAuditUrl(websiteUrl); }, [websiteUrl]);
 
@@ -1034,14 +1038,14 @@ export function AnalyticsPanel({
                   disabled={isGeneratingLlmsTxt}
                   className="flex-1 bg-zinc-100 text-zinc-900 hover:bg-white h-10 text-[13px] font-medium rounded-lg"
                 >
-                  {isGeneratingLlmsTxt ? <><Loader2 size={15} className="animate-spin mr-2" />Generating...</> : "Generate llms.txt"}
+                  {isGeneratingLlmsTxt ? <><Loader2 size={15} className="animate-spin mr-2" />Generating...</> : <>{cost("llms_txt") > 0 && <span className="text-zinc-500 mr-1">{cost("llms_txt")}cr</span>}Generate llms.txt</>}
                 </Button>
                 <Button
                   onClick={onRunGeoImprovement}
                   disabled={isGeneratingGeoImprovement}
                   className="flex-1 bg-zinc-100 text-zinc-900 hover:bg-white h-10 text-[13px] font-medium rounded-lg"
                 >
-                  {isGeneratingGeoImprovement ? <><Loader2 size={15} className="animate-spin mr-2" />Planning...</> : "Get Improvement Plan"}
+                  {isGeneratingGeoImprovement ? <><Loader2 size={15} className="animate-spin mr-2" />Planning...</> : <>{cost("geo_improvement") > 0 && <span className="text-zinc-500 mr-1">{cost("geo_improvement")}cr</span>}Get Improvement Plan</>}
                 </Button>
               </div>
 
@@ -1392,10 +1396,18 @@ export function AnalyticsPanel({
                         <h4 className="text-[13px] font-semibold text-zinc-200 mb-4">LinkedIn Posts ({contentResult.linkedinPosts.length})</h4>
                         <div className="space-y-2.5">
                           {contentResult.linkedinPosts.map((post: string, i: number) => (
-                            <div key={i} className="p-3.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30 relative group">
-                              <div className="text-[13px] text-zinc-300 whitespace-pre-wrap leading-relaxed pr-8">{post}</div>
-                              <CopyBtn text={post} field={`linkedin-${i}`} />
-                            </div>
+                            <EditableBlock
+                              key={i}
+                              text={post}
+                              onSave={(newText) => {
+                                const updated = [...contentResult.linkedinPosts];
+                                updated[i] = newText;
+                                // No state setter needed — mutates in place for display
+                              }}
+                              onRegenerate={onRunContent}
+                              isRegenerating={isGeneratingContent}
+                              regenerateCost={cost("content")}
+                            />
                           ))}
                         </div>
                       </CardContent>
@@ -1408,10 +1420,17 @@ export function AnalyticsPanel({
                         <h4 className="text-[13px] font-semibold text-zinc-200 mb-4">WhatsApp Broadcasts ({contentResult.whatsappMessages.length})</h4>
                         <div className="space-y-2.5">
                           {contentResult.whatsappMessages.map((msg: string, i: number) => (
-                            <div key={i} className="p-3.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30 relative group">
-                              <div className="text-[13px] text-zinc-300 whitespace-pre-wrap leading-relaxed pr-8">{msg}</div>
-                              <CopyBtn text={msg} field={`whatsapp-${i}`} />
-                            </div>
+                            <EditableBlock
+                              key={i}
+                              text={msg}
+                              onSave={(newText) => {
+                                const updated = [...contentResult.whatsappMessages];
+                                updated[i] = newText;
+                              }}
+                              onRegenerate={onRunContent}
+                              isRegenerating={isGeneratingContent}
+                              regenerateCost={cost("content")}
+                            />
                           ))}
                         </div>
                       </CardContent>
