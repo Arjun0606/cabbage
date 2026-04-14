@@ -204,38 +204,64 @@ Use the actual local currency and terms (lakhs/crore for India, AED for UAE, GBP
  */
 export async function generateSearchQueries(
   city: string,
-  brand: string,
-  projects: string[],
+  _brand: string,
+  _projects: string[],
   locality?: string
 ): Promise<string[]> {
+  // NOTE: We do NOT include the brand name in queries.
+  // Real buyers don't know the developer — they search by location, budget, config.
+  // The test is: does ChatGPT/Google AI RECOMMEND this developer when asked generic queries?
+  // That's the real measure of GEO visibility.
+
   const system = "Return a JSON array of exactly 20 English strings. No other text.";
 
-  const projectName = projects[0] || "";
-  const otherProjects = projects.slice(1).join(", ");
+  const loc = locality || city;
 
-  const prompt = `Generate exactly 20 search queries that real home buyers in ${city}, India would type into ChatGPT or Google Search right now.
+  const prompt = `Generate exactly 20 search queries that a real home buyer in ${city}, India would type into ChatGPT or Google right now. These buyers DO NOT know any specific developer — they are searching by location, budget, and requirements.
 
-BRAND: ${brand}
-${projectName ? `MAIN PROJECT: ${projectName}` : ""}
-${otherProjects ? `OTHER PROJECTS: ${otherProjects}` : ""}
-${locality ? `LOCALITY: ${locality}` : ""}
+CITY: ${city}
+${locality ? `AREA/LOCALITY: ${locality}` : ""}
 
-RULES:
-- ALL queries MUST be in ENGLISH (not Hindi, not Telugu, not any other language)
-- Queries must be things REAL BUYERS actually type — not marketing keywords
-- Include the actual brand name "${brand}" in 3-4 queries (buyers google the brand)
-- Include the actual project name "${projectName}" in 2-3 queries if provided
-- Include real nearby landmarks, IT parks, metro stations, schools for ${locality || city}
-- Use Indian price formats: "under 80 lakhs", "1 to 2 crore range"
+CRITICAL RULES:
+- ALL queries in ENGLISH only
+- DO NOT include any developer or project name — the buyer doesn't know them yet
+- These are DISCOVERY queries — the buyer wants ChatGPT to RECOMMEND developers
+- Use real landmarks, IT parks, metro stations, schools, hospitals near ${loc}
+- Use Indian price formats (lakhs, crore)
+- Must be realistic queries a 28-45 year old IT professional or business owner would type
 
 Generate this exact mix:
-1-3: Direct brand queries ("${brand} reviews", "${brand} upcoming projects ${city}", "${brand} RERA status")
-4-6: Direct project queries ("${projectName} price per sqft", "${projectName} vs [real competitor]", "${projectName} possession date")
-7-10: Location + config queries ("3BHK flats in ${locality || city} under 1.5 crore", "gated community near [real IT park] ${city}")
-11-14: Comparison and research queries ("best builders in ${city} for 3BHK", "${locality || city} vs [nearby area] for investment", "which is better [area] or [area] ${city}")
-15-17: Buyer intent queries ("ready to move flats in ${locality || city}", "new launch apartments ${city} 2026", "RERA approved projects in ${locality || city}")
-18-20: Investment and lifestyle queries ("rental yield in ${locality || city}", "upcoming metro near ${locality || city}", "best locality to buy flat in ${city} 2026")
+1-4: Location + budget queries
+  "best 3BHK apartments in ${loc} under 1.5 crore"
+  "affordable flats near [real IT park name] ${city}"
+  "luxury apartments in ${loc} with good amenities"
+  "2BHK flats in ${city} under 80 lakhs"
 
+5-8: Decision queries (these are HIGH VALUE — buyer is close to buying)
+  "which builder has the best track record in ${city}"
+  "top 5 residential projects in ${loc} 2026"
+  "best gated community in ${loc} for families"
+  "RERA approved projects near [real metro station] ${city}"
+
+9-12: Comparison queries
+  "${loc} vs [real nearby area] which is better to buy"
+  "should I buy in ${loc} or [real nearby area]"
+  "best area to buy flat in ${city} 2026"
+  "upcoming areas in ${city} for real estate investment"
+
+13-16: Specific need queries
+  "projects near [real school name] ${city}"
+  "apartments with good resale value in ${loc}"
+  "ready to move flats in ${loc}"
+  "new launch projects in ${city} with swimming pool and gym"
+
+17-20: Research and investment queries
+  "is ${loc} a good area to invest in real estate"
+  "property price trends in ${loc} ${city}"
+  "rental yield in ${loc}"
+  "upcoming infrastructure projects near ${loc} ${city}"
+
+Use REAL landmark names specific to ${loc}, ${city} — not generic placeholders.
 Return JSON array of 20 strings.`;
 
   const text = await aiLight(system, prompt, 1500);
@@ -244,22 +270,29 @@ Return JSON array of 20 strings.`;
     try { return JSON.parse(jsonMatch[0]); } catch { /* fall through */ }
   }
 
-  // Fallback with actual brand/project names
+  // Fallback — all generic buyer queries, zero brand mentions
   return [
-    `${brand} reviews`,
-    `${brand} projects in ${city}`,
-    `${brand} RERA registration status`,
-    ...(projectName ? [`${projectName} price`, `${projectName} reviews`, `${projectName} vs competitors`] : []),
-    `best 3BHK apartments in ${locality || city}`,
-    `flats under 1 crore in ${city}`,
+    `best 3BHK apartments in ${loc} under 1.5 crore`,
     `top builders in ${city} 2026`,
-    `new launch projects in ${city} 2026`,
-    `${locality || city} real estate investment`,
-    `gated community apartments ${city}`,
-    `ready to move flats ${locality || city}`,
-    `RERA approved projects in ${city}`,
-    `best locality to buy flat in ${city}`,
-  ].slice(0, 20);
+    `affordable flats near IT parks ${city}`,
+    `luxury apartments in ${loc}`,
+    `2BHK flats in ${city} under 80 lakhs`,
+    `best gated community in ${loc}`,
+    `RERA approved projects in ${loc}`,
+    `${loc} vs nearby areas which is better`,
+    `new launch projects ${city} 2026`,
+    `should I buy flat in ${loc}`,
+    `best area to invest in ${city} real estate`,
+    `ready to move apartments ${loc}`,
+    `apartments with good resale value ${loc}`,
+    `property price trends ${loc}`,
+    `upcoming metro stations near ${loc}`,
+    `rental yield ${loc} ${city}`,
+    `top 5 residential projects ${loc}`,
+    `projects near IT parks ${city}`,
+    `best locality to buy flat ${city} 2026`,
+    `gated community with pool and gym ${city}`,
+  ];
 }
 
 // ---------- Content Plan Generator ----------
