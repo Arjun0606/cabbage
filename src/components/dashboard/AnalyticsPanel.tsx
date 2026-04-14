@@ -36,6 +36,8 @@ import { PromptVolumes } from "./PromptVolumes";
 import { TrendsPanel } from "./TrendsPanel";
 
 interface Props {
+  activeTab: string;
+  onTabChange: (tab: string) => void;
   auditResult: any;
   aiVisResult: any;
   backlinkResult: any;
@@ -183,6 +185,7 @@ function EmptyState({ icon: Icon, title, subtitle }: { icon: any; title: string;
 }
 
 export function AnalyticsPanel({
+  activeTab, onTabChange,
   auditResult, aiVisResult, backlinkResult, technicalResult,
   isAuditing, isCheckingAI, isCheckingBacklinks, isCheckingTechnical,
   onRunAudit, onRunAIVisibility, onRunBacklinks, onRunTechnical,
@@ -266,7 +269,7 @@ export function AnalyticsPanel({
         </div>
       )}
 
-      <Tabs defaultValue="health" className="space-y-5">
+      <Tabs value={activeTab} onValueChange={onTabChange} className="space-y-5">
         <TabsList className="bg-zinc-900/60 border border-zinc-800/50 rounded-lg p-0.5 h-auto">
           <TabsTrigger value="health" className="text-[13px] rounded-md px-3.5 py-1.5">Health</TabsTrigger>
           <TabsTrigger value="aigeo" className="text-[13px] rounded-md px-3.5 py-1.5">AI/GEO</TabsTrigger>

@@ -18,6 +18,7 @@ interface Props {
   backlinkResult: any;
   technicalResult: any;
   competitorResults: any[];
+  onNavigateToTab?: (tab: string) => void;
 }
 
 interface FeedItem {
@@ -26,10 +27,11 @@ interface FeedItem {
   iconBg: string;
   title: string;
   subtitle: string;
+  actionTab?: string; // which tab clicking "Fix" navigates to
   items?: { title: string; severity: string; description: string; snippet?: string }[];
 }
 
-export function ActionsFeed({ auditResult, aiVisResult, backlinkResult, technicalResult, competitorResults }: Props) {
+export function ActionsFeed({ auditResult, aiVisResult, backlinkResult, technicalResult, competitorResults, onNavigateToTab }: Props) {
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
 
   const feedItems: FeedItem[] = [];
@@ -43,6 +45,7 @@ export function ActionsFeed({ auditResult, aiVisResult, backlinkResult, technica
       iconBg: "bg-zinc-800 text-zinc-400",
       title: "SEO & Performance Fixes",
       subtitle: `${critical} critical, ${high} high priority`,
+      actionTab: "health",
       items: auditResult.fixes,
     });
   }
@@ -56,6 +59,7 @@ export function ActionsFeed({ auditResult, aiVisResult, backlinkResult, technica
         iconBg: "bg-zinc-800 text-zinc-400",
         title: "Real Estate SEO Issues",
         subtitle: `${failed.length} issues found`,
+        actionTab: "health",
         items: failed.map((c: any) => ({ title: c.label, severity: "high", description: c.details })),
       });
     }
@@ -73,6 +77,7 @@ export function ActionsFeed({ auditResult, aiVisResult, backlinkResult, technica
         iconBg: "bg-zinc-800 text-zinc-400",
         title: "AI/GEO Recommendations",
         subtitle: `${failedChecks.length + missingQueries.length} issues found`,
+        actionTab: "aigeo",
         items: [
           ...failedChecks.map((c: any) => ({ title: c.check, severity: "high", description: c.details })),
           ...missingQueries.slice(0, 5).map((q: any) => ({
@@ -92,6 +97,7 @@ export function ActionsFeed({ auditResult, aiVisResult, backlinkResult, technica
       iconBg: "bg-zinc-800 text-zinc-400",
       title: "Link Building Opportunities",
       subtitle: `DA ${backlinkResult.domainAuthority}, ${backlinkResult.recommendations.length} recommendations`,
+      actionTab: "links",
       items: backlinkResult.recommendations.map((r: any) => ({
         title: r.title, severity: r.priority, description: r.description,
       })),
@@ -105,6 +111,7 @@ export function ActionsFeed({ auditResult, aiVisResult, backlinkResult, technica
       iconBg: "bg-zinc-500/15 text-zinc-400",
       title: "Technical Issues",
       subtitle: `On-Page score: ${technicalResult.onPageScore}/100, ${technicalResult.resourceIssues.length} issues`,
+      actionTab: "health",
       items: technicalResult.resourceIssues.map((i: any) => ({
         title: i.issue, severity: i.severity === "error" ? "critical" : "medium", description: "",
       })),
@@ -179,7 +186,17 @@ export function ActionsFeed({ auditResult, aiVisResult, backlinkResult, technica
                         />
                       )}
                     </div>
-                    <p className="text-[12px] text-zinc-500 mt-0.5">{item.subtitle}</p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <p className="text-[12px] text-zinc-500">{item.subtitle}</p>
+                      {item.actionTab && onNavigateToTab && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); onNavigateToTab(item.actionTab!); }}
+                          className="text-[11px] text-[#7CB342] hover:text-[#8BC34A] font-medium transition-colors"
+                        >
+                          Fix →
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>

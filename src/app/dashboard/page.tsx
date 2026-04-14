@@ -73,6 +73,8 @@ export default function DashboardPage() {
     backlinks: { current: 0, previous: null, change: 0, direction: "new", history: [] },
   });
 
+  const [activeTab, setActiveTab] = useState("health");
+
   const [isAuditing, setIsAuditing] = useState(false);
   const [isCheckingAI, setIsCheckingAI] = useState(false);
   const [isCheckingBacklinks, setIsCheckingBacklinks] = useState(false);
@@ -688,6 +690,7 @@ export default function DashboardPage() {
           {/* CENTER: Analytics — scrollable */}
           <div className="flex-1 overflow-y-auto min-h-0">
             <AnalyticsPanel
+              activeTab={activeTab} onTabChange={setActiveTab}
               auditResult={auditResult} aiVisResult={aiVisResult} backlinkResult={backlinkResult}
               technicalResult={technicalResult} isAuditing={isAuditing} isCheckingAI={isCheckingAI}
               isCheckingBacklinks={isCheckingBacklinks} isCheckingTechnical={isCheckingTechnical}
@@ -744,6 +747,7 @@ export default function DashboardPage() {
             <ActionsFeed
               auditResult={auditResult} aiVisResult={aiVisResult} backlinkResult={backlinkResult}
               technicalResult={technicalResult} competitorResults={competitorResults}
+              onNavigateToTab={setActiveTab}
             />
           </div>
         </div>
