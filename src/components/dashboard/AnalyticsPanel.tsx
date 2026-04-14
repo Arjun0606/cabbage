@@ -35,6 +35,7 @@ import { useState, useEffect } from "react";
 import { PromptVolumes } from "./PromptVolumes";
 import { TrendsPanel } from "./TrendsPanel";
 import { EditableBlock } from "./EditableBlock";
+import { GEOProgressPanel } from "./GEOProgressPanel";
 
 interface Props {
   activeTab: string;
@@ -116,6 +117,7 @@ interface Props {
   isCheckingCitability: boolean;
   onRunCitabilityAudit: () => void;
   creditCosts?: Record<string, number>;
+  geoProgress?: any;
 }
 
 function ScoreCircle({ score, label, size = "md" }: { score: number; label: string; size?: "sm" | "md" }) {
@@ -212,6 +214,7 @@ export function AnalyticsPanel({
   brandPresenceResult, isCheckingBrand, onRunBrandPresence,
   citabilityResult, isCheckingCitability, onRunCitabilityAudit,
   creditCosts = {},
+  geoProgress,
 }: Props) {
   const cost = (action: string) => creditCosts[action] || 0;
   const [auditUrl, setAuditUrl] = useState(websiteUrl || "");
@@ -760,6 +763,9 @@ export function AnalyticsPanel({
         {/* -------- AI/GEO TAB -------- */}
         {/* ================================================================ */}
         <TabsContent value="aigeo" className="space-y-4">
+
+          {/* GEO Progress Tracker — the core $600/month value prop */}
+          {geoProgress?.currentScan && <GEOProgressPanel progress={geoProgress} />}
 
           {/* What Changed — shows score deltas to drive urgency */}
           {trends.ai_visibility?.history?.length >= 2 && (

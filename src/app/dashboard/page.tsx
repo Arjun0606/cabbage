@@ -9,6 +9,7 @@ import { ChatPanel } from "@/components/dashboard/ChatPanel";
 import { TerminalHeader } from "@/components/dashboard/TerminalHeader";
 import { AgentStatusBar } from "@/components/dashboard/AgentStatusBar";
 import { recordScan, getAllTrends, type TrendData } from "@/lib/scanHistory";
+import { recordGEOScan, getGEOProgress, type GEOProgress } from "@/lib/geoHistory";
 
 export default function DashboardPage() {
   const [company, setCompany] = useState({
@@ -73,6 +74,13 @@ export default function DashboardPage() {
     backlinks: { current: 0, previous: null, change: 0, direction: "new", history: [] },
   });
 
+  const [geoProgress, setGeoProgress] = useState<GEOProgress>({
+    currentScan: null, previousScan: null, allScans: [],
+    mentionRate: 0, previousMentionRate: 0, mentionRateChange: 0,
+    newlyFound: [], newlyLost: [], neverFound: [], alwaysFound: [],
+    trajectory: "new",
+  });
+
   const [activeTab, setActiveTab] = useState("health");
 
   const [isAuditing, setIsAuditing] = useState(false);
@@ -128,6 +136,7 @@ export default function DashboardPage() {
           localData = JSON.parse(saved);
           setCompany(localData);
           setTrends(getAllTrends(localData.website));
+          setGeoProgress(getGEOProgress(localData.name));
         }
 
         // Then try to sync from Supabase (if configured)
@@ -281,6 +290,15 @@ export default function DashboardPage() {
         addLog(`> Queries tested: "${sampleQueries.join('", "')}" + ${total - 3} more`);
       }
       refreshTrends();
+      // Record GEO scan for progress tracking
+      if (data.queryResults?.length) {
+        recordGEOScan(company.name, company.city, data.scores, data.queryResults);
+        const updatedProgress = getGEOProgress(company.name);
+        setGeoProgress(updatedProgress);
+        if (updatedProgress.newlyFound.length > 0) {
+          addLog(`> GEO Progress: +${updatedProgress.newlyFound.length} new queries found since last scan`);
+        }
+      }
     } catch (err) { addLog(`> Error: ${err instanceof Error ? err.message : "Failed"}`); }
     finally { setIsCheckingAI(false); }
   };
@@ -795,6 +813,7 @@ export default function DashboardPage() {
               citabilityResult={citabilityResult} isCheckingCitability={isCheckingCitability}
               onRunCitabilityAudit={runCitabilityAudit}
               creditCosts={CREDIT_COSTS}
+              geoProgress={geoProgress}
             />
           </div>
 
