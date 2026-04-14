@@ -110,6 +110,7 @@ export default function DashboardPage() {
     schema: 2, landing: 5, portal: 2, neighborhood: 3, progress: 2,
     report: 5, ads: 3, llms_txt: 2, geo_improvement: 3, crawler: 1,
     brand_presence: 2, citability: 2, chat: 1, locality: 1,
+    locality_domination: 10, competitor_battle: 8, citation_booster: 8, gbp_posts: 3,
   };
 
   const spendCredits = (action: string): boolean => {
@@ -748,6 +749,80 @@ export default function DashboardPage() {
       addLog(`> Publish these to your website, then re-scan to see improvement`);
     } catch (err) { addLog(`> Error: ${err instanceof Error ? err.message : "Failed"}`); }
     finally { setIsFixingGeo(false); }
+  };
+
+  const [localityDominationResult, setLocalityDominationResult] = useState<any>(null);
+  const [isGeneratingDomination, setIsGeneratingDomination] = useState(false);
+  const [competitorBattleResult, setCompetitorBattleResult] = useState<any>(null);
+  const [isBattling, setIsBattling] = useState(false);
+  const [citationBoosterResult, setCitationBoosterResult] = useState<any>(null);
+  const [isBoostingCitations, setIsBoostingCitations] = useState(false);
+
+  const runLocalityDomination = async () => {
+    if (!spendCredits("locality_domination")) return;
+    setIsGeneratingDomination(true);
+    const ctx = getProjectContext();
+    addLog(`> Generating Locality Domination Pack for ${ctx.location || ctx.city}...`);
+    try {
+      const res = await fetch("/api/locality-domination", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...ctx, nearbyLandmarks: "",
+          competitorNames: company.competitors.map((c: any) => c.name),
+        }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setLocalityDominationResult(data);
+      addLog(`> Domination Pack: ${data.totalPages} pages, ${data.totalFaqs} FAQs, ~${data.totalWords?.toLocaleString()} words`);
+      addLog(`> Publish all pages to become THE authority for ${ctx.location || ctx.city}`);
+    } catch (err) { addLog(`> Error: ${err instanceof Error ? err.message : "Failed"}`); }
+    finally { setIsGeneratingDomination(false); }
+  };
+
+  const runCompetitorBattle = async (competitorName: string) => {
+    if (!spendCredits("competitor_battle")) return;
+    setIsBattling(true);
+    addLog(`> Running GEO Battle: ${company.name} vs ${competitorName}...`);
+    try {
+      const res = await fetch("/api/competitor-geo-battle", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          brand: company.name, competitorName, city: company.city,
+          projects: company.projects.map((p: any) => p.name),
+          websiteUrl: company.website,
+        }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setCompetitorBattleResult(data);
+      const v = data.summary;
+      addLog(`> Battle Result: You win ${v.ourWins}, ${competitorName} wins ${v.theirWins}, both: ${v.both}, neither: ${v.neither}`);
+      if (v.verdict === "losing") addLog(`> You're LOSING to ${competitorName} in AI search — fix ${data.lostQueries?.length} queries`);
+    } catch (err) { addLog(`> Error: ${err instanceof Error ? err.message : "Failed"}`); }
+    finally { setIsBattling(false); }
+  };
+
+  const runCitationBooster = async () => {
+    if (!spendCredits("citation_booster")) return;
+    setIsBoostingCitations(true);
+    addLog(`> Generating Citation Booster toolkit...`);
+    try {
+      const ctx = getProjectContext();
+      const res = await fetch("/api/citation-booster", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...ctx, yearEstablished: "", projectsCompleted: "", awards: "",
+        }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setCitationBoosterResult(data);
+      const listings = Object.keys(data.directoryListings || {}).length;
+      addLog(`> Citation Booster: ${listings} directory listings, press release, ${data.communityAnswers?.length || 0} community answers, GBP optimization`);
+      addLog(`> Execute these to increase brand mentions across the web — the #1 factor for AI citations`);
+    } catch (err) { addLog(`> Error: ${err instanceof Error ? err.message : "Failed"}`); }
+    finally { setIsBoostingCitations(false); }
   };
 
   const runGbpPosts = async () => {
