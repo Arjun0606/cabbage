@@ -204,43 +204,62 @@ Use the actual local currency and terms (lakhs/crore for India, AED for UAE, GBP
  */
 export async function generateSearchQueries(
   city: string,
-  _brand: string,
+  brand: string,
   projects: string[],
   locality?: string
 ): Promise<string[]> {
-  const system = "Return a JSON array of strings only.";
+  const system = "Return a JSON array of exactly 20 English strings. No other text.";
 
-  const prompt = `Generate 20 search queries that home buyers in ${city} would actually type into ChatGPT or Google when looking for residential properties.
-${locality ? `Focus on the ${locality} area.` : ""}
-${projects.length > 0 ? `Include queries where someone might discover: ${projects.join(", ")}` : ""}
+  const projectName = projects[0] || "";
+  const otherProjects = projects.slice(1).join(", ");
 
-ALL QUERIES MUST BE IN ENGLISH. Indian buyers search in English on ChatGPT and Google.
+  const prompt = `Generate exactly 20 search queries that real home buyers in ${city}, India would type into ChatGPT or Google Search right now.
 
-Mix of:
-- "best 3BHK apartments in ${locality || city} under 1.5 crore"
-- "top builders in ${city} 2026"
-- "${locality || city} vs [nearby area] which is better to buy"
-- "is ${locality || city} good for real estate investment"
-- "new launch projects in ${city} 2026"
-- "flats near [IT park/metro/school] in ${city}"
-- "apartments with good resale value in ${city}"
-- "${projects[0] || "project"} reviews and pricing"
+BRAND: ${brand}
+${projectName ? `MAIN PROJECT: ${projectName}` : ""}
+${otherProjects ? `OTHER PROJECTS: ${otherProjects}` : ""}
+${locality ? `LOCALITY: ${locality}` : ""}
 
-Use Indian currency (Cr, Lakh) but write everything in English. Return JSON array of 20 strings.`;
+RULES:
+- ALL queries MUST be in ENGLISH (not Hindi, not Telugu, not any other language)
+- Queries must be things REAL BUYERS actually type — not marketing keywords
+- Include the actual brand name "${brand}" in 3-4 queries (buyers google the brand)
+- Include the actual project name "${projectName}" in 2-3 queries if provided
+- Include real nearby landmarks, IT parks, metro stations, schools for ${locality || city}
+- Use Indian price formats: "under 80 lakhs", "1 to 2 crore range"
 
-  const text = await aiLight(system, prompt, 1000);
+Generate this exact mix:
+1-3: Direct brand queries ("${brand} reviews", "${brand} upcoming projects ${city}", "${brand} RERA status")
+4-6: Direct project queries ("${projectName} price per sqft", "${projectName} vs [real competitor]", "${projectName} possession date")
+7-10: Location + config queries ("3BHK flats in ${locality || city} under 1.5 crore", "gated community near [real IT park] ${city}")
+11-14: Comparison and research queries ("best builders in ${city} for 3BHK", "${locality || city} vs [nearby area] for investment", "which is better [area] or [area] ${city}")
+15-17: Buyer intent queries ("ready to move flats in ${locality || city}", "new launch apartments ${city} 2026", "RERA approved projects in ${locality || city}")
+18-20: Investment and lifestyle queries ("rental yield in ${locality || city}", "upcoming metro near ${locality || city}", "best locality to buy flat in ${city} 2026")
+
+Return JSON array of 20 strings.`;
+
+  const text = await aiLight(system, prompt, 1500);
   const jsonMatch = text.match(/\[[\s\S]*\]/);
   if (jsonMatch) {
     try { return JSON.parse(jsonMatch[0]); } catch { /* fall through */ }
   }
 
+  // Fallback with actual brand/project names
   return [
-    `best apartments in ${city}`,
+    `${brand} reviews`,
+    `${brand} projects in ${city}`,
+    `${brand} RERA registration status`,
+    ...(projectName ? [`${projectName} price`, `${projectName} reviews`, `${projectName} vs competitors`] : []),
+    `best 3BHK apartments in ${locality || city}`,
+    `flats under 1 crore in ${city}`,
     `top builders in ${city} 2026`,
-    `new launch projects ${city}`,
-    `${locality || city} property prices`,
-    `residential projects near ${locality || city}`,
-  ];
+    `new launch projects in ${city} 2026`,
+    `${locality || city} real estate investment`,
+    `gated community apartments ${city}`,
+    `ready to move flats ${locality || city}`,
+    `RERA approved projects in ${city}`,
+    `best locality to buy flat in ${city}`,
+  ].slice(0, 20);
 }
 
 // ---------- Content Plan Generator ----------

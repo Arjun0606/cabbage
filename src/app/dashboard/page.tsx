@@ -230,9 +230,20 @@ export default function DashboardPage() {
       const mentioned = data.queryResults?.filter((q: any) => q.chatgpt?.mentioned || q.gemini?.mentioned).length || 0;
       const total = data.queryResults?.length || 0;
       if (mentioned === 0) {
-        addLog(`> ChatGPT + Google AI: 0/${total} queries mention ${company.name} — use the Improvement Plan below`);
+        addLog(`> ChatGPT + Google AI: 0/${total} queries mention ${company.name}`);
+        addLog(`> Your brand is invisible in AI search — use the Improvement Plan below`);
       } else {
         addLog(`> ChatGPT + Google AI: ${mentioned}/${total} queries mention ${company.name}`);
+        // Show which queries found the brand
+        const foundQueries = data.queryResults?.filter((q: any) => q.chatgpt?.mentioned || q.gemini?.mentioned).slice(0, 3);
+        if (foundQueries?.length) {
+          addLog(`> Found in: "${foundQueries.map((q: any) => q.query).join('", "')}"`);
+        }
+      }
+      // Show sample of what was tested
+      const sampleQueries = data.queryResults?.slice(0, 3).map((q: any) => q.query);
+      if (sampleQueries?.length) {
+        addLog(`> Queries tested: "${sampleQueries.join('", "')}" + ${total - 3} more`);
       }
       refreshTrends();
     } catch (err) { addLog(`> Error: ${err instanceof Error ? err.message : "Failed"}`); }
