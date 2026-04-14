@@ -283,6 +283,38 @@ export function AnalyticsPanel({
         {/* -------- HEALTH TAB (Health + Technical + Checks) -------- */}
         {/* ================================================================ */}
         <TabsContent value="health" className="space-y-4">
+          {/* What Changed — SEO scores */}
+          {trends.audit?.history?.length >= 2 && (
+            <SectionCard className={trends.audit.direction === "declining" ? "border-red-500/20" : ""}>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                    trends.audit.direction === "improving" ? "bg-[#7CB342]/10" :
+                    trends.audit.direction === "declining" ? "bg-red-500/10" : "bg-zinc-800"
+                  }`}>
+                    <span className={`text-[15px] font-bold ${
+                      trends.audit.direction === "improving" ? "text-[#7CB342]" :
+                      trends.audit.direction === "declining" ? "text-red-400" : "text-zinc-400"
+                    }`}>
+                      {trends.audit.change > 0 ? "+" : ""}{trends.audit.change}
+                    </span>
+                  </div>
+                  <div>
+                    <div className="text-[13px] font-medium text-zinc-200">
+                      {trends.audit.direction === "improving" ? "SEO score improving — keep it up" :
+                       trends.audit.direction === "declining" ? "SEO score dropped — run a new audit" :
+                       "SEO score stable"}
+                    </div>
+                    <div className="text-[12px] text-zinc-500">
+                      {trends.audit.previous} → {trends.audit.current} since last scan.
+                      {trends.audit.direction === "declining" && " Something changed on your site or Google updated its algorithm."}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </SectionCard>
+          )}
+
           {/* GSC Connect Prompt — like Okara */}
           <SectionCard>
             <CardContent className="p-4">
@@ -690,6 +722,41 @@ export function AnalyticsPanel({
         {/* -------- AI/GEO TAB -------- */}
         {/* ================================================================ */}
         <TabsContent value="aigeo" className="space-y-4">
+
+          {/* What Changed — shows score deltas to drive urgency */}
+          {trends.ai_visibility?.history?.length >= 2 && (
+            <SectionCard className={trends.ai_visibility.direction === "declining" ? "border-red-500/20" : ""}>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                    trends.ai_visibility.direction === "improving" ? "bg-[#7CB342]/10" :
+                    trends.ai_visibility.direction === "declining" ? "bg-red-500/10" : "bg-zinc-800"
+                  }`}>
+                    <span className={`text-[15px] font-bold ${
+                      trends.ai_visibility.direction === "improving" ? "text-[#7CB342]" :
+                      trends.ai_visibility.direction === "declining" ? "text-red-400" : "text-zinc-400"
+                    }`}>
+                      {trends.ai_visibility.change > 0 ? "+" : ""}{trends.ai_visibility.change}
+                    </span>
+                  </div>
+                  <div>
+                    <div className="text-[13px] font-medium text-zinc-200">
+                      {trends.ai_visibility.direction === "improving" ? "Your AI visibility is improving" :
+                       trends.ai_visibility.direction === "declining" ? "Your AI visibility dropped — action needed" :
+                       "Your AI visibility is stable"}
+                    </div>
+                    <div className="text-[12px] text-zinc-500">
+                      Score went from {trends.ai_visibility.previous} → {trends.ai_visibility.current} since last scan.
+                      {trends.ai_visibility.direction === "declining" && " Re-scan and check what changed."}
+                      {trends.ai_visibility.direction === "improving" && " Keep going — consistency compounds."}
+                      {trends.ai_visibility.direction === "stable" && " Publish more content to push higher."}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </SectionCard>
+          )}
+
           <Button
             onClick={onRunAIVisibility}
             disabled={isCheckingAI}
@@ -1059,6 +1126,30 @@ export function AnalyticsPanel({
                             </div>
                           );
                         })}
+                      </div>
+
+                      {/* After Day 30 — generate next month */}
+                      <div className="border-t border-zinc-800/40 pt-4 mt-4">
+                        <SectionCard>
+                          <CardContent className="p-4">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <h5 className="text-[13px] font-semibold text-zinc-200">Plan complete?</h5>
+                                <p className="text-[12px] text-zinc-500 mt-0.5">Re-scan to see your improvements, then generate next month&apos;s plan based on what changed.</p>
+                              </div>
+                              <div className="flex gap-2 flex-shrink-0">
+                                <Button onClick={onRunAIVisibility} disabled={isCheckingAI} variant="outline" className="border-zinc-700 text-[12px] h-8 rounded-lg">
+                                  {isCheckingAI ? <Loader2 size={13} className="animate-spin mr-1" /> : null}
+                                  Re-scan
+                                </Button>
+                                <Button onClick={onRunGeoImprovement} disabled={isGeneratingGeoImprovement} className="bg-[#7CB342] text-zinc-950 hover:bg-[#8BC34A] text-[12px] h-8 rounded-lg">
+                                  {isGeneratingGeoImprovement ? <Loader2 size={13} className="animate-spin mr-1" /> : null}
+                                  Next Month →
+                                </Button>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </SectionCard>
                       </div>
                     </CardContent>
                   </SectionCard>
