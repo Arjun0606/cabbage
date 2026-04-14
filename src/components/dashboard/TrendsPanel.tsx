@@ -12,7 +12,7 @@ interface Props {
 
 function TrendIndicator({ trend }: { trend: TrendData }) {
   if (trend.direction === "new" || trend.previous === null) {
-    return <span className="text-[11px] text-zinc-600">First scan</span>;
+    return <span className="text-[11px] text-zinc-500">First scan</span>;
   }
 
   const icon = trend.direction === "improving"
@@ -73,7 +73,7 @@ export function TrendsPanel({ trends }: Props) {
     { key: "audit", label: "SEO Score", trend: trends.audit },
     { key: "technical", label: "Technical", trend: trends.technical },
     { key: "ai_visibility", label: "AI Visibility", trend: trends.ai_visibility },
-  ].filter(t => t.trend.history.length > 0);
+  ].filter(t => t.trend.history.length > 0 && t.trend.current > 0);
 
   return (
     <Card className="bg-zinc-900/60 border-zinc-800/50 rounded-xl">
@@ -91,13 +91,13 @@ export function TrendsPanel({ trends }: Props) {
             <div key={key} className="flex items-center justify-between">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-[13px] text-zinc-400">{label}</span>
+                  <span className="text-[13px] text-zinc-300">{label}</span>
                   <TrendIndicator trend={trend} />
                 </div>
                 <div className="flex items-baseline gap-1.5 mt-0.5">
-                  <span className="text-xl font-bold text-zinc-100">{trend.current}</span>
+                  <span className="text-xl font-bold text-zinc-100 tabular-nums">{trend.current}</span>
                   {trend.previous !== null && (
-                    <span className="text-[11px] text-zinc-600">from {trend.previous}</span>
+                    <span className="text-[11px] text-zinc-500">from {trend.previous}</span>
                   )}
                 </div>
               </div>

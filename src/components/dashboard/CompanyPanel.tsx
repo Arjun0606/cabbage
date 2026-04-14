@@ -168,25 +168,25 @@ export function CompanyPanel({ company, setCompany }: Props) {
             placeholder="Company name"
             value={company.name}
             onChange={(e) => setCompany({ ...company, name: e.target.value })}
-            className="bg-zinc-900/80 border-white/[0.06] text-[13px] h-9 placeholder:text-zinc-600 focus:border-[#7CB342]/40 focus:ring-[#7CB342]/10 transition-colors"
+            className="bg-zinc-900/80 border-white/[0.06] text-[13px] h-9 placeholder:text-zinc-500 focus:border-[#7CB342]/40 focus:ring-[#7CB342]/10 transition-colors"
           />
           <Input
             placeholder="https://www.example.com/"
             value={company.website}
             onChange={(e) => setCompany({ ...company, website: e.target.value })}
-            className="bg-zinc-900/80 border-white/[0.06] text-[13px] h-9 placeholder:text-zinc-600 focus:border-[#7CB342]/40 focus:ring-[#7CB342]/10 transition-colors"
+            className="bg-zinc-900/80 border-white/[0.06] text-[13px] h-9 placeholder:text-zinc-500 focus:border-[#7CB342]/40 focus:ring-[#7CB342]/10 transition-colors"
           />
           <Input
             placeholder="Primary city"
             value={company.city}
             onChange={(e) => setCompany({ ...company, city: e.target.value })}
-            className="bg-zinc-900/80 border-white/[0.06] text-[13px] h-9 placeholder:text-zinc-600 focus:border-[#7CB342]/40 focus:ring-[#7CB342]/10 transition-colors"
+            className="bg-zinc-900/80 border-white/[0.06] text-[13px] h-9 placeholder:text-zinc-500 focus:border-[#7CB342]/40 focus:ring-[#7CB342]/10 transition-colors"
           />
           <Textarea
             placeholder="About the company..."
             value={company.description}
             onChange={(e) => setCompany({ ...company, description: e.target.value })}
-            className="bg-zinc-900/80 border-white/[0.06] text-[13px] min-h-[72px] placeholder:text-zinc-600 leading-relaxed focus:border-[#7CB342]/40 focus:ring-[#7CB342]/10 transition-colors"
+            className="bg-zinc-900/80 border-white/[0.06] text-[13px] min-h-[72px] placeholder:text-zinc-500 leading-relaxed focus:border-[#7CB342]/40 focus:ring-[#7CB342]/10 transition-colors"
           />
         </div>
       </section>
@@ -200,7 +200,7 @@ export function CompanyPanel({ company, setCompany }: Props) {
             {(company.projects || []).length}
           </Badge>
         </div>
-        <p className="text-[11px] text-zinc-600 mb-2.5">Each project gets its own SEO, content, and AI visibility tracking.</p>
+        <p className="text-[11px] text-zinc-500 mb-2.5">Each project gets its own SEO, content, and AI visibility tracking.</p>
 
         <div className="space-y-2">
           {(company.projects || []).map((project, idx) => (
@@ -214,7 +214,7 @@ export function CompanyPanel({ company, setCompany }: Props) {
                   {project.name || `Project ${idx + 1}`}
                 </span>
                 {project.location && (
-                  <span className="text-[11px] text-zinc-600 truncate max-w-[80px]">{project.location}</span>
+                  <span className="text-[11px] text-zinc-500 truncate max-w-[80px]">{project.location}</span>
                 )}
                 <ChevronDown size={14} className={`text-zinc-600 transition-transform ${expandedProject === idx ? "rotate-180" : ""}`} />
               </button>
@@ -223,20 +223,20 @@ export function CompanyPanel({ company, setCompany }: Props) {
                 <div className="px-3 pb-3 space-y-2 border-t border-zinc-800/40 pt-2.5">
                   <div className="grid grid-cols-2 gap-2">
                     <Input placeholder="Project name" value={project.name} onChange={(e) => updateProject(idx, "name", e.target.value)}
-                      className="bg-zinc-900/80 border-zinc-800 text-[12px] h-8 placeholder:text-zinc-600" />
+                      className="bg-zinc-900/80 border-zinc-800 text-[12px] h-8 placeholder:text-zinc-500" />
                     <Input placeholder="Project website" value={project.website} onChange={(e) => updateProject(idx, "website", e.target.value)}
-                      className="bg-zinc-900/80 border-zinc-800 text-[12px] h-8 placeholder:text-zinc-600" />
+                      className="bg-zinc-900/80 border-zinc-800 text-[12px] h-8 placeholder:text-zinc-500" />
                     <Input placeholder="Location / Locality" value={project.location} onChange={(e) => updateProject(idx, "location", e.target.value)}
-                      className="bg-zinc-900/80 border-zinc-800 text-[12px] h-8 placeholder:text-zinc-600" />
+                      className="bg-zinc-900/80 border-zinc-800 text-[12px] h-8 placeholder:text-zinc-500" />
                     <Input placeholder="Configs (2BHK, 3BHK, Villa)" value={project.configurations || ""} onChange={(e) => updateProject(idx, "configurations", e.target.value)}
-                      className="bg-zinc-900/80 border-zinc-800 text-[12px] h-8 placeholder:text-zinc-600" />
+                      className="bg-zinc-900/80 border-zinc-800 text-[12px] h-8 placeholder:text-zinc-500" />
                     <Input placeholder="Price range" value={project.priceRange || ""} onChange={(e) => updateProject(idx, "priceRange", e.target.value)}
-                      className="bg-zinc-900/80 border-zinc-800 text-[12px] h-8 placeholder:text-zinc-600" />
+                      className="bg-zinc-900/80 border-zinc-800 text-[12px] h-8 placeholder:text-zinc-500" />
                     <Input placeholder="RERA number" value={project.reraNumber || ""} onChange={(e) => updateProject(idx, "reraNumber", e.target.value)}
-                      className="bg-zinc-900/80 border-zinc-800 text-[12px] h-8 placeholder:text-zinc-600" />
+                      className="bg-zinc-900/80 border-zinc-800 text-[12px] h-8 placeholder:text-zinc-500" />
                   </div>
                   <Textarea placeholder="Key amenities (pool, gym, clubhouse, etc.)" value={project.amenities || ""} onChange={(e) => updateProject(idx, "amenities", e.target.value)}
-                    className="bg-zinc-900/80 border-zinc-800 text-[12px] min-h-[50px] placeholder:text-zinc-600" />
+                    className="bg-zinc-900/80 border-zinc-800 text-[12px] min-h-[50px] placeholder:text-zinc-500" />
                   <div className="flex items-center justify-between pt-1">
                     <select
                       value={project.status || "Active"}
@@ -306,7 +306,7 @@ export function CompanyPanel({ company, setCompany }: Props) {
               value={newSite}
               onChange={(e) => setNewSite(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && addSite()}
-              className="bg-zinc-900/80 border-zinc-800 text-[13px] h-9 flex-1 placeholder:text-zinc-600"
+              className="bg-zinc-900/80 border-zinc-800 text-[13px] h-9 flex-1 placeholder:text-zinc-500"
             />
             <button onClick={addSite} className="h-9 w-9 rounded-lg bg-zinc-800/80 hover:bg-zinc-700 border border-zinc-700/50 flex items-center justify-center text-zinc-400 hover:text-zinc-200 transition-all flex-shrink-0">
               <Plus size={14} />
@@ -321,7 +321,7 @@ export function CompanyPanel({ company, setCompany }: Props) {
           <FileText size={15} className="text-zinc-500" />
           <h3 className="text-[13px] font-semibold text-zinc-200">Documents</h3>
         </div>
-        <p className="text-[11px] text-zinc-600 mb-2.5">Upload PDFs or type text. This context is used by all AI agents.</p>
+        <p className="text-[11px] text-zinc-500 mb-2.5">Upload PDFs or type text. This context is used by all AI agents.</p>
 
         <div className="space-y-0.5">
           {documents.map(({ key, label, icon: Icon, hint }) => (
@@ -352,7 +352,7 @@ export function CompanyPanel({ company, setCompany }: Props) {
                         documents: { ...company.documents, [key]: e.target.value },
                       })
                     }
-                    className="bg-zinc-900/80 border-zinc-800 text-[13px] min-h-[80px] placeholder:text-zinc-600 leading-relaxed"
+                    className="bg-zinc-900/80 border-zinc-800 text-[13px] min-h-[80px] placeholder:text-zinc-500 leading-relaxed"
                   />
                   <button
                     onClick={() => uploadPdf(key)}
@@ -397,7 +397,7 @@ export function CompanyPanel({ company, setCompany }: Props) {
             value={newCompetitor}
             onChange={(e) => setNewCompetitor(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && addCompetitor()}
-            className="bg-zinc-900/80 border-zinc-800 text-[13px] h-9 flex-1 placeholder:text-zinc-600"
+            className="bg-zinc-900/80 border-zinc-800 text-[13px] h-9 flex-1 placeholder:text-zinc-500"
           />
           <button onClick={addCompetitor} className="h-9 w-9 rounded-lg bg-zinc-800/80 hover:bg-zinc-700 border border-zinc-700/50 flex items-center justify-center text-zinc-400 hover:text-zinc-200 transition-all flex-shrink-0">
             <Plus size={14} />

@@ -180,7 +180,7 @@ function EmptyState({ icon: Icon, title, subtitle }: { icon: any; title: string;
         <Icon size={28} className="opacity-40" />
       </div>
       <p className="text-[13px] font-medium text-zinc-400">{title}</p>
-      <p className="text-[12px] text-zinc-600 mt-1">{subtitle}</p>
+      <p className="text-[12px] text-zinc-500 mt-1">{subtitle}</p>
     </div>
   );
 }
@@ -231,7 +231,7 @@ export function AnalyticsPanel({
   const CopyBtn = ({ text, field }: { text: string; field: string }) => (
     <button
       onClick={(e) => { e.stopPropagation(); copyToClipboard(text, field); }}
-      className="text-zinc-600 hover:text-zinc-300 transition-colors p-1 rounded"
+      className="text-zinc-500 hover:text-zinc-300 transition-colors p-1 rounded"
       title="Copy"
     >
       {copiedField === field ? <Check size={13} className="text-zinc-100" /> : <Copy size={13} />}
@@ -375,7 +375,7 @@ export function AnalyticsPanel({
               value={auditUrl}
               onChange={(e) => setAuditUrl(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && onRunAudit(auditUrl)}
-              className="bg-zinc-900/80 border-zinc-800 text-[13px] h-10 flex-1 placeholder:text-zinc-600"
+              className="bg-zinc-900/80 border-zinc-800 text-[13px] h-10 flex-1 placeholder:text-zinc-500/80"
             />
             <Button
               onClick={() => onRunAudit(auditUrl)}
@@ -452,15 +452,15 @@ export function AnalyticsPanel({
                   </CardHeader>
                   <CardContent className="space-y-1">
                     {auditResult.seoHealth.map((check: any, i: number) => (
-                      <div key={i} className="flex items-center justify-between py-1.5 text-[13px]">
+                      <div key={i} className={`flex items-center justify-between py-2 text-[13px] ${check.status === "fail" ? "bg-red-500/[0.03] -mx-4 px-4 rounded-lg" : ""}`}>
                         <div className="flex items-center gap-2.5">
                           <StatusIcon status={check.status} />
-                          <span className="text-zinc-300">{check.check}</span>
+                          <span className={check.status === "fail" ? "text-zinc-200" : "text-zinc-300"}>{check.check}</span>
                         </div>
                         <span className={
-                          check.status === "pass" ? "text-zinc-100 text-[12px]" :
-                          check.status === "warn" ? "text-zinc-400 text-[12px]" :
-                          "text-red-400 text-[12px]"
+                          check.status === "pass" ? "text-[#7CB342] text-[12px] font-medium" :
+                          check.status === "warn" ? "text-amber-400 text-[12px]" :
+                          "text-red-400 text-[12px] font-medium"
                         }>
                           {check.value}
                         </span>
@@ -480,17 +480,43 @@ export function AnalyticsPanel({
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-1">
-                  {auditResult.realEstateChecks.map((check: any, i: number) => (
-                    <div key={i} className="flex items-center justify-between py-1.5 text-[13px]">
-                      <div className="flex items-center gap-2.5">
-                        {check.passed ? <CheckCircle2 size={15} className="text-zinc-100" /> : <XCircle size={15} className="text-red-400" />}
-                        <span className="text-zinc-300">{check.label}</span>
+                  {auditResult.realEstateChecks.map((check: any, i: number) => {
+                    // Map failed checks to fix actions
+                    const getFixAction = (): { label: string; onClick: () => void } | null => {
+                      if (check.passed) return null;
+                      const l = (check.label || "").toLowerCase();
+                      if (l.includes("schema")) return { label: "Generate Schema", onClick: onRunSchemaGenerator };
+                      if (l.includes("llms.txt") || l.includes("llms")) return { label: "Generate llms.txt", onClick: onRunLlmsTxt };
+                      if (l.includes("neighborhood") || l.includes("locality") || l.includes("location map")) return { label: "Generate Guide", onClick: onRunNeighborhood };
+                      if (l.includes("floor plan") || l.includes("gallery") || l.includes("virtual tour") || l.includes("amenities") || l.includes("walkthrough")) return { label: "Generate Content", onClick: () => onTabChange("content") };
+                      if (l.includes("whatsapp") || l.includes("enquiry") || l.includes("cta")) return { label: "Get Code", onClick: () => onTabChange("content") };
+                      if (l.includes("portal")) return { label: "Optimize Listing", onClick: onRunPortalOptimizer };
+                      return { label: "How to Fix", onClick: () => onTabChange("content") };
+                    };
+                    const fix = getFixAction();
+
+                    return (
+                      <div key={i} className={`flex items-center justify-between py-2 text-[13px] ${!check.passed ? "bg-red-500/[0.03] -mx-4 px-4 rounded-lg" : ""}`}>
+                        <div className="flex items-center gap-2.5">
+                          {check.passed ? <CheckCircle2 size={15} className="text-[#7CB342]" /> : <XCircle size={15} className="text-red-400" />}
+                          <span className={check.passed ? "text-zinc-300" : "text-zinc-200"}>{check.label}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {fix && (
+                            <button
+                              onClick={fix.onClick}
+                              className="text-[11px] font-medium px-2.5 py-1 rounded-md bg-[#7CB342]/10 text-[#7CB342] border border-[#7CB342]/20 hover:bg-[#7CB342]/20 active:scale-[0.97] transition-all"
+                            >
+                              {fix.label}
+                            </button>
+                          )}
+                          <Badge variant="outline" className="text-[10px] border-zinc-700/50 text-zinc-500 rounded-md">
+                            {check.category}
+                          </Badge>
+                        </div>
                       </div>
-                      <Badge variant="outline" className="text-[10px] border-zinc-700/50 text-zinc-500 rounded-md">
-                        {check.category}
-                      </Badge>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </CardContent>
               </SectionCard>
             </>
@@ -665,7 +691,7 @@ export function AnalyticsPanel({
             </>
           ) : (
             !auditResult && (
-              <p className="text-[12px] text-zinc-600 text-center py-4">Click the wrench button to run a technical SEO audit</p>
+              <p className="text-[12px] text-zinc-500 text-center py-4">Click the wrench button to run a technical SEO audit</p>
             )
           )}
 
@@ -687,7 +713,7 @@ export function AnalyticsPanel({
                       <div key={i} className="flex items-center gap-2.5 py-1.5 text-[13px]">
                         <CheckCircle2 size={15} className="text-zinc-100" />
                         <span className="text-zinc-300">{check.check}</span>
-                        <span className="text-zinc-600 text-[12px] ml-auto">{check.value}</span>
+                        <span className="text-zinc-500 text-[12px] ml-auto">{check.value}</span>
                       </div>
                     ))}
                 </CardContent>
@@ -715,7 +741,7 @@ export function AnalyticsPanel({
               )}
             </>
           ) : (
-            <p className="text-[12px] text-zinc-600 text-center py-4">Run an audit to see pass/fail checks</p>
+            <p className="text-[12px] text-zinc-500 text-center py-4">Run an audit to see pass/fail checks</p>
           )}
         </TabsContent>
 
@@ -821,7 +847,7 @@ export function AnalyticsPanel({
                       <div className={`text-[11px] font-medium ${val?.exists ? "text-zinc-100" : "text-red-400"}`}>
                         {val?.exists ? "Found" : "Missing"}
                       </div>
-                      <div className="text-[10px] text-zinc-600 mt-0.5">{key}</div>
+                      <div className="text-[10px] text-zinc-500 mt-0.5">{key}</div>
                     </div>
                   ))}
                 </div>
@@ -881,7 +907,7 @@ export function AnalyticsPanel({
                       <div className={`text-[14px] font-bold ${dim.score >= 60 ? "text-zinc-100" : dim.score >= 40 ? "text-zinc-400" : "text-red-400"}`}>
                         {dim.score}
                       </div>
-                      <div className="text-[9px] text-zinc-600 mt-0.5 leading-tight">{key.replace(/([A-Z])/g, ' $1').trim()}</div>
+                      <div className="text-[9px] text-zinc-500 mt-0.5 leading-tight">{key.replace(/([A-Z])/g, ' $1').trim()}</div>
                     </div>
                   ))}
                 </div>
@@ -948,7 +974,7 @@ export function AnalyticsPanel({
                         <div className="h-2.5 bg-zinc-800/60 rounded-full overflow-hidden mb-1">
                           <div className="h-full bg-zinc-100 rounded-full transition-all" style={{ width: `${score}%` }} />
                         </div>
-                        <div className="text-[11px] text-zinc-600">{desc}</div>
+                        <div className="text-[11px] text-zinc-500">{desc}</div>
                       </div>
                     ))}
                   </div>
@@ -1034,7 +1060,7 @@ export function AnalyticsPanel({
                         <h4 className="text-[15px] font-semibold text-zinc-100">30-Day Daily Action Plan</h4>
                         <div className="flex items-center gap-2">
                           <span className="text-[13px] text-red-400 font-bold">{geoImprovementResult.currentScore}%</span>
-                          <span className="text-zinc-600">→</span>
+                          <span className="text-zinc-500">→</span>
                           <span className="text-[13px] text-zinc-100 font-bold">{geoImprovementResult.targetScore}%</span>
                         </div>
                       </div>
@@ -1047,7 +1073,7 @@ export function AnalyticsPanel({
                             <div key={w.week} className="p-2.5 rounded-lg bg-zinc-800/40 border border-zinc-700/20 text-center">
                               <div className="text-[10px] text-zinc-500 font-medium">Week {w.week}</div>
                               <div className="text-[14px] font-bold text-zinc-200 mt-0.5">{w.expectedScore}%</div>
-                              <div className="text-[9px] text-zinc-600 mt-0.5 leading-tight">{w.theme.split("—")[0]?.trim()}</div>
+                              <div className="text-[9px] text-zinc-500 mt-0.5 leading-tight">{w.theme.split("—")[0]?.trim()}</div>
                             </div>
                           ))}
                         </div>
@@ -1107,7 +1133,7 @@ export function AnalyticsPanel({
                                 <div className="flex-1 min-w-0">
                                   <div className="text-[13px] text-zinc-200 leading-snug">{day.action}</div>
                                   <div className="flex items-center gap-2 mt-1.5">
-                                    <span className="text-[10px] text-zinc-600">{day.timeEstimate}</span>
+                                    <span className="text-[10px] text-zinc-500">{day.timeEstimate}</span>
                                     <Badge variant="outline" className={`text-[9px] rounded-md h-4 ${
                                       day.priority === "must-do" ? "border-red-500/30 text-red-400" :
                                       day.priority === "should-do" ? "border-zinc-700 text-zinc-400" :
@@ -1421,13 +1447,13 @@ export function AnalyticsPanel({
                       placeholder="Article topic or title..."
                       value={articleTopic}
                       onChange={(e) => setArticleTopic(e.target.value)}
-                      className="bg-zinc-900/80 border-zinc-800 text-[13px] h-10 placeholder:text-zinc-600"
+                      className="bg-zinc-900/80 border-zinc-800 text-[13px] h-10 placeholder:text-zinc-500/80"
                     />
                     <Input
                       placeholder="Target keyword..."
                       value={articleKeyword}
                       onChange={(e) => setArticleKeyword(e.target.value)}
-                      className="bg-zinc-900/80 border-zinc-800 text-[13px] h-10 placeholder:text-zinc-600"
+                      className="bg-zinc-900/80 border-zinc-800 text-[13px] h-10 placeholder:text-zinc-500/80"
                     />
                   </div>
                   <div className="flex gap-2 flex-wrap">
@@ -1852,7 +1878,7 @@ export function AnalyticsPanel({
                     <div className="rounded-lg bg-zinc-800/40 border border-zinc-700/30 p-4 max-h-[500px] overflow-y-auto">
                       <pre className="text-[11px] text-zinc-400 whitespace-pre-wrap font-mono">{landingPageResult.html?.substring(0, 3000)}...</pre>
                     </div>
-                    <p className="text-[11px] text-zinc-600 mt-2">Copy the full HTML and host it on your domain or use with a landing page builder.</p>
+                    <p className="text-[11px] text-zinc-500 mt-2">Copy the full HTML and host it on your domain or use with a landing page builder.</p>
                   </CardContent>
                 </SectionCard>
               ) : (
@@ -2258,7 +2284,7 @@ export function AnalyticsPanel({
                         <div key={i} className="p-3.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30 space-y-2">
                           <div className="text-[13px] text-zinc-200 font-medium">{ad.headline}</div>
                           <div className="text-[12px] text-zinc-400">{ad.primaryText}</div>
-                          {ad.audience && <div className="text-[11px] text-zinc-600">Audience: {typeof ad.audience === 'string' ? ad.audience : JSON.stringify(ad.audience)}</div>}
+                          {ad.audience && <div className="text-[11px] text-zinc-500">Audience: {typeof ad.audience === 'string' ? ad.audience : JSON.stringify(ad.audience)}</div>}
                           <div className="flex items-center gap-2">
                             {ad.cta && <Badge className="bg-zinc-800 text-zinc-300 border-0 text-[10px] h-5 rounded-md">{ad.cta}</Badge>}
                             {ad.format && <Badge variant="outline" className="border-zinc-700/50 text-zinc-500 text-[10px] rounded-md">{ad.format}</Badge>}
@@ -2434,7 +2460,7 @@ export function AnalyticsPanel({
                         <div key={i} className="p-3 rounded-lg bg-zinc-800/40 border border-zinc-700/30 text-center">
                           <div className="text-lg font-bold text-zinc-100">{kpi.value}</div>
                           <div className="text-[11px] text-zinc-500 mt-0.5">{kpi.metric}</div>
-                          {kpi.trend && <div className={`text-[10px] mt-0.5 ${kpi.trend === 'up' ? 'text-zinc-100' : kpi.trend === 'down' ? 'text-red-400' : 'text-zinc-600'}`}>{kpi.trend === 'up' ? '↑' : kpi.trend === 'down' ? '↓' : '→'} {kpi.target && `Target: ${kpi.target}`}</div>}
+                          {kpi.trend && <div className={`text-[10px] mt-0.5 ${kpi.trend === 'up' ? 'text-zinc-100' : kpi.trend === 'down' ? 'text-red-400' : 'text-zinc-500'}`}>{kpi.trend === 'up' ? '↑' : kpi.trend === 'down' ? '↓' : '→'} {kpi.target && `Target: ${kpi.target}`}</div>}
                         </div>
                       ))}
                     </div>

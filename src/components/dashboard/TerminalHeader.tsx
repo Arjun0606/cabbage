@@ -27,7 +27,7 @@ export function TerminalHeader({ logs, onRunFullScan, hasWebsite }: Props) {
       <div className="flex items-center justify-between px-5 py-2.5">
         <div className="flex items-center gap-2.5">
           <div className="w-2 h-2 rounded-full bg-[#7CB342] animate-pulse shadow-[0_0_8px_rgba(124,179,66,0.5)]" />
-          <span className="text-[13px] font-mono text-zinc-400 tracking-tight">
+          <span className="text-[13px] font-mono text-zinc-300 tracking-tight">
             CabbageSEO Terminal &bull; Running Daily
           </span>
         </div>

@@ -168,7 +168,7 @@ export function ActionsFeed({ auditResult, aiVisResult, backlinkResult, technica
     <div className="p-4">
       <div className="flex items-center gap-2.5 mb-4">
         <div className="w-2 h-2 rounded-full bg-[#7CB342]" />
-        <h3 className="text-[13px] font-semibold text-zinc-200">Actions Feed</h3>
+        <h3 className="text-[14px] font-semibold text-zinc-100">Actions Feed</h3>
       </div>
 
       <div className="space-y-2.5">
@@ -187,7 +187,7 @@ export function ActionsFeed({ auditResult, aiVisResult, backlinkResult, technica
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
-                      <h4 className="text-[13px] font-medium text-zinc-200 leading-snug">{item.title}</h4>
+                      <h4 className="text-[13px] font-semibold text-zinc-100 leading-snug">{item.title}</h4>
                       {item.items && (
                         <ChevronDown
                           size={15}
@@ -195,7 +195,7 @@ export function ActionsFeed({ auditResult, aiVisResult, backlinkResult, technica
                         />
                       )}
                     </div>
-                    <p className="text-[12px] text-zinc-500 mt-0.5">{item.subtitle}</p>
+                    <p className="text-[12px] text-zinc-400 mt-0.5">{item.subtitle}</p>
                     {item.actionTab && onNavigateToTab && (
                       <button
                         onClick={(e) => { e.stopPropagation(); onNavigateToTab(item.actionTab!); }}
@@ -219,10 +219,10 @@ export function ActionsFeed({ auditResult, aiVisResult, backlinkResult, technica
                         >
                           {fix.severity}
                         </Badge>
-                        <span className="text-[13px] text-zinc-300 leading-snug">{fix.title}</span>
+                        <span className="text-[13px] text-zinc-200 leading-snug">{fix.title}</span>
                       </div>
                       {fix.description && (
-                        <p className="text-[12px] text-zinc-500 pl-[52px] leading-relaxed">{fix.description}</p>
+                        <p className="text-[12px] text-zinc-400 pl-[52px] leading-relaxed">{fix.description}</p>
                       )}
                       {fix.snippet && (
                         <div className="relative ml-[52px] group/snippet">

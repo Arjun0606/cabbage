@@ -117,7 +117,7 @@ export function ChatPanel({ company, auditResult, aiVisResult }: Props) {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-            className="flex-1 bg-transparent text-[13px] text-zinc-200 placeholder:text-zinc-600 outline-none h-8"
+            className="flex-1 bg-transparent text-[13px] text-zinc-200 placeholder:text-zinc-500 outline-none h-8"
           />
           <button
             onClick={sendMessage}
