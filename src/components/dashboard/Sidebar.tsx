@@ -3,11 +3,11 @@
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import {
-  Sparkles,
   Bot,
   Settings,
   PlusCircle,
 } from "lucide-react";
+import Image from "next/image";
 
 interface Props {
   companyName: string;
@@ -31,8 +31,8 @@ export function Sidebar({ companyName, creditsUsed = 0, creditsTotal = 1000 }: P
       {/* Logo */}
       <div className="py-4">
         <Link href="/" className="block">
-          <div className="w-8 h-8 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center hover:border-zinc-700 transition-colors">
-            <Sparkles size={15} className="text-zinc-100" />
+          <div className="w-8 h-8 rounded-lg overflow-hidden hover:opacity-80 transition-opacity">
+            <Image src="/logo.png" alt="CabbageSEO" width={32} height={32} className="w-full h-full object-contain" />
           </div>
         </Link>
       </div>

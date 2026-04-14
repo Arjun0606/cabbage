@@ -14,7 +14,7 @@ import {
   Plus,
   X,
   ArrowRight,
-  Sparkles,
+  Zap,
 } from "lucide-react";
 
 interface Project {
@@ -95,9 +95,9 @@ export default function OnboardingPage() {
       <div className="w-full max-w-2xl space-y-6">
         {/* Header */}
         <div className="text-center space-y-2">
-          <div className="flex items-center justify-center gap-2 text-emerald-400">
-            <Sparkles size={24} />
-            <h1 className="text-2xl font-bold">CabbageSEO</h1>
+          <div className="flex items-center justify-center gap-3">
+            <img src="/logo.png" alt="CabbageSEO" className="w-10 h-10 object-contain" />
+            <h1 className="text-2xl font-bold text-zinc-100">CabbageSEO</h1>
           </div>
           <p className="text-zinc-400 text-sm">
             AI Marketing Agent for Real Estate Developers
@@ -108,7 +108,7 @@ export default function OnboardingPage() {
                 key={s}
                 className={`h-1.5 rounded-full transition-all ${
                   s <= step
-                    ? "w-12 bg-emerald-500"
+                    ? "w-12 bg-zinc-100"
                     : "w-8 bg-zinc-800"
                 }`}
               />
@@ -190,7 +190,7 @@ export default function OnboardingPage() {
               <Button
                 onClick={() => setStep(2)}
                 disabled={!companyName || !website}
-                className="w-full bg-emerald-600 hover:bg-emerald-700"
+                className="w-full bg-zinc-100 text-zinc-900 hover:bg-white"
               >
                 Continue <ArrowRight size={14} className="ml-2" />
               </Button>
@@ -260,7 +260,7 @@ export default function OnboardingPage() {
                 variant="outline"
                 size="sm"
                 onClick={addProject}
-                className="w-full border-dashed border-zinc-700 text-zinc-400 hover:text-emerald-400 hover:border-emerald-600"
+                className="w-full border-dashed border-zinc-700 text-zinc-400 hover:text-zinc-100 hover:border-zinc-500"
               >
                 <Plus size={14} className="mr-2" />
                 Add another project
@@ -276,7 +276,7 @@ export default function OnboardingPage() {
                 </Button>
                 <Button
                   onClick={() => setStep(3)}
-                  className="flex-1 bg-emerald-600 hover:bg-emerald-700"
+                  className="flex-1 bg-zinc-100 text-zinc-900 hover:bg-white"
                 >
                   Continue <ArrowRight size={14} className="ml-2" />
                 </Button>
@@ -339,7 +339,7 @@ export default function OnboardingPage() {
 
               {/* Summary */}
               <div className="rounded-lg bg-zinc-800/50 p-4 space-y-2">
-                <h4 className="text-sm font-medium text-emerald-400">Ready to launch</h4>
+                <h4 className="text-sm font-medium text-zinc-100">Ready to launch</h4>
                 <div className="text-xs text-zinc-400 space-y-1">
                   <p>
                     <span className="text-zinc-300">{companyName}</span> &bull;{" "}
@@ -353,7 +353,7 @@ export default function OnboardingPage() {
                 </div>
                 <ul className="text-xs text-zinc-400 space-y-1">
                   <li className="flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                    <div className="w-1.5 h-1.5 rounded-full bg-zinc-100" />
                     SEO audit on your main site + all project pages
                   </li>
                   <li className="flex items-center gap-2">
@@ -381,9 +381,9 @@ export default function OnboardingPage() {
                 </Button>
                 <Button
                   onClick={handleComplete}
-                  className="flex-1 bg-emerald-600 hover:bg-emerald-700"
+                  className="flex-1 bg-zinc-100 text-zinc-900 hover:bg-white"
                 >
-                  <Sparkles size={14} className="mr-2" />
+                  <Zap size={14} className="mr-2" />
                   Launch CabbageSEO
                 </Button>
               </div>

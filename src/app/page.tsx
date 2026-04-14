@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   ArrowRight,
-  Sparkles,
+  Zap,
   Loader2,
   CheckCircle2,
   XCircle,
@@ -61,7 +61,7 @@ export default function Home() {
   };
 
   const scoreColor = (score: number) =>
-    score >= 80 ? "text-emerald-400" :
+    score >= 80 ? "text-zinc-100" :
     score >= 60 ? "text-yellow-400" :
     score >= 40 ? "text-orange-400" :
     "text-red-400";
@@ -70,9 +70,7 @@ export default function Home() {
     <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center px-4">
       {/* Logo */}
       <div className="mb-10 flex flex-col items-center gap-3">
-        <div className="w-12 h-12 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center">
-          <Sparkles size={24} className="text-emerald-400" />
-        </div>
+        <img src="/logo.png" alt="CabbageSEO" className="w-14 h-14 object-contain" />
         <h1 className="text-xl font-semibold text-zinc-100">
           Meet CabbageSEO, the AI CMO
         </h1>
@@ -83,8 +81,8 @@ export default function Home() {
 
       {/* Input */}
       <div className="w-full max-w-lg flex items-center gap-0 bg-zinc-900 border border-zinc-800 rounded-lg p-1.5">
-        <div className="pl-3 text-zinc-600">
-          <Sparkles size={16} />
+        <div className="pl-3">
+          <img src="/logo.png" alt="" className="w-5 h-5 object-contain" />
         </div>
         <Input
           placeholder="yourcompany.com"
@@ -164,7 +162,7 @@ export default function Home() {
               ].map(({ label, passed }) => (
                 <div key={label} className="flex items-center gap-2 text-sm py-0.5">
                   {passed ? (
-                    <CheckCircle2 size={14} className="text-emerald-400 flex-shrink-0" />
+                    <CheckCircle2 size={14} className="text-zinc-100 flex-shrink-0" />
                   ) : (
                     <XCircle size={14} className="text-red-400 flex-shrink-0" />
                   )}
@@ -192,19 +190,18 @@ export default function Home() {
           )}
 
           {/* CTA */}
-          <Card className="bg-emerald-950/30 border-emerald-800/50">
+          <Card className="bg-zinc-900/60 border-zinc-700/50">
             <CardContent className="p-5 text-center space-y-3">
               <p className="text-sm text-zinc-300">
                 This is just the surface. Get the full report with <strong>AI Visibility across ChatGPT, Claude, Gemini</strong>, backlink analysis, competitor intelligence, and AI-generated content.
               </p>
               <Button
                 onClick={goToDashboard}
-                className="bg-emerald-600 hover:bg-emerald-700"
+                className="bg-zinc-100 text-zinc-900 hover:bg-white"
               >
-                <Sparkles size={14} className="mr-2" />
-                Open Full Dashboard — Free
+                <Zap size={14} className="mr-2" />
+                Open Full Dashboard
               </Button>
-              <p className="text-[10px] text-zinc-600">14-day free trial. No credit card.</p>
             </CardContent>
           </Card>
         </div>

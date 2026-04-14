@@ -183,7 +183,7 @@ export default function SettingsPage() {
             </div>
             {isConnected ? (
               <div className="flex items-center gap-2">
-                <Badge className="bg-emerald-900/50 text-emerald-400 text-[10px]">Connected</Badge>
+                <Badge className="bg-zinc-800 text-zinc-300 text-[10px]">Connected</Badge>
                 <Button size="sm" variant="outline" className="text-xs border-zinc-700 text-red-400" onClick={() => handleDisconnect(integration.id)}>Disconnect</Button>
               </div>
             ) : (
@@ -253,7 +253,7 @@ export default function SettingsPage() {
                   <h3 className="text-sm font-medium text-zinc-100 mb-4">Current Product</h3>
                   {companyUrl ? (
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded bg-zinc-800 flex items-center justify-center text-xs font-bold text-emerald-400">
+                      <div className="w-8 h-8 rounded bg-zinc-800 flex items-center justify-center text-xs font-bold text-zinc-100">
                         {companyName.charAt(0).toUpperCase()}
                       </div>
                       <div>
@@ -317,10 +317,10 @@ export default function SettingsPage() {
               ))}
 
               <div className="flex items-center justify-end gap-3 pt-4 border-t border-zinc-800">
-                {instructionsSaved && <span className="text-xs text-emerald-400 flex items-center gap-1"><CheckCircle2 size={12} /> Saved</span>}
+                {instructionsSaved && <span className="text-xs text-zinc-100 flex items-center gap-1"><CheckCircle2 size={12} /> Saved</span>}
                 <Button variant="outline" size="sm" className="border-zinc-700 text-xs"
                   onClick={() => setWritingInstructions({ linkedin: "", instagram: "", whatsapp: "", facebook: "", articles: "", general: "" })}>Cancel</Button>
-                <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-xs" onClick={saveWritingInstructions}>
+                <Button size="sm" className="bg-zinc-100 text-zinc-900 hover:bg-white text-xs" onClick={saveWritingInstructions}>
                   <Save size={12} className="mr-1" /> Save changes
                 </Button>
               </div>
@@ -335,7 +335,7 @@ export default function SettingsPage() {
                       <h3 className="text-sm font-medium text-zinc-100">Current Plan</h3>
                       <p className="text-xs text-zinc-500">Contact us to manage your subscription.</p>
                     </div>
-                    <Badge className="bg-emerald-900/50 text-emerald-400">Active</Badge>
+                    <Badge className="bg-zinc-800 text-zinc-300">Active</Badge>
                   </div>
                   <p className="text-xs text-zinc-400">Your usage and billing details will be available in your account dashboard once connected.</p>
                 </CardContent>
@@ -346,7 +346,7 @@ export default function SettingsPage() {
                   <h3 className="text-sm font-medium text-zinc-100">Need help?</h3>
                   <p className="text-xs text-zinc-500">Contact our team for plan details, upgrades, or billing questions.</p>
                   <Link href="/pricing">
-                    <Button className="w-full bg-emerald-600 hover:bg-emerald-700">View Plans</Button>
+                    <Button className="w-full bg-zinc-100 text-zinc-900 hover:bg-white">View Plans</Button>
                   </Link>
                 </CardContent>
               </Card>

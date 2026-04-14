@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Check, Sparkles, ArrowRight } from "lucide-react";
+import { Check, Zap, ArrowRight } from "lucide-react";
 import Link from "next/link";
 
 const FEATURES = [
@@ -36,12 +36,12 @@ export default function PricingPage() {
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
       <div className="border-b border-zinc-800 px-6 py-4">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2 text-emerald-400">
-            <Sparkles size={20} />
-            <span className="font-bold">CabbageSEO</span>
+          <Link href="/" className="flex items-center gap-2">
+            <img src="/logo.png" alt="CabbageSEO" className="w-7 h-7 object-contain" />
+            <span className="font-bold text-zinc-100">CabbageSEO</span>
           </Link>
           <Link href="/">
-            <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700">
+            <Button size="sm" className="bg-zinc-100 text-zinc-900 hover:bg-white">
               Get Started <ArrowRight size={14} className="ml-1" />
             </Button>
           </Link>
@@ -101,8 +101,8 @@ export default function PricingPage() {
             </div>
 
             <Link href="/onboarding" className="block">
-              <Button className="w-full bg-emerald-600 hover:bg-emerald-700 h-11">
-                <Sparkles size={14} className="mr-2" />
+              <Button className="w-full bg-zinc-100 text-zinc-900 hover:bg-white h-11">
+                <Zap size={14} className="mr-2" />
                 Get Started
               </Button>
             </Link>
@@ -127,9 +127,9 @@ export default function PricingPage() {
                 <div className="text-xs text-zinc-500 mt-1">In-house SEO hire</div>
               </CardContent>
             </Card>
-            <Card className="bg-zinc-900 border-emerald-800 ring-1 ring-emerald-800">
+            <Card className="bg-zinc-900 border-zinc-100 ring-1 ring-zinc-100">
               <CardContent className="p-4 text-center">
-                <div className="text-lg font-bold text-emerald-400">~₹42K/mo</div>
+                <div className="text-lg font-bold text-zinc-100">~₹42K/mo</div>
                 <div className="text-xs text-zinc-400 mt-1">CabbageSEO — does 10x more</div>
               </CardContent>
             </Card>
@@ -144,7 +144,7 @@ export default function PricingPage() {
           <div className="space-y-2.5">
             {FEATURES.map((feature) => (
               <div key={feature} className="flex items-center gap-3 text-sm">
-                <Check size={16} className="text-emerald-400 flex-shrink-0" />
+                <Check size={16} className="text-zinc-100 flex-shrink-0" />
                 <span className="text-zinc-300">{feature}</span>
               </div>
             ))}
@@ -153,8 +153,8 @@ export default function PricingPage() {
 
         <div className="mt-16 text-center">
           <Link href="/onboarding">
-            <Button size="lg" className="bg-emerald-600 hover:bg-emerald-700">
-              <Sparkles size={16} className="mr-2" />
+            <Button size="lg" className="bg-zinc-100 text-zinc-900 hover:bg-white">
+              <Zap size={16} className="mr-2" />
               Start Now
             </Button>
           </Link>
