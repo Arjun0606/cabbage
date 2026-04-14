@@ -52,6 +52,7 @@ export interface GEOProgress {
 // ---------- Storage ----------
 
 const GEO_STORAGE_KEY = "cabbageseo_geo_history";
+const GEO_QUERIES_KEY = "cabbageseo_geo_queries";  // Persisted query set
 
 function getGEOHistory(): GEOScanRecord[] {
   try {
@@ -63,9 +64,48 @@ function getGEOHistory(): GEOScanRecord[] {
 }
 
 function saveGEOHistory(records: GEOScanRecord[]) {
-  // Keep last 50 scans (roughly 1 year of weekly scans)
   const trimmed = records.slice(-50);
   localStorage.setItem(GEO_STORAGE_KEY, JSON.stringify(trimmed));
+}
+
+/**
+ * Get saved query set for a brand. If none exists, returns null.
+ * This ensures we track the SAME queries over time for accurate comparison.
+ */
+export function getSavedQueries(brand: string): string[] | null {
+  try {
+    const raw = localStorage.getItem(GEO_QUERIES_KEY);
+    if (!raw) return null;
+    const map = JSON.parse(raw) as Record<string, string[]>;
+    return map[brand.toLowerCase()] || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Save a query set for a brand (first scan locks the queries).
+ */
+export function saveQueries(brand: string, queries: string[]) {
+  try {
+    const raw = localStorage.getItem(GEO_QUERIES_KEY);
+    const map = raw ? JSON.parse(raw) : {};
+    map[brand.toLowerCase()] = queries;
+    localStorage.setItem(GEO_QUERIES_KEY, JSON.stringify(map));
+  } catch { /* ignore */ }
+}
+
+/**
+ * Reset saved queries for a brand (when user wants fresh queries).
+ */
+export function resetSavedQueries(brand: string) {
+  try {
+    const raw = localStorage.getItem(GEO_QUERIES_KEY);
+    if (!raw) return;
+    const map = JSON.parse(raw);
+    delete map[brand.toLowerCase()];
+    localStorage.setItem(GEO_QUERIES_KEY, JSON.stringify(map));
+  } catch { /* ignore */ }
 }
 
 // ---------- Record a scan ----------

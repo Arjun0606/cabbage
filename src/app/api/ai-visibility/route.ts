@@ -4,18 +4,16 @@ import { generateSearchQueries } from "@/lib/agents/localityEngine";
 
 export async function POST(req: NextRequest) {
   try {
-    const { websiteUrl, brand, projects, city } = await req.json();
+    const { websiteUrl, brand, projects, city, savedQueries } = await req.json();
 
     if (!brand) {
       return NextResponse.json({ error: "Brand name is required" }, { status: 400 });
     }
 
-    // Generate queries dynamically based on the actual city and brand
-    const queries = await generateSearchQueries(
-      city || "the market",
-      brand,
-      projects || []
-    );
+    // Use saved queries if provided (for consistent tracking), otherwise generate fresh
+    const queries = (savedQueries && savedQueries.length > 0)
+      ? savedQueries
+      : await generateSearchQueries(city || "the market", brand, projects || []);
 
     const result = await runAIVisibility(
       websiteUrl || "",
@@ -24,7 +22,7 @@ export async function POST(req: NextRequest) {
       queries
     );
 
-    return NextResponse.json(result);
+    return NextResponse.json({ ...result, queriesUsed: queries });
   } catch (error) {
     console.error("AI Visibility error:", error);
     return NextResponse.json(

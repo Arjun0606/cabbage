@@ -118,6 +118,9 @@ interface Props {
   onRunCitabilityAudit: () => void;
   creditCosts?: Record<string, number>;
   geoProgress?: any;
+  onGeoFixQuery?: (query: string) => void;
+  onGeoFixAll?: () => void;
+  isFixingGeo?: boolean;
 }
 
 function ScoreCircle({ score, label, size = "md" }: { score: number; label: string; size?: "sm" | "md" }) {
@@ -215,6 +218,9 @@ export function AnalyticsPanel({
   citabilityResult, isCheckingCitability, onRunCitabilityAudit,
   creditCosts = {},
   geoProgress,
+  onGeoFixQuery,
+  onGeoFixAll,
+  isFixingGeo,
 }: Props) {
   const cost = (action: string) => creditCosts[action] || 0;
   const [auditUrl, setAuditUrl] = useState(websiteUrl || "");
@@ -765,7 +771,16 @@ export function AnalyticsPanel({
         <TabsContent value="aigeo" className="space-y-4">
 
           {/* GEO Progress Tracker — the core $600/month value prop */}
-          {geoProgress?.currentScan && <GEOProgressPanel progress={geoProgress} />}
+          {geoProgress?.currentScan && (
+            <GEOProgressPanel
+              progress={geoProgress}
+              onWriteArticleForQuery={onGeoFixQuery}
+              onFixAllBlindSpots={onGeoFixAll}
+              isGenerating={isFixingGeo}
+              articleCost={cost("article")}
+              bulkFixCost={cost("report")}
+            />
+          )}
 
           {/* What Changed — shows score deltas to drive urgency */}
           {trends.ai_visibility?.history?.length >= 2 && (

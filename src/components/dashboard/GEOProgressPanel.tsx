@@ -2,11 +2,16 @@
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { TrendingUp, TrendingDown, Minus, Eye, EyeOff, BarChart3, ArrowRight } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, Eye, EyeOff, BarChart3, ArrowRight, PenTool, Loader2, Zap } from "lucide-react";
 import { GEOProgress, formatScanDate } from "@/lib/geoHistory";
 
 interface Props {
   progress: GEOProgress;
+  onWriteArticleForQuery?: (query: string) => void;
+  onFixAllBlindSpots?: () => void;
+  isGenerating?: boolean;
+  articleCost?: number;
+  bulkFixCost?: number;
 }
 
 function MentionTrendChart({ scans }: { scans: { date: string; rate: number }[] }) {
@@ -42,7 +47,7 @@ function MentionTrendChart({ scans }: { scans: { date: string; rate: number }[] 
   );
 }
 
-export function GEOProgressPanel({ progress }: Props) {
+export function GEOProgressPanel({ progress, onWriteArticleForQuery, onFixAllBlindSpots, isGenerating, articleCost = 5, bulkFixCost = 15 }: Props) {
   if (!progress.currentScan) return null;
 
   const { currentScan, previousScan, allScans, mentionRate, previousMentionRate, mentionRateChange, newlyFound, newlyLost, neverFound, trajectory } = progress;
@@ -178,7 +183,18 @@ export function GEOProgressPanel({ progress }: Props) {
                           </Badge>
                         ))
                       ) : (
-                        <span className="text-[11px] text-zinc-600">Not found</span>
+                        <>
+                          <span className="text-[11px] text-zinc-600">Not found</span>
+                          {onWriteArticleForQuery && (
+                            <button
+                              onClick={() => onWriteArticleForQuery(q.query)}
+                              disabled={isGenerating}
+                              className="text-[10px] font-medium px-2 py-0.5 rounded bg-[#7CB342]/10 text-[#7CB342] border border-[#7CB342]/20 hover:bg-[#7CB342]/20 active:scale-[0.97] transition-all disabled:opacity-40"
+                            >
+                              {isGenerating ? <Loader2 size={10} className="animate-spin" /> : <><PenTool size={9} className="inline mr-0.5" />{articleCost}cr Fix</>}
+                            </button>
+                          )}
+                        </>
                       )}
                     </div>
                   </div>
@@ -193,8 +209,20 @@ export function GEOProgressPanel({ progress }: Props) {
       {neverFound.length > 0 && allScans.length >= 2 && (
         <Card className="bg-zinc-900/60 border-white/[0.06] rounded-xl">
           <CardContent className="p-4">
-            <h4 className="text-[13px] font-semibold text-zinc-300 mb-2">Persistent Blind Spots ({neverFound.length})</h4>
-            <p className="text-[11px] text-zinc-500 mb-3">Your brand has never appeared for these queries across {allScans.length} scans. Create targeted content for these.</p>
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="text-[13px] font-semibold text-zinc-300">Persistent Blind Spots ({neverFound.length})</h4>
+              {onFixAllBlindSpots && neverFound.length > 0 && (
+                <button
+                  onClick={onFixAllBlindSpots}
+                  disabled={isGenerating}
+                  className="text-[11px] font-medium px-3 py-1.5 rounded-md bg-[#7CB342] text-zinc-900 hover:bg-[#8BC34A] active:scale-[0.97] transition-all disabled:opacity-40 flex items-center gap-1.5"
+                >
+                  {isGenerating ? <Loader2 size={12} className="animate-spin" /> : <Zap size={12} />}
+                  Fix All ({bulkFixCost}cr)
+                </button>
+              )}
+            </div>
+            <p className="text-[11px] text-zinc-500 mb-3">Your brand has never appeared for these queries across {allScans.length} scans.</p>
             <div className="flex flex-wrap gap-1.5">
               {neverFound.slice(0, 10).map((q, i) => (
                 <Badge key={i} variant="outline" className="text-[10px] border-red-500/20 text-red-400/80 bg-red-500/[0.04] rounded-md">

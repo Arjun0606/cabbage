@@ -9,7 +9,7 @@ import { ChatPanel } from "@/components/dashboard/ChatPanel";
 import { TerminalHeader } from "@/components/dashboard/TerminalHeader";
 import { AgentStatusBar } from "@/components/dashboard/AgentStatusBar";
 import { recordScan, getAllTrends, type TrendData } from "@/lib/scanHistory";
-import { recordGEOScan, getGEOProgress, type GEOProgress } from "@/lib/geoHistory";
+import { recordGEOScan, getGEOProgress, getSavedQueries, saveQueries, type GEOProgress } from "@/lib/geoHistory";
 
 export default function DashboardPage() {
   const [company, setCompany] = useState({
@@ -265,7 +265,10 @@ export default function DashboardPage() {
     setIsCheckingAI(true);
     addLog(`> Checking AI visibility across ChatGPT + Google AI...`);
     try {
-      const res = await fetch("/api/ai-visibility", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ websiteUrl: company.website, brand: company.name, projects: company.projects.map(p => p.name), city: company.city }) });
+      // Reuse saved queries for consistent tracking, or generate fresh on first scan
+      const existingQueries = getSavedQueries(company.name);
+      if (existingQueries) addLog(`> Using ${existingQueries.length} tracked queries for consistent comparison`);
+      const res = await fetch("/api/ai-visibility", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ websiteUrl: company.website, brand: company.name, projects: company.projects.map(p => p.name), city: company.city, savedQueries: existingQueries }) });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       setAiVisResult(data);
@@ -290,6 +293,11 @@ export default function DashboardPage() {
         addLog(`> Queries tested: "${sampleQueries.join('", "')}" + ${total - 3} more`);
       }
       refreshTrends();
+      // Save queries for consistent tracking (first scan locks the query set)
+      if (data.queriesUsed?.length && !getSavedQueries(company.name)) {
+        saveQueries(company.name, data.queriesUsed);
+        addLog(`> Locked ${data.queriesUsed.length} queries for ongoing tracking`);
+      }
       // Record GEO scan for progress tracking
       if (data.queryResults?.length) {
         recordGEOScan(company.name, company.city, data.scores, data.queryResults);
@@ -694,6 +702,72 @@ export default function DashboardPage() {
     finally { setIsGeneratingGeoImprovement(false); }
   };
 
+  // ---- GEO fix actions (high-token, high-value) ----
+
+  const [geoContentResult, setGeoContentResult] = useState<any>(null);
+  const [isFixingGeo, setIsFixingGeo] = useState(false);
+  const [gbpResult, setGbpResult] = useState<any>(null);
+  const [isGeneratingGbp, setIsGeneratingGbp] = useState(false);
+
+  const runGeoFixForQuery = async (query: string) => {
+    if (!spendCredits("article")) return;
+    setIsFixingGeo(true);
+    addLog(`> Writing GEO-optimized article for: "${query}"...`);
+    try {
+      const ctx = getProjectContext();
+      const res = await fetch("/api/article-writer", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...ctx, topic: query, targetKeyword: query, articleType: "locality_guide" }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setArticleResult(data);
+      addLog(`> Article: "${data.title}" — ${data.wordCount} words, optimized for "${query}"`);
+      setActiveTab("content");
+    } catch (err) { addLog(`> Error: ${err instanceof Error ? err.message : "Failed"}`); }
+    finally { setIsFixingGeo(false); }
+  };
+
+  const runFixAllBlindSpots = async () => {
+    const blindSpots = geoProgress.neverFound.length > 0 ? geoProgress.neverFound :
+      geoProgress.currentScan?.queries.filter(q => !q.chatgpt.mentioned && !q.gemini.mentioned && !q.perplexity.mentioned && !q.claude.mentioned).map(q => q.query) || [];
+    if (!blindSpots.length) { addLog("> No blind spots to fix"); return; }
+    if (!spendCredits("report")) return;  // 5cr for batch
+    setIsFixingGeo(true);
+    addLog(`> Generating content for ${Math.min(blindSpots.length, 10)} blind spot queries...`);
+    try {
+      const ctx = getProjectContext();
+      const res = await fetch("/api/geo-content-batch", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ queries: blindSpots.slice(0, 10), ...ctx }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setGeoContentResult(data);
+      addLog(`> Generated ${data.totalPieces} content pieces targeting ${data.queriesTargeted} queries`);
+      addLog(`> Publish these to your website, then re-scan to see improvement`);
+    } catch (err) { addLog(`> Error: ${err instanceof Error ? err.message : "Failed"}`); }
+    finally { setIsFixingGeo(false); }
+  };
+
+  const runGbpPosts = async () => {
+    if (!spendCredits("content")) return;
+    setIsGeneratingGbp(true);
+    addLog(`> Generating Google Business Profile posts...`);
+    try {
+      const ctx = getProjectContext();
+      const res = await fetch("/api/gbp-posts", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(ctx),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setGbpResult(data);
+      addLog(`> ${data.posts?.length || 0} GBP posts ready — copy to Google Business Profile`);
+    } catch (err) { addLog(`> Error: ${err instanceof Error ? err.message : "Failed"}`); }
+    finally { setIsGeneratingGbp(false); }
+  };
+
   const runFullScan = async () => {
     const url = company.website;
     if (!url) { addLog("> Set your website URL first"); return; }
@@ -814,6 +888,9 @@ export default function DashboardPage() {
               onRunCitabilityAudit={runCitabilityAudit}
               creditCosts={CREDIT_COSTS}
               geoProgress={geoProgress}
+              onGeoFixQuery={runGeoFixForQuery}
+              onGeoFixAll={runFixAllBlindSpots}
+              isFixingGeo={isFixingGeo}
             />
           </div>
 
