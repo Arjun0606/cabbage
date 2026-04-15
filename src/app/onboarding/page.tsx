@@ -27,25 +27,14 @@ interface Project {
 
 const INDUSTRIES = [
   { id: "real_estate", label: "Real Estate", icon: "🏗️", desc: "Developers, builders, brokerages" },
-  { id: "saas", label: "SaaS / Software", icon: "💻", desc: "B2B and B2C software companies" },
-  { id: "ecommerce", label: "E-Commerce", icon: "🛒", desc: "Online stores and D2C brands" },
-  { id: "healthcare", label: "Healthcare", icon: "🏥", desc: "Hospitals, clinics, health tech" },
-  { id: "legal", label: "Legal / Law", icon: "⚖️", desc: "Law firms and legal services" },
-  { id: "education", label: "Education", icon: "🎓", desc: "Schools, universities, ed-tech" },
-  { id: "finance", label: "Finance", icon: "🏦", desc: "Banks, fintech, insurance" },
-  { id: "hospitality", label: "Hospitality", icon: "🏨", desc: "Hotels, restaurants, travel" },
-  { id: "automotive", label: "Automotive", icon: "🚗", desc: "Dealerships, manufacturers, EV" },
-  { id: "agency", label: "Marketing Agency", icon: "📢", desc: "Agencies managing client SEO/GEO" },
-  { id: "local_business", label: "Local Business", icon: "📍", desc: "Any local service or store" },
-  { id: "other", label: "Other", icon: "🌐", desc: "Any other industry" },
 ];
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const [step, setStep] = useState(0); // Start at 0 for industry selection
+  const [step, setStep] = useState(1); // Skip industry selection — real estate only
 
   // Industry
-  const [industry, setIndustry] = useState("");
+  const [industry, setIndustry] = useState("real_estate");
 
   // Company
   const [companyName, setCompanyName] = useState("");
@@ -119,10 +108,10 @@ export default function OnboardingPage() {
             <h1 className="text-2xl font-bold text-zinc-100">Cabbge</h1>
           </div>
           <p className="text-zinc-400 text-sm">
-            The ultimate SEO & GEO engine
+            AI SEO & GEO for Real Estate Developers
           </p>
           <div className="flex items-center justify-center gap-2 pt-2">
-            {[0, 1, 2, 3].map((s) => (
+            {[1, 2, 3].map((s) => (
               <div
                 key={s}
                 className={`h-1.5 rounded-full transition-all ${
