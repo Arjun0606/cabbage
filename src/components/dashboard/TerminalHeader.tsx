@@ -41,6 +41,7 @@ export function TerminalHeader({ logs, onRunFullScan, hasWebsite }: Props) {
             <Button
               size="sm"
               onClick={onRunFullScan}
+              data-auto-scan="true"
               className="bg-[#7CB342] text-zinc-950 hover:bg-[#8BC34A] active:scale-[0.97] text-[13px] font-medium h-8 px-4 rounded-lg shadow-[0_0_12px_rgba(124,179,66,0.15)] transition-all duration-150"
             >
               <Zap size={13} className="mr-1.5" />

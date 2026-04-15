@@ -303,11 +303,10 @@ export function AnalyticsPanel({
       <Tabs value={activeTab} onValueChange={onTabChange} className="space-y-5">
         <TabsList className="bg-zinc-900/60 border border-zinc-800/50 rounded-lg p-0.5 h-auto">
           <TabsTrigger value="health" className="text-[13px] rounded-md px-3.5 py-1.5">Health</TabsTrigger>
-          <TabsTrigger value="aigeo" className="text-[13px] rounded-md px-3.5 py-1.5">AI/GEO</TabsTrigger>
           <TabsTrigger value="links" className="text-[13px] rounded-md px-3.5 py-1.5">Links</TabsTrigger>
-          <TabsTrigger value="content" className="text-[13px] rounded-md px-3.5 py-1.5">Content</TabsTrigger>
-          <TabsTrigger value="locality" className="text-[13px] rounded-md px-3.5 py-1.5">Locality</TabsTrigger>
-          <TabsTrigger value="report" className="text-[13px] rounded-md px-3.5 py-1.5">Report</TabsTrigger>
+          <TabsTrigger value="technical" className="text-[13px] rounded-md px-3.5 py-1.5">Technical</TabsTrigger>
+          <TabsTrigger value="aigeo" className="text-[13px] rounded-md px-3.5 py-1.5">AI/GEO</TabsTrigger>
+          <TabsTrigger value="checks" className="text-[13px] rounded-md px-3.5 py-1.5">Checks</TabsTrigger>
         </TabsList>
 
         {/* ================================================================ */}
@@ -582,8 +581,12 @@ export function AnalyticsPanel({
             <EmptyState icon={Globe} title="Enter a URL above to run your first SEO audit" subtitle="Performance, SEO health, technical, and industry-specific checks" />
           )}
 
-          {/* --- Divider: Technical section --- */}
-          <div className="border-t border-zinc-800/40 pt-4 mt-4" />
+        </TabsContent>
+
+        {/* ================================================================ */}
+        {/* -------- TECHNICAL TAB -------- */}
+        {/* ================================================================ */}
+        <TabsContent value="technical" className="space-y-4">
 
           {technicalResult ? (
             <>
@@ -758,8 +761,12 @@ export function AnalyticsPanel({
             )
           )}
 
-          {/* --- Divider: Checks section --- */}
-          <div className="border-t border-zinc-800/40 pt-4 mt-4" />
+        </TabsContent>
+
+        {/* ================================================================ */}
+        {/* -------- CHECKS TAB (SEO Health + Real Estate Checks) -------- */}
+        {/* ================================================================ */}
+        <TabsContent value="checks" className="space-y-4">
 
           {auditResult ? (
             <>

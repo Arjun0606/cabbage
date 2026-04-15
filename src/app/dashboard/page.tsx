@@ -184,9 +184,68 @@ export default function DashboardPage() {
           }
         }
 
-        if (localData) {
+        if (localData?.name) {
           addLog(`> Loaded: ${localData.name}`);
-          addLog("> Ready — hit 'Run Full Scan' to start");
+
+          // AUTO-DISCOVER: If documents are empty, scrape website and fill them
+          const hasDocuments = localData.documents?.brandVoice || localData.documents?.productInfo;
+          if (localData.website && !hasDocuments) {
+            addLog("> Analyzing your website...");
+            try {
+              const discoverRes = await fetch("/api/auto-discover", {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ url: localData.website, companyName: localData.name }),
+              });
+              const discovered = await discoverRes.json();
+              if (!discovered.error && discovered.documents) {
+                const enriched = {
+                  ...localData,
+                  city: localData.city || discovered.city || "",
+                  description: localData.description || discovered.companyDescription || "",
+                  documents: {
+                    ...localData.documents,
+                    productInfo: localData.documents?.productInfo || discovered.documents.productInfo || "",
+                    brandVoice: localData.documents?.brandVoice || discovered.documents.brandVoice || "",
+                    brandValues: localData.documents?.brandValues || discovered.documents.brandValues || "",
+                    targetAudience: localData.documents?.targetAudience || discovered.documents.targetAudience || "",
+                    marketingStrategy: localData.documents?.marketingStrategy || discovered.documents.marketingStrategy || "",
+                    competitorAnalysis: localData.documents?.competitorAnalysis || discovered.documents.competitorAnalysis || "",
+                  },
+                };
+                // Add inferred projects if none exist
+                if ((!localData.projects || localData.projects.length === 0) && discovered.inferredProjects?.length) {
+                  enriched.projects = discovered.inferredProjects;
+                }
+                // Add inferred competitors if none exist
+                if ((!localData.competitors || localData.competitors.length === 0) && discovered.inferredCompetitors?.length) {
+                  enriched.competitors = discovered.inferredCompetitors.map((c: string) => ({ name: c, website: "" }));
+                }
+                setCompany(enriched);
+                localStorage.setItem("cabbageseo_company", JSON.stringify(enriched));
+                addLog("> Brand Voice analyzed");
+                addLog("> Product Info extracted");
+                addLog("> Target Audience identified");
+                addLog("> Competitor landscape mapped");
+                if (discovered.seoObservations?.quickWins?.length) {
+                  addLog(`> Found ${discovered.seoObservations.quickWins.length} quick SEO wins`);
+                }
+              }
+            } catch { /* Auto-discover not critical */ }
+          }
+
+          // AUTO-SCAN: If no audit results exist, run full scan automatically
+          const hasResults = localStorage.getItem("cabbageseo_has_scanned");
+          if (localData.website && !hasResults) {
+            addLog("> Running first scan automatically...");
+            localStorage.setItem("cabbageseo_has_scanned", "true");
+            // Trigger scan after a short delay to let UI render
+            setTimeout(() => {
+              const scanBtn = document.querySelector("[data-auto-scan]") as HTMLButtonElement;
+              if (scanBtn) scanBtn.click();
+            }, 1500);
+          } else {
+            addLog("> Ready");
+          }
         } else {
           addLog("> No site configured. Visit the homepage to add one.");
         }
