@@ -96,12 +96,7 @@ Generate this JSON:
   }
 }
 
-Generate:
-- 8 Discovery prompts
-- 5 Comparison prompts
-- 5 Decision prompts
-- 4 Investment prompts
-- 5 top opportunities with specific actions
+Generate as many prompts as this market warrants per category. A large market like Gachibowli or Whitefield will have many more buyer queries than a small town. Cover every realistic query a buyer would ask AI.
 Use REAL landmarks, schools, IT parks specific to ${locality || city}.`;
 
     const raw = await aiComplete(system, prompt, 3000);

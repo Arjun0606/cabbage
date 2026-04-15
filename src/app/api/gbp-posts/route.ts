@@ -34,7 +34,7 @@ Each post must:
 - Reference REAL local landmarks, schools, IT parks, metro stations near the location
 - Be in English with occasional Hindi terms buyers use (crore, lakh, vastu)`;
 
-    const prompt = `Generate 8 Google Business Profile posts for:
+    const prompt = `Generate Google Business Profile posts for:
 
 **Developer:** ${developerName}
 **Project:** ${projectName || "General company post"}
@@ -56,18 +56,18 @@ Generate this JSON structure:
       "title": "Post title (max 58 chars)",
       "body": "Full post body, 100-300 words. Specific details, prices, landmarks.",
       "cta": "Book Site Visit|Get Offer|Learn More|Call Now|Sign Up",
-      "ctaUrl": "${website || "https://example.com"}/enquiry",
-      "imageSuggestion": "What photo to use (e.g. 'Aerial view of project with pool visible')",
+      "ctaUrl": "${website || ""}/enquiry",
+      "imageSuggestion": "What photo to use",
       "targetKeyword": "Primary local keyword this post targets"
     }
   ]
 }
 
-Post mix across 8 posts:
-- 2x Project Updates (construction milestones, new amenities revealed)
-- 2x Offers (limited time pricing, festive offers, early bird discounts)
-- 2x What's New (new configuration launched, RERA approval received, possession dates)
-- 2x Local/Lifestyle (neighborhood guide, connectivity update, school proximity, IT park walkability)
+Generate as many posts as this business needs. Consider:
+- What stage is the project? (pre-launch needs teasers, under-construction needs updates, ready-to-move needs offers)
+- What matters to buyers in ${location || city}? (connectivity, schools, investment potential?)
+- What types work best: updates, offers, events, what's new, local lifestyle, testimonials
+- Cover enough variety for consistent posting over the next month
 
 Make every post genuinely useful and specific to ${location || city}. Use REAL landmarks.`;
 

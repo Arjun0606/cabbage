@@ -126,13 +126,9 @@ Generate this JSON:
   }
 }
 
-Generate:
-- 4 directory listings (99acres, MagicBricks, Housing.com, CommonFloor)
-- 1 press release ready to send
-- 3 listicle pitches
-- 4 community answers (2 Quora, 2 Reddit)
-- Full GBP optimization with 3 posts
-- 2 industry submissions`;
+Generate listings for EVERY relevant property portal in ${city} (99acres, MagicBricks, Housing.com, CommonFloor, NoBroker, SquareYards — whichever are relevant for this market).
+Generate a press release, listicle pitches for relevant publications, community answers for platforms where buyers in ${city} actually ask questions (Quora, Reddit, local forums), GBP optimization, and submissions for any relevant industry associations.
+Generate as much as this developer needs to maximize brand mentions across the web.`;
 
     const raw = await aiComplete(system, prompt, 4000);
 

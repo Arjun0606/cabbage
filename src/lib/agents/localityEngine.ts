@@ -216,12 +216,12 @@ export async function generateSearchQueries(
   // Multi-level GEO: locality (micro) + city (metro) + country (macro)
   // This ensures we track visibility at every level a buyer searches.
 
-  const system = "Return a JSON array of exactly 20 English strings. No other text.";
+  const system = "Return a JSON array of English strings. No other text.";
 
   const loc = locality || city;
   const country = "India"; // Can be parameterized later
 
-  const prompt = `Generate exactly 20 search queries that real home buyers would type into ChatGPT or Google. These buyers DO NOT know any specific developer — they want AI to RECOMMEND one.
+  const prompt = `Generate search queries that real home buyers would type into ChatGPT or Google about ${loc}, ${city}. These buyers DO NOT know any specific developer — they want AI to RECOMMEND one.
 
 CITY: ${city}
 ${locality ? `LOCALITY/AREA: ${locality}` : ""}
@@ -234,36 +234,27 @@ CRITICAL RULES:
 - Use Indian price formats (lakhs, crore)
 - Must be realistic queries a 28-45 year old professional would type
 
-Generate this MULTI-LEVEL MIX:
+Generate queries at THREE levels — as many as this market needs:
 
-LOCALITY LEVEL (8 queries) — hyper-local, micro-market:
-1. "best 3BHK apartments in ${loc} under 1.5 crore"
-2. "affordable flats near [real IT park/landmark] ${loc}"
-3. "top 5 residential projects in ${loc} 2026"
-4. "RERA approved projects near [real metro station] ${loc}"
-5. "${loc} vs [real nearby area] which is better to buy"
-6. "ready to move flats in ${loc}"
-7. "projects near [real school name] ${loc}"
-8. "property price trends in ${loc} 2026"
+LOCALITY LEVEL — hyper-local, micro-market queries:
+- Budget + config combos ("best 3BHK in ${loc} under 1.5 crore")
+- Landmark-based ("flats near [real IT park] ${loc}")
+- Decision queries ("top projects in ${loc} 2026")
+- Comparison queries ("${loc} vs [nearby area]")
+- Generate more for bigger/more complex markets, fewer for smaller ones
 
-CITY LEVEL (8 queries) — metro-wide buyer intent:
-9. "best areas to buy flat in ${city} 2026"
-10. "which builder has the best track record in ${city}"
-11. "luxury apartments in ${city} with good amenities"
-12. "upcoming residential projects in ${city}"
-13. "best gated communities in ${city} for families"
-14. "2BHK flats in ${city} under 80 lakhs"
-15. "top real estate developers in ${city}"
-16. "new launch projects in ${city} with swimming pool"
+CITY LEVEL — metro-wide buyer intent:
+- "best areas to buy in ${city}"
+- "top builders in ${city}"
+- "upcoming projects in ${city}"
+- Cover the queries where city-level results matter
 
-COUNTRY LEVEL (4 queries) — national discovery:
-17. "best cities to buy property in ${country} 2026"
-18. "top real estate developers in ${country}"
-19. "best areas for real estate investment in ${country}"
-20. "upcoming smart cities in ${country} for property"
+COUNTRY LEVEL — national discovery:
+- "best cities for property in ${country}"
+- "top developers in ${country}"
+- Only include if the developer operates at national scale
 
-Use REAL landmark names specific to ${loc}, ${city}.
-Return JSON array of 20 strings.`;
+Use REAL landmark names specific to ${loc}, ${city}. Cover every meaningful query a buyer would ask. Return JSON array of strings.`;
 
   const text = await aiLight(system, prompt, 1500);
   const jsonMatch = text.match(/\[[\s\S]*\]/);

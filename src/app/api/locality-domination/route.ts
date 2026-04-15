@@ -13,12 +13,11 @@ import { aiComplete } from "@/lib/ai";
  * 3. Multiple pages covering the topic from every angle
  * 4. Structured data (JSON-LD) on every page
  *
- * This generates ALL of:
- * - 1 master locality guide (2000+ words)
- * - 5 buyer-intent pages (each targeting a specific query pattern)
- * - 3 comparison pages (area vs area)
- * - 10 FAQ clusters (50+ individual FAQs)
- * - JSON-LD schemas for every page
+ * Generates a COMPLETE content ecosystem tailored to the locality:
+ * - 1 master locality guide
+ * - Buyer-intent pages (as many as the market needs)
+ * - Comparison pages (vs relevant nearby areas)
+ * - FAQ clusters (covering all buyer concerns)
  * - Internal linking map between all pages
  *
  * Token cost: 10cr (high value, high output)
@@ -70,70 +69,61 @@ Generate this JSON:
 {
   "locality": "${location}",
   "city": "${city}",
-  "totalPages": 9,
 
   "masterGuide": {
-    "title": "Complete Guide to Buying a Flat in ${location}, ${city} (2026)",
-    "slug": "buying-flat-in-${location.toLowerCase().replace(/\s+/g, '-')}",
+    "title": "SEO title for the master locality guide",
+    "slug": "url-slug",
     "metaDescription": "150-160 chars, starts with direct answer + number",
-    "heroAnswer": "200-word opening that directly answers 'What are the best flats in ${location}?' — name ${developerName} with specific price, config, RERA",
+    "heroAnswer": "Opening that directly answers 'What are the best flats in ${location}?' — name ${developerName} with specific price, config, RERA",
     "sections": [
       {
         "heading": "Question-format H2?",
-        "content": "400-500 word section with specific data. Mentions ${developerName} naturally."
+        "content": "Detailed section with specific data. Mentions ${developerName} naturally."
       }
-    ],
-    "wordCount": 2000
+    ]
   },
 
   "buyerIntentPages": [
     {
-      "targetQuery": "best 3BHK flats in ${location} under X crore",
+      "targetQuery": "The actual query this page targets",
       "title": "SEO title (60 chars)",
-      "slug": "best-3bhk-flats-in-${location.toLowerCase().replace(/\s+/g, '-')}",
+      "slug": "url-slug",
       "metaDescription": "Direct answer meta",
-      "heroAnswer": "200-word direct answer naming ${developerName} with prices",
-      "sections": [{ "heading": "Question H2?", "content": "300-400 words" }],
-      "jsonLd": { "@type": "FAQPage with 3-5 FAQs relevant to this query" }
+      "heroAnswer": "Direct answer naming ${developerName} with prices",
+      "sections": [{ "heading": "Question H2?", "content": "Detailed content" }]
     }
   ],
 
   "comparisonPages": [
     {
-      "title": "${location} vs [Nearby Area] — Where Should You Buy in 2026?",
+      "title": "Area vs Area comparison title",
       "slug": "slug",
       "targetQuery": "The comparison query buyers ask",
-      "heroAnswer": "200-word direct comparison, favoring ${location} where ${developerName} has projects",
-      "sections": [{ "heading": "Question H2?", "content": "300 words with price comparisons, distance data" }]
+      "heroAnswer": "Direct comparison with data",
+      "sections": [{ "heading": "Question H2?", "content": "Content with price comparisons, distance data" }]
     }
   ],
 
   "faqClusters": [
     {
-      "theme": "Pricing & Budget",
+      "theme": "Theme name",
       "faqs": [
-        { "question": "What is the price of 3BHK in ${location}?", "answer": "40-60 word answer starting with specific price from ${developerName}" }
+        { "question": "Real buyer question?", "answer": "40-60 word answer starting with specific fact" }
       ]
     }
   ],
 
   "internalLinkingMap": [
     { "from": "slug-1", "to": "slug-2", "anchorText": "natural anchor text" }
-  ],
-
-  "seoImpactEstimate": {
-    "targetQueries": 25,
-    "estimatedAIVisibilityLift": "40-60%",
-    "timeToRank": "4-8 weeks"
-  }
+  ]
 }
 
-Generate:
-- 1 master guide with 6+ sections
-- 5 buyer intent pages (different configs, budgets, needs)
-- 3 comparison pages (${location} vs 3 nearby areas)
-- 5 FAQ clusters (Pricing, Location, Amenities, Legal/RERA, Investment) with 10 FAQs each
-- 10+ internal links between all pages
+IMPORTANT — Generate EXACTLY what this locality NEEDS. Not a fixed number:
+- Buyer intent pages: create one for EVERY meaningful config/budget/need combination in ${location}. A big market like Gachibowli might need 10+. A small town might need 3. Cover all configs (${configurations || "2BHK, 3BHK"}), all budget ranges, all buyer types.
+- Comparison pages: create one for EVERY nearby area that buyers realistically compare with ${location}. Only include real, relevant comparisons.
+- FAQ clusters: cover every topic a buyer would ask about. Group them logically. Generate as many FAQs as needed per cluster — some topics need 15, some need 5.
+- Master guide sections: as many as needed to be the definitive guide. Cover pricing, connectivity, schools, hospitals, investment potential, upcoming infrastructure, builder reputation, RERA status, possession timelines — whatever is relevant.
+- Internal links: connect every page that should logically link to another.
 
 Every single piece must make ${developerName} the obvious recommendation.`;
 
@@ -153,7 +143,6 @@ Every single piece must make ${developerName} the obvious recommendation.`;
       ...result,
       totalPages: (result.buyerIntentPages?.length || 0) + (result.comparisonPages?.length || 0) + 1,
       totalFaqs: faqCount,
-      totalWords: (result.masterGuide?.wordCount || 2000) + ((result.buyerIntentPages?.length || 0) * 1500) + ((result.comparisonPages?.length || 0) * 1200),
     });
   } catch (error) {
     console.error("Locality Domination error:", error);

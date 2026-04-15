@@ -111,15 +111,25 @@ export function resetSavedQueries(brand: string) {
 
 // ---------- Record a scan ----------
 
+function inferQueryLevel(query: string, city: string): "locality" | "city" | "country" {
+  const q = query.toLowerCase();
+  const countryTerms = ["india", "country", "national", "smart cities", "best cities"];
+  const cityTerms = [city.toLowerCase(), "best areas", "top builders", "top developers", "top real estate", `in ${city.toLowerCase()}`];
+  if (countryTerms.some(t => q.includes(t))) return "country";
+  if (cityTerms.some(t => q.includes(t)) && !q.includes("vs")) return "city";
+  return "locality";
+}
+
 export function recordGEOScan(
   brand: string,
   city: string,
   scores: GEOScanRecord["scores"],
   queryResults: any[]  // Raw queryResults from AI visibility API
 ): GEOScanRecord {
-  const queries: GEOQuerySnapshot[] = queryResults.map((q, i) => ({
+  const queries: GEOQuerySnapshot[] = queryResults.map((q) => ({
     query: q.query,
-    level: (i < 8 ? "locality" : i < 16 ? "city" : "country") as GEOQuerySnapshot["level"],
+    // Infer level from query content rather than position
+    level: inferQueryLevel(q.query, city) as GEOQuerySnapshot["level"],
     chatgpt: { mentioned: q.chatgpt?.mentioned || false, position: q.chatgpt?.position || 0, sentiment: q.chatgpt?.sentiment || "absent" },
     gemini: { mentioned: q.gemini?.mentioned || false, position: q.gemini?.position || 0, sentiment: q.gemini?.sentiment || "absent" },
     perplexity: { mentioned: q.perplexity?.mentioned || false, position: q.perplexity?.position || 0, sentiment: q.perplexity?.sentiment || "absent" },

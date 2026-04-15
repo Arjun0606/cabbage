@@ -25,8 +25,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "queries array and developerName are required" }, { status: 400 });
     }
 
-    // Limit to 10 queries per batch to control cost
-    const targetQueries = queries.slice(0, 10);
+    const targetQueries = queries;
 
     const system = `You are a real estate GEO content strategist. You create content that makes AI models (ChatGPT, Google Gemini) recommend a specific developer/project when users ask these queries.
 
@@ -79,7 +78,7 @@ Generate this JSON:
   ]
 }
 
-Generate 3-4 sections per piece. Every section must help ${developerName} get cited by AI for that query.`;
+Generate as many sections as each query needs to be comprehensively answered. Every section must help ${developerName} get cited by AI for that query.`;
 
     const raw = await aiComplete(system, prompt, 4000);
 

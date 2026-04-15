@@ -79,9 +79,9 @@ ${brandContext?.competitors?.length ? `**Direct competitors:** ${brandContext.co
 
 Return JSON:
 {
-  "blogTopics": [5 topics — each title MUST be a question buyers ask, with { "title": "question format", "targetKeyword", "estimatedWordCount": 1500-2000, "outline": [5 sections, each as a question] }],
-  "linkedinPosts": [3 LinkedIn posts, 150-200 words each. Written in ${brandContext?.brandVoice ? "the brand's voice: " + brandContext.brandVoice.substring(0, 200) : "professional thought-leadership tone"}. Include 1 specific statistic, always use "${projectName}" by name],
-  "whatsappMessages": [5 WhatsApp broadcasts, under 100 words each. Include price, location "${location}", ${brandContext?.reraNumber ? "RERA: " + brandContext.reraNumber : "and RERA number if available"}]
+  "blogTopics": [as many topics as this market needs — each title MUST be a question buyers ask, with { "title": "question format", "targetKeyword", "outline": [sections, each as a question] }. Cover every meaningful buyer question for ${location}.],
+  "linkedinPosts": [LinkedIn posts covering different angles. Written in ${brandContext?.brandVoice ? "the brand's voice: " + brandContext.brandVoice.substring(0, 200) : "professional thought-leadership tone"}. Include specific statistics, always use "${projectName}" by name. Generate as many as needed.],
+  "whatsappMessages": [WhatsApp broadcasts, under 100 words each. Include price, location "${location}", ${brandContext?.reraNumber ? "RERA: " + brandContext.reraNumber : "and RERA number if available"}. Generate enough to cover different buyer segments and messaging angles.]
 }
 
 CRITICAL RULES:
