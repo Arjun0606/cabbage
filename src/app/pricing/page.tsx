@@ -37,8 +37,8 @@ export default function PricingPage() {
       <div className="border-b border-zinc-800 px-6 py-4">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
-            <img src="/logo.png" alt="CabbageSEO" className="w-7 h-7 object-contain" />
-            <span className="font-bold text-zinc-100">CabbageSEO</span>
+            <img src="/logo.png" alt="Cabbge" className="w-7 h-7 object-contain" />
+            <span className="font-bold text-zinc-100">Cabbge</span>
           </Link>
           <Link href="/">
             <Button size="sm" className="bg-zinc-100 text-zinc-900 hover:bg-white">
@@ -130,7 +130,7 @@ export default function PricingPage() {
             <Card className="bg-zinc-900 border-zinc-100 ring-1 ring-zinc-100">
               <CardContent className="p-4 text-center">
                 <div className="text-lg font-bold text-zinc-100">~₹42K/mo</div>
-                <div className="text-xs text-zinc-400 mt-1">CabbageSEO — does 10x more</div>
+                <div className="text-xs text-zinc-400 mt-1">Cabbge — does 10x more</div>
               </CardContent>
             </Card>
           </div>

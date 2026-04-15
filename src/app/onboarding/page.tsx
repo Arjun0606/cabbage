@@ -25,9 +25,27 @@ interface Project {
   priceRange: string;
 }
 
+const INDUSTRIES = [
+  { id: "real_estate", label: "Real Estate", icon: "🏗️", desc: "Developers, builders, brokerages" },
+  { id: "saas", label: "SaaS / Software", icon: "💻", desc: "B2B and B2C software companies" },
+  { id: "ecommerce", label: "E-Commerce", icon: "🛒", desc: "Online stores and D2C brands" },
+  { id: "healthcare", label: "Healthcare", icon: "🏥", desc: "Hospitals, clinics, health tech" },
+  { id: "legal", label: "Legal / Law", icon: "⚖️", desc: "Law firms and legal services" },
+  { id: "education", label: "Education", icon: "🎓", desc: "Schools, universities, ed-tech" },
+  { id: "finance", label: "Finance", icon: "🏦", desc: "Banks, fintech, insurance" },
+  { id: "hospitality", label: "Hospitality", icon: "🏨", desc: "Hotels, restaurants, travel" },
+  { id: "automotive", label: "Automotive", icon: "🚗", desc: "Dealerships, manufacturers, EV" },
+  { id: "agency", label: "Marketing Agency", icon: "📢", desc: "Agencies managing client SEO/GEO" },
+  { id: "local_business", label: "Local Business", icon: "📍", desc: "Any local service or store" },
+  { id: "other", label: "Other", icon: "🌐", desc: "Any other industry" },
+];
+
 export default function OnboardingPage() {
   const router = useRouter();
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(0); // Start at 0 for industry selection
+
+  // Industry
+  const [industry, setIndustry] = useState("");
 
   // Company
   const [companyName, setCompanyName] = useState("");
@@ -77,6 +95,7 @@ export default function OnboardingPage() {
       description,
       website,
       city,
+      industry,
       projects: projects.filter((p) => p.name),
       competitors: competitors.map((c) => ({ name: c, website: c })),
       documents: {
@@ -86,7 +105,7 @@ export default function OnboardingPage() {
         marketingStrategy: "",
       },
     };
-    localStorage.setItem("cabbageseo_company", JSON.stringify(data));
+    localStorage.setItem("cabbge_company", JSON.stringify(data));
     router.push("/dashboard");
   };
 
@@ -96,14 +115,14 @@ export default function OnboardingPage() {
         {/* Header */}
         <div className="text-center space-y-2">
           <div className="flex items-center justify-center gap-3">
-            <img src="/logo.png" alt="CabbageSEO" className="w-10 h-10 object-contain" />
-            <h1 className="text-2xl font-bold text-zinc-100">CabbageSEO</h1>
+            <img src="/logo.png" alt="Cabbge" className="w-10 h-10 object-contain" />
+            <h1 className="text-2xl font-bold text-zinc-100">Cabbge</h1>
           </div>
           <p className="text-zinc-400 text-sm">
-            AI Marketing Agent for Real Estate Developers
+            The ultimate SEO & GEO engine
           </p>
           <div className="flex items-center justify-center gap-2 pt-2">
-            {[1, 2, 3].map((s) => (
+            {[0, 1, 2, 3].map((s) => (
               <div
                 key={s}
                 className={`h-1.5 rounded-full transition-all ${
@@ -115,6 +134,38 @@ export default function OnboardingPage() {
             ))}
           </div>
         </div>
+
+        {/* Step 0: Industry Selection */}
+        {step === 0 && (
+          <Card className="bg-zinc-900 border-zinc-800">
+            <CardHeader>
+              <CardTitle className="text-lg">What industry are you in?</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                {INDUSTRIES.map((ind) => (
+                  <button
+                    key={ind.id}
+                    onClick={() => { setIndustry(ind.id); setStep(1); }}
+                    className={`p-3 rounded-lg border text-left transition-all active:scale-[0.98] ${
+                      industry === ind.id
+                        ? "border-[#7CB342] bg-[#7CB342]/10"
+                        : "border-zinc-800 hover:border-zinc-600 bg-zinc-900/60"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-xl">{ind.icon}</span>
+                      <div>
+                        <div className="text-[13px] font-medium text-zinc-200">{ind.label}</div>
+                        <div className="text-[11px] text-zinc-500">{ind.desc}</div>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Step 1: Company */}
         {step === 1 && (
@@ -349,7 +400,7 @@ export default function OnboardingPage() {
                   <p>{competitors.length} competitor(s) tracked</p>
                 </div>
                 <div className="text-xs text-zinc-500 pt-2">
-                  CabbageSEO will immediately run:
+                  Cabbge will immediately run:
                 </div>
                 <ul className="text-xs text-zinc-400 space-y-1">
                   <li className="flex items-center gap-2">
@@ -384,7 +435,7 @@ export default function OnboardingPage() {
                   className="flex-1 bg-zinc-100 text-zinc-900 hover:bg-white"
                 >
                   <Zap size={14} className="mr-2" />
-                  Launch CabbageSEO
+                  Launch Cabbge
                 </Button>
               </div>
             </CardContent>

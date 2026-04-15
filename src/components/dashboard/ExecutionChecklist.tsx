@@ -34,7 +34,7 @@ interface Props {
   onRunAction: (action: string) => void;
 }
 
-const STORAGE_KEY = "cabbageseo_checklist_done";
+const STORAGE_KEY = "cabbge_checklist_done";
 
 function getCompletedItems(): Set<string> {
   try {

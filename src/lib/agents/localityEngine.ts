@@ -110,7 +110,7 @@ export async function searchLocality(
   configurations?: string,
   priceRange?: string
 ): Promise<LocalitySearchResult> {
-  const system = `You are CabbageSEO's locality intelligence engine for real estate. Given any city and locality anywhere in the world, provide comprehensive real estate market intelligence. Use real landmark names, real infrastructure, real market data. Return valid JSON only.`;
+  const system = `You are Cabbge's locality intelligence engine for real estate. Given any city and locality anywhere in the world, provide comprehensive real estate market intelligence. Use real landmark names, real infrastructure, real market data. Return valid JSON only.`;
 
   const prompt = `Real estate intelligence for ${locality}, ${city}:
 ${projectName ? `Project context: ${projectName}` : ""}
@@ -206,11 +206,12 @@ export async function generateSearchQueries(
   city: string,
   _brand: string,
   _projects: string[],
-  locality?: string
+  locality?: string,
+  industry?: string
 ): Promise<string[]> {
   // NOTE: We do NOT include the brand name in queries.
-  // Real buyers don't know the developer — they search by location, budget, config.
-  // The test is: does ChatGPT/Google AI RECOMMEND this developer when asked generic queries?
+  // Real customers don't know the company — they search by need, location, budget.
+  // The test is: does ChatGPT/Google AI RECOMMEND this company when asked generic queries?
   // That's the real measure of GEO visibility.
 
   // Multi-level GEO: locality (micro) + city (metro) + country (macro)
@@ -220,39 +221,63 @@ export async function generateSearchQueries(
 
   const loc = locality || city;
   const country = "India"; // Can be parameterized later
+  const ind = industry || "real_estate";
 
-  const prompt = `Generate search queries that real home buyers would type into ChatGPT or Google about ${loc}, ${city}. These buyers DO NOT know any specific developer — they want AI to RECOMMEND one.
+  // Industry-adaptive prompt
+  const industryContext = ind === "real_estate"
+    ? `real home buyers searching for flats, apartments, villas, or plots in ${loc}, ${city}. They want AI to RECOMMEND a developer/builder.`
+    : ind === "saas"
+    ? `business professionals searching for software solutions. They want AI to RECOMMEND a product.`
+    : ind === "ecommerce"
+    ? `online shoppers searching for products. They want AI to RECOMMEND a brand or store.`
+    : ind === "healthcare"
+    ? `patients or caregivers searching for healthcare providers in ${loc}, ${city}. They want AI to RECOMMEND a hospital, clinic, or doctor.`
+    : ind === "legal"
+    ? `people searching for legal services in ${loc}, ${city}. They want AI to RECOMMEND a law firm or lawyer.`
+    : ind === "education"
+    ? `students or parents searching for educational institutions in ${loc}, ${city}. They want AI to RECOMMEND a school, college, or course.`
+    : ind === "finance"
+    ? `people searching for financial services or products. They want AI to RECOMMEND a bank, fintech, or insurance provider.`
+    : ind === "hospitality"
+    ? `travelers or diners searching for hotels, restaurants, or experiences in ${loc}, ${city}. They want AI to RECOMMEND a place.`
+    : ind === "automotive"
+    ? `car buyers searching for vehicles or dealerships in ${loc}, ${city}. They want AI to RECOMMEND a brand or dealer.`
+    : ind === "local_business"
+    ? `people searching for local services in ${loc}, ${city}. They want AI to RECOMMEND a business.`
+    : `potential customers searching for services or products in ${loc}, ${city}. They want AI to RECOMMEND a company.`;
 
+  const prompt = `Generate search queries that ${industryContext} These customers DO NOT know any specific company — they are searching by need, location, and requirements.
+
+INDUSTRY: ${ind.replace(/_/g, " ")}
 CITY: ${city}
 ${locality ? `LOCALITY/AREA: ${locality}` : ""}
 COUNTRY: ${country}
 
 CRITICAL RULES:
 - ALL queries in ENGLISH only
-- DO NOT include any developer or project name
-- Use real landmarks, IT parks, metro stations, schools near ${loc}
-- Use Indian price formats (lakhs, crore)
-- Must be realistic queries a 28-45 year old professional would type
+- DO NOT include any company or brand name
+- Use real landmarks, areas, institutions near ${loc}
+- Must be realistic queries real customers would type
+- Use local currency and terminology appropriate for ${city}
 
 Generate queries at THREE levels — as many as this market needs:
 
-LOCALITY LEVEL — hyper-local, micro-market queries:
-- Budget + config combos ("best 3BHK in ${loc} under 1.5 crore")
-- Landmark-based ("flats near [real IT park] ${loc}")
-- Decision queries ("top projects in ${loc} 2026")
+LOCALITY LEVEL — hyper-local queries specific to ${loc}:
+- Service/product + location combos
+- Landmark-based queries
+- Decision queries ("best/top [service] in ${loc}")
 - Comparison queries ("${loc} vs [nearby area]")
-- Generate more for bigger/more complex markets, fewer for smaller ones
+- Generate more for bigger markets, fewer for smaller ones
 
-CITY LEVEL — metro-wide buyer intent:
-- "best areas to buy in ${city}"
-- "top builders in ${city}"
-- "upcoming projects in ${city}"
-- Cover the queries where city-level results matter
+CITY LEVEL — city-wide intent:
+- "best [service/product] in ${city}"
+- "top [industry] companies in ${city}"
+- Cover queries where city-level results matter
 
 COUNTRY LEVEL — national discovery:
-- "best cities for property in ${country}"
-- "top developers in ${country}"
-- Only include if the developer operates at national scale
+- "best [service/product] in ${country}"
+- "top [industry] companies in ${country}"
+- Only include if the company operates nationally
 
 Use REAL landmark names specific to ${loc}, ${city}. Cover every meaningful query a buyer would ask. Return JSON array of strings.`;
 
@@ -306,7 +331,7 @@ export async function generateContentPlan(
   const localityData = await searchLocality(city, location, projectName, configurations, priceRange);
 
   // Generate content plan
-  const system = `You are CabbageSEO's content strategist for real estate. Create content plans that maximize SEO impact and social engagement. Be specific to the actual locality, market, and buyer demographics. Return valid JSON only.`;
+  const system = `You are Cabbge's content strategist for real estate. Create content plans that maximize SEO impact and social engagement. Be specific to the actual locality, market, and buyer demographics. Return valid JSON only.`;
 
   const prompt = `Create a 4-week content plan for:
 - Project: ${projectName} by ${developerName}

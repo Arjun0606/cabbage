@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "CabbageSEO — AI Marketing Agent for Real Estate Developers",
+  title: "Cabbge — AI Marketing Agent for Real Estate Developers",
   description: "SEO, AI Visibility, Competitor Intelligence, and Content Generation for Indian residential real estate developers.",
 };
 

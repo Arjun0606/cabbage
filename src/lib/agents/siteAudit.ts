@@ -1,7 +1,7 @@
 import { aiComplete } from "@/lib/ai";
 
 /**
- * Real-estate-specific SEO checks. These are what make CabbageSEO
+ * Real-estate-specific SEO checks. These are what make Cabbge
  * vertical — no horizontal tool checks for these.
  */
 /**
@@ -227,7 +227,7 @@ async function generateAuditAnalysis(
   const failedChecks = seoHealth.filter((c) => c.status !== "pass");
   const failedReChecks = realEstateChecks.filter((c) => !c.passed);
 
-  const system = `You are CabbageSEO, an AI SEO expert specialized in Indian residential real estate developer websites. You analyze audit results and produce actionable fixes prioritized by impact on lead generation and conversions.
+  const system = `You are Cabbge, an AI SEO expert specialized in Indian residential real estate developer websites. You analyze audit results and produce actionable fixes prioritized by impact on lead generation and conversions.
 
 Your audience is a marketing head at an Indian residential developer. Be specific, practical, and tie every recommendation to business impact (more site visits, more enquiries, better Google ranking for buyer queries like "3BHK apartments in [location] under [budget]").
 
@@ -300,7 +300,7 @@ export async function runSiteAudit(url: string): Promise<AuditResult> {
   let pageHtml = "";
   try {
     const res = await fetch(url, {
-      headers: { "User-Agent": "CabbageSEO/1.0 (SEO Audit Bot)" },
+      headers: { "User-Agent": "Cabbge/1.0 (SEO Audit Bot)" },
     });
     pageHtml = await res.text();
   } catch {

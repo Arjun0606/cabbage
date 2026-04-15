@@ -81,7 +81,7 @@ Return JSON with this EXACT structure:
   ],
   "costSavings": {
     "agencyCost": "Estimated monthly cost if using a traditional digital marketing agency (in INR, e.g., '3,00,000')",
-    "cabbageCost": "CabbageSEO monthly cost (use '41,500' as standard plan)",
+    "cabbageCost": "Cabbge monthly cost (use '41,500' as standard plan)",
     "savings": "Monthly savings amount in INR"
   }
 }
@@ -90,7 +90,7 @@ Rules:
 - Use the provided data points wherever available. Where data is missing, use realistic industry benchmarks for Indian real estate.
 - KPI values should be strings (they display in a dashboard).
 - Recommendations should be specific and actionable, not generic.
-- Cost savings should compare CabbageSEO (Rs 41,500/month) vs a typical agency (Rs 2-4 lakh/month for equivalent services).
+- Cost savings should compare Cabbge (Rs 41,500/month) vs a typical agency (Rs 2-4 lakh/month for equivalent services).
 - Write for a board audience — no technical jargon without context.
 - The report should make the CMD feel confident about ROI.`;
 

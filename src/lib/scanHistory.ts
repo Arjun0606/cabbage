@@ -22,7 +22,7 @@ export interface TrendData {
   history: { date: string; score: number }[];
 }
 
-const STORAGE_KEY = "cabbageseo_scan_history";
+const STORAGE_KEY = "cabbge_scan_history";
 
 function getHistory(): ScanRecord[] {
   try {
@@ -61,7 +61,7 @@ export function recordScan(
 
   // Also sync to Supabase (fire and forget)
   try {
-    const companyData = localStorage.getItem("cabbageseo_company");
+    const companyData = localStorage.getItem("cabbge_company");
     const companyId = companyData ? JSON.parse(companyData)?._companyId : null;
     if (companyId) {
       fetch("/api/history", {

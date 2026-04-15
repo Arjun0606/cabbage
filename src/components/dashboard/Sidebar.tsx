@@ -35,7 +35,7 @@ export function Sidebar({ companyName, creditsUsed = 0, creditsTotal = 1000 }: P
       <div className="py-4">
         <Link href="/" className="block">
           <div className="w-8 h-8 rounded-lg overflow-hidden hover:opacity-80 active:scale-[0.97] transition-all duration-150">
-            <Image src="/logo.png" alt="CabbageSEO" width={32} height={32} className="w-full h-full object-contain" />
+            <Image src="/logo.png" alt="Cabbge" width={32} height={32} className="w-full h-full object-contain" />
           </div>
         </Link>
       </div>

@@ -52,8 +52,8 @@ export interface GEOProgress {
 
 // ---------- Storage ----------
 
-const GEO_STORAGE_KEY = "cabbageseo_geo_history";
-const GEO_QUERIES_KEY = "cabbageseo_geo_queries";  // Persisted query set
+const GEO_STORAGE_KEY = "cabbge_geo_history";
+const GEO_QUERIES_KEY = "cabbge_geo_queries";  // Persisted query set
 
 function getGEOHistory(): GEOScanRecord[] {
   try {

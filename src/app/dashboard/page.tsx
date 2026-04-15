@@ -92,7 +92,7 @@ export default function DashboardPage() {
   const [isCheckingTechnical, setIsCheckingTechnical] = useState(false);
   const [isCheckingCompetitors, setIsCheckingCompetitors] = useState(false);
 
-  const [terminalLogs, setTerminalLogs] = useState<string[]>(["CabbageSEO initialized"]);
+  const [terminalLogs, setTerminalLogs] = useState<string[]>(["Cabbge initialized"]);
 
   // Which panel is shown on the left: "company" or "chat"
   const [leftPanel, setLeftPanel] = useState<"company" | "chat">("company");
@@ -103,7 +103,7 @@ export default function DashboardPage() {
 
   // Load credits from localStorage
   useEffect(() => {
-    const saved = localStorage.getItem("cabbageseo_credits_used");
+    const saved = localStorage.getItem("cabbge_credits_used");
     if (saved) setCreditsUsed(parseInt(saved, 10) || 0);
   }, []);
 
@@ -125,7 +125,7 @@ export default function DashboardPage() {
     }
     const next = creditsUsed + cost;
     setCreditsUsed(next);
-    localStorage.setItem("cabbageseo_credits_used", String(next));
+    localStorage.setItem("cabbge_credits_used", String(next));
     return true;
   };
 
@@ -134,7 +134,7 @@ export default function DashboardPage() {
     (async () => {
       try {
         // First load from localStorage for instant display
-        const saved = localStorage.getItem("cabbageseo_company");
+        const saved = localStorage.getItem("cabbge_company");
         let localData: any = null;
         if (saved) {
           localData = JSON.parse(saved);
@@ -176,7 +176,7 @@ export default function DashboardPage() {
                 _companyId: dbCompany.id,
               };
               setCompany(merged);
-              localStorage.setItem("cabbageseo_company", JSON.stringify(merged));
+              localStorage.setItem("cabbge_company", JSON.stringify(merged));
               addLog(`> Synced from cloud: ${merged.name}`);
             }
           } catch {
@@ -194,7 +194,7 @@ export default function DashboardPage() {
             try {
               const discoverRes = await fetch("/api/auto-discover", {
                 method: "POST", headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ url: localData.website, companyName: localData.name }),
+                body: JSON.stringify({ url: localData.website, companyName: localData.name, industry: localData.industry }),
               });
               const discovered = await discoverRes.json();
               if (!discovered.error && discovered.documents) {
@@ -221,7 +221,7 @@ export default function DashboardPage() {
                   enriched.competitors = discovered.inferredCompetitors.map((c: string) => ({ name: c, website: "" }));
                 }
                 setCompany(enriched);
-                localStorage.setItem("cabbageseo_company", JSON.stringify(enriched));
+                localStorage.setItem("cabbge_company", JSON.stringify(enriched));
                 addLog("> Brand Voice analyzed");
                 addLog("> Product Info extracted");
                 addLog("> Target Audience identified");
@@ -234,10 +234,10 @@ export default function DashboardPage() {
           }
 
           // AUTO-SCAN: If no audit results exist, run full scan automatically
-          const hasResults = localStorage.getItem("cabbageseo_has_scanned");
+          const hasResults = localStorage.getItem("cabbge_has_scanned");
           if (localData.website && !hasResults) {
             addLog("> Running first scan automatically...");
-            localStorage.setItem("cabbageseo_has_scanned", "true");
+            localStorage.setItem("cabbge_has_scanned", "true");
             // Trigger scan after a short delay to let UI render
             setTimeout(() => {
               const scanBtn = document.querySelector("[data-auto-scan]") as HTMLButtonElement;
@@ -269,7 +269,7 @@ export default function DashboardPage() {
   // Save company: localStorage immediately + debounced Supabase sync
   useEffect(() => {
     if (!company.name) return;
-    localStorage.setItem("cabbageseo_company", JSON.stringify(company));
+    localStorage.setItem("cabbge_company", JSON.stringify(company));
 
     // Debounce Supabase sync (2s after last change)
     const timer = setTimeout(() => {
@@ -335,6 +335,7 @@ export default function DashboardPage() {
         websiteUrl: company.website, brand: company.name, city: company.city, savedQueries: existingQueries,
         projects: company.projects.map(p => p.name),
         projectDetails: company.projects.map(p => ({ name: p.name, location: p.location, configurations: p.configurations, priceRange: p.priceRange })),
+        industry: (company as any).industry,
       }) });
       const data = await res.json();
       if (data.error) throw new Error(data.error);

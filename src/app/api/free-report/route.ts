@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
         return res.json();
       })(),
       fetch(normalizedUrl, {
-        headers: { "User-Agent": "CabbageSEO/1.0" },
+        headers: { "User-Agent": "Cabbge/1.0" },
         redirect: "follow",
       }).then(r => r.text()).catch(() => ""),
     ]);
@@ -71,10 +71,10 @@ export async function POST(req: NextRequest) {
     // Site file checks
     const baseUrl = new URL(normalizedUrl).origin;
     const [hasLlmsTxt, hasSitemap] = await Promise.all([
-      fetch(`${baseUrl}/llms.txt`, { headers: { "User-Agent": "CabbageSEO/1.0" } })
+      fetch(`${baseUrl}/llms.txt`, { headers: { "User-Agent": "Cabbge/1.0" } })
         .then(r => r.ok && r.status === 200)
         .catch(() => false),
-      fetch(`${baseUrl}/sitemap.xml`, { headers: { "User-Agent": "CabbageSEO/1.0" } })
+      fetch(`${baseUrl}/sitemap.xml`, { headers: { "User-Agent": "Cabbge/1.0" } })
         .then(r => r.ok && r.status === 200)
         .catch(() => false),
     ]);
@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
 
     // AI-generated top 5 fixes
     const fixText = await aiLight(
-      "You are CabbageSEO. Give exactly 5 high-impact fixes for this website. Be specific and actionable. Return a JSON array of 5 strings, each under 120 characters.",
+      "You are Cabbge. Give exactly 5 high-impact fixes for this website. Be specific and actionable. Return a JSON array of 5 strings, each under 120 characters.",
       `Real estate website: ${normalizedUrl}
 ${perfScore >= 0 ? `Performance: ${perfScore}/100, SEO: ${seoScore}/100` : "PageSpeed data unavailable"}
 RERA visible: ${hasRera}, Pricing: ${hasPrice}, CTA above fold: ${hasCTA}, WhatsApp: ${hasWhatsApp}

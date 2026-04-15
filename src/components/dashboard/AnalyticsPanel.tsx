@@ -532,7 +532,7 @@ export function AnalyticsPanel({
                   <CardTitle className="text-[13px] font-semibold flex items-center gap-2">
                     Real Estate Checks
                     <Badge variant="secondary" className="text-[10px] bg-zinc-800 text-zinc-300 border-0 rounded-md h-5 px-1.5">
-                      CabbageSEO Exclusive
+                      Cabbge Exclusive
                     </Badge>
                   </CardTitle>
                 </CardHeader>
@@ -2932,7 +2932,7 @@ export function AnalyticsPanel({
                       </div>
                       <div className="p-3 rounded-lg bg-zinc-800/40 border border-zinc-700/30">
                         <div className="text-lg font-bold text-zinc-100">{reportResult.costSavings.cabbageCost}</div>
-                        <div className="text-[11px] text-zinc-500 mt-0.5">CabbageSEO</div>
+                        <div className="text-[11px] text-zinc-500 mt-0.5">Cabbge</div>
                       </div>
                       <div className="p-3 rounded-lg bg-zinc-800 border border-zinc-700">
                         <div className="text-lg font-bold text-zinc-100">{reportResult.costSavings.savings}</div>

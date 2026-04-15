@@ -56,7 +56,7 @@ export default function Home() {
       competitors: [],
       documents: { productInfo: "", competitorAnalysis: "", brandVoice: "", marketingStrategy: "" },
     };
-    localStorage.setItem("cabbageseo_company", JSON.stringify(companyData));
+    localStorage.setItem("cabbge_company", JSON.stringify(companyData));
     router.push("/dashboard");
   };
 
@@ -70,9 +70,9 @@ export default function Home() {
     <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center px-4">
       {/* Logo */}
       <div className="mb-10 flex flex-col items-center gap-3">
-        <img src="/logo.png" alt="CabbageSEO" className="w-14 h-14 object-contain" />
+        <img src="/logo.png" alt="Cabbge" className="w-14 h-14 object-contain" />
         <h1 className="text-xl font-semibold text-zinc-100">
-          Meet CabbageSEO, the AI CMO
+          Meet Cabbge, the AI CMO
         </h1>
         <p className="text-sm text-zinc-500 text-center max-w-md">
           The only AI CMO you need for growth and marketing.

@@ -88,19 +88,19 @@ export default function SettingsPage() {
   // Load saved state
   useEffect(() => {
     try {
-      const company = localStorage.getItem("cabbageseo_company");
+      const company = localStorage.getItem("cabbge_company");
       if (company) {
         const parsed = JSON.parse(company);
         setCompanyName(parsed.name || "");
         setCompanyUrl(parsed.website || "");
       }
-      const savedIntegrations = localStorage.getItem("cabbageseo_integrations");
+      const savedIntegrations = localStorage.getItem("cabbge_integrations");
       if (savedIntegrations) {
         const parsed = JSON.parse(savedIntegrations);
         setConnectedIntegrations(new Set(parsed.connected || []));
         setIntegrationValues(parsed.values || {});
       }
-      const savedInstructions = localStorage.getItem("cabbageseo_writing_instructions");
+      const savedInstructions = localStorage.getItem("cabbge_writing_instructions");
       if (savedInstructions) setWritingInstructions(JSON.parse(savedInstructions));
     } catch { /* use defaults */ }
   }, []);
@@ -114,7 +114,7 @@ export default function SettingsPage() {
       description: "", website: url, city: "", sites: [], projects: [], competitors: [],
       documents: { productInfo: "", competitorAnalysis: "", brandVoice: "", marketingStrategy: "" },
     };
-    localStorage.setItem("cabbageseo_company", JSON.stringify(companyData));
+    localStorage.setItem("cabbge_company", JSON.stringify(companyData));
     setCompanyName(companyData.name);
     setCompanyUrl(url);
     setNewUrl("");
@@ -144,7 +144,7 @@ export default function SettingsPage() {
         const newConnected = new Set(connectedIntegrations);
         newConnected.add(integration.id);
         setConnectedIntegrations(newConnected);
-        localStorage.setItem("cabbageseo_integrations", JSON.stringify({ connected: Array.from(newConnected), values: integrationValues }));
+        localStorage.setItem("cabbge_integrations", JSON.stringify({ connected: Array.from(newConnected), values: integrationValues }));
       } else {
         alert(`Connection failed: ${data.error || "Unknown error"}`);
       }
@@ -159,11 +159,11 @@ export default function SettingsPage() {
     const newValues = { ...integrationValues };
     delete newValues[id];
     setIntegrationValues(newValues);
-    localStorage.setItem("cabbageseo_integrations", JSON.stringify({ connected: Array.from(newConnected), values: newValues }));
+    localStorage.setItem("cabbge_integrations", JSON.stringify({ connected: Array.from(newConnected), values: newValues }));
   };
 
   const saveWritingInstructions = () => {
-    localStorage.setItem("cabbageseo_writing_instructions", JSON.stringify(writingInstructions));
+    localStorage.setItem("cabbge_writing_instructions", JSON.stringify(writingInstructions));
     setInstructionsSaved(true);
     setTimeout(() => setInstructionsSaved(false), 2000);
   };
@@ -363,7 +363,7 @@ export default function SettingsPage() {
                     </div>
                     <div>
                       <div className="text-sm text-zinc-200">{companyName || "Not configured"}</div>
-                      <div className="text-xs text-zinc-500">CabbageSEO account</div>
+                      <div className="text-xs text-zinc-500">Cabbge account</div>
                     </div>
                   </div>
                 </CardContent>

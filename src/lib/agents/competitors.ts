@@ -51,7 +51,7 @@ async function scrapeCompetitorSite(url: string): Promise<{
 
   try {
     const res = await fetch(baseUrl, {
-      headers: { "User-Agent": "CabbageSEO/1.0 (Competitive Analysis)" },
+      headers: { "User-Agent": "Cabbge/1.0 (Competitive Analysis)" },
       redirect: "follow",
     });
 
@@ -153,7 +153,7 @@ async function generateInsights(
   competitorName: string,
   competitorSnapshot: CompetitorSnapshot
 ): Promise<CompetitorInsight[]> {
-  const system = `You are CabbageSEO's competitive intelligence agent for Indian real estate. Analyze a competitor and provide actionable insights. Return valid JSON array only.`;
+  const system = `You are Cabbge's competitive intelligence agent for Indian real estate. Analyze a competitor and provide actionable insights. Return valid JSON array only.`;
 
   const prompt = `Analyze competitor "${competitorName}" against our client in Indian real estate:
 

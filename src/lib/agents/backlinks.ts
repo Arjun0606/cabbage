@@ -67,7 +67,7 @@ async function fetchSiteSignals(url: string): Promise<{
   // Fetch main page
   try {
     const res = await fetch(baseUrl, {
-      headers: { "User-Agent": "CabbageSEO/1.0" },
+      headers: { "User-Agent": "Cabbge/1.0" },
       redirect: "follow",
     });
     serverHeader = res.headers.get("server") || "";
@@ -78,7 +78,7 @@ async function fetchSiteSignals(url: string): Promise<{
   // Check sitemap for page count
   try {
     const sitemapRes = await fetch(`${baseUrl}/sitemap.xml`, {
-      headers: { "User-Agent": "CabbageSEO/1.0" },
+      headers: { "User-Agent": "Cabbge/1.0" },
     });
     const sitemapText = await sitemapRes.text();
     const urlMatches = sitemapText.match(/<loc>/g);
@@ -102,7 +102,7 @@ async function analyzeBacklinks(
   url: string,
   signals: Awaited<ReturnType<typeof fetchSiteSignals>>
 ): Promise<BacklinkResult> {
-  const system = `You are CabbageSEO's backlink analysis agent, specialized in Indian residential real estate developer websites. Based on observable site signals, estimate the backlink profile and provide actionable recommendations.
+  const system = `You are Cabbge's backlink analysis agent, specialized in Indian residential real estate developer websites. Based on observable site signals, estimate the backlink profile and provide actionable recommendations.
 
 You must return valid JSON only, no other text.`;
 

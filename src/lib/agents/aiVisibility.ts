@@ -130,7 +130,7 @@ async function checkAIReadiness(url: string): Promise<AIReadinessCheck[]> {
   let sitemapXml = "";
 
   try {
-    const res = await fetch(url, { headers: { "User-Agent": "CabbageSEO/1.0" } });
+    const res = await fetch(url, { headers: { "User-Agent": "Cabbge/1.0" } });
     html = await res.text();
   } catch { /* skip */ }
 

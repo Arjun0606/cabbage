@@ -26,7 +26,7 @@ export function PublishButton({ title, content, excerpt, targetKeyword, onPublis
 
   const getCredentials = () => {
     try {
-      const raw = localStorage.getItem("cabbageseo_cms_credentials");
+      const raw = localStorage.getItem("cabbge_cms_credentials");
       if (!raw) return null;
       return JSON.parse(raw);
     } catch { return null; }

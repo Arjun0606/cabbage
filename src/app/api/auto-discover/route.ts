@@ -13,7 +13,7 @@ import { aiComplete } from "@/lib/ai";
 
 export async function POST(req: NextRequest) {
   try {
-    const { url, companyName } = await req.json();
+    const { url, companyName, industry } = await req.json();
 
     if (!url) {
       return NextResponse.json({ error: "URL is required" }, { status: 400 });
@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
     let html = "";
     try {
       const res = await fetch(url, {
-        headers: { "User-Agent": "CabbageSEO/1.0 (SEO Audit Bot)" },
+        headers: { "User-Agent": "Cabbge/1.0 (SEO Audit Bot)" },
         redirect: "follow",
         signal: AbortSignal.timeout(15000),
       });
@@ -49,10 +49,11 @@ export async function POST(req: NextRequest) {
     const titleMatch = html.match(/<title[^>]*>(.*?)<\/title>/i);
     const pageTitle = titleMatch?.[1] || "";
 
-    const system = `You analyze real estate developer websites and generate comprehensive brand intelligence.
+    const industryLabel = industry || "business";
+    const system = `You analyze ${industryLabel === "real_estate" ? "real estate developer" : industryLabel.replace(/_/g, " ")} websites and generate comprehensive brand intelligence.
 Output ONLY valid JSON. No markdown fences.
 
-You must infer everything from the website content — the company's voice, positioning, target audience, key projects, and marketing approach. Be specific, not generic.`;
+You must infer everything from the website content — the company's voice, positioning, target audience, key products/services, and marketing approach. Be specific to the ${industryLabel.replace(/_/g, " ")} industry, not generic.`;
 
     const prompt = `Analyze this real estate developer's website and generate brand intelligence:
 

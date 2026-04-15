@@ -74,7 +74,7 @@ async function fetchWithTiming(url: string): Promise<{
 
   try {
     const res = await fetch(url, {
-      headers: { "User-Agent": "CabbageSEO/1.0 (Technical Audit)" },
+      headers: { "User-Agent": "Cabbge/1.0 (Technical Audit)" },
       redirect: "follow",
     });
 
@@ -209,7 +209,7 @@ async function checkSiteFile(
 ): Promise<{ exists: boolean; size: number; status: number }> {
   try {
     const res = await fetch(`${baseUrl}${path}`, {
-      headers: { "User-Agent": "CabbageSEO/1.0" },
+      headers: { "User-Agent": "Cabbge/1.0" },
     });
     const text = await res.text();
     const is404 = text.includes("404") || text.includes("Not Found");
