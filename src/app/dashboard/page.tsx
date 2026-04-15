@@ -113,7 +113,7 @@ export default function DashboardPage() {
     schema: 2, landing: 5, portal: 2, neighborhood: 3, progress: 2,
     report: 5, ads: 3, llms_txt: 2, geo_improvement: 3, crawler: 1,
     brand_presence: 2, citability: 2, chat: 1, locality: 1,
-    locality_domination: 10, competitor_battle: 8, citation_booster: 8, gbp_posts: 3,
+    locality_domination: 10, citation_booster: 8, gbp_posts: 3,
   };
 
   const spendCredits = (action: string): boolean => {
@@ -763,8 +763,6 @@ export default function DashboardPage() {
 
   const [localityDominationResult, setLocalityDominationResult] = useState<any>(null);
   const [isGeneratingDomination, setIsGeneratingDomination] = useState(false);
-  const [competitorBattleResult, setCompetitorBattleResult] = useState<any>(null);
-  const [isBattling, setIsBattling] = useState(false);
   const [citationBoosterResult, setCitationBoosterResult] = useState<any>(null);
   const [isBoostingCitations, setIsBoostingCitations] = useState(false);
 
@@ -788,29 +786,6 @@ export default function DashboardPage() {
       addLog(`> Publish all pages to become THE authority for ${ctx.location || ctx.city}`);
     } catch (err) { addLog(`> Error: ${err instanceof Error ? err.message : "Failed"}`); }
     finally { setIsGeneratingDomination(false); }
-  };
-
-  const runCompetitorBattle = async (competitorName: string) => {
-    if (!spendCredits("competitor_battle")) return;
-    setIsBattling(true);
-    addLog(`> Running GEO Battle: ${company.name} vs ${competitorName}...`);
-    try {
-      const res = await fetch("/api/competitor-geo-battle", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          brand: company.name, competitorName, city: company.city,
-          projects: company.projects.map((p: any) => p.name),
-          websiteUrl: company.website,
-        }),
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      setCompetitorBattleResult(data);
-      const v = data.summary;
-      addLog(`> Battle Result: You win ${v.ourWins}, ${competitorName} wins ${v.theirWins}, both: ${v.both}, neither: ${v.neither}`);
-      if (v.verdict === "losing") addLog(`> You're LOSING to ${competitorName} in AI search — fix ${data.lostQueries?.length} queries`);
-    } catch (err) { addLog(`> Error: ${err instanceof Error ? err.message : "Failed"}`); }
-    finally { setIsBattling(false); }
   };
 
   const runCitationBooster = async () => {
@@ -976,10 +951,6 @@ export default function DashboardPage() {
               onGeoFixQuery={runGeoFixForQuery}
               onGeoFixAll={runFixAllBlindSpots}
               isFixingGeo={isFixingGeo}
-              onRunCompetitorBattle={runCompetitorBattle}
-              competitorBattleResult={competitorBattleResult}
-              isBattling={isBattling}
-              competitorNames={company.competitors.map((c: any) => c.name)}
               onRunCitationBooster={runCitationBooster}
               citationBoosterResult={citationBoosterResult}
               isBoostingCitations={isBoostingCitations}

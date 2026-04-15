@@ -121,11 +121,6 @@ interface Props {
   onGeoFixQuery?: (query: string) => void;
   onGeoFixAll?: () => void;
   isFixingGeo?: boolean;
-  // Competitor Battle
-  onRunCompetitorBattle?: (competitorName: string) => void;
-  competitorBattleResult?: any;
-  isBattling?: boolean;
-  competitorNames?: string[];
   // Citation Booster
   onRunCitationBooster?: () => void;
   citationBoosterResult?: any;
@@ -238,7 +233,6 @@ export function AnalyticsPanel({
   onGeoFixQuery,
   onGeoFixAll,
   isFixingGeo,
-  onRunCompetitorBattle, competitorBattleResult, isBattling, competitorNames = [],
   onRunCitationBooster, citationBoosterResult, isBoostingCitations,
   onRunLocalityDomination, localityDominationResult, isGeneratingDomination,
   onRunGbpPosts, gbpResult, isGeneratingGbp,
