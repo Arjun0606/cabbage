@@ -1,4 +1,4 @@
-import { queryForVisibility, queryClaudeForVisibility } from "@/lib/ai";
+import { queryForVisibility } from "@/lib/ai";
 
 // ---------- Types ----------
 
@@ -7,24 +7,23 @@ export interface AIVisibilityResult {
   projects: string[];
   scores: {
     chatgpt: number;
-    claude: number;
-    perplexity: number;
     gemini: number;
     overall: number;
-    readiness: number;  // Website readiness score (schema, meta, etc.) — like Okara's "AI Readiness Score"
-    mentions: number;   // Actual mention score across LLMs
+    readiness: number;
+    mentions: number;
   };
   queryResults: QueryResult[];
   aiReadiness: AIReadinessCheck[];
-  configuredLLMs: string[];  // Which LLMs actually had API keys configured
+  configuredLLMs: string[];
 }
 
 interface QueryResult {
   query: string;
   chatgpt: LLMResult;
+  gemini: LLMResult;
+  // Keep claude/perplexity fields for backward compat with stored scans
   claude: LLMResult;
   perplexity: LLMResult;
-  gemini: LLMResult;
 }
 
 interface LLMResult {
@@ -188,49 +187,39 @@ export async function runAIVisibility(
   // Run AI readiness checks
   const aiReadiness = await checkAIReadiness(websiteUrl);
 
-  // Detect which LLMs are actually configured
-  const configuredLLMs: string[] = ["ChatGPT"]; // OpenAI is always available
-  if (process.env.ANTHROPIC_API_KEY) configuredLLMs.push("Claude");
-  if (process.env.PERPLEXITY_API_KEY) configuredLLMs.push("Perplexity");
+  // Only scan ChatGPT + Gemini — the two platforms real buyers use
+  const configuredLLMs: string[] = ["ChatGPT"];
   if (process.env.GOOGLE_GEMINI_API_KEY) configuredLLMs.push("Gemini");
 
-  // Query each LLM for each search query
+  const emptyResult: LLMResult = { mentioned: false, position: 0, context: "", sentiment: "absent" };
   const queryResults: QueryResult[] = [];
 
   for (const query of queries) {
-    const [chatgptRes, claudeRes, perplexityRes, geminiRes] = await Promise.all([
+    const [chatgptRes, geminiRes] = await Promise.all([
       queryForVisibility("openai", query).catch(() => ""),
-      queryClaudeForVisibility(query).catch(() => ""),
-      queryForVisibility("perplexity", query).catch(() => ""),
       queryForVisibility("gemini", query).catch(() => ""),
     ]);
 
     queryResults.push({
       query,
       chatgpt: analyzeMention(chatgptRes, brand, projects),
-      claude: analyzeMention(claudeRes, brand, projects),
-      perplexity: analyzeMention(perplexityRes, brand, projects),
       gemini: analyzeMention(geminiRes, brand, projects),
+      claude: emptyResult,      // Not scanned — kept for backward compat
+      perplexity: emptyResult,  // Not scanned — kept for backward compat
     });
 
     await new Promise((r) => setTimeout(r, 500));
   }
 
-  // Mention scores per LLM
   const mentionScores = {
     chatgpt: calculateScore(queryResults, "chatgpt"),
-    claude: calculateScore(queryResults, "claude"),
-    perplexity: calculateScore(queryResults, "perplexity"),
     gemini: calculateScore(queryResults, "gemini"),
   };
 
-  // Focus on ChatGPT + Google AI (Gemini) — what RE buyers actually use
-  // ChatGPT is always available (OpenAI key). Gemini if configured.
-  const chatgptWeight = 0.6;  // ChatGPT is primary for RE buyers
-  const geminiWeight = 0.4;   // Google AI Overviews proxy
+  // Weighted: 60% ChatGPT (most used by buyers) + 40% Gemini (Google AI proxy)
   const mentionScore = process.env.GOOGLE_GEMINI_API_KEY
-    ? Math.round(mentionScores.chatgpt * chatgptWeight + mentionScores.gemini * geminiWeight)
-    : mentionScores.chatgpt;  // If only ChatGPT available, use that
+    ? Math.round(mentionScores.chatgpt * 0.6 + mentionScores.gemini * 0.4)
+    : mentionScores.chatgpt;
 
   // Readiness score — based on website checks (like Okara's "AI Readiness Score")
   const passedChecks = aiReadiness.filter(c => c.passed).length;
@@ -244,7 +233,8 @@ export async function runAIVisibility(
     brand,
     projects,
     scores: {
-      ...mentionScores,
+      chatgpt: mentionScores.chatgpt,
+      gemini: mentionScores.gemini,
       overall: overallScore,
       readiness: readinessScore,
       mentions: mentionScore,

@@ -48,7 +48,7 @@ ${auditResult.realEstateChecks?.filter((c: any) => !c.passed).map((c: any) => `-
 - Gemini: ${aiVisResult.scores.gemini}/100
 
 Missing from AI answers for queries:
-${aiVisResult.queryResults?.filter((q: any) => !q.chatgpt.mentioned && !q.claude.mentioned).slice(0, 5).map((q: any) => `- "${q.query}"`).join("\n") || "Present in most queries"}
+${aiVisResult.queryResults?.filter((q: any) => !q.chatgpt.mentioned && !q.gemini.mentioned).slice(0, 5).map((q: any) => `- "${q.query}"`).join("\n") || "Present in most queries"}
 `;
     }
 

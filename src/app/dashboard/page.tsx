@@ -800,7 +800,7 @@ export default function DashboardPage() {
 
   const runFixAllBlindSpots = async () => {
     const blindSpots = geoProgress.neverFound.length > 0 ? geoProgress.neverFound :
-      geoProgress.currentScan?.queries.filter(q => !q.chatgpt.mentioned && !q.gemini.mentioned && !q.perplexity.mentioned && !q.claude.mentioned).map(q => q.query) || [];
+      geoProgress.currentScan?.queries.filter(q => !q.chatgpt.mentioned && !q.gemini.mentioned).map(q => q.query) || [];
     if (!blindSpots.length) { addLog("> No blind spots to fix"); return; }
     if (!spendCredits("report")) return;  // 5cr for batch
     setIsFixingGeo(true);

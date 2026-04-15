@@ -156,12 +156,10 @@ export function GEOProgressPanel({ progress, onWriteArticleForQuery, onFixAllBli
             <h4 className="text-[13px] font-semibold text-zinc-200 mb-3">Query-by-Query Breakdown</h4>
             <div className="space-y-1">
               {currentScan.queries.map((q, i) => {
-                const found = q.chatgpt.mentioned || q.gemini.mentioned || q.perplexity.mentioned || q.claude.mentioned;
+                const found = q.chatgpt.mentioned || q.gemini.mentioned;
                 const platforms: string[] = [];
                 if (q.chatgpt.mentioned) platforms.push("ChatGPT");
                 if (q.gemini.mentioned) platforms.push("Gemini");
-                if (q.perplexity.mentioned) platforms.push("Perplexity");
-                if (q.claude.mentioned) platforms.push("Claude");
 
                 // Check if this was newly found
                 const wasNew = newlyFound.some((nf) => nf.toLowerCase() === q.query.toLowerCase());

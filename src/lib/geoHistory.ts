@@ -127,7 +127,7 @@ export function recordGEOScan(
   }));
 
   const mentionedCount = queries.filter((q) =>
-    q.chatgpt.mentioned || q.gemini.mentioned || q.perplexity.mentioned || q.claude.mentioned
+    q.chatgpt.mentioned || q.gemini.mentioned
   ).length;
 
   const record: GEOScanRecord = {
@@ -191,12 +191,12 @@ export function getGEOProgress(brand?: string): GEOProgress {
   if (previousScan) {
     const prevMap = new Map<string, boolean>();
     previousScan.queries.forEach((q) => {
-      const found = q.chatgpt.mentioned || q.gemini.mentioned || q.perplexity.mentioned || q.claude.mentioned;
+      const found = q.chatgpt.mentioned || q.gemini.mentioned;
       prevMap.set(q.query.toLowerCase(), found);
     });
 
     currentScan.queries.forEach((q) => {
-      const currentlyFound = q.chatgpt.mentioned || q.gemini.mentioned || q.perplexity.mentioned || q.claude.mentioned;
+      const currentlyFound = q.chatgpt.mentioned || q.gemini.mentioned;
       const wasPrevFound = prevMap.get(q.query.toLowerCase()) ?? false;
 
       if (currentlyFound && !wasPrevFound) newlyFound.push(q.query);
@@ -209,7 +209,7 @@ export function getGEOProgress(brand?: string): GEOProgress {
   allScans.forEach((scan) => {
     scan.queries.forEach((q) => {
       const key = q.query.toLowerCase();
-      const found = q.chatgpt.mentioned || q.gemini.mentioned || q.perplexity.mentioned || q.claude.mentioned;
+      const found = q.chatgpt.mentioned || q.gemini.mentioned;
       allQueryMentions.set(key, (allQueryMentions.get(key) || 0) + (found ? 1 : 0));
     });
   });
