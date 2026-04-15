@@ -976,6 +976,19 @@ export default function DashboardPage() {
               onGeoFixQuery={runGeoFixForQuery}
               onGeoFixAll={runFixAllBlindSpots}
               isFixingGeo={isFixingGeo}
+              onRunCompetitorBattle={runCompetitorBattle}
+              competitorBattleResult={competitorBattleResult}
+              isBattling={isBattling}
+              competitorNames={company.competitors.map((c: any) => c.name)}
+              onRunCitationBooster={runCitationBooster}
+              citationBoosterResult={citationBoosterResult}
+              isBoostingCitations={isBoostingCitations}
+              onRunLocalityDomination={runLocalityDomination}
+              localityDominationResult={localityDominationResult}
+              isGeneratingDomination={isGeneratingDomination}
+              onRunGbpPosts={runGbpPosts}
+              gbpResult={gbpResult}
+              isGeneratingGbp={isGeneratingGbp}
             />
           </div>
 

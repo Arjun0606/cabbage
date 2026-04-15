@@ -121,6 +121,23 @@ interface Props {
   onGeoFixQuery?: (query: string) => void;
   onGeoFixAll?: () => void;
   isFixingGeo?: boolean;
+  // Competitor Battle
+  onRunCompetitorBattle?: (competitorName: string) => void;
+  competitorBattleResult?: any;
+  isBattling?: boolean;
+  competitorNames?: string[];
+  // Citation Booster
+  onRunCitationBooster?: () => void;
+  citationBoosterResult?: any;
+  isBoostingCitations?: boolean;
+  // Locality Domination
+  onRunLocalityDomination?: () => void;
+  localityDominationResult?: any;
+  isGeneratingDomination?: boolean;
+  // GBP Posts
+  onRunGbpPosts?: () => void;
+  gbpResult?: any;
+  isGeneratingGbp?: boolean;
 }
 
 function ScoreCircle({ score, label, size = "md" }: { score: number; label: string; size?: "sm" | "md" }) {
@@ -221,6 +238,10 @@ export function AnalyticsPanel({
   onGeoFixQuery,
   onGeoFixAll,
   isFixingGeo,
+  onRunCompetitorBattle, competitorBattleResult, isBattling, competitorNames = [],
+  onRunCitationBooster, citationBoosterResult, isBoostingCitations,
+  onRunLocalityDomination, localityDominationResult, isGeneratingDomination,
+  onRunGbpPosts, gbpResult, isGeneratingGbp,
 }: Props) {
   const cost = (action: string) => creditCosts[action] || 0;
   const [auditUrl, setAuditUrl] = useState(websiteUrl || "");
@@ -1241,6 +1262,112 @@ export function AnalyticsPanel({
           ) : (
             <EmptyState icon={Bot} title="Check how your brand appears in AI answers" subtitle="Set your company name first, then click the button above" />
           )}
+
+          {/* ---- Competitor GEO Battle ---- */}
+          <div className="border-t border-zinc-800/40 pt-4 mt-4" />
+          <SectionCard>
+            <CardContent className="p-5">
+              <div className="flex items-center gap-2.5 mb-3">
+                <Users size={15} className="text-zinc-300" />
+                <h4 className="text-[14px] font-semibold text-zinc-100">Competitor GEO Battle</h4>
+                {cost("competitor_battle") > 0 && <Badge className="text-[10px] bg-zinc-800 text-zinc-400 border-0 rounded-md h-5 px-1.5 ml-auto">{cost("competitor_battle")}cr</Badge>}
+              </div>
+              <p className="text-[12px] text-zinc-400 mb-3">Run the same buyer queries against your competitor — see who AI recommends more.</p>
+              {competitorNames.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {competitorNames.map((name, i) => (
+                    <button
+                      key={i}
+                      onClick={() => onRunCompetitorBattle?.(name)}
+                      disabled={isBattling}
+                      className="text-[12px] font-medium px-3 py-1.5 rounded-lg bg-zinc-800/60 text-zinc-300 border border-white/[0.06] hover:border-[#7CB342]/30 hover:bg-[#7CB342]/10 hover:text-[#7CB342] active:scale-[0.97] transition-all disabled:opacity-40"
+                    >
+                      {isBattling ? <Loader2 size={12} className="animate-spin inline mr-1" /> : <Users size={12} className="inline mr-1" />}
+                      Battle vs {name}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-[12px] text-zinc-500">Add competitors in the Company panel to run a battle.</p>
+              )}
+            </CardContent>
+          </SectionCard>
+
+          {/* Battle results */}
+          {competitorBattleResult && (
+            <>
+              <SectionCard className={competitorBattleResult.summary?.verdict === "losing" ? "border-red-500/20" : competitorBattleResult.summary?.verdict === "winning" ? "border-[#7CB342]/20" : ""}>
+                <CardContent className="p-5">
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="text-[14px] font-semibold text-zinc-100">
+                      {companyName} vs {competitorBattleResult.competitorName}
+                    </h4>
+                    <Badge className={`text-[11px] border-0 rounded-md h-6 px-2 ${
+                      competitorBattleResult.summary?.verdict === "winning" ? "bg-[#7CB342]/10 text-[#7CB342]" :
+                      competitorBattleResult.summary?.verdict === "losing" ? "bg-red-500/10 text-red-400" :
+                      "bg-zinc-800 text-zinc-400"
+                    }`}>
+                      {competitorBattleResult.summary?.verdict === "winning" ? "You're winning" :
+                       competitorBattleResult.summary?.verdict === "losing" ? "You're losing" : "Tied"}
+                    </Badge>
+                  </div>
+
+                  {/* Score boxes */}
+                  <div className="grid grid-cols-4 gap-3 mb-4">
+                    {[
+                      { label: "You win", value: competitorBattleResult.summary?.ourWins, color: "text-[#7CB342]" },
+                      { label: "They win", value: competitorBattleResult.summary?.theirWins, color: "text-red-400" },
+                      { label: "Both", value: competitorBattleResult.summary?.both, color: "text-zinc-300" },
+                      { label: "Neither", value: competitorBattleResult.summary?.neither, color: "text-zinc-500" },
+                    ].map(({ label, value, color }) => (
+                      <div key={label} className="text-center p-2.5 rounded-lg bg-zinc-800/40 border border-white/[0.04]">
+                        <div className={`text-xl font-bold tabular-nums ${color}`}>{value}</div>
+                        <div className="text-[11px] text-zinc-500 mt-0.5">{label}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Query-by-query battle */}
+                  <div className="space-y-1">
+                    {(competitorBattleResult.battle || []).map((b: any, i: number) => (
+                      <div key={i} className={`flex items-center justify-between py-1.5 text-[12px] -mx-2 px-2 rounded-lg ${
+                        b.winner === "them" ? "bg-red-500/[0.03]" : b.winner === "us" ? "bg-[#7CB342]/[0.03]" : ""
+                      }`}>
+                        <span className="text-zinc-400 truncate flex-1 mr-2">"{b.query}"</span>
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                          <div className={`w-2 h-2 rounded-full ${b.ourBrand?.mentioned ? "bg-[#7CB342]" : "bg-zinc-700"}`} title="You" />
+                          <span className="text-zinc-600 text-[10px]">vs</span>
+                          <div className={`w-2 h-2 rounded-full ${b.competitor?.mentioned ? "bg-red-400" : "bg-zinc-700"}`} title="Them" />
+                          {b.winner === "them" && !b.ourBrand?.mentioned && onGeoFixQuery && (
+                            <button
+                              onClick={() => onGeoFixQuery(b.query)}
+                              className="text-[10px] font-medium px-2 py-0.5 rounded bg-[#7CB342]/10 text-[#7CB342] border border-[#7CB342]/20 hover:bg-[#7CB342]/20 active:scale-[0.97] transition-all ml-1"
+                            >
+                              Fix
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </SectionCard>
+
+              {/* Action plan */}
+              {competitorBattleResult.actionPlan && (
+                <SectionCard>
+                  <CardContent className="p-4">
+                    <h4 className="text-[13px] font-semibold text-zinc-200 mb-2">Action Plan</h4>
+                    <div className="space-y-1.5 text-[12px]">
+                      <div className="flex items-start gap-2"><span className="text-red-400 font-bold flex-shrink-0">P1:</span> <span className="text-zinc-300">{competitorBattleResult.actionPlan.priority1}</span></div>
+                      <div className="flex items-start gap-2"><span className="text-amber-400 font-bold flex-shrink-0">P2:</span> <span className="text-zinc-300">{competitorBattleResult.actionPlan.priority2}</span></div>
+                      <div className="flex items-start gap-2"><span className="text-[#7CB342] font-bold flex-shrink-0">P3:</span> <span className="text-zinc-300">{competitorBattleResult.actionPlan.priority3}</span></div>
+                    </div>
+                  </CardContent>
+                </SectionCard>
+              )}
+            </>
+          )}
         </TabsContent>
 
         {/* ================================================================ */}
@@ -1348,6 +1475,138 @@ export function AnalyticsPanel({
             </>
           ) : (
             <EmptyState icon={Link2} title="Analyze your backlink profile" subtitle="Domain authority, referring domains, and link building opportunities" />
+          )}
+
+          {/* ---- Citation Booster ---- */}
+          <div className="border-t border-zinc-800/40 pt-4 mt-4" />
+          <SectionCard>
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h4 className="text-[14px] font-semibold text-zinc-100 flex items-center gap-2">
+                    Citation Booster
+                    <Badge className="text-[10px] bg-[#7CB342]/10 text-[#7CB342] border-0 rounded-md h-5 px-1.5">AI Powered</Badge>
+                  </h4>
+                  <p className="text-[12px] text-zinc-400 mt-1">Brands with more web mentions get 10x more AI citations. This generates everything to boost yours.</p>
+                </div>
+              </div>
+              <Button
+                onClick={onRunCitationBooster}
+                disabled={isBoostingCitations}
+                className="w-full bg-[#7CB342] text-zinc-900 hover:bg-[#8BC34A] active:scale-[0.99] h-10 text-[13px] font-medium rounded-lg transition-all"
+              >
+                {isBoostingCitations ? <><Loader2 size={15} className="animate-spin mr-2" />Generating toolkit...</> : <><>{cost("citation_booster") > 0 && <span className="opacity-70 mr-1">{cost("citation_booster")}cr</span>}</>Generate Citation Booster</>}
+              </Button>
+            </CardContent>
+          </SectionCard>
+
+          {citationBoosterResult && (
+            <>
+              {/* Directory Listings */}
+              {citationBoosterResult.directoryListings && (
+                <SectionCard>
+                  <CardContent className="p-5">
+                    <h4 className="text-[13px] font-semibold text-zinc-200 mb-3">Directory Listings (Copy & Submit)</h4>
+                    <div className="space-y-3">
+                      {Object.entries(citationBoosterResult.directoryListings).map(([portal, listing]: [string, any]) => (
+                        <div key={portal} className="p-3.5 rounded-lg bg-zinc-800/40 border border-white/[0.04] group relative">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Badge className="text-[10px] bg-zinc-800 text-zinc-300 border-0 rounded-md h-5 px-1.5">{portal}</Badge>
+                            <span className="text-[13px] font-medium text-zinc-200">{listing.title}</span>
+                          </div>
+                          <p className="text-[12px] text-zinc-400 leading-relaxed">{listing.description?.slice(0, 200)}...</p>
+                          <CopyBtn text={`${listing.title}\n\n${listing.description}\n\nHighlights:\n${(listing.highlights || []).join("\n")}`} field={`dir-${portal}`} />
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </SectionCard>
+              )}
+
+              {/* Press Release */}
+              {citationBoosterResult.pressRelease && (
+                <SectionCard>
+                  <CardContent className="p-5">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-[13px] font-semibold text-zinc-200">Press Release</h4>
+                      <CopyBtn text={`${citationBoosterResult.pressRelease.headline}\n${citationBoosterResult.pressRelease.subheadline}\n\n${citationBoosterResult.pressRelease.body}\n\n${citationBoosterResult.pressRelease.boilerplate}`} field="press" />
+                    </div>
+                    <div className="p-3.5 rounded-lg bg-zinc-800/40 border border-white/[0.04]">
+                      <div className="text-[14px] font-semibold text-zinc-100 mb-1">{citationBoosterResult.pressRelease.headline}</div>
+                      <div className="text-[12px] text-zinc-400 mb-3">{citationBoosterResult.pressRelease.subheadline}</div>
+                      <div className="text-[12px] text-zinc-300 leading-relaxed whitespace-pre-wrap">{citationBoosterResult.pressRelease.body?.slice(0, 400)}...</div>
+                    </div>
+                    {citationBoosterResult.pressRelease.targetPublications?.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mt-3">
+                        <span className="text-[11px] text-zinc-500 mr-1">Send to:</span>
+                        {citationBoosterResult.pressRelease.targetPublications.map((pub: string, i: number) => (
+                          <Badge key={i} variant="outline" className="text-[10px] border-zinc-700/50 text-zinc-400 rounded-md">{pub}</Badge>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </SectionCard>
+              )}
+
+              {/* Community Answers */}
+              {citationBoosterResult.communityAnswers?.length > 0 && (
+                <SectionCard>
+                  <CardContent className="p-5">
+                    <h4 className="text-[13px] font-semibold text-zinc-200 mb-3">Community Answers (Quora / Reddit)</h4>
+                    <div className="space-y-3">
+                      {citationBoosterResult.communityAnswers.map((ca: any, i: number) => (
+                        <div key={i} className="p-3.5 rounded-lg bg-zinc-800/40 border border-white/[0.04] group relative">
+                          <div className="flex items-center gap-2 mb-1.5">
+                            <Badge className="text-[10px] bg-zinc-800 text-zinc-300 border-0 rounded-md h-5 px-1.5">{ca.platform}</Badge>
+                          </div>
+                          <div className="text-[13px] text-zinc-200 font-medium mb-1">{ca.question}</div>
+                          <div className="text-[12px] text-zinc-400 leading-relaxed">{ca.answer?.slice(0, 200)}...</div>
+                          <CopyBtn text={ca.answer} field={`ca-${i}`} />
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </SectionCard>
+              )}
+
+              {/* GBP Optimization */}
+              {citationBoosterResult.gbpOptimization && (
+                <SectionCard>
+                  <CardContent className="p-5">
+                    <h4 className="text-[13px] font-semibold text-zinc-200 mb-3">Google Business Profile Optimization</h4>
+                    <div className="p-3.5 rounded-lg bg-zinc-800/40 border border-white/[0.04] group relative mb-3">
+                      <div className="text-[11px] text-zinc-500 font-medium mb-1">Business Description (copy to GBP)</div>
+                      <div className="text-[12px] text-zinc-300 leading-relaxed">{citationBoosterResult.gbpOptimization.businessDescription}</div>
+                      <CopyBtn text={citationBoosterResult.gbpOptimization.businessDescription} field="gbp-desc" />
+                    </div>
+                    {citationBoosterResult.gbpOptimization.reviewStrategy && (
+                      <div className="p-3 rounded-lg bg-[#7CB342]/[0.04] border border-[#7CB342]/10">
+                        <div className="text-[11px] text-[#7CB342] font-medium mb-1">Review Strategy</div>
+                        <div className="text-[12px] text-zinc-400 leading-relaxed">{citationBoosterResult.gbpOptimization.reviewStrategy}</div>
+                      </div>
+                    )}
+                  </CardContent>
+                </SectionCard>
+              )}
+
+              {/* Impact Estimate */}
+              {citationBoosterResult.impactEstimate && (
+                <SectionCard>
+                  <CardContent className="p-4">
+                    <div className="grid grid-cols-2 gap-3 text-center">
+                      <div className="p-2.5 rounded-lg bg-zinc-800/40">
+                        <div className="text-lg font-bold text-zinc-100">{citationBoosterResult.impactEstimate.expectedNewMentions}</div>
+                        <div className="text-[11px] text-zinc-500">Expected new mentions</div>
+                      </div>
+                      <div className="p-2.5 rounded-lg bg-zinc-800/40">
+                        <div className="text-lg font-bold text-zinc-100">{citationBoosterResult.impactEstimate.timeToImpact}</div>
+                        <div className="text-[11px] text-zinc-500">Time to AI impact</div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </SectionCard>
+              )}
+            </>
           )}
         </TabsContent>
 
@@ -2311,6 +2570,178 @@ export function AnalyticsPanel({
             </>
           ) : (
             <EmptyState icon={Navigation} title="Analyze the neighborhood around your project" subtitle="Walk score, connectivity, schools, hospitals, IT hubs, infrastructure" />
+          )}
+
+          {/* ---- Locality Domination Pack ---- */}
+          <div className="border-t border-zinc-800/40 pt-4 mt-4" />
+          <SectionCard>
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h4 className="text-[14px] font-semibold text-zinc-100 flex items-center gap-2">
+                    Locality Domination Pack
+                    <Badge className="text-[10px] bg-[#7CB342]/10 text-[#7CB342] border-0 rounded-md h-5 px-1.5">Premium</Badge>
+                  </h4>
+                  <p className="text-[12px] text-zinc-400 mt-1">Generate a complete content ecosystem — master guide, buyer pages, comparisons, 50+ FAQs — to dominate this locality in AI search.</p>
+                </div>
+              </div>
+              <Button
+                onClick={onRunLocalityDomination}
+                disabled={isGeneratingDomination || !city}
+                className="w-full bg-[#7CB342] text-zinc-900 hover:bg-[#8BC34A] active:scale-[0.99] h-10 text-[13px] font-medium rounded-lg transition-all"
+              >
+                {isGeneratingDomination ? <><Loader2 size={15} className="animate-spin mr-2" />Generating domination pack...</> : <><>{cost("locality_domination") > 0 && <span className="opacity-70 mr-1">{cost("locality_domination")}cr</span>}</>Dominate {city || "your locality"}</>}
+              </Button>
+            </CardContent>
+          </SectionCard>
+
+          {localityDominationResult && (
+            <>
+              {/* Stats bar */}
+              <SectionCard>
+                <CardContent className="p-4">
+                  <div className="grid grid-cols-4 gap-3 text-center">
+                    <div className="p-2 rounded-lg bg-zinc-800/40">
+                      <div className="text-lg font-bold text-zinc-100 tabular-nums">{localityDominationResult.totalPages}</div>
+                      <div className="text-[10px] text-zinc-500">Pages</div>
+                    </div>
+                    <div className="p-2 rounded-lg bg-zinc-800/40">
+                      <div className="text-lg font-bold text-zinc-100 tabular-nums">{localityDominationResult.totalFaqs}</div>
+                      <div className="text-[10px] text-zinc-500">FAQs</div>
+                    </div>
+                    <div className="p-2 rounded-lg bg-zinc-800/40">
+                      <div className="text-lg font-bold text-zinc-100 tabular-nums">{(localityDominationResult.totalWords / 1000).toFixed(0)}k</div>
+                      <div className="text-[10px] text-zinc-500">Words</div>
+                    </div>
+                    <div className="p-2 rounded-lg bg-zinc-800/40">
+                      <div className="text-lg font-bold text-[#7CB342]">{localityDominationResult.seoImpactEstimate?.estimatedAIVisibilityLift || "40-60%"}</div>
+                      <div className="text-[10px] text-zinc-500">Est. lift</div>
+                    </div>
+                  </div>
+                </CardContent>
+              </SectionCard>
+
+              {/* Master Guide */}
+              {localityDominationResult.masterGuide && (
+                <SectionCard>
+                  <CardContent className="p-5 group relative">
+                    <h4 className="text-[14px] font-semibold text-zinc-100 mb-1">{localityDominationResult.masterGuide.title}</h4>
+                    <p className="text-[11px] text-zinc-500 mb-3">{localityDominationResult.masterGuide.metaDescription}</p>
+                    <div className="p-3.5 rounded-lg bg-zinc-800/40 border border-white/[0.04] text-[12px] text-zinc-300 leading-relaxed">
+                      {localityDominationResult.masterGuide.heroAnswer?.slice(0, 300)}...
+                    </div>
+                    <CopyBtn text={`# ${localityDominationResult.masterGuide.title}\n\n${localityDominationResult.masterGuide.heroAnswer}\n\n${(localityDominationResult.masterGuide.sections || []).map((s: any) => `## ${s.heading}\n\n${s.content}`).join("\n\n")}`} field="dom-master" />
+                    <div className="mt-3 text-[11px] text-zinc-500">{localityDominationResult.masterGuide.sections?.length || 0} sections • ~{localityDominationResult.masterGuide.wordCount || 2000} words</div>
+                  </CardContent>
+                </SectionCard>
+              )}
+
+              {/* Buyer Intent Pages */}
+              {localityDominationResult.buyerIntentPages?.length > 0 && (
+                <SectionCard>
+                  <CardContent className="p-5">
+                    <h4 className="text-[13px] font-semibold text-zinc-200 mb-3">Buyer Intent Pages ({localityDominationResult.buyerIntentPages.length})</h4>
+                    <div className="space-y-2">
+                      {localityDominationResult.buyerIntentPages.map((page: any, i: number) => (
+                        <div key={i} className="p-3 rounded-lg bg-zinc-800/40 border border-white/[0.04] group relative">
+                          <div className="text-[13px] text-zinc-200 font-medium">{page.title}</div>
+                          <div className="text-[11px] text-zinc-500 mt-0.5">Target: "{page.targetQuery}"</div>
+                          <div className="text-[12px] text-zinc-400 mt-1.5 leading-relaxed">{page.heroAnswer?.slice(0, 150)}...</div>
+                          <CopyBtn text={`# ${page.title}\n\n${page.heroAnswer}\n\n${(page.sections || []).map((s: any) => `## ${s.heading}\n\n${s.content}`).join("\n\n")}`} field={`dom-buyer-${i}`} />
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </SectionCard>
+              )}
+
+              {/* Comparison Pages */}
+              {localityDominationResult.comparisonPages?.length > 0 && (
+                <SectionCard>
+                  <CardContent className="p-5">
+                    <h4 className="text-[13px] font-semibold text-zinc-200 mb-3">Comparison Pages ({localityDominationResult.comparisonPages.length})</h4>
+                    <div className="space-y-2">
+                      {localityDominationResult.comparisonPages.map((page: any, i: number) => (
+                        <div key={i} className="p-3 rounded-lg bg-zinc-800/40 border border-white/[0.04] group relative">
+                          <div className="text-[13px] text-zinc-200 font-medium">{page.title}</div>
+                          <div className="text-[12px] text-zinc-400 mt-1.5 leading-relaxed">{page.heroAnswer?.slice(0, 150)}...</div>
+                          <CopyBtn text={`# ${page.title}\n\n${page.heroAnswer}\n\n${(page.sections || []).map((s: any) => `## ${s.heading}\n\n${s.content}`).join("\n\n")}`} field={`dom-comp-${i}`} />
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </SectionCard>
+              )}
+
+              {/* FAQ Clusters */}
+              {localityDominationResult.faqClusters?.length > 0 && (
+                <SectionCard>
+                  <CardContent className="p-5">
+                    <h4 className="text-[13px] font-semibold text-zinc-200 mb-3">FAQ Clusters ({localityDominationResult.totalFaqs} FAQs)</h4>
+                    <div className="space-y-3">
+                      {localityDominationResult.faqClusters.map((cluster: any, i: number) => (
+                        <div key={i} className="p-3 rounded-lg bg-zinc-800/40 border border-white/[0.04] group relative">
+                          <div className="text-[12px] font-semibold text-zinc-300 mb-2">{cluster.theme} ({cluster.faqs?.length || 0})</div>
+                          <div className="space-y-1.5">
+                            {(cluster.faqs || []).slice(0, 3).map((faq: any, j: number) => (
+                              <div key={j}>
+                                <div className="text-[12px] text-zinc-200 font-medium">{faq.question}</div>
+                                <div className="text-[11px] text-zinc-500 mt-0.5">{faq.answer?.slice(0, 100)}...</div>
+                              </div>
+                            ))}
+                            {(cluster.faqs?.length || 0) > 3 && (
+                              <div className="text-[11px] text-zinc-600">+{cluster.faqs.length - 3} more</div>
+                            )}
+                          </div>
+                          <CopyBtn text={cluster.faqs?.map((f: any) => `Q: ${f.question}\nA: ${f.answer}`).join("\n\n") || ""} field={`dom-faq-${i}`} />
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </SectionCard>
+              )}
+            </>
+          )}
+
+          {/* ---- GBP Posts ---- */}
+          <div className="border-t border-zinc-800/40 pt-4 mt-4" />
+          <SectionCard>
+            <CardContent className="p-5">
+              <h4 className="text-[14px] font-semibold text-zinc-100 mb-1">Google Business Profile Posts</h4>
+              <p className="text-[12px] text-zinc-400 mb-3">4 weeks of GBP posts with CTAs — copy directly to your Google Business Profile.</p>
+              <Button
+                onClick={onRunGbpPosts}
+                disabled={isGeneratingGbp}
+                className="w-full bg-zinc-100 text-zinc-900 hover:bg-white active:scale-[0.99] h-10 text-[13px] font-medium rounded-lg transition-all"
+              >
+                {isGeneratingGbp ? <><Loader2 size={15} className="animate-spin mr-2" />Generating...</> : <><>{cost("gbp_posts") > 0 && <span className="text-zinc-500 mr-1">{cost("gbp_posts")}cr</span>}</>Generate 8 GBP Posts</>}
+              </Button>
+            </CardContent>
+          </SectionCard>
+
+          {gbpResult?.posts?.length > 0 && (
+            <SectionCard>
+              <CardContent className="p-5">
+                <h4 className="text-[13px] font-semibold text-zinc-200 mb-3">GBP Posts ({gbpResult.posts.length})</h4>
+                <div className="space-y-3">
+                  {gbpResult.posts.map((post: any, i: number) => (
+                    <div key={i} className="p-3.5 rounded-lg bg-zinc-800/40 border border-white/[0.04] group relative">
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <Badge className="text-[10px] bg-zinc-800 text-zinc-300 border-0 rounded-md h-5 px-1.5">Week {post.week}</Badge>
+                        <Badge variant="outline" className="text-[10px] border-zinc-700/50 text-zinc-500 rounded-md">{post.type}</Badge>
+                      </div>
+                      <div className="text-[13px] text-zinc-200 font-medium mb-1">{post.title}</div>
+                      <div className="text-[12px] text-zinc-400 leading-relaxed">{post.body?.slice(0, 200)}...</div>
+                      <div className="flex items-center gap-2 mt-2">
+                        <Badge className="text-[10px] bg-[#7CB342]/10 text-[#7CB342] border-0 rounded-md h-5 px-1.5">{post.cta}</Badge>
+                        {post.targetKeyword && <span className="text-[10px] text-zinc-600">Keyword: {post.targetKeyword}</span>}
+                      </div>
+                      <CopyBtn text={`${post.title}\n\n${post.body}\n\nCTA: ${post.cta}`} field={`gbp-${i}`} />
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </SectionCard>
           )}
         </TabsContent>
 
