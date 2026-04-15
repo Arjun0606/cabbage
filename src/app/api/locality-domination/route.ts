@@ -63,6 +63,8 @@ CONTEXT:
 - Website: ${website || "Not specified"}
 - Nearby Landmarks: ${nearbyLandmarks || "Major IT parks, schools, hospitals"}
 - Competitors: ${(competitorNames || []).join(", ") || "Various developers"}
+- Brand Voice: ${brandVoice || "Professional, trustworthy, knowledgeable"}
+- Target Audience: ${targetAudience || "Home buyers aged 28-50, IT professionals, families"}
 
 Generate this JSON:
 {

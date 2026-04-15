@@ -3,7 +3,7 @@ import { aiComplete } from "@/lib/ai";
 
 export async function POST(req: NextRequest) {
   try {
-    const { city, location, projectName, radius } = await req.json();
+    const { city, location, projectName, radius, developerName, configurations, priceRange, amenities } = await req.json();
 
     if (!city || !location) {
       return NextResponse.json(
@@ -14,6 +14,10 @@ export async function POST(req: NextRequest) {
 
     const radiusStr = radius || "5km";
     const projectStr = projectName || "";
+    const devStr = developerName || "";
+    const configStr = configurations || "";
+    const priceStr = priceRange || "";
+    const amenStr = amenities || "";
 
     const system = `You are an expert Indian real estate location analyst and neighbourhood intelligence specialist. You have deep knowledge of Indian cities — their micro-markets, infrastructure projects, connectivity networks, school ecosystems, healthcare facilities, commercial hubs, and upcoming development plans. You provide accurate, detailed neighbourhood data that real estate marketers use for listing descriptions, landing pages, and buyer presentations.
 
@@ -23,6 +27,10 @@ IMPORTANT: Return ONLY valid JSON with the exact structure specified. No markdow
 
 LOCATION: ${location}, ${city}
 ${projectStr ? `PROJECT: ${projectStr}` : ""}
+${devStr ? `DEVELOPER: ${devStr}` : ""}
+${configStr ? `CONFIGURATIONS: ${configStr}` : ""}
+${priceStr ? `PRICE RANGE: ${priceStr}` : ""}
+${amenStr ? `KEY AMENITIES: ${amenStr}` : ""}
 ANALYSIS RADIUS: ${radiusStr}
 
 Provide rich, accurate neighbourhood data and return JSON with this EXACT structure:

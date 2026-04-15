@@ -20,6 +20,9 @@ export default function DashboardPage() {
     sites: [] as { url: string; label: string }[],
     projects: [] as { name: string; website: string; location: string; configurations?: string; priceRange?: string; reraNumber?: string; amenities?: string; status?: string }[],
     competitors: [] as { name: string; website: string }[],
+    yearEstablished: "",
+    projectsCompleted: "",
+    awards: "",
     documents: { productInfo: "", competitorAnalysis: "", brandVoice: "", marketingStrategy: "", brandValues: "", brandVision: "", targetAudience: "" },
   });
 
@@ -269,7 +272,11 @@ export default function DashboardPage() {
       // Reuse saved queries for consistent tracking, or generate fresh on first scan
       const existingQueries = getSavedQueries(company.name);
       if (existingQueries) addLog(`> Using ${existingQueries.length} tracked queries for consistent comparison`);
-      const res = await fetch("/api/ai-visibility", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ websiteUrl: company.website, brand: company.name, projects: company.projects.map(p => p.name), city: company.city, savedQueries: existingQueries }) });
+      const res = await fetch("/api/ai-visibility", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
+        websiteUrl: company.website, brand: company.name, city: company.city, savedQueries: existingQueries,
+        projects: company.projects.map(p => p.name),
+        projectDetails: company.projects.map(p => ({ name: p.name, location: p.location, configurations: p.configurations, priceRange: p.priceRange })),
+      }) });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       setAiVisResult(data);
@@ -436,6 +443,9 @@ export default function DashboardPage() {
         priceRange: proj.priceRange, status: proj.status,
       })),
       competitors: (company.competitors || []).map((c: any) => c.name),
+      yearEstablished: company.yearEstablished || "",
+      projectsCompleted: company.projectsCompleted || "",
+      awards: company.awards || "",
     };
   };
 
@@ -549,7 +559,7 @@ export default function DashboardPage() {
     const ctx = getProjectContext();
     addLog(`> Analyzing neighborhood: ${ctx.location}, ${ctx.city}...`);
     try {
-      const res = await fetch("/api/neighborhood", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ city: ctx.city, location: ctx.location, projectName: ctx.projectName }) });
+      const res = await fetch("/api/neighborhood", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ city: ctx.city, location: ctx.location, projectName: ctx.projectName, developerName: ctx.developerName, configurations: ctx.configurations, priceRange: ctx.priceRange, amenities: ctx.amenities }) });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       setNeighborhoodResult(data);
@@ -812,7 +822,7 @@ export default function DashboardPage() {
       const res = await fetch("/api/citation-booster", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...ctx, yearEstablished: "", projectsCompleted: "", awards: "",
+          ...ctx, yearEstablished: company.yearEstablished, projectsCompleted: company.projectsCompleted, awards: company.awards,
         }),
       });
       const data = await res.json();

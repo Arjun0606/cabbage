@@ -24,6 +24,9 @@ interface Company {
   description: string;
   website: string;
   city: string;
+  yearEstablished: string;
+  projectsCompleted: string;
+  awards: string;
   sites: { url: string; label: string }[];
   projects: { name: string; website: string; location: string; configurations?: string; priceRange?: string; reraNumber?: string; amenities?: string; status?: string }[];
   competitors: { name: string; website: string }[];
@@ -188,6 +191,26 @@ export function CompanyPanel({ company, setCompany }: Props) {
             onChange={(e) => setCompany({ ...company, description: e.target.value })}
             className="bg-zinc-900/80 border-white/[0.06] text-[13px] min-h-[72px] placeholder:text-zinc-500 leading-relaxed focus:border-[#7CB342]/40 focus:ring-[#7CB342]/10 transition-colors"
           />
+          <div className="grid grid-cols-3 gap-2">
+            <Input
+              placeholder="Year established"
+              value={company.yearEstablished}
+              onChange={(e) => setCompany({ ...company, yearEstablished: e.target.value })}
+              className="bg-zinc-900/80 border-white/[0.06] text-[13px] h-9 placeholder:text-zinc-500 focus:border-[#7CB342]/40 focus:ring-[#7CB342]/10 transition-colors"
+            />
+            <Input
+              placeholder="Projects completed"
+              value={company.projectsCompleted}
+              onChange={(e) => setCompany({ ...company, projectsCompleted: e.target.value })}
+              className="bg-zinc-900/80 border-white/[0.06] text-[13px] h-9 placeholder:text-zinc-500 focus:border-[#7CB342]/40 focus:ring-[#7CB342]/10 transition-colors"
+            />
+            <Input
+              placeholder="Awards / recognition"
+              value={company.awards}
+              onChange={(e) => setCompany({ ...company, awards: e.target.value })}
+              className="bg-zinc-900/80 border-white/[0.06] text-[13px] h-9 placeholder:text-zinc-500 focus:border-[#7CB342]/40 focus:ring-[#7CB342]/10 transition-colors"
+            />
+          </div>
         </div>
       </section>
 
