@@ -36,6 +36,8 @@ import { PromptVolumes } from "./PromptVolumes";
 import { TrendsPanel } from "./TrendsPanel";
 import { EditableBlock } from "./EditableBlock";
 import { GEOProgressPanel } from "./GEOProgressPanel";
+import { ExecutionChecklist } from "./ExecutionChecklist";
+import { PublishButton } from "./PublishButton";
 
 interface Props {
   activeTab: string;
@@ -312,6 +314,34 @@ export function AnalyticsPanel({
         {/* -------- HEALTH TAB (Health + Technical + Checks) -------- */}
         {/* ================================================================ */}
         <TabsContent value="health" className="space-y-4">
+          {/* Execution Checklist — the thing that makes this an execution engine */}
+          <ExecutionChecklist
+            companyName={companyName}
+            websiteUrl={websiteUrl}
+            city={city}
+            auditResult={auditResult}
+            aiVisResult={aiVisResult}
+            technicalResult={technicalResult}
+            backlinkResult={backlinkResult}
+            hasArticles={!!articleResult}
+            hasSchema={!!schemaResult}
+            hasLlmsTxt={!!llmsTxtResult}
+            hasGbpPosts={!!gbpResult}
+            hasCitationBooster={!!citationBoosterResult}
+            hasLocalityDomination={!!localityDominationResult}
+            onRunAction={(action) => {
+              if (action === "tab-health") onTabChange("health");
+              else if (action === "tab-content") onTabChange("content");
+              else if (action === "audit") onRunAudit(websiteUrl);
+              else if (action === "ai_visibility") onRunAIVisibility();
+              else if (action === "schema") onRunSchemaGenerator();
+              else if (action === "llms_txt") onRunLlmsTxt();
+              else if (action === "citation_booster") onRunCitationBooster?.();
+              else if (action === "locality_domination") onRunLocalityDomination?.();
+              else if (action === "gbp_posts") onRunGbpPosts?.();
+            }}
+          />
+
           {/* What Changed — SEO scores */}
           {trends.audit?.history?.length >= 2 && (
             <SectionCard className={trends.audit.direction === "declining" ? "border-red-500/20" : ""}>
@@ -1747,6 +1777,7 @@ export function AnalyticsPanel({
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0">
                           <Badge className="bg-zinc-800 text-zinc-300 border-0 text-[10px] h-5 rounded-md">{articleResult.wordCount} words</Badge>
+                          <PublishButton title={articleResult.title} content={articleResult.content} excerpt={articleResult.metaDescription} targetKeyword={articleResult.targetKeyword} />
                           <CopyBtn text={articleResult.content} field="article" />
                         </div>
                       </div>
