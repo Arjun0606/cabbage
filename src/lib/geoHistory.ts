@@ -13,6 +13,7 @@
 
 export interface GEOQuerySnapshot {
   query: string;
+  level: "locality" | "city" | "country";  // Multi-level GEO tier
   chatgpt: { mentioned: boolean; position: number; sentiment: string };
   gemini: { mentioned: boolean; position: number; sentiment: string };
   perplexity: { mentioned: boolean; position: number; sentiment: string };
@@ -116,8 +117,9 @@ export function recordGEOScan(
   scores: GEOScanRecord["scores"],
   queryResults: any[]  // Raw queryResults from AI visibility API
 ): GEOScanRecord {
-  const queries: GEOQuerySnapshot[] = queryResults.map((q) => ({
+  const queries: GEOQuerySnapshot[] = queryResults.map((q, i) => ({
     query: q.query,
+    level: (i < 8 ? "locality" : i < 16 ? "city" : "country") as GEOQuerySnapshot["level"],
     chatgpt: { mentioned: q.chatgpt?.mentioned || false, position: q.chatgpt?.position || 0, sentiment: q.chatgpt?.sentiment || "absent" },
     gemini: { mentioned: q.gemini?.mentioned || false, position: q.gemini?.position || 0, sentiment: q.gemini?.sentiment || "absent" },
     perplexity: { mentioned: q.perplexity?.mentioned || false, position: q.perplexity?.position || 0, sentiment: q.perplexity?.sentiment || "absent" },

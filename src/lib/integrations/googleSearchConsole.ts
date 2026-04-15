@@ -60,7 +60,7 @@ export function getGoogleAuthUrl(redirectUri: string): string {
     client_id: process.env.GOOGLE_CLIENT_ID || "",
     redirect_uri: redirectUri,
     response_type: "code",
-    scope: "https://www.googleapis.com/auth/webmasters.readonly",
+    scope: "https://www.googleapis.com/auth/webmasters.readonly https://www.googleapis.com/auth/analytics.readonly",
     access_type: "offline",
     prompt: "consent",
   });

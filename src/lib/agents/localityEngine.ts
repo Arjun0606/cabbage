@@ -213,55 +213,56 @@ export async function generateSearchQueries(
   // The test is: does ChatGPT/Google AI RECOMMEND this developer when asked generic queries?
   // That's the real measure of GEO visibility.
 
+  // Multi-level GEO: locality (micro) + city (metro) + country (macro)
+  // This ensures we track visibility at every level a buyer searches.
+
   const system = "Return a JSON array of exactly 20 English strings. No other text.";
 
   const loc = locality || city;
+  const country = "India"; // Can be parameterized later
 
-  const prompt = `Generate exactly 20 search queries that a real home buyer in ${city}, India would type into ChatGPT or Google right now. These buyers DO NOT know any specific developer — they are searching by location, budget, and requirements.
+  const prompt = `Generate exactly 20 search queries that real home buyers would type into ChatGPT or Google. These buyers DO NOT know any specific developer — they want AI to RECOMMEND one.
 
 CITY: ${city}
-${locality ? `AREA/LOCALITY: ${locality}` : ""}
+${locality ? `LOCALITY/AREA: ${locality}` : ""}
+COUNTRY: ${country}
 
 CRITICAL RULES:
 - ALL queries in ENGLISH only
-- DO NOT include any developer or project name — the buyer doesn't know them yet
-- These are DISCOVERY queries — the buyer wants ChatGPT to RECOMMEND developers
-- Use real landmarks, IT parks, metro stations, schools, hospitals near ${loc}
+- DO NOT include any developer or project name
+- Use real landmarks, IT parks, metro stations, schools near ${loc}
 - Use Indian price formats (lakhs, crore)
-- Must be realistic queries a 28-45 year old IT professional or business owner would type
+- Must be realistic queries a 28-45 year old professional would type
 
-Generate this exact mix:
-1-4: Location + budget queries
-  "best 3BHK apartments in ${loc} under 1.5 crore"
-  "affordable flats near [real IT park name] ${city}"
-  "luxury apartments in ${loc} with good amenities"
-  "2BHK flats in ${city} under 80 lakhs"
+Generate this MULTI-LEVEL MIX:
 
-5-8: Decision queries (these are HIGH VALUE — buyer is close to buying)
-  "which builder has the best track record in ${city}"
-  "top 5 residential projects in ${loc} 2026"
-  "best gated community in ${loc} for families"
-  "RERA approved projects near [real metro station] ${city}"
+LOCALITY LEVEL (8 queries) — hyper-local, micro-market:
+1. "best 3BHK apartments in ${loc} under 1.5 crore"
+2. "affordable flats near [real IT park/landmark] ${loc}"
+3. "top 5 residential projects in ${loc} 2026"
+4. "RERA approved projects near [real metro station] ${loc}"
+5. "${loc} vs [real nearby area] which is better to buy"
+6. "ready to move flats in ${loc}"
+7. "projects near [real school name] ${loc}"
+8. "property price trends in ${loc} 2026"
 
-9-12: Comparison queries
-  "${loc} vs [real nearby area] which is better to buy"
-  "should I buy in ${loc} or [real nearby area]"
-  "best area to buy flat in ${city} 2026"
-  "upcoming areas in ${city} for real estate investment"
+CITY LEVEL (8 queries) — metro-wide buyer intent:
+9. "best areas to buy flat in ${city} 2026"
+10. "which builder has the best track record in ${city}"
+11. "luxury apartments in ${city} with good amenities"
+12. "upcoming residential projects in ${city}"
+13. "best gated communities in ${city} for families"
+14. "2BHK flats in ${city} under 80 lakhs"
+15. "top real estate developers in ${city}"
+16. "new launch projects in ${city} with swimming pool"
 
-13-16: Specific need queries
-  "projects near [real school name] ${city}"
-  "apartments with good resale value in ${loc}"
-  "ready to move flats in ${loc}"
-  "new launch projects in ${city} with swimming pool and gym"
+COUNTRY LEVEL (4 queries) — national discovery:
+17. "best cities to buy property in ${country} 2026"
+18. "top real estate developers in ${country}"
+19. "best areas for real estate investment in ${country}"
+20. "upcoming smart cities in ${country} for property"
 
-17-20: Research and investment queries
-  "is ${loc} a good area to invest in real estate"
-  "property price trends in ${loc} ${city}"
-  "rental yield in ${loc}"
-  "upcoming infrastructure projects near ${loc} ${city}"
-
-Use REAL landmark names specific to ${loc}, ${city} — not generic placeholders.
+Use REAL landmark names specific to ${loc}, ${city}.
 Return JSON array of 20 strings.`;
 
   const text = await aiLight(system, prompt, 1500);

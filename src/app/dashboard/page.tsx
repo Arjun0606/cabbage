@@ -113,7 +113,7 @@ export default function DashboardPage() {
     schema: 2, landing: 5, portal: 2, neighborhood: 3, progress: 2,
     report: 5, ads: 3, llms_txt: 2, geo_improvement: 3, crawler: 1,
     brand_presence: 2, citability: 2, chat: 1, locality: 1,
-    locality_domination: 10, citation_booster: 8, gbp_posts: 3,
+    locality_domination: 10, citation_booster: 8, gbp_posts: 3, prompt_volumes: 3,
   };
 
   const spendCredits = (action: string): boolean => {
@@ -1027,6 +1027,7 @@ export default function DashboardPage() {
             <ActionsFeed
               auditResult={auditResult} aiVisResult={aiVisResult} backlinkResult={backlinkResult}
               technicalResult={technicalResult} competitorResults={competitorResults}
+              geoProgress={geoProgress}
               onNavigateToTab={setActiveTab}
             />
           </div>
