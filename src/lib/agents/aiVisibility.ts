@@ -31,6 +31,7 @@ interface LLMResult {
   position: number; // 0 = not mentioned, 1 = first, 2 = second, etc.
   context: string;  // The sentence/paragraph where brand appears
   sentiment: "positive" | "neutral" | "negative" | "absent";
+  coCitations: string[];  // Other brands/developers mentioned in same answer
 }
 
 interface AIReadinessCheck {
@@ -41,13 +42,27 @@ interface AIReadinessCheck {
 
 // ---------- Analysis ----------
 
+// Common Indian RE developer names for co-citation detection
+const KNOWN_DEVELOPERS = [
+  "dlf", "godrej", "prestige", "sobha", "brigade", "lodha", "oberoi", "hiranandani",
+  "puravankara", "mahindra lifespaces", "tata housing", "birla estates", "emaar",
+  "shapoorji pallonji", "l&t realty", "raymond realty", "piramal realty", "kalpataru",
+  "rustomjee", "runwal", "sunteck", "kolte-patil", "rohan builders", "gera",
+  "kumar properties", "pride purple", "paranjape", "marvel realtors", "naiknavare",
+  "aparna", "my home", "rajapushpa", "sumadhura", "ramky", "cybercity",
+  "salarpuria sattva", "embassy", "provident", "shriram properties", "casagrand",
+  "alliance", "radiance", "tvs emerald", "navin", "sri aditya",
+  "m3m", "signature global", "whiteland", "bptp", "raheja", "ats",
+  "gaurs", "supertech", "ace", "saya", "gulshan", "mahagun",
+];
+
 function analyzeMention(
   response: string,
   brand: string,
   projects: string[]
 ): LLMResult {
   if (!response) {
-    return { mentioned: false, position: 0, context: "", sentiment: "absent" };
+    return { mentioned: false, position: 0, context: "", sentiment: "absent", coCitations: [] };
   }
 
   const brandLower = brand.toLowerCase();
@@ -64,13 +79,12 @@ function analyzeMention(
     if (allTerms.some((term) => sentLower.includes(term))) {
       mentioned = true;
       position = i + 1;
-      // Truncate and sanitize context to prevent JSON serialization issues
       context = sentences[i].trim().substring(0, 300).replace(/[\x00-\x1F]/g, " ");
       break;
     }
   }
 
-  // Simple sentiment from context
+  // Sentiment
   let sentiment: LLMResult["sentiment"] = "absent";
   if (mentioned) {
     const positiveWords = /best|top|recommend|excellent|great|premium|trusted|reputed|leading|popular|preferred/i;
@@ -80,7 +94,13 @@ function analyzeMention(
     else sentiment = "neutral";
   }
 
-  return { mentioned, position, context, sentiment };
+  // Co-citation: extract other developer names mentioned in the same response
+  const responseLower = response.toLowerCase();
+  const coCitations = KNOWN_DEVELOPERS
+    .filter((dev) => responseLower.includes(dev) && !allTerms.some((t) => t.includes(dev)))
+    .map((dev) => dev.split(" ").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" "));
+
+  return { mentioned, position, context, sentiment, coCitations };
 }
 
 function calculateScore(results: QueryResult[], llmKey: keyof Omit<QueryResult, "query">): number {
@@ -191,7 +211,7 @@ export async function runAIVisibility(
   const configuredLLMs: string[] = ["ChatGPT"];
   if (process.env.GOOGLE_GEMINI_API_KEY) configuredLLMs.push("Gemini");
 
-  const emptyResult: LLMResult = { mentioned: false, position: 0, context: "", sentiment: "absent" };
+  const emptyResult: LLMResult = { mentioned: false, position: 0, context: "", sentiment: "absent", coCitations: [] };
   const queryResults: QueryResult[] = [];
 
   for (const query of queries) {
