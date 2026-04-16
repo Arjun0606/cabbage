@@ -2,7 +2,7 @@
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { TrendingUp, TrendingDown, Minus, Eye, EyeOff, BarChart3, ArrowRight, PenTool, Loader2, Zap } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, Eye, EyeOff, BarChart3, ArrowRight, PenTool, Loader2, Zap, Clock } from "lucide-react";
 import { GEOProgress, formatScanDate } from "@/lib/geoHistory";
 
 interface Props {
@@ -50,7 +50,7 @@ function MentionTrendChart({ scans }: { scans: { date: string; rate: number }[] 
 export function GEOProgressPanel({ progress, onWriteArticleForQuery, onFixAllBlindSpots, isGenerating, articleCost = 5, bulkFixCost = 15 }: Props) {
   if (!progress.currentScan) return null;
 
-  const { currentScan, previousScan, allScans, mentionRate, previousMentionRate, mentionRateChange, newlyFound, newlyLost, neverFound, trajectory } = progress;
+  const { currentScan, previousScan, allScans, mentionRate, previousMentionRate, mentionRateChange, newlyFound, newlyLost, neverFound, trajectory, daysSinceLastScan, isStale, isVeryStale, weeklyScan, weeklyMentionRateChange, weeklyNewlyFound, weeklyNewlyLost } = progress;
 
   const trendScans = allScans.map((s) => ({
     date: formatScanDate(s.timestamp),
@@ -63,19 +63,62 @@ export function GEOProgressPanel({ progress, onWriteArticleForQuery, onFixAllBli
 
   return (
     <div className="space-y-4">
+      {/* Stale scan banner — re-engagement trigger */}
+      {isVeryStale && (
+        <Card className="bg-red-500/[0.04] border-red-500/20 rounded-xl">
+          <CardContent className="p-4 flex items-center gap-3">
+            <Clock size={16} className="text-red-400 flex-shrink-0" />
+            <div className="flex-1">
+              <div className="text-[13px] font-semibold text-red-400">Your scan is {daysSinceLastScan} days old</div>
+              <div className="text-[11px] text-zinc-400 mt-0.5">AI answers drift 40-60% per month. Re-scan to see if competitors overtook you on queries where you were winning.</div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Header card — the big number */}
       <Card className="bg-zinc-900/60 border-white/[0.06] rounded-xl">
         <CardContent className="p-5">
           <div className="flex items-center gap-2.5 mb-4">
             <BarChart3 size={15} className="text-[#7CB342]" />
             <h4 className="text-[14px] font-semibold text-zinc-100">GEO Visibility Progress</h4>
+            {isStale && !isVeryStale && (
+              <Badge className="text-[10px] bg-amber-500/10 text-amber-400 border-0 rounded-md h-5 px-1.5">
+                <Clock size={10} className="inline mr-1" />{daysSinceLastScan}d stale
+              </Badge>
+            )}
             {allScans.length > 1 && (
-              <Badge className={`text-[10px] ml-auto border-0 rounded-md h-5 px-1.5 ${trajectoryBg} ${trajectoryColor}`}>
+              <Badge className={`text-[10px] ${isStale ? "" : "ml-auto"} border-0 rounded-md h-5 px-1.5 ${trajectoryBg} ${trajectoryColor}`}>
                 <TrajectoryIcon size={11} className="inline mr-0.5" />
                 {trajectory === "improving" ? "Improving" : trajectory === "declining" ? "Declining" : "Stable"}
               </Badge>
             )}
           </div>
+
+          {/* Weekly delta row — shows progress over the last 7 days specifically */}
+          {weeklyScan && (
+            <div className="mb-4 p-3 rounded-lg bg-zinc-800/40 border border-white/[0.04]">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-medium text-zinc-500 uppercase tracking-wide">This week</span>
+                  <span className={`text-[13px] font-bold tabular-nums ${weeklyMentionRateChange > 0 ? "text-[#7CB342]" : weeklyMentionRateChange < 0 ? "text-red-400" : "text-zinc-400"}`}>
+                    {weeklyMentionRateChange > 0 ? "+" : ""}{weeklyMentionRateChange}%
+                  </span>
+                </div>
+                <div className="flex items-center gap-3 text-[11px]">
+                  {weeklyNewlyFound.length > 0 && (
+                    <span className="text-[#7CB342]">+{weeklyNewlyFound.length} won</span>
+                  )}
+                  {weeklyNewlyLost.length > 0 && (
+                    <span className="text-red-400">-{weeklyNewlyLost.length} lost</span>
+                  )}
+                  {weeklyNewlyFound.length === 0 && weeklyNewlyLost.length === 0 && (
+                    <span className="text-zinc-500">No changes</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="flex items-end justify-between">
             <div>

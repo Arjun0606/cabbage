@@ -48,6 +48,15 @@ export interface GEOProgress {
   neverFound: string[];         // Queries never found across all scans
   alwaysFound: string[];        // Queries found in every scan
   trajectory: "improving" | "declining" | "stable" | "new";
+  // Freshness
+  daysSinceLastScan: number;
+  isStale: boolean;             // >= 7 days
+  isVeryStale: boolean;         // >= 14 days
+  // Weekly delta (compared to scan closest to 7 days ago)
+  weeklyScan: GEOScanRecord | null;
+  weeklyMentionRateChange: number;
+  weeklyNewlyFound: string[];
+  weeklyNewlyLost: string[];
 }
 
 // ---------- Storage ----------
@@ -178,6 +187,13 @@ export function getGEOProgress(brand?: string): GEOProgress {
       neverFound: [],
       alwaysFound: [],
       trajectory: "new",
+      daysSinceLastScan: 0,
+      isStale: false,
+      isVeryStale: false,
+      weeklyScan: null,
+      weeklyMentionRateChange: 0,
+      weeklyNewlyFound: [],
+      weeklyNewlyLost: [],
     };
   }
 
@@ -240,6 +256,49 @@ export function getGEOProgress(brand?: string): GEOProgress {
     else trajectory = "stable";
   }
 
+  // Freshness
+  const currentTime = new Date(currentScan.timestamp).getTime();
+  const daysSinceLastScan = Math.floor((Date.now() - currentTime) / (1000 * 60 * 60 * 24));
+  const isStale = daysSinceLastScan >= 7;
+  const isVeryStale = daysSinceLastScan >= 14;
+
+  // Weekly delta: find scan closest to 7 days before current
+  const sevenDaysAgoTarget = currentTime - (7 * 24 * 60 * 60 * 1000);
+  let weeklyScan: GEOScanRecord | null = null;
+  let closestDiff = Infinity;
+  for (const scan of allScans) {
+    const scanTime = new Date(scan.timestamp).getTime();
+    if (scanTime >= currentTime) continue; // Must be before current
+    const diff = Math.abs(scanTime - sevenDaysAgoTarget);
+    if (diff < closestDiff) {
+      closestDiff = diff;
+      weeklyScan = scan;
+    }
+  }
+
+  let weeklyMentionRateChange = 0;
+  let weeklyNewlyFound: string[] = [];
+  let weeklyNewlyLost: string[] = [];
+
+  if (weeklyScan) {
+    const weeklyRate = weeklyScan.totalQueries > 0
+      ? Math.round((weeklyScan.mentionedCount / weeklyScan.totalQueries) * 100)
+      : 0;
+    weeklyMentionRateChange = mentionRate - weeklyRate;
+
+    const weeklyMap = new Map<string, boolean>();
+    weeklyScan.queries.forEach((q) => {
+      const found = q.chatgpt.mentioned || q.gemini.mentioned;
+      weeklyMap.set(q.query.toLowerCase(), found);
+    });
+    currentScan.queries.forEach((q) => {
+      const currentlyFound = q.chatgpt.mentioned || q.gemini.mentioned;
+      const wasWeeklyFound = weeklyMap.get(q.query.toLowerCase()) ?? false;
+      if (currentlyFound && !wasWeeklyFound) weeklyNewlyFound.push(q.query);
+      if (!currentlyFound && wasWeeklyFound) weeklyNewlyLost.push(q.query);
+    });
+  }
+
   return {
     currentScan,
     previousScan,
@@ -252,6 +311,13 @@ export function getGEOProgress(brand?: string): GEOProgress {
     neverFound,
     alwaysFound,
     trajectory,
+    daysSinceLastScan,
+    isStale,
+    isVeryStale,
+    weeklyScan,
+    weeklyMentionRateChange,
+    weeklyNewlyFound,
+    weeklyNewlyLost,
   };
 }
 

@@ -1011,7 +1011,17 @@ export function AnalyticsPanel({
 
           {aiVisResult ? (
             <>
-              <PromptVolumes aiVisResult={aiVisResult} companyName={companyName} city={city} />
+              <PromptVolumes
+                aiVisResult={aiVisResult}
+                companyName={companyName}
+                city={city}
+                onFixQuery={onGeoFixQuery}
+                onFixAll={onGeoFixAll}
+                isFixing={isFixingGeo}
+                articleCost={cost("article")}
+                bulkFixCost={cost("report")}
+                lastScanDate={geoProgress?.currentScan?.timestamp}
+              />
 
               <SectionCard>
                 <CardHeader className="pb-3">

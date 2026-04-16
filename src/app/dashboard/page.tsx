@@ -81,6 +81,9 @@ export default function DashboardPage() {
     currentScan: null, previousScan: null, allScans: [],
     mentionRate: 0, previousMentionRate: 0, mentionRateChange: 0,
     newlyFound: [], newlyLost: [], neverFound: [], alwaysFound: [],
+    daysSinceLastScan: 0, isStale: false, isVeryStale: false,
+    weeklyScan: null, weeklyMentionRateChange: 0,
+    weeklyNewlyFound: [], weeklyNewlyLost: [],
     trajectory: "new",
   });
 
@@ -243,13 +246,28 @@ export default function DashboardPage() {
           if (localData.website && !hasResults) {
             addLog("> Running first scan automatically...");
             localStorage.setItem("cabbge_has_scanned", "true");
-            // Trigger scan after a short delay to let UI render
             setTimeout(() => {
               const scanBtn = document.querySelector("[data-auto-scan]") as HTMLButtonElement;
               if (scanBtn) scanBtn.click();
             }, 1500);
           } else {
-            addLog("> Ready");
+            // FRESHNESS CHECK: prompt re-scan if data is stale
+            const progress = getGEOProgress(localData.name);
+            if (progress.currentScan) {
+              const daysSince = Math.floor((Date.now() - new Date(progress.currentScan.timestamp).getTime()) / (1000 * 60 * 60 * 24));
+              if (daysSince >= 14) {
+                addLog(`> Last scan was ${daysSince} days ago — AI answers drift 40-60%/month`);
+                addLog(`> Re-scan to see if competitors overtook you`);
+              } else if (daysSince >= 7) {
+                addLog(`> Last scan was ${daysSince} days ago — time to check progress`);
+              } else if (daysSince >= 3) {
+                addLog(`> Last scan ${daysSince}d ago — check if published content is being picked up`);
+              } else {
+                addLog(`> Ready (last scan: ${daysSince === 0 ? "today" : `${daysSince}d ago`})`);
+              }
+            } else {
+              addLog("> Ready");
+            }
           }
         } else {
           addLog("> No site configured. Visit the homepage to add one.");
