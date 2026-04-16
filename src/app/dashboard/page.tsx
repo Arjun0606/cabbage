@@ -217,17 +217,36 @@ export default function DashboardPage() {
                     competitorAnalysis: localData.documents?.competitorAnalysis || discovered.documents.competitorAnalysis || "",
                   },
                 };
-                if ((!localData.projects || localData.projects.length === 0) && discovered.inferredProjects?.length) {
-                  enriched.projects = discovered.inferredProjects;
+                // Filter out placeholder/invalid project names that the AI may hallucinate
+                const placeholderPatterns = /^(unknown|featured|project\s*\d*|placeholder|n\/?a|not\s+specified|tbd|inferred|example|sample|generic|no\s+name)$/i;
+                const validInferredProjects = (discovered.inferredProjects || []).filter((p: any) => {
+                  if (!p?.name || typeof p.name !== "string") return false;
+                  const name = p.name.trim();
+                  if (name.length < 3) return false;
+                  if (placeholderPatterns.test(name)) return false;
+                  if (name.toLowerCase().includes("featured project")) return false;
+                  if (name.toLowerCase().includes("unknown")) return false;
+                  return true;
+                });
+                if ((!localData.projects || localData.projects.length === 0) && validInferredProjects.length > 0) {
+                  enriched.projects = validInferredProjects;
                 }
-                if ((!localData.competitors || localData.competitors.length === 0) && discovered.inferredCompetitors?.length) {
-                  enriched.competitors = discovered.inferredCompetitors.map((c: string) => ({ name: c, website: "" }));
+
+                const validInferredCompetitors = (discovered.inferredCompetitors || []).filter((c: string) => {
+                  if (!c || typeof c !== "string") return false;
+                  const name = c.trim();
+                  if (name.length < 3) return false;
+                  if (placeholderPatterns.test(name)) return false;
+                  return true;
+                });
+                if ((!localData.competitors || localData.competitors.length === 0) && validInferredCompetitors.length > 0) {
+                  enriched.competitors = validInferredCompetitors.map((c: string) => ({ name: c, website: "" }));
                 }
                 setCompany(enriched);
                 localStorage.setItem("cabbge_company", JSON.stringify(enriched));
-                addLog(`> Agent 1: Brand voice analyzed — ${discovered.documents.brandVoice?.slice(0, 40) || "captured"}...`);
+                addLog(`> Agent 1: Brand voice captured`);
                 await new Promise(r => setTimeout(r, 200));
-                addLog(`> Agent 2: Product intelligence extracted — ${enriched.projects?.length || 0} projects detected`);
+                addLog(`> Agent 2: Product intelligence — ${enriched.projects?.length || 0} real projects detected`);
                 await new Promise(r => setTimeout(r, 200));
                 addLog(`> Agent 3: Target audience identified — ${discovered.documents.targetAudience?.split(".")[0]?.slice(0, 50) || "home buyers"}`);
                 await new Promise(r => setTimeout(r, 200));

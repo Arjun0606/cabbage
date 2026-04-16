@@ -100,6 +100,44 @@ export async function queryForVisibility(
   query: string
 ): Promise<string> {
   if (provider === "openai") {
+    // Use Responses API with web_search_preview tool — this is ACTUAL ChatGPT-like
+    // behavior. Without this, the API returns generic hedging responses because
+    // gpt models don't know current facts or have web access by default.
+    try {
+      const client = getClient();
+      // Try the Responses API with web search (matches ChatGPT consumer behavior)
+      const response = await (client as unknown as {
+        responses: {
+          create: (args: unknown) => Promise<unknown>;
+        };
+      }).responses.create({
+        model: "gpt-5.4",
+        input: query,
+        tools: [{ type: "web_search" }],
+        max_output_tokens: 1500,
+      });
+
+      // Extract text from response — shape: output[].content[].text
+      const output = (response as { output?: unknown[] }).output || [];
+      let text = "";
+      for (const item of output) {
+        const typed = item as { type?: string; content?: Array<{ type?: string; text?: string }> };
+        if (typed.type === "message" && Array.isArray(typed.content)) {
+          for (const c of typed.content) {
+            if (c.type === "output_text" && c.text) text += c.text + "\n";
+          }
+        }
+      }
+      if (text.trim().length > 0) return text.trim();
+
+      // Fallback: output_text convenience property
+      const outputText = (response as { output_text?: string }).output_text;
+      if (outputText) return outputText;
+    } catch (err) {
+      console.error("OpenAI web search failed:", err);
+    }
+
+    // Final fallback: no web search (will be generic but non-empty)
     return aiLight("", query, 1000);
   }
 
@@ -128,6 +166,8 @@ export async function queryForVisibility(
     const apiKey = process.env.GOOGLE_GEMINI_API_KEY;
     if (!apiKey) return "";
     try {
+      // Use Gemini 2.0 Flash WITH Google Search grounding — the only way to get
+      // real recommendations like Google AI Overviews provide to consumers
       const res = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
         {
@@ -135,12 +175,20 @@ export async function queryForVisibility(
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             contents: [{ parts: [{ text: query }] }],
+            tools: [{ google_search: {} }],  // Enable Google Search grounding
           }),
         }
       );
       const data = await res.json();
-      return data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-    } catch { return ""; }
+      if (!res.ok) {
+        console.error("Gemini API error:", data);
+        return "";
+      }
+      return data.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text || "").join("\n") || "";
+    } catch (err) {
+      console.error("Gemini grounded search failed:", err);
+      return "";
+    }
   }
 
   return "";

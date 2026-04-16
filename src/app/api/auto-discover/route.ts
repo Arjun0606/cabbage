@@ -81,15 +81,15 @@ Generate this JSON:
 
   "inferredProjects": [
     {
-      "name": "Project name (if found on website)",
-      "location": "Location/locality",
-      "configurations": "2BHK, 3BHK, etc.",
-      "priceRange": "If mentioned",
-      "status": "Active/Pre-launch/Ready to Move"
+      "name": "<EXACT project name as it appears on website, e.g. 'Makuta Taranga'. If no real project name is identifiable, DO NOT include this entry. Never use placeholders like 'Project 1', 'Unknown', 'featured project', etc.>",
+      "location": "<actual locality, e.g. 'Kukatpally, Hyderabad'>",
+      "configurations": "<e.g. '3BHK, 4BHK'>",
+      "priceRange": "<if mentioned on site, e.g. '₹1.2 Cr onwards'. Empty string if not found>",
+      "status": "Active | Pre-launch | Under Construction | Ready to Move | Sold Out"
     }
   ],
 
-  "inferredCompetitors": ["List of 3-5 likely competitors in their market"],
+  "inferredCompetitors": ["<actual competitor developer names likely serving this market. 3-5 names. Never use placeholders>"],
 
   "seoObservations": {
     "hasSchema": true/false,
