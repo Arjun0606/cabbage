@@ -380,6 +380,11 @@ export default function DashboardPage() {
     try {
       const existingQueries = getSavedQueries(company.name);
       if (existingQueries) addLog(`> Reusing ${existingQueries.length} tracked queries for progress comparison`);
+
+      // One-line payload echo so the user can see exactly what we're sending.
+      // Previous bug: city silently became "the market" between input and request,
+      // producing global-brand recommendations instead of city-specific results.
+      addLog(`> Payload: brand="${company.name}" city="${company.city || "(EMPTY!)"}" projects=${company.projects.length}`);
       const res = await fetch("/api/ai-visibility", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
         websiteUrl: company.website, brand: company.name, city: company.city, savedQueries: existingQueries,
         projects: company.projects.map(p => p.name),
@@ -392,7 +397,11 @@ export default function DashboardPage() {
         },
       }) });
       const data = await res.json();
-      if (data.error) throw new Error(data.error);
+      if (data.error) {
+        // Hint is included on validation errors (e.g. "City required") so the
+        // user knows what to fix instead of seeing a generic "Failed".
+        throw new Error(data.hint ? `${data.error} — ${data.hint}` : data.error);
+      }
       setAiVisResult(data);
       recordScan("ai_visibility", company.website, data.scores.overall, `Readiness: ${data.scores.readiness}%, Mentions: ${data.scores.mentions}%`);
       logScoreChange("AI Readiness", data.scores.readiness || data.scores.overall, "ai_visibility");

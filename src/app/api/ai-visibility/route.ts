@@ -10,6 +10,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Brand name is required" }, { status: 400 });
     }
 
+    const cityClean = typeof city === "string" ? city.trim() : "";
+    if (!cityClean && !(savedQueries && savedQueries.length > 0)) {
+      // Fail loudly instead of falling back to "the market" — that produces
+      // queries like "best real estate developers in the market" which AI
+      // models answer with global brands (Vanke, Greystar, Emaar) and
+      // never recommend a regional player like Aparna.
+      return NextResponse.json({
+        error: "City required",
+        hint: "Set Primary City in the Company panel before running AI visibility. Empty city forces generic global queries that won't surface regional brands.",
+      }, { status: 400 });
+    }
+
     // Use saved queries if provided (for consistent tracking), otherwise generate fresh.
     // generateSearchQueries always returns at least a fallback set so the scan can run
     // even when the AI generator hiccups.
@@ -19,7 +31,7 @@ export async function POST(req: NextRequest) {
       queries = savedQueries;
     } else {
       const generated = await generateSearchQueries(
-        city || "the market",
+        cityClean,
         brand,
         projects || [],
         projectDetails?.[0]?.location,
