@@ -560,3 +560,99 @@ export function formatScanDate(timestamp: string): string {
     minute: "2-digit",
   });
 }
+
+// ---------- Article tracking (publish→rescan loop) ----------
+
+const ARTICLES_KEY = "cabbge_generated_articles";
+
+export interface TrackedArticle {
+  id: string;
+  query: string;         // The blind-spot query this article targets
+  title: string;
+  generatedAt: string;
+  status: "draft" | "published";
+  publishedAt?: string;
+  publishUrl?: string;
+  /** Score at the time of article generation (for before/after comparison) */
+  preScore?: { chatgptMentioned: boolean; geminiMentioned: boolean };
+  /** Score after rescan post-publish */
+  postScore?: { chatgptMentioned: boolean; geminiMentioned: boolean; rescannedAt: string };
+}
+
+export function getTrackedArticles(): TrackedArticle[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(ARTICLES_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
+
+function saveTrackedArticles(articles: TrackedArticle[]) {
+  localStorage.setItem(ARTICLES_KEY, JSON.stringify(articles.slice(-100)));
+}
+
+/**
+ * Record that an article was generated for a specific blind-spot query.
+ * Call this right after the article-writer API returns successfully.
+ */
+export function trackArticleGenerated(
+  query: string,
+  title: string,
+  preScore?: TrackedArticle["preScore"]
+): TrackedArticle {
+  const articles = getTrackedArticles();
+  const article: TrackedArticle = {
+    id: `art-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    query,
+    title,
+    generatedAt: new Date().toISOString(),
+    status: "draft",
+    preScore,
+  };
+  articles.push(article);
+  saveTrackedArticles(articles);
+  return article;
+}
+
+/**
+ * Mark an article as published. Called by the PublishButton's onPublished callback.
+ */
+export function markArticlePublished(articleId: string, publishUrl?: string): void {
+  const articles = getTrackedArticles();
+  const article = articles.find((a) => a.id === articleId);
+  if (article) {
+    article.status = "published";
+    article.publishedAt = new Date().toISOString();
+    article.publishUrl = publishUrl;
+    saveTrackedArticles(articles);
+  }
+}
+
+/**
+ * Record the post-publish rescan result for an article.
+ */
+export function recordArticleRescan(
+  articleId: string,
+  chatgptMentioned: boolean,
+  geminiMentioned: boolean
+): void {
+  const articles = getTrackedArticles();
+  const article = articles.find((a) => a.id === articleId);
+  if (article) {
+    article.postScore = {
+      chatgptMentioned,
+      geminiMentioned,
+      rescannedAt: new Date().toISOString(),
+    };
+    saveTrackedArticles(articles);
+  }
+}
+
+/**
+ * Get articles for a specific query (to show in the query-by-query breakdown).
+ */
+export function getArticlesForQuery(query: string): TrackedArticle[] {
+  return getTrackedArticles().filter(
+    (a) => a.query.toLowerCase() === query.toLowerCase()
+  );
+}

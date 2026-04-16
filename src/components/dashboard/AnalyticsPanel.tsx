@@ -38,6 +38,7 @@ import { EditableBlock } from "./EditableBlock";
 import { GEOProgressPanel } from "./GEOProgressPanel";
 import { ExecutionChecklist } from "./ExecutionChecklist";
 import { PublishButton } from "./PublishButton";
+import { markArticlePublished } from "@/lib/geoHistory";
 
 interface Props {
   activeTab: string;
@@ -1815,7 +1816,17 @@ export function AnalyticsPanel({
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0">
                           <Badge className="bg-zinc-800 text-zinc-300 border-0 text-[10px] h-5 rounded-md">{articleResult.wordCount} words</Badge>
-                          <PublishButton title={articleResult.title} content={articleResult.content} excerpt={articleResult.metaDescription} targetKeyword={articleResult.targetKeyword} />
+                          <PublishButton
+                            title={articleResult.title}
+                            content={articleResult.content}
+                            excerpt={articleResult.metaDescription}
+                            targetKeyword={articleResult.targetKeyword}
+                            onPublished={(url) => {
+                              if (articleResult._trackedArticleId) {
+                                markArticlePublished(articleResult._trackedArticleId, url);
+                              }
+                            }}
+                          />
                           <CopyBtn text={articleResult.content} field="article" />
                         </div>
                       </div>

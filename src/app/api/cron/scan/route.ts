@@ -2,16 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/db/supabase";
 
 /**
- * Automated Cron — runs every 4 hours.
+ * Automated Cron — runs daily at 02:30 IST (21:00 UTC).
  *
  * For each company in the database:
- * 1. Runs SEO audit + technical scan
- * 2. Runs AI visibility check (ChatGPT + Google AI)
- * 3. Runs backlink analysis
- * 4. Generates content drafts (blog topics, LinkedIn, WhatsApp)
- * 5. Stores everything in scan_history + generated_content
+ * 1. Runs SEO audit + technical scan + backlinks (parallel)
+ * 2. Runs AI visibility check (ChatGPT + Google AI) with FULL project
+ *    context (configurations, prices, localities) — same quality as
+ *    dashboard-triggered scans, not the stripped-down version.
+ * 3. Stores everything in scan_history
  *
- * Like Okara's "AI CMO Terminal • Running Daily" but every 4 hours.
+ * Content generation moved out of cron — was burning credits silently
+ * every 4 hours. Now only fires on user action.
  */
 
 export async function GET(req: NextRequest) {
@@ -84,14 +85,25 @@ export async function GET(req: NextRequest) {
         companyResult.errors.push(`Scan error: ${err instanceof Error ? err.message : "unknown"}`);
       }
 
-      // ---- PHASE 2: AI VISIBILITY ----
+      // ---- PHASE 2: AI VISIBILITY (with full project context) ----
       try {
-        if (company.name) {
+        if (company.name && company.city) {
           const aiVisRes = await fetchApi(origin, "/api/ai-visibility", {
             websiteUrl: company.website,
             brand: company.name,
+            city: company.city,
             projects: (projects || []).map((p: any) => p.name),
-            city: company.city || "",
+            projectDetails: (projects || []).map((p: any) => ({
+              name: p.name,
+              location: p.location,
+              configurations: p.configurations,
+              priceRange: p.price_range,
+            })),
+            industry: "real_estate",
+            brandContext: {
+              targetAudience: company.target_audience || "",
+              usps: company.description || "",
+            },
           });
 
           if (aiVisRes?.scores) {
@@ -106,71 +118,10 @@ export async function GET(req: NextRequest) {
         companyResult.errors.push(`AI visibility error: ${err instanceof Error ? err.message : "unknown"}`);
       }
 
-      // ---- PHASE 3: CONTENT GENERATION ----
-      // Generate content for the first project (or company-level if no projects)
-      try {
-        const project = projects?.[0];
-        const contentPayload = {
-          projectName: project?.name || company.name,
-          developerName: company.name,
-          location: project?.location || company.city || "",
-          city: company.city || "",
-          configurations: project?.configurations || "",
-          priceRange: project?.price_range || "",
-          usps: company.description || "",
-          brandVoice: company.brand_voice || "",
-          brandValues: company.brand_values || "",
-          targetAudience: company.target_audience || "",
-          productInfo: company.product_info || "",
-          amenities: project?.amenities || "",
-          reraNumber: project?.rera_number || "",
-        };
-
-        const contentRes = await fetchApi(origin, "/api/local-content", contentPayload);
-
-        if (contentRes?.blogTopics?.length) {
-          // Store blog topics as drafts
-          for (const topic of contentRes.blogTopics.slice(0, 3)) {
-            await supabase.from("generated_content").insert({
-              company_id: company.id,
-              content_type: "blog_post",
-              title: topic.title,
-              body: `Target Keyword: ${topic.targetKeyword}\nWord Count: ${topic.estimatedWordCount}\n\nOutline:\n${(topic.outline || []).map((s: string) => `- ${s}`).join("\n")}`,
-              target_keywords: [topic.targetKeyword],
-              status: "draft",
-            });
-          }
-          companyResult.content.push(`${contentRes.blogTopics.length} blog topics`);
-        }
-
-        if (contentRes?.linkedinPosts?.length) {
-          for (const post of contentRes.linkedinPosts) {
-            await supabase.from("generated_content").insert({
-              company_id: company.id,
-              content_type: "linkedin_post",
-              title: `LinkedIn Post — ${new Date().toLocaleDateString("en-IN", { month: "short", day: "numeric" })}`,
-              body: post,
-              status: "draft",
-            });
-          }
-          companyResult.content.push(`${contentRes.linkedinPosts.length} LinkedIn posts`);
-        }
-
-        if (contentRes?.whatsappMessages?.length) {
-          for (const msg of contentRes.whatsappMessages) {
-            await supabase.from("generated_content").insert({
-              company_id: company.id,
-              content_type: "whatsapp_broadcast",
-              title: `WhatsApp — ${new Date().toLocaleDateString("en-IN", { month: "short", day: "numeric" })}`,
-              body: msg,
-              status: "draft",
-            });
-          }
-          companyResult.content.push(`${contentRes.whatsappMessages.length} WhatsApp messages`);
-        }
-      } catch (err) {
-        companyResult.errors.push(`Content error: ${err instanceof Error ? err.message : "unknown"}`);
-      }
+      // Content generation removed from cron — it was burning credits silently
+      // every 4 hours with generic drafts nobody reviewed. Content is now
+      // only generated on user action (article writer, geo-content-batch, etc.)
+      // which produces targeted, query-specific content that users actually publish.
 
       results.push(companyResult);
     }

@@ -9,7 +9,7 @@ import { ChatPanel } from "@/components/dashboard/ChatPanel";
 import { TerminalHeader } from "@/components/dashboard/TerminalHeader";
 import { AgentStatusBar } from "@/components/dashboard/AgentStatusBar";
 import { recordScan, getAllTrends, type TrendData } from "@/lib/scanHistory";
-import { recordGEOScan, getGEOProgress, getSavedQueries, getSavedQueriesFingerprint, saveQueries, type GEOProgress } from "@/lib/geoHistory";
+import { recordGEOScan, getGEOProgress, getSavedQueries, getSavedQueriesFingerprint, saveQueries, trackArticleGenerated, markArticlePublished, type GEOProgress } from "@/lib/geoHistory";
 
 /**
  * Stable hash of company.projects — used to detect when the project list
@@ -919,8 +919,24 @@ export default function DashboardPage() {
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
+      // Track the article for the publish→rescan loop (task F).
+      // Capture whether the brand was already mentioned for this query before
+      // the fix, so we can show before/after after the rescan.
+      const currentQueryResult = geoProgress.currentScan?.queries.find(
+        (q) => q.query.toLowerCase() === query.toLowerCase()
+      );
+      const preScore = currentQueryResult ? {
+        chatgptMentioned: currentQueryResult.chatgpt.mentioned,
+        geminiMentioned: currentQueryResult.gemini.mentioned,
+      } : undefined;
+      const tracked = trackArticleGenerated(query, data.title, preScore);
+      // Attach the tracked article ID to the result so the PublishButton can
+      // call markArticlePublished with the right ID.
+      data._trackedArticleId = tracked.id;
+
       setArticleResult(data);
       addLog(`> Article: "${data.title}" — ${data.wordCount} words, optimized for "${query}"`);
+      addLog(`> Publish it to your site, then re-scan to measure impact`);
       setActiveTab("content");
     } catch (err) { addLog(`> Error: ${err instanceof Error ? err.message : "Failed"}`); }
     finally { setIsFixingGeo(false); }
