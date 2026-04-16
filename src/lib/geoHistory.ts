@@ -120,42 +120,24 @@ export function resetSavedQueries(brand: string) {
 
 // ---------- Record a scan ----------
 
-function inferQueryLevel(query: string, city: string): "locality" | "city" | "country" {
-  const q = query.toLowerCase();
-  const cityLower = city.toLowerCase();
+/**
+ * Get query level classification.
+ * Priority: AI-classified map from query generation → default "locality".
+ * NO hardcoded regex/keyword lists.
+ */
+function inferQueryLevel(query: string, _city: string): "locality" | "city" | "country" {
+  // Try the AI-classified map first (populated during generateSearchQueries)
+  try {
+    // Dynamic import to avoid circular dependency at module load
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { AI_QUERY_LEVELS } = require("./agents/localityEngine") as { AI_QUERY_LEVELS: Map<string, "locality" | "city" | "country"> };
+    const cached = AI_QUERY_LEVELS?.get(query.toLowerCase());
+    if (cached) return cached;
+  } catch { /* ignore */ }
 
-  // COUNTRY: mentions country or "best cities" / national patterns
-  // Must be clear national intent, not just "india" as a word
-  const countrySignals = [
-    "best cities", "top cities", "best states", "which city",
-    "in india", "across india", "top 10 cities",
-    "national", "pan-india", "country",
-    "best country", "smart cities",
-  ];
-  if (countrySignals.some((t) => q.includes(t))) return "country";
-
-  // LOCALITY: compares two areas, or mentions "vs" between places, or has specific landmarks
-  // Comparisons and hyper-local queries (IT park names, metro stations, neighborhoods)
-  if (q.includes(" vs ") || q.includes(" versus ")) return "locality";
-
-  // CITY: mentions the city name without a specific locality/landmark context
-  // Only category city-level if it's a broad "best X in [city]" pattern
-  const cityBroadPatterns = [
-    `in ${cityLower}`,
-    `top builders in ${cityLower}`,
-    `top developers in ${cityLower}`,
-    `best areas in ${cityLower}`,
-    `best areas to buy in ${cityLower}`,
-    `upcoming projects in ${cityLower}`,
-  ];
-  if (cityLower && cityBroadPatterns.some((p) => q.includes(p))) {
-    // But if it ALSO contains a specific landmark/neighborhood, it's locality
-    const localityHints = /\b(near|around|walking distance|metro|station|park|school|hospital|mall|hub|it park|tech park)\b/;
-    if (localityHints.test(q)) return "locality";
-    return "city";
-  }
-
-  // Default: locality (most specific)
+  // If not AI-classified (e.g. loaded from old scan, or fallback), default to locality.
+  // Locality is the SAFEST default because it's the most specific level —
+  // treating a city-level query as locality just means it's tracked slightly narrower.
   return "locality";
 }
 

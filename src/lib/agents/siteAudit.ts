@@ -1,35 +1,14 @@
 import { aiComplete } from "@/lib/ai";
 
 /**
- * Real-estate-specific SEO checks. These are what make Cabbge
- * vertical — no horizontal tool checks for these.
+ * Real estate audit checks are now fully AI-generated per website.
+ * The AI reads the actual page content and determines:
+ * - What market this developer operates in (India, UAE, USA, etc.)
+ * - Which compliance signals matter for that market
+ * - Which conversion elements matter for that market's buyer behavior
+ * - Which content depth elements matter for the segment
+ * No hardcoded checklist — everything is inferred per scan.
  */
-/**
- * Real-estate-specific SEO checks — only the ones that directly
- * impact lead generation and conversion. Each one catches something
- * that generic SEO tools and agencies consistently miss.
- */
-const REAL_ESTATE_SEO_CHECKS = [
-  // Compliance — legal requirements
-  { id: "rera_visible", label: "RERA / regulatory number visible", category: "Compliance", weight: "critical" },
-  // Conversion — directly impacts lead generation
-  { id: "price_band_clear", label: "Price range / starting price displayed", category: "Conversion", weight: "critical" },
-  { id: "contact_cta", label: "Enquiry CTA above the fold", category: "Conversion", weight: "critical" },
-  { id: "whatsapp_link", label: "WhatsApp quick-connect link", category: "Conversion", weight: "critical" },
-  { id: "floor_plan_present", label: "Floor plans / unit layouts on page", category: "Content", weight: "critical" },
-  // Technical — search visibility
-  { id: "schema_realestate", label: "RealEstateListing schema markup", category: "Technical", weight: "high" },
-  { id: "llms_txt", label: "llms.txt file for AI crawlers", category: "Technical", weight: "high" },
-  // Content — buyer decision factors
-  { id: "emi_calculator", label: "EMI / home loan calculator", category: "Conversion", weight: "high" },
-  { id: "location_map", label: "Location map with landmarks", category: "Content", weight: "high" },
-  { id: "virtual_tour", label: "Virtual tour / video walkthrough", category: "Content", weight: "high" },
-  { id: "amenities_section", label: "Amenities section with details", category: "Content", weight: "high" },
-  { id: "gallery_images", label: "Project gallery / renders", category: "Content", weight: "medium" },
-  { id: "developer_creds", label: "Builder credentials / track record", category: "Trust", weight: "medium" },
-  { id: "possession_date", label: "Possession / delivery timeline visible", category: "Conversion", weight: "medium" },
-  { id: "legal_docs", label: "Legal documents section (OC/CC/NOC)", category: "Compliance", weight: "medium" },
-] as const;
 
 // ---------- Types ----------
 
@@ -155,64 +134,90 @@ function extractSeoHealth(psiResult: Record<string, unknown>): SeoHealthCheck[] 
 }
 
 // ---------- Real Estate Specific Checks ----------
+// Fully AI-powered: analyzes the actual page content to determine what's present
+// and what matters for THIS market (country-aware, industry-aware).
+// No regex keyword matching — the AI reads the page and decides.
 
 async function runRealEstateChecks(
-  _url: string,
+  url: string,
   pageHtml: string
 ): Promise<RealEstateCheck[]> {
-  const html = pageHtml.toLowerCase();
+  // Strip HTML tags, keep visible text
+  const visibleText = pageHtml
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 8000);
 
-  return REAL_ESTATE_SEO_CHECKS.map((check) => {
-    let passed = false;
-    let details = "";
+  // Also extract script/link tags to check for schema, whatsapp links, etc.
+  const headAndScripts = pageHtml.slice(0, 15000);
 
-    switch (check.id) {
-      case "rera_visible":
-        passed = /rera|registration\s*no/i.test(pageHtml);
-        details = passed ? "RERA number found on page" : "No RERA number detected — required by law and builds trust";
-        break;
-      case "price_band_clear":
-        passed = /₹|rs\.|lakh|lakhs|crore|cr\b|price/i.test(pageHtml);
-        details = passed ? "Pricing information found" : "No pricing detected — buyers leave without price clarity";
-        break;
-      case "floor_plan_present":
-        passed = /floor\s*plan|layout/i.test(html);
-        details = passed ? "Floor plan section detected" : "No floor plans found — top-3 decision factor for buyers";
-        break;
-      case "location_map":
-        passed = /google.*maps|map.*embed|location.*map|proximity/i.test(html);
-        details = passed ? "Location/map section found" : "No map or location details — add proximity to IT parks, schools, metro";
-        break;
-      case "emi_calculator":
-        passed = /emi|loan|calculator|home\s*loan/i.test(html);
-        details = passed ? "EMI/loan information found" : "No EMI calculator — 70% of Indian buyers use home loans";
-        break;
-      case "schema_realestate":
-        passed = /realestate|realestatelisting|schema.*org.*residence/i.test(html);
-        details = passed ? "Real estate schema markup detected" : "Missing RealEstateListing schema — critical for Google rich results";
-        break;
-      case "contact_cta":
-        passed = /enqui|contact|book\s*(a|your)?\s*visit|schedule|callback|get\s*in\s*touch/i.test(
-          html.substring(0, Math.min(html.length, 5000))
-        );
-        details = passed ? "Contact CTA found above fold" : "No enquiry CTA in first viewport — add a prominent button";
-        break;
-      case "whatsapp_link":
-        passed = /whatsapp|wa\.me|api\.whatsapp/i.test(html);
-        details = passed ? "WhatsApp link found" : "No WhatsApp link — Indian buyers prefer WhatsApp over forms";
-        break;
-      default:
-        details = "Check not implemented";
+  const system = `You audit real estate developer websites and return a JSON array of check results.
+You read the actual page content and determine what is present, what is missing, and what matters for THIS specific market (country-aware, local compliance, local buyer behavior).
+
+Return ONLY valid JSON. No markdown fences.`;
+
+  const prompt = `Audit this real estate developer page:
+
+URL: ${url}
+
+VISIBLE PAGE TEXT (first 8000 chars):
+"""
+${visibleText}
+"""
+
+HTML HEAD AND SCRIPTS (first 15000 chars — check for schema, tracking, links):
+"""
+${headAndScripts}
+"""
+
+Determine which market this developer operates in (India, UAE, USA, UK, etc.) based on the content, then audit for:
+1. LEGAL/COMPLIANCE signals relevant to that market (RERA for India, Dubai Land Dept for UAE, MLS for USA, etc.)
+2. CONVERSION elements (pricing visibility, CTAs above fold, preferred contact method in that market — WhatsApp for India, phone for USA, email for UK, etc.)
+3. CONTENT depth (floor plans, virtual tours, amenities, specifications, location/map)
+4. TECHNICAL signals (schema markup, structured data, AI crawler readiness)
+5. TRUST signals relevant to buyer psychology in that market
+
+Return JSON array of checks — generate AS MANY as matter for this specific website and market. For each check:
+{
+  "id": "<short snake_case id>",
+  "label": "<human-readable check name>",
+  "category": "Compliance" | "Conversion" | "Content" | "Technical" | "Trust",
+  "passed": true | false,
+  "details": "<specific finding — what was found or exactly what's missing and why it matters for THIS market>"
+}
+
+IMPORTANT:
+- If RERA isn't relevant (non-Indian site), don't include it. Check the relevant local regulatory number instead.
+- WhatsApp only matters for markets where it's the dominant messenger. For US/UK, check phone/email/live chat.
+- Pricing display format matters locally (₹/crore in India, AED in UAE, $ in USA).
+- Include checks specific to what you see on THIS page — if they have a Book-Site-Visit button, check its placement; if they have a gallery, check its quality.
+- Be strict: "RERA passed" means the actual registration number is displayed in a visible trustworthy place, NOT just the word "RERA" appearing anywhere.
+
+Generate 12-20 checks that matter most for THIS website. Ordered by importance.`;
+
+  try {
+    const raw = await aiComplete(system, prompt, 2500);
+    const cleaned = raw.replace(/```json?\n?/g, "").replace(/```/g, "").trim();
+    const parsed = JSON.parse(cleaned);
+
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      return parsed
+        .filter((c) => c && c.id && c.label && typeof c.passed === "boolean")
+        .map((c) => ({
+          id: String(c.id),
+          label: String(c.label),
+          category: String(c.category || "Content"),
+          passed: Boolean(c.passed),
+          details: String(c.details || ""),
+        }));
     }
+  } catch { /* fall through */ }
 
-    return {
-      id: check.id,
-      label: check.label,
-      category: check.category,
-      passed,
-      details,
-    };
-  });
+  // If AI fails entirely, return empty — no hardcoded fallback
+  return [];
 }
 
 // ---------- AI Analysis ----------

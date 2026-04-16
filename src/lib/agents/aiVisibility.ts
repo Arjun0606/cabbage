@@ -1,4 +1,4 @@
-import { queryForVisibility } from "@/lib/ai";
+import { queryForVisibility, aiLight } from "@/lib/ai";
 
 // ---------- Types ----------
 
@@ -41,110 +41,95 @@ interface AIReadinessCheck {
 }
 
 // ---------- Analysis ----------
-// Fully dynamic — no hardcoded developer lists, no regex sentiment, no arbitrary thresholds.
+// FULLY AI-powered. No regex sentiment, no hardcoded lists, no static rules.
+// Each response is analyzed by a cheap LLM call that extracts:
+// - Whether the brand is mentioned (handles spelling variations, acronyms, aliases)
+// - Position in the response (which recommendation number)
+// - Sentiment (based on CONTEXT, not keyword matching)
+// - All competitor brands mentioned (language/market/industry agnostic)
 
-/**
- * Extract proper noun brand/company names from the response using pattern analysis.
- * This works for ANY industry and any market — no hardcoded lists.
- */
-function extractCoCitations(response: string, ownBrand: string, ownProjects: string[]): string[] {
-  // Match capitalized multi-word entity names (likely brands/companies)
-  // Patterns: "Prestige Group", "DLF", "My Home Constructions", "L&T Realty"
-  const entityPattern = /\b([A-Z][a-zA-Z&]*(?:\s+(?:[A-Z][a-zA-Z&]*|[a-z]{1,3}))*)\b/g;
-  const matches = response.match(entityPattern) || [];
-
-  const ownTerms = new Set([
-    ownBrand.toLowerCase(),
-    ...ownProjects.map((p) => p.toLowerCase()),
-  ]);
-
-  // Common words to filter out — things that look like proper nouns but aren't brands
-  const stopwords = new Set([
-    "the", "a", "an", "this", "that", "these", "those", "in", "on", "at", "for", "by", "with",
-    "and", "or", "but", "if", "than", "as", "is", "are", "was", "were", "be", "been",
-    "i", "you", "we", "they", "he", "she", "it", "there", "here",
-    "best", "top", "good", "great", "better", "some", "many", "most", "all",
-    "india", "usa", "uk", "bhk", "rera", "hdfc", "icici", "sbi",
-    "january", "february", "march", "april", "may", "june", "july",
-    "august", "september", "october", "november", "december",
-    "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
-    "new", "old", "luxury", "premium", "affordable", "budget", "ready", "upcoming",
-  ]);
-
-  const candidates = new Map<string, number>();
-  for (const match of matches) {
-    const cleaned = match.trim();
-    const lower = cleaned.toLowerCase();
-
-    // Skip single short words, stopwords, and own brand
-    if (cleaned.length < 3) continue;
-    if (stopwords.has(lower)) continue;
-    if (Array.from(ownTerms).some((t) => lower.includes(t) || t.includes(lower))) continue;
-
-    // Only count multi-word phrases or distinctive single-word brands (all caps or >=4 chars)
-    const words = cleaned.split(/\s+/);
-    const isLikelyBrand = words.length >= 2 || cleaned === cleaned.toUpperCase() || cleaned.length >= 5;
-    if (!isLikelyBrand) continue;
-
-    candidates.set(cleaned, (candidates.get(cleaned) || 0) + 1);
-  }
-
-  // Return top entities mentioned 1+ times
-  return Array.from(candidates.entries())
-    .filter(([, count]) => count >= 1)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 10)
-    .map(([name]) => name);
+interface AIMentionAnalysis {
+  mentioned: boolean;
+  position: number;
+  context: string;
+  sentiment: "positive" | "neutral" | "negative" | "absent";
+  coCitations: string[];
 }
 
-function analyzeMention(
+async function analyzeMention(
   response: string,
   brand: string,
   projects: string[]
-): LLMResult {
-  if (!response) {
+): Promise<LLMResult> {
+  if (!response || response.trim().length < 20) {
     return { mentioned: false, position: 0, context: "", sentiment: "absent", coCitations: [] };
   }
 
-  const brandLower = brand.toLowerCase();
-  const allTerms = [brandLower, ...projects.map((p) => p.toLowerCase())];
+  const system = `You analyze AI chatbot responses to detect brand mentions, sentiment, and co-citations.
+Return ONLY valid JSON. No markdown fences, no explanation.
 
-  let mentioned = false;
-  let position = 0;
-  let context = "";
+You are tolerant to spelling variations, acronyms, and aliases. "My Home", "My Home Constructions", "MHC", "My Home Group" all count as the same brand if the target is "My Home".`;
 
-  const sentences = response.split(/[.!?\n]+/).filter(Boolean);
-  for (let i = 0; i < sentences.length; i++) {
-    const sentLower = sentences[i].toLowerCase();
-    if (allTerms.some((term) => sentLower.includes(term))) {
-      mentioned = true;
-      position = i + 1;
-      context = sentences[i].trim().substring(0, 300).replace(/[\x00-\x1F]/g, " ");
-      break;
-    }
+  const prompt = `Analyze this AI chatbot response for mentions of a specific brand.
+
+TARGET BRAND: ${brand}
+${projects.length > 0 ? `TARGET PROJECTS: ${projects.join(", ")}` : ""}
+
+RESPONSE TO ANALYZE:
+"""
+${response.slice(0, 4000)}
+"""
+
+Return this JSON:
+{
+  "mentioned": true | false,
+  "position": <integer — which ordinal position in the response (1=first brand mentioned, 2=second, etc.). 0 if not mentioned>,
+  "context": "<the specific sentence or phrase where the brand appears, max 300 chars. Empty string if not mentioned>",
+  "sentiment": "positive" | "neutral" | "negative" | "absent",
+  "coCitations": ["<other brands/companies mentioned in the response, excluding the target>"]
+}
+
+RULES:
+- "mentioned" is true if the brand appears in ANY form (exact name, alias, acronym, common spelling variation)
+- "position" reflects the order relative to OTHER brands mentioned — position 1 = AI listed the target first
+- "sentiment" is based on HOW the brand is discussed, not just keyword matching:
+  - positive: recommended, praised, highlighted as a leader
+  - negative: criticized, warned against, flagged with issues
+  - neutral: mentioned factually without clear endorsement
+  - absent: not mentioned at all
+- "coCitations" should list OTHER brand/company names (competitors) appearing in the response. Do NOT include:
+  - The target brand itself
+  - Generic terms (city names, product categories, person names without brand context)
+  - Government bodies or regulatory terms
+- Be thorough: extract every proper noun brand/company mentioned`;
+
+  try {
+    const raw = await aiLight(system, prompt, 600);
+    const cleaned = raw.replace(/```json?\n?/g, "").replace(/```/g, "").trim();
+    const parsed = JSON.parse(cleaned) as AIMentionAnalysis;
+
+    return {
+      mentioned: Boolean(parsed.mentioned),
+      position: Math.max(0, Number(parsed.position) || 0),
+      context: String(parsed.context || "").substring(0, 300).replace(/[\x00-\x1F]/g, " "),
+      sentiment: (["positive", "neutral", "negative", "absent"].includes(parsed.sentiment as string)
+        ? parsed.sentiment
+        : "absent") as LLMResult["sentiment"],
+      coCitations: Array.isArray(parsed.coCitations) ? parsed.coCitations.slice(0, 15) : [],
+    };
+  } catch {
+    // Minimal fallback: just check if brand name appears (no regex sentiment, no co-citations)
+    const lower = response.toLowerCase();
+    const brandLower = brand.toLowerCase();
+    const mentioned = lower.includes(brandLower) || projects.some(p => lower.includes(p.toLowerCase()));
+    return {
+      mentioned,
+      position: mentioned ? 1 : 0,
+      context: mentioned ? response.substring(0, 300) : "",
+      sentiment: mentioned ? "neutral" : "absent",
+      coCitations: [],
+    };
   }
-
-  // Sentiment — richer word set covering both positive recommendations and negative warnings
-  let sentiment: LLMResult["sentiment"] = "absent";
-  if (mentioned) {
-    const ctxLower = context.toLowerCase();
-    const positiveSignals = /\b(best|top|recommend|excellent|great|premium|trusted|reputed|leading|popular|preferred|renowned|reliable|quality|award|prestigious|flagship|standout|noteworthy|outstanding|established|credible|respected)\b/;
-    const negativeSignals = /\b(avoid|poor|bad|issue|complaint|problem|delay|overpriced|controversy|scam|fraud|lawsuit|unreliable|cheap|subpar|mediocre|disappointing|concerning|warning|caution)\b/;
-    const neutralSignals = /\b(also|including|such as|among others|another|option|consider|worth checking|known for|offering|provides|features)\b/;
-
-    const pos = positiveSignals.test(ctxLower);
-    const neg = negativeSignals.test(ctxLower);
-
-    if (pos && !neg) sentiment = "positive";
-    else if (neg && !pos) sentiment = "negative";
-    else if (neutralSignals.test(ctxLower)) sentiment = "neutral";
-    else sentiment = pos ? "positive" : neg ? "negative" : "neutral";
-  }
-
-  // Dynamic co-citation extraction (no hardcoded list)
-  const coCitations = extractCoCitations(response, brand, projects);
-
-  return { mentioned, position, context, sentiment, coCitations };
 }
 
 function calculateScore(results: QueryResult[], llmKey: keyof Omit<QueryResult, "query">): number {
@@ -274,12 +259,18 @@ export async function runAIVisibility(
       queryForVisibility("gemini", query).catch(() => ""),
     ]);
 
+    // AI-powered analysis of each response (sentiment + co-citations done by LLM)
+    const [chatgptAnalysis, geminiAnalysis] = await Promise.all([
+      analyzeMention(chatgptRes, brand, projects),
+      analyzeMention(geminiRes, brand, projects),
+    ]);
+
     queryResults.push({
       query,
-      chatgpt: analyzeMention(chatgptRes, brand, projects),
-      gemini: analyzeMention(geminiRes, brand, projects),
-      claude: emptyResult,      // Not scanned — kept for backward compat
-      perplexity: emptyResult,  // Not scanned — kept for backward compat
+      chatgpt: chatgptAnalysis,
+      gemini: geminiAnalysis,
+      claude: emptyResult,
+      perplexity: emptyResult,
     });
 
     await new Promise((r) => setTimeout(r, 500));

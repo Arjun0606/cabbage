@@ -306,38 +306,54 @@ COUNTRY LEVEL — national discovery:
 - "top [industry] companies in ${country}"
 - Only include if the company operates nationally
 
-Use REAL landmark names specific to ${loc}, ${city}. Cover every meaningful query the TARGET AUDIENCE would ask. Return JSON array of strings.`;
+Use REAL landmark names specific to ${loc}, ${city}. Cover every meaningful query the TARGET AUDIENCE would ask.
 
-  const text = await aiLight(system, prompt, 1500);
+Return a JSON array of objects, each with:
+{
+  "query": "the search query string",
+  "level": "locality" | "city" | "country"
+}
+
+Classify each query's level based on the intent:
+- locality: hyper-local queries (specific area, landmarks, nearby comparisons, micro-market)
+- city: broad city-wide intent (best in X, top in Y, general searches)
+- country: national discovery (best cities, compare regions, pan-country)`;
+
+  const text = await aiLight(system, prompt, 2000);
   const jsonMatch = text.match(/\[[\s\S]*\]/);
   if (jsonMatch) {
-    try { return JSON.parse(jsonMatch[0]); } catch { /* fall through */ }
+    try {
+      const parsed = JSON.parse(jsonMatch[0]);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        // Store level classification on the module for the scanner to use
+        const levelMap: Record<string, "locality" | "city" | "country"> = {};
+        const queries: string[] = [];
+        for (const item of parsed) {
+          if (typeof item === "string") {
+            queries.push(item);
+            // No level data, will fall back
+          } else if (item?.query) {
+            queries.push(item.query);
+            if (["locality", "city", "country"].includes(item.level)) {
+              levelMap[item.query.toLowerCase()] = item.level;
+            }
+          }
+        }
+        // Attach level map to the result via a module-level cache (keyed by query string)
+        for (const [q, level] of Object.entries(levelMap)) {
+          AI_QUERY_LEVELS.set(q, level);
+        }
+        return queries;
+      }
+    } catch { /* fall through */ }
   }
 
-  // Fallback — all generic buyer queries, zero brand mentions
-  return [
-    `best 3BHK apartments in ${loc} under 1.5 crore`,
-    `top builders in ${city} 2026`,
-    `affordable flats near IT parks ${city}`,
-    `luxury apartments in ${loc}`,
-    `2BHK flats in ${city} under 80 lakhs`,
-    `best gated community in ${loc}`,
-    `RERA approved projects in ${loc}`,
-    `${loc} vs nearby areas which is better`,
-    `new launch projects ${city} 2026`,
-    `should I buy flat in ${loc}`,
-    `best area to invest in ${city} real estate`,
-    `ready to move apartments ${loc}`,
-    `apartments with good resale value ${loc}`,
-    `property price trends ${loc}`,
-    `upcoming metro stations near ${loc}`,
-    `rental yield ${loc} ${city}`,
-    `top 5 residential projects ${loc}`,
-    `projects near IT parks ${city}`,
-    `best locality to buy flat ${city} 2026`,
-    `gated community with pool and gym ${city}`,
-  ];
+  // NO HARDCODED FALLBACK — if AI fails, return empty and let caller handle
+  return [];
 }
+
+// Module-level cache of AI-classified query levels (populated during generation)
+export const AI_QUERY_LEVELS = new Map<string, "locality" | "city" | "country">();
 
 // ---------- Content Plan Generator ----------
 

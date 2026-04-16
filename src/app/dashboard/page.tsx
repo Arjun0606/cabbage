@@ -111,7 +111,7 @@ export default function DashboardPage() {
   }, []);
 
   const CREDIT_COSTS: Record<string, number> = {
-    audit: 1, technical: 1, ai_visibility: 2, backlinks: 1, competitors: 2,
+    audit: 2, technical: 1, ai_visibility: 4, backlinks: 1, competitors: 2,
     content: 3, content_plan: 3, article: 5, campaign: 3, partner: 3,
     schema: 2, landing: 5, portal: 2, neighborhood: 3, progress: 2,
     report: 5, ads: 3, llms_txt: 2, geo_improvement: 3, crawler: 1,
