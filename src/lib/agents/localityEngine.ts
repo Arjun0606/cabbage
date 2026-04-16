@@ -248,11 +248,29 @@ export async function generateSearchQueries(
     ? `people searching for local services in ${loc}, ${city}. They want AI to RECOMMEND a business.`
     : `potential customers searching for services or products in ${loc}, ${city}. They want AI to RECOMMEND a company.`;
 
-  // Build dynamic context blocks from actual brand + project data
+  // Build dynamic context blocks from actual brand + project data.
+  // Group projects by CITY to handle multi-city developers (DLF in NCR+Bangalore+Chennai, etc.)
+  const projectsByCity = new Map<string, Array<{ name?: string; location?: string; configurations?: string; priceRange?: string }>>();
+  for (const p of projectDetails || []) {
+    // Parse city from location string (e.g. "Gachibowli, Hyderabad" → "Hyderabad")
+    // If location doesn't contain a city, fall back to the primary city
+    const locParts = (p.location || "").split(",").map(s => s.trim());
+    const projectCity = locParts.length > 1 ? locParts[locParts.length - 1] : city;
+    const key = projectCity || city;
+    if (!projectsByCity.has(key)) projectsByCity.set(key, []);
+    projectsByCity.get(key)!.push(p);
+  }
+
+  const multiCity = projectsByCity.size > 1;
+
   const projectsBlock = projectDetails && projectDetails.length > 0
-    ? `\n\nSPECIFIC PROJECTS TO GENERATE QUERIES AROUND:\n${projectDetails.map(p =>
-        `- ${p.name || "project"}${p.location ? ` in ${p.location}` : ""}${p.configurations ? ` (${p.configurations})` : ""}${p.priceRange ? ` @ ${p.priceRange}` : ""}`
-      ).join("\n")}\nFor each project, generate queries buyers would type to DISCOVER projects like this (without naming the developer).`
+    ? `\n\nPROJECTS BY CITY (generate queries for EACH city, not just the primary):\n${
+        Array.from(projectsByCity.entries()).map(([cityName, projs]) =>
+          `\n=== ${cityName} ===\n${projs.map(p =>
+            `- ${p.name || "project"}${p.location ? ` in ${p.location}` : ""}${p.configurations ? ` (${p.configurations})` : ""}${p.priceRange ? ` @ ${p.priceRange}` : ""}`
+          ).join("\n")}`
+        ).join("\n")
+      }\n\nFor EACH city above, generate locality-level queries covering every project's micro-market, configuration, and price segment.`
     : "";
 
   const audienceBlock = brandContext?.targetAudience
@@ -263,7 +281,7 @@ export async function generateSearchQueries(
     ? `\n\nBRAND USPs / DIFFERENTIATORS:\n${brandContext.usps.slice(0, 300)}\nInclude queries that surface competitors selling around these same USPs.`
     : "";
 
-  // Extract unique locations/configs from projectDetails for locality-level coverage
+  const uniqueCities = Array.from(projectsByCity.keys()).filter(Boolean);
   const uniqueLocations = Array.from(new Set((projectDetails || []).map(p => p.location).filter(Boolean)));
   const uniqueConfigs = Array.from(new Set((projectDetails || []).flatMap(p => (p.configurations || "").split(",").map(c => c.trim())).filter(Boolean)));
   const priceRanges = Array.from(new Set((projectDetails || []).map(p => p.priceRange).filter(Boolean)));
@@ -271,77 +289,79 @@ export async function generateSearchQueries(
   const prompt = `Generate search queries that ${industryContext} These customers DO NOT know any specific company — they are searching by need, location, and requirements. The brand being tested is "${brand}" but DO NOT include it in any query.
 
 INDUSTRY: ${ind.replace(/_/g, " ")}
-CITY: ${city}
-${locality ? `LOCALITY/AREA: ${locality}` : ""}
+${multiCity
+  ? `CITIES WHERE BRAND OPERATES (MULTI-CITY): ${uniqueCities.join(", ")}`
+  : `PRIMARY CITY: ${city}${locality ? `\nPRIMARY LOCALITY/AREA: ${locality}` : ""}`}
 COUNTRY: ${country}
-${uniqueLocations.length > 0 ? `KNOWN LOCALITIES WHERE BRAND OPERATES: ${uniqueLocations.join(", ")}` : ""}
+${uniqueLocations.length > 0 ? `LOCALITIES/MICRO-MARKETS: ${uniqueLocations.join(", ")}` : ""}
 ${uniqueConfigs.length > 0 ? `CONFIGURATIONS OFFERED: ${uniqueConfigs.join(", ")}` : ""}
-${priceRanges.length > 0 ? `PRICE SEGMENTS: ${priceRanges.join(" | ")}` : ""}${projectsBlock}${audienceBlock}${uspsBlock}
+${priceRanges.length > 0 ? `PRICE SEGMENTS (generate queries for EACH): ${priceRanges.join(" | ")}` : ""}${projectsBlock}${audienceBlock}${uspsBlock}
 
 CRITICAL RULES:
 - ALL queries in ENGLISH only
 - DO NOT include any company or brand name (no "${brand}", no project names)
-- Use real landmarks, areas, institutions near ${loc}
+- Use REAL landmarks, areas, institutions near each locality — vary them per city
 - Must be realistic queries real customers would type
-- Use local currency and terminology appropriate for ${city}
-- Where projects span multiple localities, include hyper-local queries for each
+- Use local currency and terminology (different cities may need different pricing formats)
+${multiCity ? "- MULTI-CITY: Generate queries for EACH city where the brand operates. A buyer in Bangalore searches differently from a buyer in Mumbai. Do not skip any city." : ""}
+- Where projects span multiple localities within a city, include hyper-local queries for each
 - Where configurations vary, include queries for each (2BHK buyers search different things than 4BHK buyers)
+- Where price segments vary (₹80L vs ₹5Cr), include queries for each (buyer intent is totally different)
 
-Generate queries at THREE levels — as many as this market needs:
+Generate queries at THREE levels — as many as this brand needs:
 
-LOCALITY LEVEL — hyper-local queries specific to ${loc}${uniqueLocations.length > 0 ? ` and other brand localities (${uniqueLocations.join(", ")})` : ""}:
+LOCALITY LEVEL — hyper-local queries for EVERY locality the brand operates in${uniqueLocations.length > 0 ? `:\n  Localities: ${uniqueLocations.join(", ")}` : ""}
+${multiCity ? "  Since this brand operates in multiple cities, generate locality queries for micro-markets across ALL cities — don't just focus on one." : ""}
 - Service/product + location combos
-- Landmark-based queries (IT parks, metro stations, schools)
-- Decision queries ("best/top [service] in [locality]")
-- Comparison queries ("[locality] vs [nearby area]")
-- Generate more for bigger markets, fewer for smaller ones
+- Landmark-based queries (IT parks, metro stations, schools specific to each locality)
+- Decision queries ("best/top [service] in [specific locality]")
+- Comparison queries ("[locality] vs [nearby area in same city]")
+- Generate more queries for bigger, more active markets; fewer for smaller ones
 
-CITY LEVEL — city-wide intent:
-- "best [service/product] in ${city}"
-- "top [industry] companies in ${city}"
-- Cover queries where city-level results matter
+CITY LEVEL — city-wide intent for EVERY city the brand operates in${multiCity ? ` (${uniqueCities.join(", ")})` : ` (${city})`}:
+- "best [service/product] in [city]" for each city
+- "top [industry] companies in [city]" for each city
+- City-specific comparisons where relevant (e.g. "best area to invest in Bangalore vs Chennai")
 
 COUNTRY LEVEL — national discovery:
 - "best [service/product] in ${country}"
 - "top [industry] companies in ${country}"
-- Only include if the company operates nationally
+- Include if the brand operates in 2+ cities (signals national operation)
+- "best cities to invest in" if applicable
 
-Use REAL landmark names specific to ${loc}, ${city}. Cover every meaningful query the TARGET AUDIENCE would ask.
+Use REAL landmark names specific to each locality and city. Cover every meaningful query the TARGET AUDIENCE would ask across every market the brand serves.
 
 Return a JSON array of objects, each with:
 {
   "query": "the search query string",
-  "level": "locality" | "city" | "country"
+  "level": "locality" | "city" | "country",
+  "city": "<which city this query targets (required for locality/city level; null for country level)>"
 }
 
-Classify each query's level based on the intent:
-- locality: hyper-local queries (specific area, landmarks, nearby comparisons, micro-market)
-- city: broad city-wide intent (best in X, top in Y, general searches)
-- country: national discovery (best cities, compare regions, pan-country)`;
+Classify each query:
+- "level" — locality (micro-market), city (city-wide), or country (national)
+- "city" — tag locality and city-level queries with the actual city they target so multi-city brands can break down progress per city`;
 
-  const text = await aiLight(system, prompt, 2000);
+  const text = await aiLight(system, prompt, 2500);
   const jsonMatch = text.match(/\[[\s\S]*\]/);
   if (jsonMatch) {
     try {
       const parsed = JSON.parse(jsonMatch[0]);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        // Store level classification on the module for the scanner to use
-        const levelMap: Record<string, "locality" | "city" | "country"> = {};
         const queries: string[] = [];
         for (const item of parsed) {
           if (typeof item === "string") {
             queries.push(item);
-            // No level data, will fall back
           } else if (item?.query) {
             queries.push(item.query);
+            const qLower = item.query.toLowerCase();
             if (["locality", "city", "country"].includes(item.level)) {
-              levelMap[item.query.toLowerCase()] = item.level;
+              AI_QUERY_LEVELS.set(qLower, item.level);
+            }
+            if (item.city && typeof item.city === "string") {
+              AI_QUERY_CITIES.set(qLower, item.city);
             }
           }
-        }
-        // Attach level map to the result via a module-level cache (keyed by query string)
-        for (const [q, level] of Object.entries(levelMap)) {
-          AI_QUERY_LEVELS.set(q, level);
         }
         return queries;
       }
@@ -354,6 +374,10 @@ Classify each query's level based on the intent:
 
 // Module-level cache of AI-classified query levels (populated during generation)
 export const AI_QUERY_LEVELS = new Map<string, "locality" | "city" | "country">();
+
+// Module-level cache of AI-classified query cities (populated during generation)
+// Used to break down GEO progress per-city for multi-city developers (DLF in NCR+Bangalore+Chennai)
+export const AI_QUERY_CITIES = new Map<string, string>();
 
 // ---------- Content Plan Generator ----------
 

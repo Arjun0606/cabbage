@@ -83,7 +83,7 @@ export default function DashboardPage() {
     newlyFound: [], newlyLost: [], neverFound: [], alwaysFound: [],
     daysSinceLastScan: 0, isStale: false, isVeryStale: false,
     weeklyScan: null, weeklyMentionRateChange: 0,
-    weeklyNewlyFound: [], weeklyNewlyLost: [],
+    weeklyNewlyFound: [], weeklyNewlyLost: [], perCityBreakdown: [],
     trajectory: "new",
   });
 

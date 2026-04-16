@@ -14,6 +14,7 @@
 export interface GEOQuerySnapshot {
   query: string;
   level: "locality" | "city" | "country";  // Multi-level GEO tier
+  city?: string;  // Which city this query targets (for multi-city developers)
   chatgpt: { mentioned: boolean; position: number; sentiment: string };
   gemini: { mentioned: boolean; position: number; sentiment: string };
   perplexity: { mentioned: boolean; position: number; sentiment: string };
@@ -57,6 +58,14 @@ export interface GEOProgress {
   weeklyMentionRateChange: number;
   weeklyNewlyFound: string[];
   weeklyNewlyLost: string[];
+  // Per-city breakdown (for multi-city developers)
+  perCityBreakdown: Array<{
+    city: string;
+    totalQueries: number;
+    mentionedCount: number;
+    mentionRate: number;
+    missingQueries: string[];
+  }>;
 }
 
 // ---------- Storage ----------
@@ -147,10 +156,18 @@ export function recordGEOScan(
   scores: GEOScanRecord["scores"],
   queryResults: any[]  // Raw queryResults from AI visibility API
 ): GEOScanRecord {
+  // Try to load the AI-generated city tags from the localityEngine module cache
+  let aiCityMap: Map<string, string> | null = null;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const mod = require("./agents/localityEngine") as { AI_QUERY_CITIES?: Map<string, string> };
+    aiCityMap = mod.AI_QUERY_CITIES || null;
+  } catch { /* ignore */ }
+
   const queries: GEOQuerySnapshot[] = queryResults.map((q) => ({
     query: q.query,
-    // Infer level from query content rather than position
     level: inferQueryLevel(q.query, city) as GEOQuerySnapshot["level"],
+    city: aiCityMap?.get(q.query.toLowerCase()) || city || undefined,
     chatgpt: { mentioned: q.chatgpt?.mentioned || false, position: q.chatgpt?.position || 0, sentiment: q.chatgpt?.sentiment || "absent" },
     gemini: { mentioned: q.gemini?.mentioned || false, position: q.gemini?.position || 0, sentiment: q.gemini?.sentiment || "absent" },
     perplexity: { mentioned: q.perplexity?.mentioned || false, position: q.perplexity?.position || 0, sentiment: q.perplexity?.sentiment || "absent" },
@@ -206,6 +223,7 @@ export function getGEOProgress(brand?: string): GEOProgress {
       weeklyMentionRateChange: 0,
       weeklyNewlyFound: [],
       weeklyNewlyLost: [],
+      perCityBreakdown: [],
     };
   }
 
@@ -311,6 +329,32 @@ export function getGEOProgress(brand?: string): GEOProgress {
     });
   }
 
+  // Per-city breakdown (for multi-city developers)
+  const cityGroups = new Map<string, { total: number; mentioned: number; missing: string[] }>();
+  currentScan.queries.forEach((q) => {
+    const cityKey = q.city || "Unknown";
+    if (!cityGroups.has(cityKey)) {
+      cityGroups.set(cityKey, { total: 0, mentioned: 0, missing: [] });
+    }
+    const group = cityGroups.get(cityKey)!;
+    group.total += 1;
+    const found = q.chatgpt.mentioned || q.gemini.mentioned;
+    if (found) {
+      group.mentioned += 1;
+    } else {
+      group.missing.push(q.query);
+    }
+  });
+  const perCityBreakdown = Array.from(cityGroups.entries())
+    .map(([cityName, stats]) => ({
+      city: cityName,
+      totalQueries: stats.total,
+      mentionedCount: stats.mentioned,
+      mentionRate: stats.total > 0 ? Math.round((stats.mentioned / stats.total) * 100) : 0,
+      missingQueries: stats.missing,
+    }))
+    .sort((a, b) => b.totalQueries - a.totalQueries);
+
   return {
     currentScan,
     previousScan,
@@ -330,6 +374,7 @@ export function getGEOProgress(brand?: string): GEOProgress {
     weeklyMentionRateChange,
     weeklyNewlyFound,
     weeklyNewlyLost,
+    perCityBreakdown,
   };
 }
 

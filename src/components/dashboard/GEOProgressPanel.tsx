@@ -50,7 +50,7 @@ function MentionTrendChart({ scans }: { scans: { date: string; rate: number }[] 
 export function GEOProgressPanel({ progress, onWriteArticleForQuery, onFixAllBlindSpots, isGenerating, articleCost = 5, bulkFixCost = 15 }: Props) {
   if (!progress.currentScan) return null;
 
-  const { currentScan, previousScan, allScans, mentionRate, previousMentionRate, mentionRateChange, newlyFound, newlyLost, neverFound, trajectory, daysSinceLastScan, isStale, isVeryStale, weeklyScan, weeklyMentionRateChange, weeklyNewlyFound, weeklyNewlyLost } = progress;
+  const { currentScan, previousScan, allScans, mentionRate, previousMentionRate, mentionRateChange, newlyFound, newlyLost, neverFound, trajectory, daysSinceLastScan, isStale, isVeryStale, weeklyScan, weeklyMentionRateChange, weeklyNewlyFound, weeklyNewlyLost, perCityBreakdown } = progress;
 
   const trendScans = allScans.map((s) => ({
     date: formatScanDate(s.timestamp),
@@ -149,6 +149,56 @@ export function GEOProgressPanel({ progress, onWriteArticleForQuery, onFixAllBli
           </div>
         </CardContent>
       </Card>
+
+      {/* Per-city breakdown — for multi-city developers */}
+      {perCityBreakdown && perCityBreakdown.length > 1 && (
+        <Card className="bg-zinc-900/60 border-white/[0.06] rounded-xl">
+          <CardContent className="p-5">
+            <div className="flex items-center gap-2.5 mb-3">
+              <BarChart3 size={14} className="text-zinc-400" />
+              <h4 className="text-[13px] font-semibold text-zinc-200">Per-City Visibility</h4>
+              <Badge className="text-[10px] bg-zinc-800 text-zinc-500 ml-auto border-0 rounded-md h-5 px-1.5">
+                {perCityBreakdown.length} cities
+              </Badge>
+            </div>
+            <p className="text-[11px] text-zinc-500 mb-3">Breakdown of AI visibility across every city you operate in</p>
+            <div className="space-y-2">
+              {perCityBreakdown.map((cityData) => {
+                const rateColor = cityData.mentionRate >= 50 ? "text-[#7CB342]" : cityData.mentionRate >= 20 ? "text-amber-400" : "text-red-400";
+                const barColor = cityData.mentionRate >= 50 ? "bg-[#7CB342]" : cityData.mentionRate >= 20 ? "bg-amber-500" : "bg-red-500";
+                return (
+                  <div key={cityData.city} className="p-3 rounded-lg bg-zinc-800/40 border border-white/[0.04]">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[13px] font-medium text-zinc-200">{cityData.city}</span>
+                        <Badge className="text-[10px] bg-zinc-800 text-zinc-500 border-0 rounded-md h-5 px-1.5">
+                          {cityData.totalQueries} queries
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-[13px] font-bold tabular-nums ${rateColor}`}>
+                          {cityData.mentionedCount}/{cityData.totalQueries}
+                        </span>
+                        <span className={`text-[11px] tabular-nums ${rateColor}`}>
+                          ({cityData.mentionRate}%)
+                        </span>
+                      </div>
+                    </div>
+                    <div className="w-full h-1.5 rounded-full bg-zinc-800 overflow-hidden">
+                      <div className={`h-full rounded-full ${barColor} transition-all duration-500`} style={{ width: `${cityData.mentionRate}%` }} />
+                    </div>
+                    {cityData.missingQueries.length > 0 && (
+                      <div className="text-[10px] text-zinc-500 mt-1.5">
+                        {cityData.missingQueries.length} blind spot{cityData.missingQueries.length !== 1 ? "s" : ""} in {cityData.city}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Newly found — the dopamine hit */}
       {newlyFound.length > 0 && (
