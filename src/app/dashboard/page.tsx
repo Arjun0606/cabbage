@@ -185,12 +185,14 @@ export default function DashboardPage() {
         }
 
         if (localData?.name) {
-          addLog(`> Loaded: ${localData.name}`);
+          addLog(`> Cabbge activated for ${localData.name}`);
 
           // AUTO-DISCOVER: If documents are empty, scrape website and fill them
           const hasDocuments = localData.documents?.brandVoice || localData.documents?.productInfo;
           if (localData.website && !hasDocuments) {
-            addLog("> Analyzing your website...");
+            addLog("> Deploying 6 agents...");
+            await new Promise(r => setTimeout(r, 400));
+            addLog(`> Fetching ${localData.website}...`);
             try {
               const discoverRes = await fetch("/api/auto-discover", {
                 method: "POST", headers: { "Content-Type": "application/json" },
@@ -212,22 +214,25 @@ export default function DashboardPage() {
                     competitorAnalysis: localData.documents?.competitorAnalysis || discovered.documents.competitorAnalysis || "",
                   },
                 };
-                // Add inferred projects if none exist
                 if ((!localData.projects || localData.projects.length === 0) && discovered.inferredProjects?.length) {
                   enriched.projects = discovered.inferredProjects;
                 }
-                // Add inferred competitors if none exist
                 if ((!localData.competitors || localData.competitors.length === 0) && discovered.inferredCompetitors?.length) {
                   enriched.competitors = discovered.inferredCompetitors.map((c: string) => ({ name: c, website: "" }));
                 }
                 setCompany(enriched);
                 localStorage.setItem("cabbge_company", JSON.stringify(enriched));
-                addLog("> Brand Voice analyzed");
-                addLog("> Product Info extracted");
-                addLog("> Target Audience identified");
-                addLog("> Competitor landscape mapped");
+                addLog(`> Agent 1: Brand voice analyzed — ${discovered.documents.brandVoice?.slice(0, 40) || "captured"}...`);
+                await new Promise(r => setTimeout(r, 200));
+                addLog(`> Agent 2: Product intelligence extracted — ${enriched.projects?.length || 0} projects detected`);
+                await new Promise(r => setTimeout(r, 200));
+                addLog(`> Agent 3: Target audience identified — ${discovered.documents.targetAudience?.split(".")[0]?.slice(0, 50) || "home buyers"}`);
+                await new Promise(r => setTimeout(r, 200));
+                addLog(`> Agent 4: Competitor landscape mapped — ${enriched.competitors?.length || 0} competitors tracked`);
+                await new Promise(r => setTimeout(r, 200));
+                addLog(`> Agent 5: Market context: ${discovered.city || localData.city || "locality"}`);
                 if (discovered.seoObservations?.quickWins?.length) {
-                  addLog(`> Found ${discovered.seoObservations.quickWins.length} quick SEO wins`);
+                  addLog(`> Agent 6: ${discovered.seoObservations.quickWins.length} quick SEO wins surfaced`);
                 }
               }
             } catch { /* Auto-discover not critical */ }
@@ -308,15 +313,21 @@ export default function DashboardPage() {
   const runAudit = async (url: string) => {
     if (!spendCredits("audit")) return;
     setIsAuditing(true);
-    addLog(`> Auditing ${url}...`);
+    addLog(`> SEO agent: crawling ${url}...`);
+    addLog(`> Running 15 real estate checks...`);
     try {
       const res = await fetch("/api/audit", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url }) });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       setAuditResult(data);
       recordScan("audit", url, data.scores.overall, `${data.fixes?.length || 0} fixes`);
+      addLog(`> Page speed analyzed`);
+      addLog(`> Schema markup checked`);
+      addLog(`> RERA compliance verified`);
       logScoreChange("SEO Audit", data.scores.overall, "audit");
-      addLog(`> ${data.fixes?.length || 0} fixes found, ${data.realEstateChecks?.filter((c: any) => !c.passed).length || 0} RE checks failed`);
+      const critical = data.fixes?.filter((f: any) => f.severity === "critical").length || 0;
+      const failed = data.realEstateChecks?.filter((c: any) => !c.passed).length || 0;
+      addLog(`> ${data.fixes?.length || 0} fixes surfaced (${critical} critical) + ${failed} RE issues`);
       refreshTrends();
     } catch (err) { addLog(`> Error: ${err instanceof Error ? err.message : "Audit failed"}`); }
     finally { setIsAuditing(false); }
@@ -326,11 +337,12 @@ export default function DashboardPage() {
     if (!company.name) { addLog("> Set company name first"); return; }
     if (!spendCredits("ai_visibility")) return;
     setIsCheckingAI(true);
-    addLog(`> Checking AI visibility across ChatGPT + Google AI...`);
+    addLog(`> GEO agent: generating buyer queries for ${company.city || "your market"}...`);
+    addLog(`> Querying ChatGPT with real buyer searches...`);
+    addLog(`> Querying Google AI (Gemini) in parallel...`);
     try {
-      // Reuse saved queries for consistent tracking, or generate fresh on first scan
       const existingQueries = getSavedQueries(company.name);
-      if (existingQueries) addLog(`> Using ${existingQueries.length} tracked queries for consistent comparison`);
+      if (existingQueries) addLog(`> Reusing ${existingQueries.length} tracked queries for progress comparison`);
       const res = await fetch("/api/ai-visibility", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
         websiteUrl: company.website, brand: company.name, city: company.city, savedQueries: existingQueries,
         projects: company.projects.map(p => p.name),

@@ -31,7 +31,7 @@ export function ChatPanel({ company, auditResult, aiVisResult }: Props) {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
-      content: "I'm your AI CMO for real estate. Here's what I can do:\n\n- **Review your SEO & GEO scores** and tell you exactly what to fix\n- **Explain why ChatGPT and Google AI don't recommend your projects** and how to change that\n- **Help you create content** — locality guides, buyer articles, broker packs, portal listings\n- **Track your competitors** and find gaps you can exploit\n- **Plan your next 30 days** of SEO and GEO improvement\n\nHit **Run Full Scan** above to start, then ask me anything.",
+      content: `hi, i'm your cmo.\n\ni'll scan for your highest-leverage growth opportunities and keep your actions feed fresh.\n\npick any item from your actions feed or ask me what to tackle first.`,
     },
   ]);
   const [input, setInput] = useState("");

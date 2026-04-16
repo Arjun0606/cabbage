@@ -2,438 +2,129 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import {
-  Building2,
-  Globe,
-  MapPin,
-  Plus,
-  X,
-  ArrowRight,
-  Zap,
-} from "lucide-react";
+import { Globe, ArrowRight, Loader2, Sparkles } from "lucide-react";
 
-interface Project {
-  name: string;
-  website: string;
-  location: string;
-  configurations: string;
-  priceRange: string;
-}
-
-const INDUSTRIES = [
-  { id: "real_estate", label: "Real Estate", icon: "🏗️", desc: "Developers, builders, brokerages" },
-];
-
+/**
+ * One-step onboarding — Okara model.
+ * User pastes their website URL. Everything else is auto-discovered.
+ */
 export default function OnboardingPage() {
   const router = useRouter();
-  const [step, setStep] = useState(1); // Skip industry selection — real estate only
-
-  // Industry
-  const [industry, setIndustry] = useState("real_estate");
-
-  // Company
-  const [companyName, setCompanyName] = useState("");
   const [website, setWebsite] = useState("");
-  const [city, setCity] = useState("");
-  const [description, setDescription] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  // Projects
-  const [projects, setProjects] = useState<Project[]>([
-    { name: "", website: "", location: "", configurations: "", priceRange: "" },
-  ]);
+  const handleStart = async () => {
+    if (!website.trim()) return;
 
-  // Competitors
-  const [competitors, setCompetitors] = useState<string[]>([]);
-  const [newCompetitor, setNewCompetitor] = useState("");
+    // Normalize URL
+    let url = website.trim();
+    if (!url.match(/^https?:\/\//)) url = `https://${url}`;
 
-  const addProject = () => {
-    setProjects([
-      ...projects,
-      { name: "", website: "", location: "", configurations: "", priceRange: "" },
-    ]);
-  };
+    // Extract a sensible company name from the domain
+    const hostname = url.replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0];
+    const inferredName = hostname.split(".")[0].charAt(0).toUpperCase() + hostname.split(".")[0].slice(1);
 
-  const updateProject = (idx: number, field: keyof Project, value: string) => {
-    const updated = [...projects];
-    updated[idx] = { ...updated[idx], [field]: value };
-    setProjects(updated);
-  };
+    setLoading(true);
 
-  const removeProject = (idx: number) => {
-    if (projects.length > 1) {
-      setProjects(projects.filter((_, i) => i !== idx));
-    }
-  };
-
-  const addCompetitor = () => {
-    if (newCompetitor.trim()) {
-      setCompetitors([...competitors, newCompetitor.trim()]);
-      setNewCompetitor("");
-    }
-  };
-
-  const handleComplete = () => {
-    // Store in localStorage for the dashboard to read
+    // Minimal seed data — dashboard auto-discover will fill everything else
     const data = {
-      name: companyName,
-      description,
-      website,
-      city,
-      industry,
-      projects: projects.filter((p) => p.name),
-      competitors: competitors.map((c) => ({ name: c, website: c })),
+      name: inferredName,
+      description: "",
+      website: url,
+      city: "",
+      industry: "real_estate",
+      yearEstablished: "",
+      projectsCompleted: "",
+      awards: "",
+      sites: [] as { url: string; label: string }[],
+      projects: [] as any[],
+      competitors: [] as { name: string; website: string }[],
       documents: {
-        productInfo: description,
+        productInfo: "",
         competitorAnalysis: "",
         brandVoice: "",
         marketingStrategy: "",
+        brandValues: "",
+        brandVision: "",
+        targetAudience: "",
       },
     };
     localStorage.setItem("cabbge_company", JSON.stringify(data));
-    router.push("/dashboard");
+
+    // Brief delay to show loading state, then redirect
+    setTimeout(() => router.push("/dashboard"), 600);
   };
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 flex items-center justify-center p-4">
-      <div className="w-full max-w-2xl space-y-6">
-        {/* Header */}
-        <div className="text-center space-y-2">
+    <div className="min-h-screen bg-[#0a0a0b] text-zinc-100 flex items-center justify-center p-4">
+      <div className="w-full max-w-xl space-y-8">
+        {/* Logo + headline */}
+        <div className="text-center space-y-4">
           <div className="flex items-center justify-center gap-3">
-            <img src="/logo.png" alt="Cabbge" className="w-10 h-10 object-contain" />
-            <h1 className="text-2xl font-bold text-zinc-100">Cabbge</h1>
+            <img src="/logo.png" alt="Cabbge" className="w-12 h-12 object-contain" />
+            <h1 className="text-3xl font-bold text-zinc-100 tracking-tight">Cabbge</h1>
           </div>
-          <p className="text-zinc-400 text-sm">
-            AI SEO & GEO for Real Estate Developers
-          </p>
-          <div className="flex items-center justify-center gap-2 pt-2">
-            {[1, 2, 3].map((s) => (
-              <div
-                key={s}
-                className={`h-1.5 rounded-full transition-all ${
-                  s <= step
-                    ? "w-12 bg-zinc-100"
-                    : "w-8 bg-zinc-800"
-                }`}
-              />
-            ))}
+          <div className="space-y-2">
+            <p className="text-[20px] text-zinc-200 font-medium">Your AI CMO for Real Estate</p>
+            <p className="text-[14px] text-zinc-500">
+              Paste your website. We&apos;ll analyze your brand, audit your SEO, check your AI visibility, and generate everything you need to dominate your market.
+            </p>
           </div>
         </div>
 
-        {/* Step 0: Industry Selection */}
-        {step === 0 && (
-          <Card className="bg-zinc-900 border-zinc-800">
-            <CardHeader>
-              <CardTitle className="text-lg">What industry are you in?</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="grid grid-cols-2 gap-2">
-                {INDUSTRIES.map((ind) => (
-                  <button
-                    key={ind.id}
-                    onClick={() => { setIndustry(ind.id); setStep(1); }}
-                    className={`p-3 rounded-lg border text-left transition-all active:scale-[0.98] ${
-                      industry === ind.id
-                        ? "border-[#7CB342] bg-[#7CB342]/10"
-                        : "border-zinc-800 hover:border-zinc-600 bg-zinc-900/60"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <span className="text-xl">{ind.icon}</span>
-                      <div>
-                        <div className="text-[13px] font-medium text-zinc-200">{ind.label}</div>
-                        <div className="text-[11px] text-zinc-500">{ind.desc}</div>
-                      </div>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        {/* URL input — the entire onboarding */}
+        <div className="space-y-3">
+          <div className="relative">
+            <Globe size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
+            <Input
+              type="url"
+              placeholder="yourdeveloper.com"
+              value={website}
+              onChange={(e) => setWebsite(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleStart()}
+              autoFocus
+              disabled={loading}
+              className="bg-zinc-900/80 border-white/[0.08] text-[16px] h-14 pl-12 pr-4 placeholder:text-zinc-600 focus:border-[#7CB342]/40 focus:ring-[#7CB342]/10 transition-all"
+            />
+          </div>
 
-        {/* Step 1: Company */}
-        {step === 1 && (
-          <Card className="bg-zinc-900 border-zinc-800">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Building2 size={18} />
-                Tell us about your company
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <label className="text-xs text-zinc-400 mb-1 block">Company Name *</label>
-                <Input
-                  placeholder="e.g. Urbanrise, Prestige, Aparna"
-                  value={companyName}
-                  onChange={(e) => setCompanyName(e.target.value)}
-                  className="bg-zinc-800 border-zinc-700"
-                />
-              </div>
-              <div>
-                <label className="text-xs text-zinc-400 mb-1 block">Main Website *</label>
-                <Input
-                  placeholder="e.g. urbanrise.in"
-                  value={website}
-                  onChange={(e) => setWebsite(e.target.value)}
-                  className="bg-zinc-800 border-zinc-700"
-                />
-              </div>
-              <div>
-                <label className="text-xs text-zinc-400 mb-1 block">Primary City</label>
-                <Input
-                  placeholder="e.g. Hyderabad, Dubai, London, Gurgaon..."
-                  value={city}
-                  onChange={(e) => setCity(e.target.value)}
-                  className="bg-zinc-800 border-zinc-700"
-                  list="city-suggestions"
-                />
-                <datalist id="city-suggestions">
-                  <option value="Hyderabad" />
-                  <option value="Bangalore" />
-                  <option value="Chennai" />
-                  <option value="Mumbai" />
-                  <option value="Pune" />
-                  <option value="Delhi NCR" />
-                  <option value="Gurgaon" />
-                  <option value="Noida" />
-                  <option value="Kolkata" />
-                  <option value="Ahmedabad" />
-                  <option value="Kochi" />
-                  <option value="Goa" />
-                  <option value="Lucknow" />
-                  <option value="Jaipur" />
-                  <option value="Chandigarh" />
-                  <option value="Indore" />
-                  <option value="Vizag" />
-                  <option value="Dubai" />
-                  <option value="Abu Dhabi" />
-                  <option value="Riyadh" />
-                  <option value="London" />
-                </datalist>
-                <p className="text-[10px] text-zinc-600 mt-1">Works globally — type any city</p>
-              </div>
-              <div>
-                <label className="text-xs text-zinc-400 mb-1 block">About the company</label>
-                <Textarea
-                  placeholder="Brief description of your company, target buyers, USPs..."
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  className="bg-zinc-800 border-zinc-700 min-h-[80px]"
-                />
-              </div>
-              <Button
-                onClick={() => setStep(2)}
-                disabled={!companyName || !website}
-                className="w-full bg-zinc-100 text-zinc-900 hover:bg-white"
-              >
-                Continue <ArrowRight size={14} className="ml-2" />
-              </Button>
-            </CardContent>
-          </Card>
-        )}
+          <Button
+            onClick={handleStart}
+            disabled={!website.trim() || loading}
+            className="w-full bg-[#7CB342] hover:bg-[#8BC34A] text-zinc-950 h-14 text-[15px] font-semibold rounded-lg active:scale-[0.99] transition-all disabled:opacity-40 shadow-[0_0_20px_rgba(124,179,66,0.2)]"
+          >
+            {loading ? (
+              <><Loader2 size={18} className="animate-spin mr-2" />Initializing your CMO...</>
+            ) : (
+              <><Sparkles size={16} className="mr-2" />Activate Cabbge<ArrowRight size={16} className="ml-2" /></>
+            )}
+          </Button>
+        </div>
 
-        {/* Step 2: Projects */}
-        {step === 2 && (
-          <Card className="bg-zinc-900 border-zinc-800">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <MapPin size={18} />
-                Your active projects
-              </CardTitle>
-              <p className="text-xs text-zinc-500">
-                Add your residential projects. Each project gets its own SEO audit, AI visibility tracking, and content strategy.
-              </p>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {projects.map((project, idx) => (
-                <div
-                  key={idx}
-                  className="p-3 rounded-lg bg-zinc-800/50 border border-zinc-700/50 space-y-3"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-zinc-400">Project {idx + 1}</span>
-                    {projects.length > 1 && (
-                      <button
-                        onClick={() => removeProject(idx)}
-                        className="text-zinc-600 hover:text-red-400 transition-colors"
-                      >
-                        <X size={14} />
-                      </button>
-                    )}
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Input
-                      placeholder="Project name"
-                      value={project.name}
-                      onChange={(e) => updateProject(idx, "name", e.target.value)}
-                      className="bg-zinc-800 border-zinc-700 text-sm"
-                    />
-                    <Input
-                      placeholder="Project website/URL"
-                      value={project.website}
-                      onChange={(e) => updateProject(idx, "website", e.target.value)}
-                      className="bg-zinc-800 border-zinc-700 text-sm"
-                    />
-                    <Input
-                      placeholder="Location (e.g. Kompally)"
-                      value={project.location}
-                      onChange={(e) => updateProject(idx, "location", e.target.value)}
-                      className="bg-zinc-800 border-zinc-700 text-sm"
-                    />
-                    <Input
-                      placeholder="Configs (e.g. 2BHK, 3BHK)"
-                      value={project.configurations}
-                      onChange={(e) => updateProject(idx, "configurations", e.target.value)}
-                      className="bg-zinc-800 border-zinc-700 text-sm"
-                    />
-                  </div>
+        {/* What happens next */}
+        <div className="grid grid-cols-3 gap-3">
+          {[
+            { step: "1", label: "Analyze", desc: "Read your website & brand" },
+            { step: "2", label: "Scan", desc: "Check SEO + AI visibility" },
+            { step: "3", label: "Execute", desc: "Generate content & fixes" },
+          ].map(({ step, label, desc }) => (
+            <div key={step} className="p-3 rounded-lg bg-zinc-900/40 border border-white/[0.04]">
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-5 h-5 rounded-full bg-[#7CB342]/10 flex items-center justify-center text-[11px] font-semibold text-[#7CB342]">
+                  {step}
                 </div>
-              ))}
-
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={addProject}
-                className="w-full border-dashed border-zinc-700 text-zinc-400 hover:text-zinc-100 hover:border-zinc-500"
-              >
-                <Plus size={14} className="mr-2" />
-                Add another project
-              </Button>
-
-              <div className="flex gap-2 pt-2">
-                <Button
-                  variant="outline"
-                  onClick={() => setStep(1)}
-                  className="border-zinc-700"
-                >
-                  Back
-                </Button>
-                <Button
-                  onClick={() => setStep(3)}
-                  className="flex-1 bg-zinc-100 text-zinc-900 hover:bg-white"
-                >
-                  Continue <ArrowRight size={14} className="ml-2" />
-                </Button>
+                <span className="text-[12px] font-semibold text-zinc-200">{label}</span>
               </div>
-            </CardContent>
-          </Card>
-        )}
+              <p className="text-[11px] text-zinc-500 leading-snug">{desc}</p>
+            </div>
+          ))}
+        </div>
 
-        {/* Step 3: Competitors + Launch */}
-        {step === 3 && (
-          <Card className="bg-zinc-900 border-zinc-800">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Globe size={18} />
-                Competitors & Launch
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <label className="text-xs text-zinc-400 mb-1 block">
-                  Add competitor websites (we'll track their SEO + content)
-                </label>
-                <div className="flex flex-wrap gap-2 mb-2">
-                  {competitors.map((c, i) => (
-                    <Badge
-                      key={i}
-                      variant="secondary"
-                      className="bg-zinc-800 text-zinc-300 gap-1 pr-1"
-                    >
-                      {c}
-                      <button
-                        onClick={() =>
-                          setCompetitors(competitors.filter((_, j) => j !== i))
-                        }
-                        className="ml-1 hover:text-red-400"
-                      >
-                        <X size={12} />
-                      </button>
-                    </Badge>
-                  ))}
-                </div>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="competitor-website.com"
-                    value={newCompetitor}
-                    onChange={(e) => setNewCompetitor(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && addCompetitor()}
-                    className="bg-zinc-800 border-zinc-700 text-sm"
-                  />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={addCompetitor}
-                    className="border-zinc-700"
-                  >
-                    <Plus size={14} />
-                  </Button>
-                </div>
-              </div>
-
-              {/* Summary */}
-              <div className="rounded-lg bg-zinc-800/50 p-4 space-y-2">
-                <h4 className="text-sm font-medium text-zinc-100">Ready to launch</h4>
-                <div className="text-xs text-zinc-400 space-y-1">
-                  <p>
-                    <span className="text-zinc-300">{companyName}</span> &bull;{" "}
-                    {website} &bull; {city}
-                  </p>
-                  <p>{projects.filter((p) => p.name).length} project(s) configured</p>
-                  <p>{competitors.length} competitor(s) tracked</p>
-                </div>
-                <div className="text-xs text-zinc-500 pt-2">
-                  Cabbge will immediately run:
-                </div>
-                <ul className="text-xs text-zinc-400 space-y-1">
-                  <li className="flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-zinc-100" />
-                    SEO audit on your main site + all project pages
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-violet-500" />
-                    AI visibility check across ChatGPT, Claude, Perplexity, Gemini
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-orange-500" />
-                    Real estate-specific checks (RERA, pricing, floor plans, schema)
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-                    Localized content generation for all project microlocations
-                  </li>
-                </ul>
-              </div>
-
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => setStep(2)}
-                  className="border-zinc-700"
-                >
-                  Back
-                </Button>
-                <Button
-                  onClick={handleComplete}
-                  className="flex-1 bg-zinc-100 text-zinc-900 hover:bg-white"
-                >
-                  <Zap size={14} className="mr-2" />
-                  Launch Cabbge
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Footer */}
-        <p className="text-center text-[10px] text-zinc-600">
-          Built for Indian real estate developers. Hyderabad &bull; Bangalore &bull; Chennai
+        {/* Reassurance */}
+        <p className="text-center text-[11px] text-zinc-600">
+          Free scan, no credit card. Takes under a minute.
         </p>
       </div>
     </div>
