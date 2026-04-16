@@ -1,4 +1,5 @@
 import { queryForVisibility, aiLight, type VisibilitySource } from "@/lib/ai";
+import type { QueryWithMeta } from "@/lib/agents/localityEngine";
 
 // ---------- Types ----------
 
@@ -39,6 +40,13 @@ export interface AIVisibilityResult {
 
 interface QueryResult {
   query: string;
+  // Metadata propagated from the query generator so downstream UI can
+  // segment by city / config / price tier without re-classifying anything.
+  level: "locality" | "city" | "country";
+  city?: string;
+  config?: string;
+  priceTier?: string;
+  intent?: QueryWithMeta["intent"];
   chatgpt: LLMResult;
   gemini: LLMResult;
   // Keep claude/perplexity fields for backward compat with stored scans
@@ -377,7 +385,7 @@ export async function runAIVisibility(
   websiteUrl: string,
   brand: string,
   projects: string[],
-  queries: string[]
+  queries: QueryWithMeta[]
 ): Promise<AIVisibilityResult> {
   // Run AI readiness checks
   const aiReadiness = await checkAIReadiness(websiteUrl);
@@ -395,14 +403,14 @@ export async function runAIVisibility(
   let chatgptLastError: string | undefined;
   let geminiLastError: string | undefined;
 
-  for (const query of queries) {
+  for (const qm of queries) {
     const [chatgptRes, geminiRes] = await Promise.all([
-      queryForVisibility("openai", query).catch((err): { text: string; source: VisibilitySource; error?: string } => ({
+      queryForVisibility("openai", qm.query).catch((err): { text: string; source: VisibilitySource; error?: string } => ({
         text: "",
         source: "failed",
         error: err instanceof Error ? err.message : String(err),
       })),
-      queryForVisibility("gemini", query).catch((err): { text: string; source: VisibilitySource; error?: string } => ({
+      queryForVisibility("gemini", qm.query).catch((err): { text: string; source: VisibilitySource; error?: string } => ({
         text: "",
         source: "failed",
         error: err instanceof Error ? err.message : String(err),
@@ -421,7 +429,12 @@ export async function runAIVisibility(
     ]);
 
     queryResults.push({
-      query,
+      query: qm.query,
+      level: qm.level,
+      city: qm.city,
+      config: qm.config,
+      priceTier: qm.priceTier,
+      intent: qm.intent,
       chatgpt: chatgptAnalysis,
       gemini: geminiAnalysis,
       claude: emptyResult,

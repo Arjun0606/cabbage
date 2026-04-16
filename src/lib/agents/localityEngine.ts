@@ -199,13 +199,33 @@ Use the actual local currency and terms (lakhs/crore for India, AED for UAE, GBP
 }
 
 /**
+ * One search query plus the metadata that lets us segment results by
+ * geography, configuration, and price tier. We persist this with the saved
+ * query set so cold starts and saved-query reuse don't lose context.
+ *
+ * Why every field is optional except `query` and `level`:
+ * - `city` is null for country-level queries
+ * - `config` only set when the brand exposes configurations (real estate)
+ * - `priceTier` only set when the brand exposes price ranges
+ * - `intent` is best-effort buyer intent classification
+ */
+export interface QueryWithMeta {
+  query: string;
+  level: "locality" | "city" | "country";
+  city?: string;
+  config?: string;     // e.g. "2BHK", "3BHK", "villa", "plot"
+  priceTier?: string;  // e.g. "₹50L-1Cr", "₹3Cr+", "<₹50L"
+  intent?: "research" | "comparison" | "shortlist" | "investment" | "rental";
+}
+
+/**
  * Result of search-query generation. `usedFallback=true` means the AI
  * generator failed and we returned a minimal generic query set so the scan
  * could still run — caller should warn the user that scores are based on
  * generic queries rather than the rich brand-aware set.
  */
 export interface GeneratedQueries {
-  queries: string[];
+  queries: QueryWithMeta[];
   usedFallback: boolean;
   reason?: string;
 }
@@ -343,16 +363,27 @@ COUNTRY LEVEL — national discovery:
 
 Use REAL landmark names specific to each locality and city. Cover every meaningful query the TARGET AUDIENCE would ask across every market the brand serves.
 
+HYPER-LOCAL × CONFIG × PRICE-TIER COVERAGE (CRITICAL):
+${uniqueConfigs.length > 0 && uniqueLocations.length > 0 ? `- For EACH config in [${uniqueConfigs.join(", ")}] × EACH locality in [${uniqueLocations.join(", ")}], generate at least one query like "best <config> in <locality>". A 2BHK buyer in Gachibowli is a totally different person from a 4BHK buyer in Jubilee Hills.` : ""}
+${priceRanges.length > 0 && uniqueLocations.length > 0 ? `- For EACH price tier in [${priceRanges.join(", ")}] × EACH locality, generate at least one query like "best <config> under <price> in <locality>" or "<price> apartments in <locality>".` : ""}
+- Mix intent types: research ("what are the best..."), comparison ("X vs Y"), shortlist ("top 5..."), investment ("good roi areas..."), rental ("flats for rent in...").
+
 Return a JSON array of objects, each with:
 {
   "query": "the search query string",
   "level": "locality" | "city" | "country",
-  "city": "<which city this query targets (required for locality/city level; null for country level)>"
+  "city": "<which city this query targets (required for locality/city level; null for country level)>",
+  "config": "<configuration if mentioned in the query, e.g. '2BHK', '3BHK', 'villa', 'plot' — null if generic>",
+  "priceTier": "<price band if mentioned, e.g. '<₹50L', '₹50L-1Cr', '₹1Cr-3Cr', '₹3Cr+' — null if not specified>",
+  "intent": "research" | "comparison" | "shortlist" | "investment" | "rental"
 }
 
 Classify each query:
 - "level" — locality (micro-market), city (city-wide), or country (national)
-- "city" — tag locality and city-level queries with the actual city they target so multi-city brands can break down progress per city`;
+- "city" — tag locality and city-level queries with the actual city they target so multi-city brands can break down progress per city
+- "config" — extract the configuration ONLY if the query explicitly mentions one. Don't invent.
+- "priceTier" — extract the price band ONLY if the query explicitly mentions a budget. Don't invent.
+- "intent" — what is the buyer trying to do with this query?`;
 
   // Try the AI generator. If it throws, log and fall through to the safety net.
   let text = "";
@@ -365,24 +396,33 @@ Classify each query:
     );
   }
 
+  const validLevels = new Set(["locality", "city", "country"]);
+  const validIntents = new Set(["research", "comparison", "shortlist", "investment", "rental"]);
+
   const jsonMatch = text.match(/\[[\s\S]*\]/);
   if (jsonMatch) {
     try {
       const parsed = JSON.parse(jsonMatch[0]);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        const queries: string[] = [];
+        const queries: QueryWithMeta[] = [];
         for (const item of parsed) {
+          // Tolerate two shapes: bare string (legacy) or {query, level, city, ...}
           if (typeof item === "string") {
-            queries.push(item);
-          } else if (item?.query) {
-            queries.push(item.query);
+            queries.push({ query: item, level: "locality", city });
+            AI_QUERY_LEVELS.set(item.toLowerCase(), "locality");
+            AI_QUERY_CITIES.set(item.toLowerCase(), city);
+          } else if (item?.query && typeof item.query === "string") {
+            const level: "locality" | "city" | "country" = validLevels.has(item.level)
+              ? item.level
+              : "locality";
+            const tagCity = typeof item.city === "string" && item.city ? item.city : (level === "country" ? undefined : city);
+            const config = typeof item.config === "string" && item.config && item.config !== "null" ? item.config : undefined;
+            const priceTier = typeof item.priceTier === "string" && item.priceTier && item.priceTier !== "null" ? item.priceTier : undefined;
+            const intent = typeof item.intent === "string" && validIntents.has(item.intent) ? item.intent : undefined;
+            queries.push({ query: item.query, level, city: tagCity, config, priceTier, intent: intent as QueryWithMeta["intent"] });
             const qLower = item.query.toLowerCase();
-            if (["locality", "city", "country"].includes(item.level)) {
-              AI_QUERY_LEVELS.set(qLower, item.level);
-            }
-            if (item.city && typeof item.city === "string") {
-              AI_QUERY_CITIES.set(qLower, item.city);
-            }
+            AI_QUERY_LEVELS.set(qLower, level);
+            if (tagCity) AI_QUERY_CITIES.set(qLower, tagCity);
           }
         }
         if (queries.length > 0) return { queries, usedFallback: false };
@@ -427,23 +467,48 @@ Classify each query:
     : ind === "local_business" ? "local businesses"
     : "companies";
 
-  const fallback = [
-    `best ${industryNoun} in ${loc}`,
-    `top ${industryNoun} in ${city}`,
-    `most trusted ${industryNoun} in ${city}`,
-    `${industryNoun} in ${country}`,
-    `which ${industryNoun.replace(/s$/, "")} should I choose in ${loc}`,
+  // Fallback set with proper metadata so downstream segmentation still works
+  // when AI generation is unavailable.
+  const fallbackRows: Array<{ query: string; level: "locality" | "city" | "country"; tagCity?: string; intent: QueryWithMeta["intent"] }> = [
+    { query: `best ${industryNoun} in ${loc}`, level: loc !== city ? "locality" : "city", tagCity: city, intent: "research" },
+    { query: `top ${industryNoun} in ${city}`, level: "city", tagCity: city, intent: "shortlist" },
+    { query: `most trusted ${industryNoun} in ${city}`, level: "city", tagCity: city, intent: "shortlist" },
+    { query: `${industryNoun} in ${country}`, level: "country", tagCity: undefined, intent: "research" },
+    { query: `which ${industryNoun.replace(/s$/, "")} should I choose in ${loc}`, level: loc !== city ? "locality" : "city", tagCity: city, intent: "comparison" },
   ];
-  for (const q of fallback) {
-    AI_QUERY_LEVELS.set(q.toLowerCase(), q.includes(country) ? "country" : q.includes(loc) && loc !== city ? "locality" : "city");
-    if (!q.includes(country)) AI_QUERY_CITIES.set(q.toLowerCase(), city);
+
+  // Mix in a config × locality cross if we have enough data — keeps the
+  // fallback non-trivially useful for real estate brands.
+  if (uniqueConfigs.length > 0 && uniqueLocations.length > 0 && ind === "real_estate") {
+    for (const cfg of uniqueConfigs.slice(0, 3)) {
+      for (const locality of uniqueLocations.slice(0, 2)) {
+        fallbackRows.push({
+          query: `best ${cfg} in ${locality}`,
+          level: "locality",
+          tagCity: city,
+          intent: "shortlist",
+        });
+      }
+    }
   }
+
+  const fallbackQueries: QueryWithMeta[] = fallbackRows.map((r) => {
+    AI_QUERY_LEVELS.set(r.query.toLowerCase(), r.level);
+    if (r.tagCity) AI_QUERY_CITIES.set(r.query.toLowerCase(), r.tagCity);
+    return {
+      query: r.query,
+      level: r.level,
+      city: r.tagCity,
+      intent: r.intent,
+    };
+  });
+
   return {
-    queries: fallback,
+    queries: fallbackQueries,
     usedFallback: true,
     reason: text
-      ? `AI returned unparseable output (${text.length} chars). Used 5 generic ${ind.replace(/_/g, " ")} queries for ${city}.`
-      : `AI generator returned no output. Used 5 generic ${ind.replace(/_/g, " ")} queries for ${city}.`,
+      ? `AI returned unparseable output (${text.length} chars). Used ${fallbackQueries.length} generic ${ind.replace(/_/g, " ")} queries for ${city}.`
+      : `AI generator returned no output. Used ${fallbackQueries.length} generic ${ind.replace(/_/g, " ")} queries for ${city}.`,
   };
 }
 

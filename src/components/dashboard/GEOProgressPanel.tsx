@@ -50,7 +50,7 @@ function MentionTrendChart({ scans }: { scans: { date: string; rate: number }[] 
 export function GEOProgressPanel({ progress, onWriteArticleForQuery, onFixAllBlindSpots, isGenerating, articleCost = 5, bulkFixCost = 15 }: Props) {
   if (!progress.currentScan) return null;
 
-  const { currentScan, previousScan, allScans, mentionRate, previousMentionRate, mentionRateChange, newlyFound, newlyLost, neverFound, trajectory, daysSinceLastScan, isStale, isVeryStale, weeklyScan, weeklyMentionRateChange, weeklyNewlyFound, weeklyNewlyLost, perCityBreakdown } = progress;
+  const { currentScan, previousScan, allScans, mentionRate, previousMentionRate, mentionRateChange, newlyFound, newlyLost, neverFound, trajectory, daysSinceLastScan, isStale, isVeryStale, weeklyScan, weeklyMentionRateChange, weeklyNewlyFound, weeklyNewlyLost, perCityBreakdown, perConfigBreakdown, perPriceTierBreakdown } = progress;
 
   const trendScans = allScans.map((s) => ({
     date: formatScanDate(s.timestamp),
@@ -192,6 +192,74 @@ export function GEOProgressPanel({ progress, onWriteArticleForQuery, onFixAllBli
                         {cityData.missingQueries.length} blind spot{cityData.missingQueries.length !== 1 ? "s" : ""} in {cityData.city}
                       </div>
                     )}
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Per-config breakdown — e.g. "2BHK: 3/8, Villa: 1/5" */}
+      {perConfigBreakdown && perConfigBreakdown.length > 0 && (
+        <Card className="bg-zinc-900/60 border-white/[0.06] rounded-xl">
+          <CardContent className="p-5">
+            <div className="flex items-center gap-2.5 mb-3">
+              <BarChart3 size={14} className="text-zinc-400" />
+              <h4 className="text-[13px] font-semibold text-zinc-200">By Configuration</h4>
+              <Badge className="text-[10px] bg-zinc-800 text-zinc-500 ml-auto border-0 rounded-md h-5 px-1.5">
+                {perConfigBreakdown.length} types
+              </Badge>
+            </div>
+            <div className="space-y-2">
+              {perConfigBreakdown.map((seg) => {
+                const rateColor = seg.mentionRate >= 50 ? "text-[#7CB342]" : seg.mentionRate >= 20 ? "text-amber-400" : "text-red-400";
+                const barColor = seg.mentionRate >= 50 ? "bg-[#7CB342]" : seg.mentionRate >= 20 ? "bg-amber-500" : "bg-red-500";
+                return (
+                  <div key={seg.config} className="p-2.5 rounded-lg bg-zinc-800/40 border border-white/[0.04]">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-[12px] font-medium text-zinc-200">{seg.config}</span>
+                      <span className={`text-[12px] font-bold tabular-nums ${rateColor}`}>
+                        {seg.mentionedCount}/{seg.totalQueries} ({seg.mentionRate}%)
+                      </span>
+                    </div>
+                    <div className="w-full h-1.5 rounded-full bg-zinc-800 overflow-hidden">
+                      <div className={`h-full rounded-full ${barColor} transition-all duration-500`} style={{ width: `${seg.mentionRate}%` }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Per-price-tier breakdown — e.g. "₹50L-1Cr: 5/10, ₹3Cr+: 2/5" */}
+      {perPriceTierBreakdown && perPriceTierBreakdown.length > 0 && (
+        <Card className="bg-zinc-900/60 border-white/[0.06] rounded-xl">
+          <CardContent className="p-5">
+            <div className="flex items-center gap-2.5 mb-3">
+              <BarChart3 size={14} className="text-zinc-400" />
+              <h4 className="text-[13px] font-semibold text-zinc-200">By Price Tier</h4>
+              <Badge className="text-[10px] bg-zinc-800 text-zinc-500 ml-auto border-0 rounded-md h-5 px-1.5">
+                {perPriceTierBreakdown.length} tiers
+              </Badge>
+            </div>
+            <div className="space-y-2">
+              {perPriceTierBreakdown.map((seg) => {
+                const rateColor = seg.mentionRate >= 50 ? "text-[#7CB342]" : seg.mentionRate >= 20 ? "text-amber-400" : "text-red-400";
+                const barColor = seg.mentionRate >= 50 ? "bg-[#7CB342]" : seg.mentionRate >= 20 ? "bg-amber-500" : "bg-red-500";
+                return (
+                  <div key={seg.priceTier} className="p-2.5 rounded-lg bg-zinc-800/40 border border-white/[0.04]">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-[12px] font-medium text-zinc-200">{seg.priceTier}</span>
+                      <span className={`text-[12px] font-bold tabular-nums ${rateColor}`}>
+                        {seg.mentionedCount}/{seg.totalQueries} ({seg.mentionRate}%)
+                      </span>
+                    </div>
+                    <div className="w-full h-1.5 rounded-full bg-zinc-800 overflow-hidden">
+                      <div className={`h-full rounded-full ${barColor} transition-all duration-500`} style={{ width: `${seg.mentionRate}%` }} />
+                    </div>
                   </div>
                 );
               })}

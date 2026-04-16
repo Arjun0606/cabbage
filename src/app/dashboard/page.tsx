@@ -9,7 +9,24 @@ import { ChatPanel } from "@/components/dashboard/ChatPanel";
 import { TerminalHeader } from "@/components/dashboard/TerminalHeader";
 import { AgentStatusBar } from "@/components/dashboard/AgentStatusBar";
 import { recordScan, getAllTrends, type TrendData } from "@/lib/scanHistory";
-import { recordGEOScan, getGEOProgress, getSavedQueries, saveQueries, type GEOProgress } from "@/lib/geoHistory";
+import { recordGEOScan, getGEOProgress, getSavedQueries, getSavedQueriesFingerprint, saveQueries, type GEOProgress } from "@/lib/geoHistory";
+
+/**
+ * Stable hash of company.projects — used to detect when the project list
+ * changes so we can auto-regenerate queries (task C).
+ */
+function projectsFingerprint(projects: Array<{ name: string; location?: string; configurations?: string; priceRange?: string }>): string {
+  const key = projects
+    .map((p) => `${p.name}|${p.location || ""}|${p.configurations || ""}|${p.priceRange || ""}`)
+    .sort()
+    .join(";;");
+  // Simple djb2 hash — good enough for change detection, not crypto.
+  let hash = 5381;
+  for (let i = 0; i < key.length; i++) {
+    hash = ((hash << 5) + hash + key.charCodeAt(i)) | 0;
+  }
+  return hash.toString(36);
+}
 
 export default function DashboardPage() {
   const [company, setCompany] = useState({
@@ -83,7 +100,7 @@ export default function DashboardPage() {
     newlyFound: [], newlyLost: [], neverFound: [], alwaysFound: [],
     daysSinceLastScan: 0, isStale: false, isVeryStale: false,
     weeklyScan: null, weeklyMentionRateChange: 0,
-    weeklyNewlyFound: [], weeklyNewlyLost: [], perCityBreakdown: [],
+    weeklyNewlyFound: [], weeklyNewlyLost: [], perCityBreakdown: [], perConfigBreakdown: [], perPriceTierBreakdown: [],
     trajectory: "new",
   });
 
@@ -378,7 +395,21 @@ export default function DashboardPage() {
     addLog(`> Querying ChatGPT with real buyer searches...`);
     addLog(`> Querying Google AI (Gemini) in parallel...`);
     try {
-      const existingQueries = getSavedQueries(company.name);
+      // Task C: auto-refresh queries when projects change. If the user added
+      // new projects/localities/configs since the last query generation, the
+      // saved query set no longer covers the full brand footprint.
+      let existingQueries = getSavedQueries(company.name);
+      if (existingQueries && company.projects.length > 0) {
+        const currentFP = projectsFingerprint(company.projects);
+        const savedFP = getSavedQueriesFingerprint(company.name);
+        if (savedFP && savedFP !== currentFP) {
+          addLog(`> Projects changed since last query generation — regenerating queries to cover new localities/configs`);
+          // Import resetSavedQueries lazily to avoid circular issues
+          const { resetSavedQueries } = await import("@/lib/geoHistory");
+          resetSavedQueries(company.name);
+          existingQueries = null; // force regeneration
+        }
+      }
       if (existingQueries) addLog(`> Reusing ${existingQueries.length} tracked queries for progress comparison`);
 
       // One-line payload echo so the user can see exactly what we're sending.
@@ -454,9 +485,12 @@ export default function DashboardPage() {
         addLog(`> Queries tested: "${sampleQueries.join('", "')}" + ${total - 3} more`);
       }
       refreshTrends();
-      // Save queries for consistent tracking (first scan locks the query set)
+      // Save queries for consistent tracking (first scan locks the query set).
+      // Also stores a fingerprint of company.projects so we can detect when
+      // the project list changes and auto-regenerate (task C).
       if (data.queriesUsed?.length && !getSavedQueries(company.name)) {
-        saveQueries(company.name, data.queriesUsed);
+        const fp = projectsFingerprint(company.projects);
+        saveQueries(company.name, data.queriesUsed, fp);
         addLog(`> Locked ${data.queriesUsed.length} queries for ongoing tracking`);
       }
       // Record GEO scan for progress tracking
@@ -1044,7 +1078,7 @@ export default function DashboardPage() {
       newlyFound: [], newlyLost: [], neverFound: [], alwaysFound: [],
       daysSinceLastScan: 0, isStale: false, isVeryStale: false,
       weeklyScan: null, weeklyMentionRateChange: 0,
-      weeklyNewlyFound: [], weeklyNewlyLost: [], perCityBreakdown: [],
+      weeklyNewlyFound: [], weeklyNewlyLost: [], perCityBreakdown: [], perConfigBreakdown: [], perPriceTierBreakdown: [],
       trajectory: "new",
     });
 

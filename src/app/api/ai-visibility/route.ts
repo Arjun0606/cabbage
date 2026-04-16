@@ -1,6 +1,35 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runAIVisibility } from "@/lib/agents/aiVisibility";
-import { generateSearchQueries } from "@/lib/agents/localityEngine";
+import { generateSearchQueries, type QueryWithMeta } from "@/lib/agents/localityEngine";
+
+/**
+ * Normalize whatever the client sent for `savedQueries` into QueryWithMeta[].
+ * Accepts:
+ *   - QueryWithMeta[]  (current shape — used directly)
+ *   - string[]         (legacy shape from before query metadata was persisted —
+ *                       upgraded with default level=locality + supplied city)
+ * Anything else returns null so the caller falls through to fresh generation.
+ */
+function normalizeSavedQueries(input: unknown, defaultCity: string): QueryWithMeta[] | null {
+  if (!Array.isArray(input) || input.length === 0) return null;
+  const out: QueryWithMeta[] = [];
+  for (const item of input) {
+    if (typeof item === "string" && item.trim()) {
+      out.push({ query: item, level: "locality", city: defaultCity || undefined });
+    } else if (item && typeof item === "object" && typeof (item as { query?: unknown }).query === "string") {
+      const q = item as Partial<QueryWithMeta>;
+      out.push({
+        query: q.query!,
+        level: q.level === "city" || q.level === "country" ? q.level : "locality",
+        city: typeof q.city === "string" && q.city ? q.city : defaultCity || undefined,
+        config: typeof q.config === "string" ? q.config : undefined,
+        priceTier: typeof q.priceTier === "string" ? q.priceTier : undefined,
+        intent: q.intent,
+      });
+    }
+  }
+  return out.length > 0 ? out : null;
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -11,7 +40,9 @@ export async function POST(req: NextRequest) {
     }
 
     const cityClean = typeof city === "string" ? city.trim() : "";
-    if (!cityClean && !(savedQueries && savedQueries.length > 0)) {
+    const normalizedSaved = normalizeSavedQueries(savedQueries, cityClean);
+
+    if (!cityClean && !normalizedSaved) {
       // Fail loudly instead of falling back to "the market" — that produces
       // queries like "best real estate developers in the market" which AI
       // models answer with global brands (Vanke, Greystar, Emaar) and
@@ -25,10 +56,10 @@ export async function POST(req: NextRequest) {
     // Use saved queries if provided (for consistent tracking), otherwise generate fresh.
     // generateSearchQueries always returns at least a fallback set so the scan can run
     // even when the AI generator hiccups.
-    let queries: string[];
+    let queries: QueryWithMeta[];
     let queryGenerationFallback: { used: boolean; reason?: string } = { used: false };
-    if (savedQueries && savedQueries.length > 0) {
-      queries = savedQueries;
+    if (normalizedSaved) {
+      queries = normalizedSaved;
     } else {
       const generated = await generateSearchQueries(
         cityClean,

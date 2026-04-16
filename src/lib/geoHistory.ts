@@ -14,7 +14,10 @@
 export interface GEOQuerySnapshot {
   query: string;
   level: "locality" | "city" | "country";  // Multi-level GEO tier
-  city?: string;  // Which city this query targets (for multi-city developers)
+  city?: string;       // Which city this query targets (for multi-city developers)
+  config?: string;     // Configuration if applicable (e.g. "2BHK", "villa")
+  priceTier?: string;  // Price tier if applicable (e.g. "₹50L-1Cr", "₹3Cr+")
+  intent?: string;     // Buyer intent: "research" | "comparison" | "shortlist" | etc.
   chatgpt: { mentioned: boolean; position: number; sentiment: string };
   gemini: { mentioned: boolean; position: number; sentiment: string };
   perplexity: { mentioned: boolean; position: number; sentiment: string };
@@ -66,6 +69,22 @@ export interface GEOProgress {
     mentionRate: number;
     missingQueries: string[];
   }>;
+  // Per-config breakdown (e.g. 2BHK: 3/8, villa: 1/5)
+  perConfigBreakdown: Array<{
+    config: string;
+    totalQueries: number;
+    mentionedCount: number;
+    mentionRate: number;
+    missingQueries: string[];
+  }>;
+  // Per-price-tier breakdown (e.g. ₹50L-1Cr: 5/10, ₹3Cr+: 2/5)
+  perPriceTierBreakdown: Array<{
+    priceTier: string;
+    totalQueries: number;
+    mentionedCount: number;
+    mentionRate: number;
+    missingQueries: string[];
+  }>;
 }
 
 // ---------- Storage ----------
@@ -77,7 +96,8 @@ const GEO_SCHEMA_VERSION_KEY = "cabbge_geo_schema_version";
 // Bump this whenever the scoring algorithm changes in a way that makes old
 // scans incomparable or misleading. All old data is auto-wiped on next load.
 // v1 = initial, v2 = post web-search-enabled AI visibility (Nov 2026+).
-const CURRENT_SCHEMA_VERSION = 2;
+// v3 = query metadata (config, priceTier, intent) persisted in snapshots.
+const CURRENT_SCHEMA_VERSION = 3;
 
 /**
  * Auto-clean stale/incompatible scan data.
@@ -139,17 +159,64 @@ function saveGEOHistory(records: GEOScanRecord[]) {
 }
 
 /**
+ * Saved query shape. Can be either `QueryWithMeta[]` (current) or legacy
+ * `string[]` from before metadata was added. `getSavedQueries` normalizes.
+ */
+interface SavedQueryEntry {
+  queries: Array<{ query: string; level?: string; city?: string; config?: string; priceTier?: string; intent?: string }>;
+  /** Hash of company.projects when these queries were generated.
+   *  Used for C (auto-refresh when projects change). */
+  projectsFingerprint?: string;
+}
+
+/**
  * Get saved query set for a brand. If none exists, returns null.
  * This ensures we track the SAME queries over time for accurate comparison.
+ * Normalizes legacy `string[]` format to `QueryWithMeta[]` on read.
  */
-export function getSavedQueries(brand: string): string[] | null {
+export function getSavedQueries(brand: string): Array<{ query: string; level?: string; city?: string; config?: string; priceTier?: string; intent?: string }> | null {
   if (typeof window === "undefined") return null;
   autoCleanScanData();
   try {
     const raw = localStorage.getItem(GEO_QUERIES_KEY);
     if (!raw) return null;
-    const map = JSON.parse(raw) as Record<string, string[]>;
-    return map[brand.toLowerCase()] || null;
+    const map = JSON.parse(raw) as Record<string, unknown>;
+    const entry = map[brand.toLowerCase()];
+    if (!entry) return null;
+
+    // Legacy: string[]
+    if (Array.isArray(entry) && entry.length > 0 && typeof entry[0] === "string") {
+      return (entry as string[]).map((q: string) => ({ query: q, level: "locality" }));
+    }
+    // Legacy: QueryWithMeta[] stored bare (before SavedQueryEntry wrapper)
+    if (Array.isArray(entry) && entry.length > 0 && typeof entry[0] === "object") {
+      return entry as Array<{ query: string; level?: string; city?: string; config?: string; priceTier?: string; intent?: string }>;
+    }
+    // Current: SavedQueryEntry
+    if (typeof entry === "object" && !Array.isArray(entry) && (entry as SavedQueryEntry).queries) {
+      return (entry as SavedQueryEntry).queries;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Get the projects fingerprint stored alongside saved queries.
+ * Returns null if none stored or no saved queries for this brand.
+ */
+export function getSavedQueriesFingerprint(brand: string): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(GEO_QUERIES_KEY);
+    if (!raw) return null;
+    const map = JSON.parse(raw) as Record<string, unknown>;
+    const entry = map[brand.toLowerCase()];
+    if (entry && typeof entry === "object" && !Array.isArray(entry)) {
+      return (entry as SavedQueryEntry).projectsFingerprint || null;
+    }
+    return null;
   } catch {
     return null;
   }
@@ -157,12 +224,17 @@ export function getSavedQueries(brand: string): string[] | null {
 
 /**
  * Save a query set for a brand (first scan locks the queries).
+ * Stores as `SavedQueryEntry` with metadata and projects fingerprint.
  */
-export function saveQueries(brand: string, queries: string[]) {
+export function saveQueries(
+  brand: string,
+  queries: Array<{ query: string; level?: string; city?: string; config?: string; priceTier?: string; intent?: string }>,
+  projectsFingerprint?: string
+) {
   try {
     const raw = localStorage.getItem(GEO_QUERIES_KEY);
     const map = raw ? JSON.parse(raw) : {};
-    map[brand.toLowerCase()] = queries;
+    map[brand.toLowerCase()] = { queries, projectsFingerprint } satisfies SavedQueryEntry;
     localStorage.setItem(GEO_QUERIES_KEY, JSON.stringify(map));
   } catch { /* ignore */ }
 }
@@ -183,49 +255,56 @@ export function resetSavedQueries(brand: string) {
 // ---------- Record a scan ----------
 
 /**
- * Get query level classification.
- * Priority: AI-classified map from query generation → default "locality".
- * NO hardcoded regex/keyword lists.
+ * Record a GEO scan. Metadata (level, city, config, priceTier, intent) now
+ * comes directly from the queryResults — no more relying on module-level
+ * Maps that die on cold start.
+ *
+ * Falls back to the old `inferQueryLevel` path for backward compat when
+ * query results don't include metadata (e.g. old cron code).
  */
-function inferQueryLevel(query: string, _city: string): "locality" | "city" | "country" {
-  // Try the AI-classified map first (populated during generateSearchQueries)
-  try {
-    // Dynamic import to avoid circular dependency at module load
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { AI_QUERY_LEVELS } = require("./agents/localityEngine") as { AI_QUERY_LEVELS: Map<string, "locality" | "city" | "country"> };
-    const cached = AI_QUERY_LEVELS?.get(query.toLowerCase());
-    if (cached) return cached;
-  } catch { /* ignore */ }
-
-  // If not AI-classified (e.g. loaded from old scan, or fallback), default to locality.
-  // Locality is the SAFEST default because it's the most specific level —
-  // treating a city-level query as locality just means it's tracked slightly narrower.
-  return "locality";
-}
-
 export function recordGEOScan(
   brand: string,
   city: string,
   scores: GEOScanRecord["scores"],
   queryResults: any[]  // Raw queryResults from AI visibility API
 ): GEOScanRecord {
-  // Try to load the AI-generated city tags from the localityEngine module cache
-  let aiCityMap: Map<string, string> | null = null;
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const mod = require("./agents/localityEngine") as { AI_QUERY_CITIES?: Map<string, string> };
-    aiCityMap = mod.AI_QUERY_CITIES || null;
-  } catch { /* ignore */ }
+  const queries: GEOQuerySnapshot[] = queryResults.map((q) => {
+    // Prefer metadata embedded in the queryResult (new path).
+    // Fall back to module-level Maps (old path, works only within same request).
+    let level: GEOQuerySnapshot["level"] = "locality";
+    let tagCity: string | undefined = city || undefined;
+    if (q.level && ["locality", "city", "country"].includes(q.level)) {
+      level = q.level;
+    } else {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { AI_QUERY_LEVELS } = require("./agents/localityEngine") as { AI_QUERY_LEVELS: Map<string, "locality" | "city" | "country"> };
+        level = AI_QUERY_LEVELS?.get(q.query?.toLowerCase()) || "locality";
+      } catch { /* ignore */ }
+    }
+    if (q.city && typeof q.city === "string") {
+      tagCity = q.city;
+    } else {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { AI_QUERY_CITIES } = require("./agents/localityEngine") as { AI_QUERY_CITIES: Map<string, string> };
+        tagCity = AI_QUERY_CITIES?.get(q.query?.toLowerCase()) || city || undefined;
+      } catch { /* ignore */ }
+    }
 
-  const queries: GEOQuerySnapshot[] = queryResults.map((q) => ({
-    query: q.query,
-    level: inferQueryLevel(q.query, city) as GEOQuerySnapshot["level"],
-    city: aiCityMap?.get(q.query.toLowerCase()) || city || undefined,
-    chatgpt: { mentioned: q.chatgpt?.mentioned || false, position: q.chatgpt?.position || 0, sentiment: q.chatgpt?.sentiment || "absent" },
-    gemini: { mentioned: q.gemini?.mentioned || false, position: q.gemini?.position || 0, sentiment: q.gemini?.sentiment || "absent" },
-    perplexity: { mentioned: q.perplexity?.mentioned || false, position: q.perplexity?.position || 0, sentiment: q.perplexity?.sentiment || "absent" },
-    claude: { mentioned: q.claude?.mentioned || false, position: q.claude?.position || 0, sentiment: q.claude?.sentiment || "absent" },
-  }));
+    return {
+      query: q.query,
+      level,
+      city: tagCity,
+      config: typeof q.config === "string" ? q.config : undefined,
+      priceTier: typeof q.priceTier === "string" ? q.priceTier : undefined,
+      intent: typeof q.intent === "string" ? q.intent : undefined,
+      chatgpt: { mentioned: q.chatgpt?.mentioned || false, position: q.chatgpt?.position || 0, sentiment: q.chatgpt?.sentiment || "absent" },
+      gemini: { mentioned: q.gemini?.mentioned || false, position: q.gemini?.position || 0, sentiment: q.gemini?.sentiment || "absent" },
+      perplexity: { mentioned: q.perplexity?.mentioned || false, position: q.perplexity?.position || 0, sentiment: q.perplexity?.sentiment || "absent" },
+      claude: { mentioned: q.claude?.mentioned || false, position: q.claude?.position || 0, sentiment: q.claude?.sentiment || "absent" },
+    };
+  });
 
   const mentionedCount = queries.filter((q) =>
     q.chatgpt.mentioned || q.gemini.mentioned
@@ -277,6 +356,8 @@ export function getGEOProgress(brand?: string): GEOProgress {
       weeklyNewlyFound: [],
       weeklyNewlyLost: [],
       perCityBreakdown: [],
+      perConfigBreakdown: [],
+      perPriceTierBreakdown: [],
     };
   }
 
@@ -408,6 +489,42 @@ export function getGEOProgress(brand?: string): GEOProgress {
     }))
     .sort((a, b) => b.totalQueries - a.totalQueries);
 
+  // Per-config breakdown (e.g. "2BHK: 3/8", "villa: 1/5")
+  // Only populated when queries have config metadata (v3+).
+  const segmentBreakdown = (
+    keyFn: (q: GEOQuerySnapshot) => string | undefined,
+    labelKey: "config" | "priceTier"
+  ) => {
+    const groups = new Map<string, { total: number; mentioned: number; missing: string[] }>();
+    currentScan.queries.forEach((q) => {
+      const key = keyFn(q);
+      if (!key) return; // skip queries without this metadata
+      if (!groups.has(key)) groups.set(key, { total: 0, mentioned: 0, missing: [] });
+      const g = groups.get(key)!;
+      g.total += 1;
+      if (q.chatgpt.mentioned || q.gemini.mentioned) {
+        g.mentioned += 1;
+      } else {
+        g.missing.push(q.query);
+      }
+    });
+    return Array.from(groups.entries())
+      .map(([k, s]) => ({
+        [labelKey]: k,
+        totalQueries: s.total,
+        mentionedCount: s.mentioned,
+        mentionRate: s.total > 0 ? Math.round((s.mentioned / s.total) * 100) : 0,
+        missingQueries: s.missing,
+      }))
+      .sort((a, b) => b.totalQueries - a.totalQueries) as Array<{
+        config?: string; priceTier?: string;
+        totalQueries: number; mentionedCount: number; mentionRate: number; missingQueries: string[];
+      }>;
+  };
+
+  const perConfigBreakdown = segmentBreakdown((q) => q.config, "config") as GEOProgress["perConfigBreakdown"];
+  const perPriceTierBreakdown = segmentBreakdown((q) => q.priceTier, "priceTier") as GEOProgress["perPriceTierBreakdown"];
+
   return {
     currentScan,
     previousScan,
@@ -428,6 +545,8 @@ export function getGEOProgress(brand?: string): GEOProgress {
     weeklyNewlyFound,
     weeklyNewlyLost,
     perCityBreakdown,
+    perConfigBreakdown,
+    perPriceTierBreakdown,
   };
 }
 
