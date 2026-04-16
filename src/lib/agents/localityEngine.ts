@@ -204,10 +204,12 @@ Use the actual local currency and terms (lakhs/crore for India, AED for UAE, GBP
  */
 export async function generateSearchQueries(
   city: string,
-  _brand: string,
-  _projects: string[],
+  brand: string,
+  projects: string[],
   locality?: string,
-  industry?: string
+  industry?: string,
+  projectDetails?: Array<{ name?: string; location?: string; configurations?: string; priceRange?: string }>,
+  brandContext?: { targetAudience?: string; usps?: string; projectsCompleted?: string }
 ): Promise<string[]> {
   // NOTE: We do NOT include the brand name in queries.
   // Real customers don't know the company — they search by need, location, budget.
@@ -246,27 +248,52 @@ export async function generateSearchQueries(
     ? `people searching for local services in ${loc}, ${city}. They want AI to RECOMMEND a business.`
     : `potential customers searching for services or products in ${loc}, ${city}. They want AI to RECOMMEND a company.`;
 
-  const prompt = `Generate search queries that ${industryContext} These customers DO NOT know any specific company — they are searching by need, location, and requirements.
+  // Build dynamic context blocks from actual brand + project data
+  const projectsBlock = projectDetails && projectDetails.length > 0
+    ? `\n\nSPECIFIC PROJECTS TO GENERATE QUERIES AROUND:\n${projectDetails.map(p =>
+        `- ${p.name || "project"}${p.location ? ` in ${p.location}` : ""}${p.configurations ? ` (${p.configurations})` : ""}${p.priceRange ? ` @ ${p.priceRange}` : ""}`
+      ).join("\n")}\nFor each project, generate queries buyers would type to DISCOVER projects like this (without naming the developer).`
+    : "";
+
+  const audienceBlock = brandContext?.targetAudience
+    ? `\n\nTARGET AUDIENCE (real buyer profile):\n${brandContext.targetAudience.slice(0, 500)}\nGenerate queries THIS specific audience would type.`
+    : "";
+
+  const uspsBlock = brandContext?.usps
+    ? `\n\nBRAND USPs / DIFFERENTIATORS:\n${brandContext.usps.slice(0, 300)}\nInclude queries that surface competitors selling around these same USPs.`
+    : "";
+
+  // Extract unique locations/configs from projectDetails for locality-level coverage
+  const uniqueLocations = Array.from(new Set((projectDetails || []).map(p => p.location).filter(Boolean)));
+  const uniqueConfigs = Array.from(new Set((projectDetails || []).flatMap(p => (p.configurations || "").split(",").map(c => c.trim())).filter(Boolean)));
+  const priceRanges = Array.from(new Set((projectDetails || []).map(p => p.priceRange).filter(Boolean)));
+
+  const prompt = `Generate search queries that ${industryContext} These customers DO NOT know any specific company — they are searching by need, location, and requirements. The brand being tested is "${brand}" but DO NOT include it in any query.
 
 INDUSTRY: ${ind.replace(/_/g, " ")}
 CITY: ${city}
 ${locality ? `LOCALITY/AREA: ${locality}` : ""}
 COUNTRY: ${country}
+${uniqueLocations.length > 0 ? `KNOWN LOCALITIES WHERE BRAND OPERATES: ${uniqueLocations.join(", ")}` : ""}
+${uniqueConfigs.length > 0 ? `CONFIGURATIONS OFFERED: ${uniqueConfigs.join(", ")}` : ""}
+${priceRanges.length > 0 ? `PRICE SEGMENTS: ${priceRanges.join(" | ")}` : ""}${projectsBlock}${audienceBlock}${uspsBlock}
 
 CRITICAL RULES:
 - ALL queries in ENGLISH only
-- DO NOT include any company or brand name
+- DO NOT include any company or brand name (no "${brand}", no project names)
 - Use real landmarks, areas, institutions near ${loc}
 - Must be realistic queries real customers would type
 - Use local currency and terminology appropriate for ${city}
+- Where projects span multiple localities, include hyper-local queries for each
+- Where configurations vary, include queries for each (2BHK buyers search different things than 4BHK buyers)
 
 Generate queries at THREE levels — as many as this market needs:
 
-LOCALITY LEVEL — hyper-local queries specific to ${loc}:
+LOCALITY LEVEL — hyper-local queries specific to ${loc}${uniqueLocations.length > 0 ? ` and other brand localities (${uniqueLocations.join(", ")})` : ""}:
 - Service/product + location combos
-- Landmark-based queries
-- Decision queries ("best/top [service] in ${loc}")
-- Comparison queries ("${loc} vs [nearby area]")
+- Landmark-based queries (IT parks, metro stations, schools)
+- Decision queries ("best/top [service] in [locality]")
+- Comparison queries ("[locality] vs [nearby area]")
 - Generate more for bigger markets, fewer for smaller ones
 
 CITY LEVEL — city-wide intent:
@@ -279,7 +306,7 @@ COUNTRY LEVEL — national discovery:
 - "top [industry] companies in ${country}"
 - Only include if the company operates nationally
 
-Use REAL landmark names specific to ${loc}, ${city}. Cover every meaningful query a buyer would ask. Return JSON array of strings.`;
+Use REAL landmark names specific to ${loc}, ${city}. Cover every meaningful query the TARGET AUDIENCE would ask. Return JSON array of strings.`;
 
   const text = await aiLight(system, prompt, 1500);
   const jsonMatch = text.match(/\[[\s\S]*\]/);

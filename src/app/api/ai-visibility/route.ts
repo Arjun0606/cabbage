@@ -4,7 +4,7 @@ import { generateSearchQueries } from "@/lib/agents/localityEngine";
 
 export async function POST(req: NextRequest) {
   try {
-    const { websiteUrl, brand, projects, city, savedQueries, projectDetails, industry } = await req.json();
+    const { websiteUrl, brand, projects, city, savedQueries, projectDetails, industry, brandContext } = await req.json();
 
     if (!brand) {
       return NextResponse.json({ error: "Brand name is required" }, { status: 400 });
@@ -18,7 +18,9 @@ export async function POST(req: NextRequest) {
           brand,
           projects || [],
           projectDetails?.[0]?.location,
-          industry
+          industry,
+          projectDetails,
+          brandContext
         );
 
     const result = await runAIVisibility(

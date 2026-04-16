@@ -366,6 +366,11 @@ export default function DashboardPage() {
         projects: company.projects.map(p => p.name),
         projectDetails: company.projects.map(p => ({ name: p.name, location: p.location, configurations: p.configurations, priceRange: p.priceRange })),
         industry: (company as any).industry,
+        brandContext: {
+          targetAudience: company.documents?.targetAudience || "",
+          usps: company.description || "",
+          projectsCompleted: (company as any).projectsCompleted || "",
+        },
       }) });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
