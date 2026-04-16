@@ -200,18 +200,20 @@ export async function queryForVisibility(
       }
     };
 
-    // Try grounded first (better responses), fall back to ungrounded if grounding fails
-    const grounded = await tryGemini("gemini-2.0-flash", true);
-    if (grounded.text) return grounded.text;
+    // Try gemini-2.5-flash (current model, Google AI Overviews equivalent)
+    // Fall back through models if the first fails
+    const models = ["gemini-2.5-flash", "gemini-2.0-flash-lite", "gemini-2.5-pro"];
 
-    // If grounded failed due to quota/billing, try without grounding (free tier often works)
-    if (grounded.status === 429 || grounded.status === 400) {
-      const fallback = await tryGemini("gemini-2.0-flash", false);
-      if (fallback.text) return fallback.text;
+    for (const model of models) {
+      // Try grounded first (simulates Google AI Overviews with web search)
+      const grounded = await tryGemini(model, true);
+      if (grounded.text) return grounded.text;
 
-      // Try older model that has more generous quotas
-      const older = await tryGemini("gemini-1.5-flash", false);
-      if (older.text) return older.text;
+      // Fall back to ungrounded if grounding fails
+      if (grounded.status === 429 || grounded.status === 400 || grounded.status === 404 || grounded.status === 503) {
+        const ungrounded = await tryGemini(model, false);
+        if (ungrounded.text) return ungrounded.text;
+      }
     }
 
     return "";
