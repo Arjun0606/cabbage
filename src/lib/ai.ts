@@ -165,30 +165,56 @@ export async function queryForVisibility(
   if (provider === "gemini") {
     const apiKey = process.env.GOOGLE_GEMINI_API_KEY;
     if (!apiKey) return "";
-    try {
-      // Use Gemini 2.0 Flash WITH Google Search grounding — the only way to get
-      // real recommendations like Google AI Overviews provide to consumers
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: query }] }],
-            tools: [{ google_search: {} }],  // Enable Google Search grounding
-          }),
+
+    // Helper: one attempt with given model/tools
+    const tryGemini = async (model: string, useGrounding: boolean): Promise<{ text: string; errorMessage?: string; status?: number }> => {
+      try {
+        const body: { contents: unknown; tools?: unknown } = {
+          contents: [{ parts: [{ text: query }] }],
+        };
+        if (useGrounding) {
+          body.tools = [{ google_search: {} }];
         }
-      );
-      const data = await res.json();
-      if (!res.ok) {
-        console.error("Gemini API error:", data);
-        return "";
+
+        const res = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          }
+        );
+        const data = await res.json();
+
+        if (!res.ok) {
+          const errorMsg = data?.error?.message || "Unknown error";
+          console.error(`Gemini ${model} error (${res.status}):`, errorMsg);
+          return { text: "", errorMessage: errorMsg, status: res.status };
+        }
+        const text = data.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text || "").join("\n") || "";
+        return { text };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "fetch error";
+        console.error("Gemini request failed:", msg);
+        return { text: "", errorMessage: msg };
       }
-      return data.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text || "").join("\n") || "";
-    } catch (err) {
-      console.error("Gemini grounded search failed:", err);
-      return "";
+    };
+
+    // Try grounded first (better responses), fall back to ungrounded if grounding fails
+    const grounded = await tryGemini("gemini-2.0-flash", true);
+    if (grounded.text) return grounded.text;
+
+    // If grounded failed due to quota/billing, try without grounding (free tier often works)
+    if (grounded.status === 429 || grounded.status === 400) {
+      const fallback = await tryGemini("gemini-2.0-flash", false);
+      if (fallback.text) return fallback.text;
+
+      // Try older model that has more generous quotas
+      const older = await tryGemini("gemini-1.5-flash", false);
+      if (older.text) return older.text;
     }
+
+    return "";
   }
 
   return "";
