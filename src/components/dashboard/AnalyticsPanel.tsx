@@ -1025,21 +1025,18 @@ export function AnalyticsPanel({
 
               <SectionCard>
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-[13px] font-semibold">AI Readiness Score</CardTitle>
+                  <CardTitle className="text-[13px] font-semibold">Technical AI Readiness</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex items-center gap-6">
+                  <div className="flex items-start gap-6">
                     <ScoreCircle score={aiVisResult.scores.readiness ?? aiVisResult.scores.overall} label="Readiness" size="md" />
-                    <div className="space-y-1.5">
+                    <div className="space-y-1.5 flex-1">
                       <div className="text-[13px] text-zinc-400">
-                        {aiVisResult.aiReadiness.filter((c: any) => c.passed).length}/{aiVisResult.aiReadiness.length} checks passed
+                        {aiVisResult.aiReadiness.filter((c: any) => c.passed).length}/{aiVisResult.aiReadiness.length} technical checks passed
                       </div>
-                      {aiVisResult.scores.mentions !== undefined && (
-                        <div className="text-[12px] text-zinc-500">
-                          Mention score: <span className={aiVisResult.scores.mentions > 0 ? "text-zinc-100" : "text-red-400"}>{aiVisResult.scores.mentions}%</span>
-                          {" "}across {aiVisResult.configuredLLMs?.length || 1} AI platform{(aiVisResult.configuredLLMs?.length || 1) > 1 ? "s" : ""}
-                        </div>
-                      )}
+                      <div className="text-[11px] text-zinc-500 leading-relaxed">
+                        Your website&apos;s technical setup (schema, sitemap, meta, content structure). <span className="text-zinc-400">Separate from whether AI actually mentions you</span> — that&apos;s &quot;Mention Rate&quot; above.
+                      </div>
                     </div>
                   </div>
                 </CardContent>

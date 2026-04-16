@@ -167,70 +167,179 @@ async function checkAIReadiness(url: string): Promise<AIReadinessCheck[]> {
   let robotsTxt = "";
   let llmsTxt = "";
   let sitemapXml = "";
+  let robotsOk = false;
+  let llmsOk = false;
+  let sitemapOk = false;
 
   try {
     const res = await fetch(url, { headers: { "User-Agent": "Cabbge/1.0" } });
-    html = await res.text();
+    if (res.ok) html = await res.text();
   } catch { /* skip */ }
 
   const baseUrl = new URL(url).origin;
 
-  try { robotsTxt = await (await fetch(`${baseUrl}/robots.txt`)).text(); } catch { /* skip */ }
-  try { llmsTxt = await (await fetch(`${baseUrl}/llms.txt`)).text(); } catch { /* skip */ }
-  try { sitemapXml = await (await fetch(`${baseUrl}/sitemap.xml`)).text(); } catch { /* skip */ }
+  // Strict fetches — only accept HTTP 200 AND valid content
+  try {
+    const res = await fetch(`${baseUrl}/robots.txt`, { headers: { "User-Agent": "Cabbge/1.0" } });
+    if (res.ok && res.headers.get("content-type")?.includes("text")) {
+      robotsTxt = await res.text();
+      // Valid robots.txt has directives like User-agent, Disallow, Allow, Sitemap
+      robotsOk = /^\s*(user-agent|disallow|allow|sitemap)\s*:/im.test(robotsTxt);
+    }
+  } catch { /* skip */ }
 
-  const htmlLower = html.toLowerCase();
+  try {
+    const res = await fetch(`${baseUrl}/llms.txt`, { headers: { "User-Agent": "Cabbge/1.0" } });
+    if (res.ok) {
+      const contentType = res.headers.get("content-type") || "";
+      // llms.txt must be plain text, not HTML (404 pages often return HTML)
+      if (contentType.includes("text/plain") || contentType.includes("text/markdown")) {
+        llmsTxt = await res.text();
+        // Must have markdown structure (h1 with #, or sections)
+        llmsOk = /^#\s+/m.test(llmsTxt) && llmsTxt.length > 100;
+      }
+    }
+  } catch { /* skip */ }
+
+  try {
+    const res = await fetch(`${baseUrl}/sitemap.xml`, { headers: { "User-Agent": "Cabbge/1.0" } });
+    if (res.ok) {
+      const contentType = res.headers.get("content-type") || "";
+      if (contentType.includes("xml")) {
+        sitemapXml = await res.text();
+        // Must be actual XML sitemap, not a 404 HTML page containing the words
+        sitemapOk = /^\s*<\?xml/.test(sitemapXml) && (sitemapXml.includes("<urlset") || sitemapXml.includes("<sitemapindex"));
+      }
+    }
+  } catch { /* skip */ }
+
+  // Parse HTML meta description content (not just presence)
+  const metaDescMatch = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']*)["']/i);
+  const metaDescContent = metaDescMatch?.[1]?.trim() || "";
+  const metaDescValid = metaDescContent.length >= 50 && metaDescContent.length <= 160;
+
+  // Parse schema JSON-LD — must actually parse as valid JSON
+  const schemaMatches = html.match(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi) || [];
+  let hasValidSchema = false;
+  let schemaTypes: string[] = [];
+  for (const m of schemaMatches) {
+    try {
+      const jsonText = m.replace(/<script[^>]*>/i, "").replace(/<\/script>/i, "").trim();
+      const parsed = JSON.parse(jsonText);
+      if (parsed["@type"] || parsed["@graph"]) {
+        hasValidSchema = true;
+        if (parsed["@type"]) schemaTypes.push(parsed["@type"]);
+      }
+    } catch { /* invalid JSON, skip */ }
+  }
+
+  // Heading structure — count actual h1/h2 tags
+  const h1Count = (html.match(/<h1[\s>]/gi) || []).length;
+  const h2Count = (html.match(/<h2[\s>]/gi) || []).length;
+  const headingsValid = h1Count === 1 && h2Count >= 2;
+
+  // Content depth — strip HTML and count real words
+  const visibleText = html.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const wordCount = visibleText.split(/\s+/).filter(w => w.length > 1).length;
+  const contentDepthValid = wordCount >= 500;
+
+  // Canonical URL — must have valid href
+  const canonicalMatch = html.match(/<link[^>]*rel=["']canonical["'][^>]*href=["']([^"']+)["']/i);
+  const canonicalValid = !!canonicalMatch && canonicalMatch[1].startsWith("http");
+
+  // Language attribute on html tag
+  const langMatch = html.match(/<html[^>]*\slang=["']([a-z-]+)["']/i);
+  const langValid = !!langMatch;
+
+  // Content readability — quick check for long-sentence issues + passage structure
+  const paragraphs = visibleText.split(/\n\n|\. {2,}/);
+  const shortParagraphs = paragraphs.filter(p => p.split(/\s+/).length < 250).length;
+  const readabilityValid = wordCount > 200 && shortParagraphs / Math.max(paragraphs.length, 1) > 0.6;
 
   return [
     {
       check: "Structured Data (Schema.org)",
-      passed: /schema\.org|application\/ld\+json/i.test(html),
-      details: /schema\.org/i.test(html) ? "Schema.org markup detected" : "No structured data found — critical for AI citation",
+      passed: hasValidSchema,
+      details: hasValidSchema
+        ? `Valid JSON-LD found${schemaTypes.length > 0 ? ` (${schemaTypes.slice(0, 3).join(", ")})` : ""}`
+        : "No valid JSON-LD schema — critical for AI citation. AI models use schema.org to understand page context.",
     },
     {
       check: "Meta Description",
-      passed: /meta.*description/i.test(html),
-      details: /meta.*description/i.test(html) ? "Meta description present" : "Missing — AI uses meta descriptions for summaries",
+      passed: metaDescValid,
+      details: metaDescValid
+        ? `Present and well-sized (${metaDescContent.length} chars)`
+        : metaDescContent.length === 0
+          ? "Missing meta description — AI uses this for summaries"
+          : metaDescContent.length < 50
+            ? `Too short (${metaDescContent.length} chars, need ≥50)`
+            : `Too long (${metaDescContent.length} chars, max 160)`,
     },
     {
       check: "Clear Heading Structure",
-      passed: /<h1/i.test(html) && /<h2/i.test(html),
-      details: /<h1/i.test(html) ? "H1 and H2 tags found" : "Heading hierarchy incomplete",
+      passed: headingsValid,
+      details: headingsValid
+        ? `1 H1 and ${h2Count} H2 tags found — good structure`
+        : h1Count === 0
+          ? "No H1 tag — AI can't identify primary topic"
+          : h1Count > 1
+            ? `${h1Count} H1 tags — should be exactly 1`
+            : `Only ${h2Count} H2 tags — need ≥2 for topic structure`,
     },
     {
       check: "Sufficient Content Depth",
-      passed: htmlLower.split(/\s+/).length > 500,
-      details: htmlLower.split(/\s+/).length > 500 ? "Adequate content depth" : "Thin content — AI prefers comprehensive pages",
+      passed: contentDepthValid,
+      details: contentDepthValid
+        ? `${wordCount} words of visible content`
+        : `Only ${wordCount} visible words — AI prefers comprehensive pages (≥500 words)`,
     },
     {
       check: "Canonical URL",
-      passed: /rel="canonical"/i.test(html),
-      details: /rel="canonical"/i.test(html) ? "Canonical URL set" : "Missing canonical — risks duplicate content in AI answers",
+      passed: canonicalValid,
+      details: canonicalValid
+        ? "Canonical URL properly set"
+        : "Missing canonical — risks duplicate content issues in AI answers",
     },
     {
       check: "robots.txt",
-      passed: robotsTxt.length > 0 && !robotsTxt.includes("404"),
-      details: robotsTxt.length > 0 ? "robots.txt present" : "No robots.txt found",
+      passed: robotsOk,
+      details: robotsOk
+        ? "Valid robots.txt with directives"
+        : "No valid robots.txt — AI crawlers may be blocked or unsure what to index",
     },
     {
       check: "llms.txt",
-      passed: llmsTxt.length > 0 && !llmsTxt.includes("404"),
-      details: llmsTxt.length > 0 ? "llms.txt present — great for AI discoverability" : "No llms.txt — add one to guide AI crawlers",
+      passed: llmsOk,
+      details: llmsOk
+        ? `Valid llms.txt with proper structure (${llmsTxt.length} chars)`
+        : "No valid llms.txt — add one to explicitly guide AI crawlers",
     },
     {
       check: "Sitemap.xml",
-      passed: sitemapXml.includes("<urlset") || sitemapXml.includes("<sitemapindex"),
-      details: sitemapXml.includes("<urlset") ? "Valid sitemap found" : "No sitemap.xml — critical for indexing",
+      passed: sitemapOk,
+      details: sitemapOk
+        ? "Valid XML sitemap present"
+        : "No valid sitemap.xml — critical for AI models to discover all pages",
     },
     {
       check: "Language Attribute",
-      passed: /html.*lang=/i.test(html),
-      details: /html.*lang=/i.test(html) ? "Language attribute set" : "Missing lang attribute on <html>",
+      passed: langValid,
+      details: langValid
+        ? `<html lang="${langMatch![1]}"> set correctly`
+        : "Missing lang attribute — AI needs it to understand your target audience",
     },
     {
       check: "Content Readability",
-      passed: true, // Default pass, would need readability analysis
-      details: "Content readability check — run full analysis for details",
+      passed: readabilityValid,
+      details: readabilityValid
+        ? `Readable passage structure (${paragraphs.length} paragraphs, most concise)`
+        : wordCount < 200
+          ? "Not enough content to analyze readability"
+          : "Paragraphs too long — AI struggles to extract citeable passages. Break into chunks of ~134-167 words.",
     },
   ];
 }
