@@ -96,7 +96,8 @@ async function fetchWithTiming(url: string): Promise<{
       },
       size: new Blob([html]).size,
     };
-  } catch {
+  } catch (err) {
+    console.error("technicalSeo: site fetch failed", err instanceof Error ? err.message : err);
     return {
       html: "",
       headers: {},

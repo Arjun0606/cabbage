@@ -4,15 +4,12 @@ import OpenAI from "openai";
  * Shared AI client — all agents use this.
  *
  * Models:
- * - gpt-5.4: flagship model for complex reasoning ($2.50/$15 per MTok, 1M context)
- *   Used for: audit analysis, content gen, competitor insights, locality intelligence.
- *   We use the best because we're competing with ₹3L/month agencies.
- *   At $499/month per customer, the cost difference vs mini is negligible.
+ * - gpt-5.4: flagship for complex reasoning. Used for audits, content gen, insights.
+ * - gpt-5.4-nano: cheapest for chat, simple checks, high-volume tasks.
  *
- * - gpt-5.4-nano: cheapest for simple high-volume tasks ($0.20/$1.25 per MTok)
- *   Used for: chat, free reports, AI visibility queries, budget ranges.
- *
- * Single provider (OpenAI) = one API key, one billing, simpler stack.
+ * We query:
+ * - ChatGPT (OpenAI) via Responses API with web_search tool (matches ChatGPT consumer UX)
+ * - Gemini (Google) via generateContent with google_search grounding (matches AI Overviews)
  */
 
 let _client: OpenAI | null = null;
@@ -29,46 +26,63 @@ export const MODEL_HEAVY = "gpt-5.4";       // Flagship — best quality for ana
 export const MODEL_LIGHT = "gpt-5.4-nano";  // Cheapest — chat, quick checks, simple tasks
 
 /**
- * Run a completion with the heavy model (gpt-5.4-mini).
- * Use for: audit analysis, content generation, competitor insights,
- * locality intelligence, backlink recommendations.
+ * Run a completion with the heavy model.
+ * Used for: audit analysis, content generation, competitor insights, locality intelligence.
  */
 export async function aiComplete(
   system: string,
   prompt: string,
   maxTokens: number = 2000
 ): Promise<string> {
-  const client = getClient();
-  const res = await client.chat.completions.create({
-    model: MODEL_HEAVY,
-    max_completion_tokens: maxTokens,
-    messages: [
-      { role: "system", content: system },
-      { role: "user", content: prompt },
-    ],
-  });
-  return res.choices[0]?.message?.content || "";
+  try {
+    const client = getClient();
+    const res = await client.chat.completions.create({
+      model: MODEL_HEAVY,
+      max_completion_tokens: maxTokens,
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: prompt },
+      ],
+    });
+    const content = res.choices[0]?.message?.content || "";
+    if (!content) {
+      console.error("aiComplete: empty response from model", MODEL_HEAVY);
+    }
+    return content;
+  } catch (err) {
+    console.error("aiComplete failed:", err instanceof Error ? err.message : err);
+    throw err; // Re-throw so callers know and can handle/retry
+  }
 }
 
 /**
- * Run a completion with the light model (gpt-5.4-nano).
- * Use for: chat, free reports, simple checks, high-volume tasks.
+ * Run a completion with the light model.
+ * Used for: chat, free reports, simple checks, high-volume tasks.
  */
 export async function aiLight(
   system: string,
   prompt: string,
   maxTokens: number = 1000
 ): Promise<string> {
-  const client = getClient();
-  const res = await client.chat.completions.create({
-    model: MODEL_LIGHT,
-    max_completion_tokens: maxTokens,
-    messages: [
-      { role: "system", content: system },
-      { role: "user", content: prompt },
-    ],
-  });
-  return res.choices[0]?.message?.content || "";
+  try {
+    const client = getClient();
+    const res = await client.chat.completions.create({
+      model: MODEL_LIGHT,
+      max_completion_tokens: maxTokens,
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: prompt },
+      ],
+    });
+    const content = res.choices[0]?.message?.content || "";
+    if (!content) {
+      console.error("aiLight: empty response from model", MODEL_LIGHT);
+    }
+    return content;
+  } catch (err) {
+    console.error("aiLight failed:", err instanceof Error ? err.message : err);
+    throw err;
+  }
 }
 
 /**
@@ -79,45 +93,52 @@ export async function aiChat(
   messages: { role: "user" | "assistant"; content: string }[],
   maxTokens: number = 1500
 ): Promise<string> {
-  const client = getClient();
-  const res = await client.chat.completions.create({
-    model: MODEL_LIGHT,
-    max_completion_tokens: maxTokens,
-    messages: [
-      { role: "system", content: system },
-      ...messages,
-    ],
-  });
-  return res.choices[0]?.message?.content || "";
+  try {
+    const client = getClient();
+    const res = await client.chat.completions.create({
+      model: MODEL_LIGHT,
+      max_completion_tokens: maxTokens,
+      messages: [
+        { role: "system", content: system },
+        ...messages,
+      ],
+    });
+    return res.choices[0]?.message?.content || "";
+  } catch (err) {
+    console.error("aiChat failed:", err instanceof Error ? err.message : err);
+    throw err;
+  }
 }
 
 /**
  * Query a specific LLM for AI Visibility checks.
- * These are simple "ask a question, check the response" calls.
+ *
+ * OpenAI: uses Responses API with web_search tool — critical for real visibility data.
+ * Without web search, models hedge and never name specific brands.
+ *
+ * Gemini: uses google_search grounding — matches Google AI Overviews behavior.
+ * Falls back through model versions on 429/404/503.
  */
 export async function queryForVisibility(
-  provider: "openai" | "perplexity" | "gemini",
+  provider: "openai" | "gemini",
   query: string
 ): Promise<string> {
   if (provider === "openai") {
-    // Use Responses API with web_search_preview tool — this is ACTUAL ChatGPT-like
-    // behavior. Without this, the API returns generic hedging responses because
-    // gpt models don't know current facts or have web access by default.
     try {
       const client = getClient();
-      // Try the Responses API with web search (matches ChatGPT consumer behavior)
+      // Responses API with web_search tool — matches ChatGPT consumer behavior
       const response = await (client as unknown as {
         responses: {
           create: (args: unknown) => Promise<unknown>;
         };
       }).responses.create({
-        model: "gpt-5.4",
+        model: MODEL_HEAVY,
         input: query,
         tools: [{ type: "web_search" }],
         max_output_tokens: 1500,
       });
 
-      // Extract text from response — shape: output[].content[].text
+      // Extract text from response
       const output = (response as { output?: unknown[] }).output || [];
       let text = "";
       for (const item of output) {
@@ -130,44 +151,34 @@ export async function queryForVisibility(
       }
       if (text.trim().length > 0) return text.trim();
 
-      // Fallback: output_text convenience property
       const outputText = (response as { output_text?: string }).output_text;
       if (outputText) return outputText;
+
+      console.error("OpenAI Responses API returned empty output");
     } catch (err) {
-      console.error("OpenAI web search failed:", err);
+      console.error("OpenAI web search failed:", err instanceof Error ? err.message : err);
     }
 
-    // Final fallback: no web search (will be generic but non-empty)
-    return aiLight("", query, 1000);
-  }
-
-  if (provider === "perplexity") {
-    const apiKey = process.env.PERPLEXITY_API_KEY;
-    if (!apiKey) return "";
+    // Fallback: no web search (generic but non-empty)
     try {
-      const res = await fetch("https://api.perplexity.ai/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "llama-3.1-sonar-small-128k-online",
-          messages: [{ role: "user", content: query }],
-          max_completion_tokens: 1000,
-        }),
-      });
-      const data = await res.json();
-      return data.choices?.[0]?.message?.content || "";
-    } catch { return ""; }
+      return await aiLight("", query, 1000);
+    } catch {
+      return "";
+    }
   }
 
   if (provider === "gemini") {
     const apiKey = process.env.GOOGLE_GEMINI_API_KEY;
-    if (!apiKey) return "";
+    if (!apiKey) {
+      console.error("GOOGLE_GEMINI_API_KEY not set");
+      return "";
+    }
 
-    // Helper: one attempt with given model/tools
-    const tryGemini = async (model: string, useGrounding: boolean): Promise<{ text: string; errorMessage?: string; status?: number }> => {
+    // Helper: one attempt with a specific model + grounding flag
+    const tryGemini = async (
+      model: string,
+      useGrounding: boolean
+    ): Promise<{ text: string; status?: number; error?: string }> => {
       try {
         const body: { contents: unknown; tools?: unknown } = {
           contents: [{ parts: [{ text: query }] }],
@@ -184,33 +195,49 @@ export async function queryForVisibility(
             body: JSON.stringify(body),
           }
         );
-        const data = await res.json();
+
+        // Always parse the body — but handle error responses explicitly
+        let data: unknown;
+        try {
+          data = await res.json();
+        } catch {
+          console.error(`Gemini ${model}: failed to parse response (status ${res.status})`);
+          return { text: "", status: res.status, error: "parse_error" };
+        }
 
         if (!res.ok) {
-          const errorMsg = data?.error?.message || "Unknown error";
-          console.error(`Gemini ${model} error (${res.status}):`, errorMsg);
-          return { text: "", errorMessage: errorMsg, status: res.status };
+          const errMsg = (data as { error?: { message?: string } })?.error?.message || `HTTP ${res.status}`;
+          console.error(`Gemini ${model} error (${res.status}): ${errMsg}`);
+          return { text: "", status: res.status, error: errMsg };
         }
-        const text = data.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text || "").join("\n") || "";
+
+        const text = (data as {
+          candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+        }).candidates?.[0]?.content?.parts?.map((p) => p.text || "").join("\n") || "";
+
         return { text };
       } catch (err) {
         const msg = err instanceof Error ? err.message : "fetch error";
-        console.error("Gemini request failed:", msg);
-        return { text: "", errorMessage: msg };
+        console.error(`Gemini ${model} fetch failed:`, msg);
+        return { text: "", error: msg };
       }
     };
 
-    // Try gemini-2.5-flash (current model, Google AI Overviews equivalent)
-    // Fall back through models if the first fails
+    // Try current model first, fall back through model versions
     const models = ["gemini-2.5-flash", "gemini-2.0-flash-lite", "gemini-2.5-pro"];
 
     for (const model of models) {
-      // Try grounded first (simulates Google AI Overviews with web search)
+      // Grounded (best — simulates AI Overviews)
       const grounded = await tryGemini(model, true);
       if (grounded.text) return grounded.text;
 
-      // Fall back to ungrounded if grounding fails
-      if (grounded.status === 429 || grounded.status === 400 || grounded.status === 404 || grounded.status === 503) {
+      // If grounding specifically failed, try without grounding on same model
+      if (
+        grounded.status === 429 ||
+        grounded.status === 400 ||
+        grounded.status === 404 ||
+        grounded.status === 503
+      ) {
         const ungrounded = await tryGemini(model, false);
         if (ungrounded.text) return ungrounded.text;
       }
@@ -220,30 +247,4 @@ export async function queryForVisibility(
   }
 
   return "";
-}
-
-/**
- * Query Claude for AI Visibility checks (optional — only if ANTHROPIC_API_KEY is set).
- */
-export async function queryClaudeForVisibility(query: string): Promise<string> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return "";
-
-  try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-6",
-        max_completion_tokens: 1000,
-        messages: [{ role: "user", content: query }],
-      }),
-    });
-    const data = await res.json();
-    return data.content?.[0]?.text || "";
-  } catch { return ""; }
 }

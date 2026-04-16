@@ -70,20 +70,30 @@ async function fetchSiteSignals(url: string): Promise<{
       headers: { "User-Agent": "Cabbge/1.0" },
       redirect: "follow",
     });
-    serverHeader = res.headers.get("server") || "";
-    const html = await res.text();
-    schemaMarkup = /schema\.org|application\/ld\+json/i.test(html);
-  } catch { /* skip */ }
+    if (res.ok) {
+      serverHeader = res.headers.get("server") || "";
+      const html = await res.text();
+      schemaMarkup = /schema\.org|application\/ld\+json/i.test(html);
+    } else {
+      console.error(`backlinks: site fetch failed (${res.status}) ${baseUrl}`);
+    }
+  } catch (err) {
+    console.error(`backlinks: site fetch error:`, err instanceof Error ? err.message : err);
+  }
 
   // Check sitemap for page count
   try {
     const sitemapRes = await fetch(`${baseUrl}/sitemap.xml`, {
       headers: { "User-Agent": "Cabbge/1.0" },
     });
-    const sitemapText = await sitemapRes.text();
-    const urlMatches = sitemapText.match(/<loc>/g);
-    pageCount = urlMatches?.length || 0;
-  } catch { /* skip */ }
+    if (sitemapRes.ok) {
+      const sitemapText = await sitemapRes.text();
+      const urlMatches = sitemapText.match(/<loc>/g);
+      pageCount = urlMatches?.length || 0;
+    }
+  } catch (err) {
+    console.error(`backlinks: sitemap fetch error:`, err instanceof Error ? err.message : err);
+  }
 
   return {
     hasHttps,

@@ -195,7 +195,22 @@ async function fetchApi(origin: string, path: string, body: any): Promise<any> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  const data = await res.json();
-  if (data.error) throw new Error(data.error);
+
+  // Attempt to parse body safely
+  let data: any;
+  try {
+    data = await res.json();
+  } catch (err) {
+    console.error(`cron fetchApi: failed to parse JSON from ${path} (status ${res.status})`, err);
+    throw new Error(`${path} returned non-JSON response (status ${res.status})`);
+  }
+
+  if (!res.ok) {
+    const errMsg = data?.error || `HTTP ${res.status}`;
+    console.error(`cron fetchApi: ${path} failed (${res.status}):`, errMsg);
+    throw new Error(`${path} failed: ${errMsg}`);
+  }
+
+  if (data?.error) throw new Error(data.error);
   return data;
 }

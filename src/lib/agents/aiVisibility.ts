@@ -174,44 +174,51 @@ async function checkAIReadiness(url: string): Promise<AIReadinessCheck[]> {
   try {
     const res = await fetch(url, { headers: { "User-Agent": "Cabbge/1.0" } });
     if (res.ok) html = await res.text();
-  } catch { /* skip */ }
+    else console.error(`AI readiness: main page fetch failed (${res.status}) ${url}`);
+  } catch (err) {
+    console.error(`AI readiness: main page fetch error for ${url}:`, err instanceof Error ? err.message : err);
+  }
 
   const baseUrl = new URL(url).origin;
 
-  // Strict fetches — only accept HTTP 200 AND valid content
+  // robots.txt — strict validation (HTTP 200 + text content-type + valid directives)
   try {
     const res = await fetch(`${baseUrl}/robots.txt`, { headers: { "User-Agent": "Cabbge/1.0" } });
     if (res.ok && res.headers.get("content-type")?.includes("text")) {
       robotsTxt = await res.text();
-      // Valid robots.txt has directives like User-agent, Disallow, Allow, Sitemap
       robotsOk = /^\s*(user-agent|disallow|allow|sitemap)\s*:/im.test(robotsTxt);
     }
-  } catch { /* skip */ }
+  } catch (err) {
+    console.error(`AI readiness: robots.txt fetch error:`, err instanceof Error ? err.message : err);
+  }
 
+  // llms.txt — strict validation (HTTP 200 + text/plain or text/markdown + markdown structure)
   try {
     const res = await fetch(`${baseUrl}/llms.txt`, { headers: { "User-Agent": "Cabbge/1.0" } });
     if (res.ok) {
       const contentType = res.headers.get("content-type") || "";
-      // llms.txt must be plain text, not HTML (404 pages often return HTML)
       if (contentType.includes("text/plain") || contentType.includes("text/markdown")) {
         llmsTxt = await res.text();
-        // Must have markdown structure (h1 with #, or sections)
         llmsOk = /^#\s+/m.test(llmsTxt) && llmsTxt.length > 100;
       }
     }
-  } catch { /* skip */ }
+  } catch (err) {
+    console.error(`AI readiness: llms.txt fetch error:`, err instanceof Error ? err.message : err);
+  }
 
+  // sitemap.xml — strict validation (HTTP 200 + xml content-type + XML structure)
   try {
     const res = await fetch(`${baseUrl}/sitemap.xml`, { headers: { "User-Agent": "Cabbge/1.0" } });
     if (res.ok) {
       const contentType = res.headers.get("content-type") || "";
       if (contentType.includes("xml")) {
         sitemapXml = await res.text();
-        // Must be actual XML sitemap, not a 404 HTML page containing the words
         sitemapOk = /^\s*<\?xml/.test(sitemapXml) && (sitemapXml.includes("<urlset") || sitemapXml.includes("<sitemapindex"));
       }
     }
-  } catch { /* skip */ }
+  } catch (err) {
+    console.error(`AI readiness: sitemap.xml fetch error:`, err instanceof Error ? err.message : err);
+  }
 
   // Parse HTML meta description content (not just presence)
   const metaDescMatch = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']*)["']/i);

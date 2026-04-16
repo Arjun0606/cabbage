@@ -31,14 +31,34 @@ export async function POST(req: NextRequest) {
         const apiKey = process.env.GOOGLE_PSI_API_KEY;
         if (apiKey) psiParams.set("key", apiKey);
 
-        const res = await fetch(`${PSI_API}?${psiParams}`);
-        if (!res.ok) return null;
-        return res.json();
+        try {
+          const res = await fetch(`${PSI_API}?${psiParams}`);
+          if (!res.ok) {
+            console.error(`free-report: PageSpeed API failed (${res.status})`);
+            return null;
+          }
+          return await res.json();
+        } catch (err) {
+          console.error("free-report: PageSpeed fetch error:", err instanceof Error ? err.message : err);
+          return null;
+        }
       })(),
-      fetch(normalizedUrl, {
-        headers: { "User-Agent": "Cabbge/1.0" },
-        redirect: "follow",
-      }).then(r => r.text()).catch(() => ""),
+      (async () => {
+        try {
+          const r = await fetch(normalizedUrl, {
+            headers: { "User-Agent": "Cabbge/1.0" },
+            redirect: "follow",
+          });
+          if (!r.ok) {
+            console.error(`free-report: site fetch failed (${r.status}) ${normalizedUrl}`);
+            return "";
+          }
+          return await r.text();
+        } catch (err) {
+          console.error(`free-report: site fetch error for ${normalizedUrl}:`, err instanceof Error ? err.message : err);
+          return "";
+        }
+      })(),
     ]);
 
     // Extract PageSpeed scores (if available)
