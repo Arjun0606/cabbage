@@ -199,6 +199,18 @@ Use the actual local currency and terms (lakhs/crore for India, AED for UAE, GBP
 }
 
 /**
+ * Result of search-query generation. `usedFallback=true` means the AI
+ * generator failed and we returned a minimal generic query set so the scan
+ * could still run — caller should warn the user that scores are based on
+ * generic queries rather than the rich brand-aware set.
+ */
+export interface GeneratedQueries {
+  queries: string[];
+  usedFallback: boolean;
+  reason?: string;
+}
+
+/**
  * Generate search queries for AI Visibility agent.
  * Dynamic — works for any city, any locality, any language.
  */
@@ -210,7 +222,7 @@ export async function generateSearchQueries(
   industry?: string,
   projectDetails?: Array<{ name?: string; location?: string; configurations?: string; priceRange?: string }>,
   brandContext?: { targetAudience?: string; usps?: string; projectsCompleted?: string }
-): Promise<string[]> {
+): Promise<GeneratedQueries> {
   // NOTE: We do NOT include the brand name in queries.
   // Real customers don't know the company — they search by need, location, budget.
   // The test is: does ChatGPT/Google AI RECOMMEND this company when asked generic queries?
@@ -342,7 +354,17 @@ Classify each query:
 - "level" — locality (micro-market), city (city-wide), or country (national)
 - "city" — tag locality and city-level queries with the actual city they target so multi-city brands can break down progress per city`;
 
-  const text = await aiLight(system, prompt, 2500);
+  // Try the AI generator. If it throws, log and fall through to the safety net.
+  let text = "";
+  try {
+    text = await aiLight(system, prompt, 2500);
+  } catch (err) {
+    console.error(
+      "generateSearchQueries: aiLight threw —",
+      err instanceof Error ? err.message : err
+    );
+  }
+
   const jsonMatch = text.match(/\[[\s\S]*\]/);
   if (jsonMatch) {
     try {
@@ -363,13 +385,66 @@ Classify each query:
             }
           }
         }
-        return queries;
+        if (queries.length > 0) return { queries, usedFallback: false };
       }
-    } catch { /* fall through */ }
+    } catch (err) {
+      console.error(
+        "generateSearchQueries: JSON.parse failed —",
+        err instanceof Error ? err.message : err,
+        "raw:",
+        jsonMatch[0].slice(0, 400)
+      );
+    }
+  } else if (text) {
+    console.error(
+      "generateSearchQueries: no JSON array found in aiLight output. Raw:",
+      text.slice(0, 400)
+    );
   }
 
-  // NO HARDCODED FALLBACK — if AI fails, return empty and let caller handle
-  return [];
+  // Safety net. The earlier comment said "NO HARDCODED FALLBACK" — but that was
+  // about not hardcoding brand lists or sentiment lexicons. Returning [] when
+  // query generation fails turns a transient AI hiccup into a fully broken scan
+  // (no queries → no platform calls → dashboard shows "scan unavailable"
+  // forever, even though the AI infrastructure is fine).
+  //
+  // These minimal queries don't bias the scan toward any brand — they're the
+  // exact phrasing a buyer might type when they don't know any company. The
+  // scan still measures real visibility; we just guarantee the scan happens.
+  console.error(
+    `generateSearchQueries: AI generator returned no usable queries for brand="${brand}", city="${city}", industry="${ind}". Falling back to minimal generic query set so the scan can run.`
+  );
+
+  const industryNoun = ind === "real_estate" ? "real estate developers"
+    : ind === "saas" ? "software platforms"
+    : ind === "ecommerce" ? "online stores"
+    : ind === "healthcare" ? "hospitals"
+    : ind === "legal" ? "law firms"
+    : ind === "education" ? "schools"
+    : ind === "finance" ? "financial advisors"
+    : ind === "hospitality" ? "hotels"
+    : ind === "automotive" ? "car dealerships"
+    : ind === "local_business" ? "local businesses"
+    : "companies";
+
+  const fallback = [
+    `best ${industryNoun} in ${loc}`,
+    `top ${industryNoun} in ${city}`,
+    `most trusted ${industryNoun} in ${city}`,
+    `${industryNoun} in ${country}`,
+    `which ${industryNoun.replace(/s$/, "")} should I choose in ${loc}`,
+  ];
+  for (const q of fallback) {
+    AI_QUERY_LEVELS.set(q.toLowerCase(), q.includes(country) ? "country" : q.includes(loc) && loc !== city ? "locality" : "city");
+    if (!q.includes(country)) AI_QUERY_CITIES.set(q.toLowerCase(), city);
+  }
+  return {
+    queries: fallback,
+    usedFallback: true,
+    reason: text
+      ? `AI returned unparseable output (${text.length} chars). Used 5 generic ${ind.replace(/_/g, " ")} queries for ${city}.`
+      : `AI generator returned no output. Used 5 generic ${ind.replace(/_/g, " ")} queries for ${city}.`,
+  };
 }
 
 // Module-level cache of AI-classified query levels (populated during generation)

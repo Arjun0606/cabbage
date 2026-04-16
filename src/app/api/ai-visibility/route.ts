@@ -10,18 +10,26 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Brand name is required" }, { status: 400 });
     }
 
-    // Use saved queries if provided (for consistent tracking), otherwise generate fresh
-    const queries = (savedQueries && savedQueries.length > 0)
-      ? savedQueries
-      : await generateSearchQueries(
-          city || "the market",
-          brand,
-          projects || [],
-          projectDetails?.[0]?.location,
-          industry,
-          projectDetails,
-          brandContext
-        );
+    // Use saved queries if provided (for consistent tracking), otherwise generate fresh.
+    // generateSearchQueries always returns at least a fallback set so the scan can run
+    // even when the AI generator hiccups.
+    let queries: string[];
+    let queryGenerationFallback: { used: boolean; reason?: string } = { used: false };
+    if (savedQueries && savedQueries.length > 0) {
+      queries = savedQueries;
+    } else {
+      const generated = await generateSearchQueries(
+        city || "the market",
+        brand,
+        projects || [],
+        projectDetails?.[0]?.location,
+        industry,
+        projectDetails,
+        brandContext
+      );
+      queries = generated.queries;
+      queryGenerationFallback = { used: generated.usedFallback, reason: generated.reason };
+    }
 
     const result = await runAIVisibility(
       websiteUrl || "",
@@ -30,7 +38,7 @@ export async function POST(req: NextRequest) {
       queries
     );
 
-    return NextResponse.json({ ...result, queriesUsed: queries });
+    return NextResponse.json({ ...result, queriesUsed: queries, queryGenerationFallback });
   } catch (error) {
     console.error("AI Visibility error:", error);
     return NextResponse.json(

@@ -397,6 +397,15 @@ export default function DashboardPage() {
       recordScan("ai_visibility", company.website, data.scores.overall, `Readiness: ${data.scores.readiness}%, Mentions: ${data.scores.mentions}%`);
       logScoreChange("AI Readiness", data.scores.readiness || data.scores.overall, "ai_visibility");
 
+      // If query generation hit the fallback, the scores below come from
+      // generic "best X in city" queries instead of the rich brand-aware set.
+      // Tell the user — otherwise an unexplained drop in score after Clear &
+      // re-scan looks like a regression when it's actually a different test.
+      if (data.queryGenerationFallback?.used) {
+        addLog(`> Query generator failed — using ${data.queriesUsed?.length || 0} generic queries this run. ${data.queryGenerationFallback.reason || ""}`);
+        addLog(`> Re-scan once more to retry richer query generation, or proceed with these results.`);
+      }
+
       // Surface platform health BEFORE mention counts — if web search isn't working,
       // the 0/X count is meaningless and the user needs to know that's the cause.
       const health = data.platformHealth;
