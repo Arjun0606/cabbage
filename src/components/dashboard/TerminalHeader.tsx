@@ -1,17 +1,18 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { ChevronUp, ChevronDown, Zap, Settings } from "lucide-react";
+import { ChevronUp, ChevronDown, Zap, Settings, RotateCcw } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 
 interface Props {
   logs: string[];
   onRunFullScan?: () => void;
+  onClearAndRescan?: () => void;
   hasWebsite?: boolean;
 }
 
-export function TerminalHeader({ logs, onRunFullScan, hasWebsite }: Props) {
+export function TerminalHeader({ logs, onRunFullScan, onClearAndRescan, hasWebsite }: Props) {
   const [expanded, setExpanded] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -37,6 +38,16 @@ export function TerminalHeader({ logs, onRunFullScan, hasWebsite }: Props) {
               <Settings size={15} />
             </button>
           </Link>
+          {onClearAndRescan && hasWebsite && (
+            <button
+              onClick={onClearAndRescan}
+              title="Wipe saved scan history and run a fresh scan. Use this if scores look stuck at 0."
+              className="h-8 px-3 rounded-lg text-[12px] font-medium text-zinc-300 bg-zinc-800/60 border border-white/[0.06] hover:bg-zinc-700/60 hover:text-zinc-100 active:scale-[0.97] transition-all duration-150 flex items-center gap-1.5"
+            >
+              <RotateCcw size={12} />
+              Clear &amp; re-scan
+            </button>
+          )}
           {onRunFullScan && hasWebsite && (
             <Button
               size="sm"

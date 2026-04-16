@@ -1049,20 +1049,49 @@ export function AnalyticsPanel({
                 <CardContent>
                   <div className="space-y-3.5">
                     {[
-                      { name: "ChatGPT", score: aiVisResult.scores.chatgpt, desc: "Used by home buyers researching properties" },
-                      { name: "Google AI", score: aiVisResult.scores.gemini, desc: "Appears in Google Search AI Overviews" },
-                    ].map(({ name, score, desc }) => (
-                      <div key={name}>
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-[13px] text-zinc-300 font-medium">{name}</span>
-                          <span className="text-[13px] font-mono text-zinc-400">{score}/100</span>
+                      { name: "ChatGPT", score: aiVisResult.scores.chatgpt, desc: "Used by home buyers researching properties", health: aiVisResult.platformHealth?.chatgpt },
+                      { name: "Google AI", score: aiVisResult.scores.gemini, desc: "Appears in Google Search AI Overviews", health: aiVisResult.platformHealth?.gemini },
+                    ].map(({ name, score, desc, health }) => {
+                      // When the underlying scan is broken/degraded, the 0/100 is meaningless.
+                      // Tell the user that explicitly instead of letting them think they're invisible.
+                      const status: "live" | "degraded" | "broken" | "unknown" = health?.status ?? "unknown";
+                      const isBroken = status === "broken";
+                      const isDegraded = status === "degraded";
+                      const badge = isBroken ? "scan unavailable" : isDegraded ? "web search disabled" : null;
+                      const badgeColor = isBroken
+                        ? "bg-red-500/15 text-red-300 border-red-500/30"
+                        : "bg-amber-500/15 text-amber-300 border-amber-500/30";
+                      return (
+                        <div key={name}>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-[13px] text-zinc-300 font-medium flex items-center gap-2">
+                              {name}
+                              {badge && (
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded-md border ${badgeColor} font-mono uppercase tracking-wide`}>
+                                  {badge}
+                                </span>
+                              )}
+                            </span>
+                            <span className="text-[13px] font-mono text-zinc-400">
+                              {isBroken ? "—" : `${score}/100`}
+                            </span>
+                          </div>
+                          <div className="h-2.5 bg-zinc-800/60 rounded-full overflow-hidden mb-1">
+                            <div
+                              className={`h-full rounded-full transition-all ${isBroken ? "bg-red-500/40" : isDegraded ? "bg-amber-400/60" : "bg-zinc-100"}`}
+                              style={{ width: isBroken ? "100%" : `${score}%` }}
+                            />
+                          </div>
+                          <div className="text-[11px] text-zinc-500">
+                            {isBroken
+                              ? `Couldn't reach ${name}${health?.lastError ? ` — ${health.lastError}` : ""}. Scores below ignore this platform.`
+                              : isDegraded
+                                ? `${name} answered without live web search, so the score reflects training data, not current AI Overviews.`
+                                : desc}
+                          </div>
                         </div>
-                        <div className="h-2.5 bg-zinc-800/60 rounded-full overflow-hidden mb-1">
-                          <div className="h-full bg-zinc-100 rounded-full transition-all" style={{ width: `${score}%` }} />
-                        </div>
-                        <div className="text-[11px] text-zinc-500">{desc}</div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </CardContent>
               </SectionCard>

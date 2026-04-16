@@ -111,6 +111,32 @@ export async function aiChat(
 }
 
 /**
+ * Result of a visibility query — includes the source so callers can tell
+ * whether real web/grounded search actually fired or we hit a fallback.
+ *
+ * source values:
+ * - "web_search"     OpenAI Responses API with web_search tool succeeded.
+ * - "grounded"       Gemini google_search grounding succeeded.
+ * - "ungrounded"     Gemini call succeeded but without grounding (degraded).
+ * - "fallback_chat"  OpenAI web_search failed; got generic chat completion instead.
+ * - "missing_key"    Required API key is not configured.
+ * - "failed"         Both primary and fallback paths returned nothing.
+ */
+export type VisibilitySource =
+  | "web_search"
+  | "grounded"
+  | "ungrounded"
+  | "fallback_chat"
+  | "missing_key"
+  | "failed";
+
+export interface VisibilityResponse {
+  text: string;
+  source: VisibilitySource;
+  error?: string;
+}
+
+/**
  * Query a specific LLM for AI Visibility checks.
  *
  * OpenAI: uses Responses API with web_search tool — critical for real visibility data.
@@ -122,8 +148,13 @@ export async function aiChat(
 export async function queryForVisibility(
   provider: "openai" | "gemini",
   query: string
-): Promise<string> {
+): Promise<VisibilityResponse> {
   if (provider === "openai") {
+    if (!process.env.OPENAI_API_KEY) {
+      return { text: "", source: "missing_key", error: "OPENAI_API_KEY not set" };
+    }
+
+    let webSearchError: string | undefined;
     try {
       const client = getClient();
       // Responses API with web_search tool — matches ChatGPT consumer behavior
@@ -149,21 +180,31 @@ export async function queryForVisibility(
           }
         }
       }
-      if (text.trim().length > 0) return text.trim();
+      if (text.trim().length > 0) return { text: text.trim(), source: "web_search" };
 
       const outputText = (response as { output_text?: string }).output_text;
-      if (outputText) return outputText;
+      if (outputText) return { text: outputText, source: "web_search" };
 
+      webSearchError = "empty output from Responses API";
       console.error("OpenAI Responses API returned empty output");
     } catch (err) {
-      console.error("OpenAI web search failed:", err instanceof Error ? err.message : err);
+      webSearchError = err instanceof Error ? err.message : String(err);
+      console.error("OpenAI web search failed:", webSearchError);
     }
 
     // Fallback: no web search (generic but non-empty)
     try {
-      return await aiLight("", query, 1000);
-    } catch {
-      return "";
+      const text = await aiLight("", query, 1000);
+      if (text.trim().length > 0) {
+        return { text, source: "fallback_chat", error: webSearchError };
+      }
+      return { text: "", source: "failed", error: webSearchError || "fallback returned empty" };
+    } catch (err) {
+      return {
+        text: "",
+        source: "failed",
+        error: webSearchError || (err instanceof Error ? err.message : "fallback threw"),
+      };
     }
   }
 
@@ -171,7 +212,7 @@ export async function queryForVisibility(
     const apiKey = process.env.GOOGLE_GEMINI_API_KEY;
     if (!apiKey) {
       console.error("GOOGLE_GEMINI_API_KEY not set");
-      return "";
+      return { text: "", source: "missing_key", error: "GOOGLE_GEMINI_API_KEY not set" };
     }
 
     // Helper: one attempt with a specific model + grounding flag
@@ -226,10 +267,12 @@ export async function queryForVisibility(
     // Try current model first, fall back through model versions
     const models = ["gemini-2.5-flash", "gemini-2.0-flash-lite", "gemini-2.5-pro"];
 
+    let lastErr: string | undefined;
     for (const model of models) {
       // Grounded (best — simulates AI Overviews)
       const grounded = await tryGemini(model, true);
-      if (grounded.text) return grounded.text;
+      if (grounded.text) return { text: grounded.text, source: "grounded" };
+      lastErr = grounded.error || lastErr;
 
       // If grounding specifically failed, try without grounding on same model
       if (
@@ -239,12 +282,15 @@ export async function queryForVisibility(
         grounded.status === 503
       ) {
         const ungrounded = await tryGemini(model, false);
-        if (ungrounded.text) return ungrounded.text;
+        if (ungrounded.text) {
+          return { text: ungrounded.text, source: "ungrounded", error: grounded.error };
+        }
+        lastErr = ungrounded.error || lastErr;
       }
     }
 
-    return "";
+    return { text: "", source: "failed", error: lastErr };
   }
 
-  return "";
+  return { text: "", source: "failed", error: `unknown provider: ${provider as string}` };
 }

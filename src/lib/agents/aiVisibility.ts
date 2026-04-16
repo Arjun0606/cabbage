@@ -1,6 +1,22 @@
-import { queryForVisibility, aiLight } from "@/lib/ai";
+import { queryForVisibility, aiLight, type VisibilitySource } from "@/lib/ai";
 
 // ---------- Types ----------
+
+/**
+ * Health summary for a single platform across all queries in this scan.
+ * "live"     = real web/grounded search returned results for ≥1 query.
+ * "degraded" = fallback path (no web search) returned results — scores will be unreliable.
+ * "broken"   = every query failed or returned empty. Scores are meaningless.
+ */
+export type PlatformStatus = "live" | "degraded" | "broken";
+
+export interface PlatformHealth {
+  status: PlatformStatus;
+  liveQueries: number;
+  fallbackQueries: number;
+  failedQueries: number;
+  lastError?: string;
+}
 
 export interface AIVisibilityResult {
   brand: string;
@@ -15,6 +31,10 @@ export interface AIVisibilityResult {
   queryResults: QueryResult[];
   aiReadiness: AIReadinessCheck[];
   configuredLLMs: string[];
+  platformHealth: {
+    chatgpt: PlatformHealth;
+    gemini: PlatformHealth;
+  };
 }
 
 interface QueryResult {
@@ -369,16 +389,35 @@ export async function runAIVisibility(
   const emptyResult: LLMResult = { mentioned: false, position: 0, context: "", sentiment: "absent", coCitations: [] };
   const queryResults: QueryResult[] = [];
 
+  // Track per-platform health so we can tell live vs degraded vs broken in the UI.
+  const chatgptSources: VisibilitySource[] = [];
+  const geminiSources: VisibilitySource[] = [];
+  let chatgptLastError: string | undefined;
+  let geminiLastError: string | undefined;
+
   for (const query of queries) {
     const [chatgptRes, geminiRes] = await Promise.all([
-      queryForVisibility("openai", query).catch(() => ""),
-      queryForVisibility("gemini", query).catch(() => ""),
+      queryForVisibility("openai", query).catch((err): { text: string; source: VisibilitySource; error?: string } => ({
+        text: "",
+        source: "failed",
+        error: err instanceof Error ? err.message : String(err),
+      })),
+      queryForVisibility("gemini", query).catch((err): { text: string; source: VisibilitySource; error?: string } => ({
+        text: "",
+        source: "failed",
+        error: err instanceof Error ? err.message : String(err),
+      })),
     ]);
+
+    chatgptSources.push(chatgptRes.source);
+    geminiSources.push(geminiRes.source);
+    if (chatgptRes.error) chatgptLastError = chatgptRes.error;
+    if (geminiRes.error) geminiLastError = geminiRes.error;
 
     // AI-powered analysis of each response (sentiment + co-citations done by LLM)
     const [chatgptAnalysis, geminiAnalysis] = await Promise.all([
-      analyzeMention(chatgptRes, brand, projects),
-      analyzeMention(geminiRes, brand, projects),
+      analyzeMention(chatgptRes.text, brand, projects),
+      analyzeMention(geminiRes.text, brand, projects),
     ]);
 
     queryResults.push({
@@ -391,6 +430,21 @@ export async function runAIVisibility(
 
     await new Promise((r) => setTimeout(r, 500));
   }
+
+  const summarize = (sources: VisibilitySource[], lastError?: string): PlatformHealth => {
+    const liveQueries = sources.filter((s) => s === "web_search" || s === "grounded").length;
+    const fallbackQueries = sources.filter((s) => s === "fallback_chat" || s === "ungrounded").length;
+    const failedQueries = sources.filter((s) => s === "failed" || s === "missing_key").length;
+    const status: PlatformStatus =
+      liveQueries > 0 ? "live" :
+      fallbackQueries > 0 ? "degraded" :
+      "broken";
+    return { status, liveQueries, fallbackQueries, failedQueries, lastError };
+  };
+  const platformHealth = {
+    chatgpt: summarize(chatgptSources, chatgptLastError),
+    gemini: summarize(geminiSources, geminiLastError),
+  };
 
   const mentionScores = {
     chatgpt: calculateScore(queryResults, "chatgpt"),
@@ -423,5 +477,6 @@ export async function runAIVisibility(
     queryResults,
     aiReadiness,
     configuredLLMs,
+    platformHealth,
   };
 }

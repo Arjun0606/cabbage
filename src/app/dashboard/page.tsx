@@ -396,6 +396,27 @@ export default function DashboardPage() {
       setAiVisResult(data);
       recordScan("ai_visibility", company.website, data.scores.overall, `Readiness: ${data.scores.readiness}%, Mentions: ${data.scores.mentions}%`);
       logScoreChange("AI Readiness", data.scores.readiness || data.scores.overall, "ai_visibility");
+
+      // Surface platform health BEFORE mention counts — if web search isn't working,
+      // the 0/X count is meaningless and the user needs to know that's the cause.
+      const health = data.platformHealth;
+      if (health) {
+        const fmt = (name: string, h: any) => {
+          if (!h) return null;
+          if (h.status === "broken") {
+            return `> ${name}: scan UNAVAILABLE — ${h.lastError || "all queries failed"} (scores below are not real)`;
+          }
+          if (h.status === "degraded") {
+            return `> ${name}: web search disabled, used generic fallback (${h.fallbackQueries}/${h.fallbackQueries + h.liveQueries + h.failedQueries}). Scores will read low.${h.lastError ? ` Reason: ${h.lastError}` : ""}`;
+          }
+          return null; // live — no need to log
+        };
+        const cMsg = fmt("ChatGPT", health.chatgpt);
+        const gMsg = fmt("Google AI", health.gemini);
+        if (cMsg) addLog(cMsg);
+        if (gMsg) addLog(gMsg);
+      }
+
       const mentioned = data.queryResults?.filter((q: any) => q.chatgpt?.mentioned || q.gemini?.mentioned).length || 0;
       const total = data.queryResults?.length || 0;
       if (mentioned === 0) {
@@ -964,13 +985,62 @@ export default function DashboardPage() {
     }
   };
 
+  /**
+   * Hard reset of all scan state — wipes the localStorage caches that the
+   * automatic cleanup misses (e.g. when scores legitimately reach 0 via the
+   * old broken code path), nukes in-memory results so the dashboard cards
+   * collapse back to their pre-scan state, then triggers a fresh scan.
+   *
+   * Used by the "Clear & re-scan" button. Does NOT touch saved company info.
+   */
+  const clearAndRescan = async () => {
+    if (!company.website) { addLog("> Set your website URL first"); return; }
+    addLog("> Clearing saved scan history...");
+
+    // Wipe every localStorage key that holds scan state. Anything keeping the
+    // dashboard pinned to stale 0/100 scores lives in one of these.
+    [
+      "cabbge_geo_history",
+      "cabbge_geo_queries",
+      "cabbge_geo_schema_version",
+      "cabbge_scan_history",
+      "cabbge_has_scanned",
+    ].forEach((key) => localStorage.removeItem(key));
+
+    // Drop in-memory results too — otherwise the card stays rendered with the
+    // old 0/100 numbers until the new scan completes.
+    setAuditResult(null);
+    setAiVisResult(null);
+    setBacklinkResult(null);
+    setTechnicalResult(null);
+    setCompetitorResults([]);
+    setTrends({
+      audit: { current: 0, previous: null, change: 0, direction: "new", history: [] },
+      technical: { current: 0, previous: null, change: 0, direction: "new", history: [] },
+      ai_visibility: { current: 0, previous: null, change: 0, direction: "new", history: [] },
+      backlinks: { current: 0, previous: null, change: 0, direction: "new", history: [] },
+    });
+    setGeoProgress({
+      currentScan: null, previousScan: null, allScans: [],
+      mentionRate: 0, previousMentionRate: 0, mentionRateChange: 0,
+      newlyFound: [], newlyLost: [], neverFound: [], alwaysFound: [],
+      daysSinceLastScan: 0, isStale: false, isVeryStale: false,
+      weeklyScan: null, weeklyMentionRateChange: 0,
+      weeklyNewlyFound: [], weeklyNewlyLost: [], perCityBreakdown: [],
+      trajectory: "new",
+    });
+
+    addLog("> Cache cleared. Running fresh scan...");
+    await runFullScan();
+  };
+
   return (
     <div className="h-screen bg-[#0a0a0b] text-zinc-100 flex overflow-hidden">
       <Sidebar companyName={company.name} creditsUsed={creditsUsed} creditsTotal={CREDITS_TOTAL} />
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Terminal + Agent bar */}
-        <TerminalHeader logs={terminalLogs} onRunFullScan={runFullScan} hasWebsite={!!company.website} />
+        <TerminalHeader logs={terminalLogs} onRunFullScan={runFullScan} onClearAndRescan={clearAndRescan} hasWebsite={!!company.website} />
         <AgentStatusBar
           isAuditing={isAuditing} isCheckingAI={isCheckingAI} isCheckingBacklinks={isCheckingBacklinks}
           isCheckingTechnical={isCheckingTechnical} isCheckingCompetitors={isCheckingCompetitors}
