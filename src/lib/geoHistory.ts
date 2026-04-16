@@ -71,9 +71,58 @@ export interface GEOProgress {
 // ---------- Storage ----------
 
 const GEO_STORAGE_KEY = "cabbge_geo_history";
-const GEO_QUERIES_KEY = "cabbge_geo_queries";  // Persisted query set
+const GEO_QUERIES_KEY = "cabbge_geo_queries";
+const GEO_SCHEMA_VERSION_KEY = "cabbge_geo_schema_version";
+
+// Bump this whenever the scoring algorithm changes in a way that makes old
+// scans incomparable or misleading. All old data is auto-wiped on next load.
+// v1 = initial, v2 = post web-search-enabled AI visibility (Nov 2026+).
+const CURRENT_SCHEMA_VERSION = 2;
+
+/**
+ * Auto-clean stale/incompatible scan data.
+ * Called whenever we access scan storage.
+ * Silently wipes data from before the current schema version or all-zero
+ * scans (which indicate the scan ran against broken API calls).
+ */
+function autoCleanScanData(): void {
+  if (typeof window === "undefined") return;
+
+  try {
+    const storedVersion = parseInt(localStorage.getItem(GEO_SCHEMA_VERSION_KEY) || "0", 10);
+
+    // Version mismatch — wipe and bump
+    if (storedVersion < CURRENT_SCHEMA_VERSION) {
+      localStorage.removeItem(GEO_STORAGE_KEY);
+      localStorage.removeItem(GEO_QUERIES_KEY);
+      localStorage.removeItem("cabbge_scan_history");
+      localStorage.removeItem("cabbge_has_scanned");
+      localStorage.setItem(GEO_SCHEMA_VERSION_KEY, String(CURRENT_SCHEMA_VERSION));
+      return;
+    }
+
+    // Also wipe if existing scans have suspicious pattern: ALL zeros
+    // (indicates they ran against the broken web-search-less code).
+    const raw = localStorage.getItem(GEO_STORAGE_KEY);
+    if (raw) {
+      const scans = JSON.parse(raw) as GEOScanRecord[];
+      if (scans.length > 0) {
+        // If EVERY scan in history shows 0 mentions across ALL queries,
+        // that's almost certainly corrupt data from the broken period.
+        const allZeros = scans.every((s) => s.mentionedCount === 0);
+        if (allZeros && scans.length >= 1) {
+          localStorage.removeItem(GEO_STORAGE_KEY);
+          localStorage.removeItem(GEO_QUERIES_KEY);
+          localStorage.removeItem("cabbge_has_scanned");
+        }
+      }
+    }
+  } catch { /* ignore */ }
+}
 
 function getGEOHistory(): GEOScanRecord[] {
+  if (typeof window === "undefined") return [];
+  autoCleanScanData();
   try {
     const raw = localStorage.getItem(GEO_STORAGE_KEY);
     return raw ? JSON.parse(raw) : [];
@@ -85,6 +134,8 @@ function getGEOHistory(): GEOScanRecord[] {
 function saveGEOHistory(records: GEOScanRecord[]) {
   const trimmed = records.slice(-50);
   localStorage.setItem(GEO_STORAGE_KEY, JSON.stringify(trimmed));
+  // Ensure schema version is current
+  localStorage.setItem(GEO_SCHEMA_VERSION_KEY, String(CURRENT_SCHEMA_VERSION));
 }
 
 /**
@@ -92,6 +143,8 @@ function saveGEOHistory(records: GEOScanRecord[]) {
  * This ensures we track the SAME queries over time for accurate comparison.
  */
 export function getSavedQueries(brand: string): string[] | null {
+  if (typeof window === "undefined") return null;
+  autoCleanScanData();
   try {
     const raw = localStorage.getItem(GEO_QUERIES_KEY);
     if (!raw) return null;
