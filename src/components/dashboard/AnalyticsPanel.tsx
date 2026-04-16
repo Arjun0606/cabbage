@@ -1040,11 +1040,6 @@ export function AnalyticsPanel({
                           {" "}across {aiVisResult.configuredLLMs?.length || 1} AI platform{(aiVisResult.configuredLLMs?.length || 1) > 1 ? "s" : ""}
                         </div>
                       )}
-                      {aiVisResult.configuredLLMs && aiVisResult.configuredLLMs.length < 4 && (
-                        <div className="text-[11px] text-zinc-400">
-                          Only testing: {aiVisResult.configuredLLMs.join(", ")}. Add more API keys in Vercel for broader coverage.
-                        </div>
-                      )}
                     </div>
                   </div>
                 </CardContent>
