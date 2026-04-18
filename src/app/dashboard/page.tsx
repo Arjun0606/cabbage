@@ -8,6 +8,7 @@ import { ActionsFeed } from "@/components/dashboard/ActionsFeed";
 import { ChatPanel } from "@/components/dashboard/ChatPanel";
 import { TerminalHeader } from "@/components/dashboard/TerminalHeader";
 import { AgentStatusBar } from "@/components/dashboard/AgentStatusBar";
+import { GSCPanel } from "@/components/dashboard/GSCPanel";
 import { recordScan, getAllTrends, type TrendData } from "@/lib/scanHistory";
 import { recordGEOScan, getGEOProgress, getSavedQueries, getSavedQueriesFingerprint, saveQueries, trackArticleGenerated, markArticlePublished, type GEOProgress } from "@/lib/geoHistory";
 
@@ -87,6 +88,7 @@ export default function DashboardPage() {
   const [isCheckingCrawlers, setIsCheckingCrawlers] = useState(false);
   const [isCheckingBrand, setIsCheckingBrand] = useState(false);
   const [isCheckingCitability, setIsCheckingCitability] = useState(false);
+  const [gscData, setGscData] = useState<any>(null);
   const [trends, setTrends] = useState<Record<string, TrendData>>({
     audit: { current: 0, previous: null, change: 0, direction: "new", history: [] },
     technical: { current: 0, previous: null, change: 0, direction: "new", history: [] },
@@ -309,7 +311,7 @@ export default function DashboardPage() {
     })();
   }, []);
 
-  // GSC callback
+  // GSC callback + auto-fetch data
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("gsc_connected") === "true") {
@@ -320,6 +322,29 @@ export default function DashboardPage() {
       addLog(`> GSC error: ${decodeURIComponent(params.get("gsc_error")!)}`);
       window.history.replaceState({}, "", "/dashboard");
     }
+
+    // Try to fetch GSC data on load (if connected via httpOnly cookie)
+    (async () => {
+      try {
+        const websiteUrl = localStorage.getItem("cabbge_company")
+          ? JSON.parse(localStorage.getItem("cabbge_company")!).website
+          : null;
+        if (!websiteUrl) return;
+
+        const res = await fetch("/api/integrations/gsc", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ siteUrl: websiteUrl }),
+        });
+        const data = await res.json();
+        if (data.error === "not_connected") return; // Not connected yet — that's fine
+        if (data.error) return;
+        if (data.topQueries) {
+          setGscData(data);
+          addLog(`> GSC: ${data.totalClicks?.toLocaleString()} clicks, ${data.totalImpressions?.toLocaleString()} impressions (last 30d)`);
+        }
+      } catch { /* GSC not connected — silent */ }
+    })();
   }, []);
 
   // Save company: localStorage immediately + debounced Supabase sync
@@ -1209,6 +1234,7 @@ export default function DashboardPage() {
               onRunGbpPosts={runGbpPosts}
               gbpResult={gbpResult}
               isGeneratingGbp={isGeneratingGbp}
+              gscData={gscData}
             />
           </div>
 

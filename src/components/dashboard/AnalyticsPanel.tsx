@@ -38,6 +38,7 @@ import { EditableBlock } from "./EditableBlock";
 import { GEOProgressPanel } from "./GEOProgressPanel";
 import { ExecutionChecklist } from "./ExecutionChecklist";
 import { PublishButton } from "./PublishButton";
+import { GSCPanel } from "./GSCPanel";
 import { markArticlePublished } from "@/lib/geoHistory";
 
 interface Props {
@@ -136,6 +137,8 @@ interface Props {
   onRunGbpPosts?: () => void;
   gbpResult?: any;
   isGeneratingGbp?: boolean;
+  // Google Search Console
+  gscData?: any;
 }
 
 function ScoreCircle({ score, label, size = "md" }: { score: number; label: string; size?: "sm" | "md" }) {
@@ -239,6 +242,7 @@ export function AnalyticsPanel({
   onRunCitationBooster, citationBoosterResult, isBoostingCitations,
   onRunLocalityDomination, localityDominationResult, isGeneratingDomination,
   onRunGbpPosts, gbpResult, isGeneratingGbp,
+  gscData,
 }: Props) {
   const cost = (action: string) => creditCosts[action] || 0;
   const [auditUrl, setAuditUrl] = useState(websiteUrl || "");
@@ -308,6 +312,7 @@ export function AnalyticsPanel({
           <TabsTrigger value="technical" className="text-[13px] rounded-md px-3.5 py-1.5">Technical</TabsTrigger>
           <TabsTrigger value="aigeo" className="text-[13px] rounded-md px-3.5 py-1.5">AI/GEO</TabsTrigger>
           <TabsTrigger value="checks" className="text-[13px] rounded-md px-3.5 py-1.5">Checks</TabsTrigger>
+          {gscData && <TabsTrigger value="search" className="text-[13px] rounded-md px-3.5 py-1.5">Search</TabsTrigger>}
         </TabsList>
 
         {/* ================================================================ */}
@@ -2993,6 +2998,15 @@ export function AnalyticsPanel({
             <EmptyState icon={BarChart3} title="Generate a board-ready monthly marketing report" subtitle="Run scans first for data-driven reporting" />
           )}
         </TabsContent>
+        {/* -------- SEARCH TAB (Google Search Console) -------- */}
+        {gscData && (
+          <TabsContent value="search" className="space-y-4">
+            <GSCPanel
+              data={gscData}
+              geoQueries={aiVisResult?.queryResults?.map((q: any) => q.query) || []}
+            />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getGoogleAuthUrl, getGSCOverview } from "@/lib/integrations/googleSearchConsole";
+import { getGoogleAuthUrl, getGSCOverview, listSites } from "@/lib/integrations/googleSearchConsole";
 import type { GSCCredentials } from "@/lib/integrations/googleSearchConsole";
 
 /**
@@ -23,16 +23,34 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const { credentials, siteUrl } = await req.json();
+    const body = await req.json();
+    const { siteUrl } = body;
 
-    if (!credentials?.accessToken || !siteUrl) {
+    // Try credentials from request body first, then from httpOnly cookie
+    let credentials: GSCCredentials | null = null;
+    if (body.credentials?.accessToken) {
+      credentials = body.credentials;
+    } else {
+      const cookieVal = req.cookies.get("gsc_credentials")?.value;
+      if (cookieVal) {
+        try { credentials = JSON.parse(cookieVal); } catch { /* ignore */ }
+      }
+    }
+
+    if (!credentials?.accessToken) {
       return NextResponse.json(
-        { error: "credentials and siteUrl are required" },
-        { status: 400 }
+        { error: "not_connected", message: "Google Search Console not connected. Go to Settings to connect." },
+        { status: 401 }
       );
     }
 
-    const overview = await getGSCOverview(credentials as GSCCredentials, siteUrl);
+    if (!siteUrl) {
+      // If no siteUrl specified, list available sites
+      const sites = await listSites(credentials);
+      return NextResponse.json({ sites });
+    }
+
+    const overview = await getGSCOverview(credentials, siteUrl);
     return NextResponse.json(overview);
   } catch (error) {
     console.error("GSC data fetch error:", error);
