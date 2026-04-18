@@ -50,7 +50,7 @@ function MentionTrendChart({ scans }: { scans: { date: string; rate: number }[] 
 export function GEOProgressPanel({ progress, onWriteArticleForQuery, onFixAllBlindSpots, isGenerating, articleCost = 5, bulkFixCost = 15 }: Props) {
   if (!progress.currentScan) return null;
 
-  const { currentScan, previousScan, allScans, mentionRate, previousMentionRate, mentionRateChange, newlyFound, newlyLost, neverFound, trajectory, daysSinceLastScan, isStale, isVeryStale, weeklyScan, weeklyMentionRateChange, weeklyNewlyFound, weeklyNewlyLost, perCityBreakdown, perConfigBreakdown, perPriceTierBreakdown } = progress;
+  const { currentScan, previousScan, allScans, mentionRate, previousMentionRate, mentionRateChange, newlyFound, newlyLost, neverFound, trajectory, daysSinceLastScan, isStale, isVeryStale, weeklyScan, weeklyMentionRateChange, weeklyNewlyFound, weeklyNewlyLost, perCityBreakdown, perConfigBreakdown, perPriceTierBreakdown, perFunnelBreakdown, competitorAlerts } = progress;
 
   const trendScans = allScans.map((s) => ({
     date: formatScanDate(s.timestamp),
@@ -263,6 +263,80 @@ export function GEOProgressPanel({ progress, onWriteArticleForQuery, onFixAllBli
                   </div>
                 );
               })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Per-funnel-stage breakdown — awareness → consideration → conversion */}
+      {perFunnelBreakdown && perFunnelBreakdown.length > 0 && (
+        <Card className="bg-zinc-900/60 border-white/[0.06] rounded-xl">
+          <CardContent className="p-5">
+            <div className="flex items-center gap-2.5 mb-3">
+              <BarChart3 size={14} className="text-zinc-400" />
+              <h4 className="text-[13px] font-semibold text-zinc-200">By Buyer Journey</h4>
+            </div>
+            <div className="space-y-2">
+              {perFunnelBreakdown.map((seg) => {
+                const rateColor = seg.mentionRate >= 50 ? "text-[#7CB342]" : seg.mentionRate >= 20 ? "text-amber-400" : "text-red-400";
+                const barColor = seg.mentionRate >= 50 ? "bg-[#7CB342]" : seg.mentionRate >= 20 ? "bg-amber-500" : "bg-red-500";
+                return (
+                  <div key={seg.stage} className="p-2.5 rounded-lg bg-zinc-800/40 border border-white/[0.04]">
+                    <div className="flex items-center justify-between mb-1">
+                      <div>
+                        <span className="text-[12px] font-medium text-zinc-200 capitalize">{seg.stage}</span>
+                        <span className="text-[10px] text-zinc-500 ml-2">{seg.label}</span>
+                      </div>
+                      <span className={`text-[12px] font-bold tabular-nums ${rateColor}`}>
+                        {seg.mentionedCount}/{seg.totalQueries} ({seg.mentionRate}%)
+                      </span>
+                    </div>
+                    <div className="w-full h-1.5 rounded-full bg-zinc-800 overflow-hidden">
+                      <div className={`h-full rounded-full ${barColor} transition-all duration-500`} style={{ width: `${seg.mentionRate}%` }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Competitive citation alerts — competitors getting recommended instead of you */}
+      {competitorAlerts && competitorAlerts.length > 0 && (
+        <Card className="bg-red-500/[0.03] border-red-500/20 rounded-xl">
+          <CardContent className="p-5">
+            <div className="flex items-center gap-2.5 mb-2">
+              <EyeOff size={14} className="text-red-400" />
+              <h4 className="text-[13px] font-semibold text-red-400">Competitors Winning Your Queries ({competitorAlerts.length})</h4>
+            </div>
+            <p className="text-[11px] text-zinc-500 mb-3">
+              AI recommends these competitors when buyers ask about your market. Each &quot;Fix&quot; generates content targeting that exact query.
+            </p>
+            <div className="space-y-2">
+              {competitorAlerts.slice(0, 8).map((alert, i) => (
+                <div key={i} className="p-2.5 rounded-lg bg-zinc-800/30 border border-red-500/10">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[12px] text-zinc-300 truncate flex-1">&quot;{alert.query}&quot;</span>
+                    {onWriteArticleForQuery && (
+                      <button
+                        onClick={() => onWriteArticleForQuery(alert.query)}
+                        disabled={isGenerating}
+                        className="text-[10px] font-medium px-2 py-0.5 rounded bg-[#7CB342]/10 text-[#7CB342] border border-[#7CB342]/20 hover:bg-[#7CB342]/20 active:scale-[0.97] transition-all disabled:opacity-40 flex-shrink-0 ml-2"
+                      >
+                        Fix
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {alert.competitors.map((c, j) => (
+                      <span key={j} className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/10 text-red-400/80">
+                        {c}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>

@@ -85,6 +85,21 @@ export interface GEOProgress {
     mentionRate: number;
     missingQueries: string[];
   }>;
+  // Per-funnel-stage breakdown (awareness → consideration → conversion)
+  perFunnelBreakdown: Array<{
+    stage: "awareness" | "consideration" | "conversion";
+    label: string;
+    totalQueries: number;
+    mentionedCount: number;
+    mentionRate: number;
+    missingQueries: string[];
+  }>;
+  // Competitive citation alerts — queries where competitors appear but brand doesn't
+  competitorAlerts: Array<{
+    query: string;
+    competitors: string[];
+    yourStatus: "invisible" | "mentioned";
+  }>;
 }
 
 // ---------- Storage ----------
@@ -358,6 +373,8 @@ export function getGEOProgress(brand?: string): GEOProgress {
       perCityBreakdown: [],
       perConfigBreakdown: [],
       perPriceTierBreakdown: [],
+      perFunnelBreakdown: [],
+      competitorAlerts: [],
     };
   }
 
@@ -525,6 +542,65 @@ export function getGEOProgress(brand?: string): GEOProgress {
   const perConfigBreakdown = segmentBreakdown((q) => q.config, "config") as GEOProgress["perConfigBreakdown"];
   const perPriceTierBreakdown = segmentBreakdown((q) => q.priceTier, "priceTier") as GEOProgress["perPriceTierBreakdown"];
 
+  // Per-funnel-stage breakdown: map intent → funnel stage
+  const intentToFunnel: Record<string, "awareness" | "consideration" | "conversion"> = {
+    research: "awareness",
+    comparison: "consideration",
+    shortlist: "consideration",
+    investment: "conversion",
+    rental: "conversion",
+  };
+  const funnelGroups = new Map<string, { total: number; mentioned: number; missing: string[] }>();
+  currentScan.queries.forEach((q) => {
+    const stage = q.intent ? intentToFunnel[q.intent] : null;
+    if (!stage) return;
+    if (!funnelGroups.has(stage)) funnelGroups.set(stage, { total: 0, mentioned: 0, missing: [] });
+    const g = funnelGroups.get(stage)!;
+    g.total += 1;
+    if (q.chatgpt.mentioned || q.gemini.mentioned) {
+      g.mentioned += 1;
+    } else {
+      g.missing.push(q.query);
+    }
+  });
+  const funnelLabels: Record<string, string> = {
+    awareness: "Top of funnel — discovery",
+    consideration: "Mid funnel — comparing",
+    conversion: "Bottom funnel — ready to buy",
+  };
+  const perFunnelBreakdown: GEOProgress["perFunnelBreakdown"] = (["awareness", "consideration", "conversion"] as const)
+    .filter((stage) => funnelGroups.has(stage))
+    .map((stage) => {
+      const g = funnelGroups.get(stage)!;
+      return {
+        stage,
+        label: funnelLabels[stage],
+        totalQueries: g.total,
+        mentionedCount: g.mentioned,
+        mentionRate: g.total > 0 ? Math.round((g.mentioned / g.total) * 100) : 0,
+        missingQueries: g.missing,
+      };
+    });
+
+  // Competitive citation alerts — queries where brand is invisible but competitors appear
+  const competitorAlerts: GEOProgress["competitorAlerts"] = [];
+  currentScan.queries.forEach((q) => {
+    const found = q.chatgpt.mentioned || q.gemini.mentioned;
+    // Collect competitor names from coCitations (if available in the stored data)
+    const coCitations: string[] = [
+      ...((q.chatgpt as any).coCitations || []),
+      ...((q.gemini as any).coCitations || []),
+    ];
+    const uniqueCompetitors = Array.from(new Set(coCitations)).slice(0, 5);
+    if (!found && uniqueCompetitors.length > 0) {
+      competitorAlerts.push({
+        query: q.query,
+        competitors: uniqueCompetitors,
+        yourStatus: "invisible",
+      });
+    }
+  });
+
   return {
     currentScan,
     previousScan,
@@ -547,6 +623,8 @@ export function getGEOProgress(brand?: string): GEOProgress {
     perCityBreakdown,
     perConfigBreakdown,
     perPriceTierBreakdown,
+    perFunnelBreakdown,
+    competitorAlerts,
   };
 }
 

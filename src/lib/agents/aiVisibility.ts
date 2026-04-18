@@ -60,6 +60,7 @@ interface LLMResult {
   context: string;  // The sentence/paragraph where brand appears
   sentiment: "positive" | "neutral" | "negative" | "absent";
   coCitations: string[];  // Other brands/developers mentioned in same answer
+  citationSources: Array<{ url: string; type: "own_site" | "competitor" | "portal" | "ugc" | "news" | "government" | "unknown" }>;
 }
 
 interface AIReadinessCheck {
@@ -82,6 +83,7 @@ interface AIMentionAnalysis {
   context: string;
   sentiment: "positive" | "neutral" | "negative" | "absent";
   coCitations: string[];
+  citationSources: Array<{ url: string; type: string }>;
 }
 
 async function analyzeMention(
@@ -90,7 +92,7 @@ async function analyzeMention(
   projects: string[]
 ): Promise<LLMResult> {
   if (!response || response.trim().length < 20) {
-    return { mentioned: false, position: 0, context: "", sentiment: "absent", coCitations: [] };
+    return { mentioned: false, position: 0, context: "", sentiment: "absent", coCitations: [], citationSources: [] };
   }
 
   const system = `You analyze AI chatbot responses to detect brand mentions, sentiment, and co-citations.
@@ -114,8 +116,15 @@ Return this JSON:
   "position": <integer — which ordinal position in the response (1=first brand mentioned, 2=second, etc.). 0 if not mentioned>,
   "context": "<the specific sentence or phrase where the brand appears, max 300 chars. Empty string if not mentioned>",
   "sentiment": "positive" | "neutral" | "negative" | "absent",
-  "coCitations": ["<other brands/companies mentioned in the response, excluding the target>"]
+  "coCitations": ["<other brands/companies mentioned in the response, excluding the target>"],
+  "citationSources": [{"url": "<source URL if visible in the response>", "type": "own_site|competitor|portal|ugc|news|government|unknown"}]
 }
+
+RULES FOR citationSources:
+- Extract any URLs or source references mentioned in the AI response
+- Classify each: 99acres/MagicBricks/Housing.com = "portal", Reddit/Quora = "ugc", news sites = "news", rera.gov.in = "government", the target brand's site = "own_site", other builder sites = "competitor"
+- If no URLs are visible, return empty array
+- Max 10 sources
 
 RULES:
 - "mentioned" is true if the brand appears in ANY form (exact name, alias, acronym, common spelling variation)
@@ -144,6 +153,12 @@ RULES:
         ? parsed.sentiment
         : "absent") as LLMResult["sentiment"],
       coCitations: Array.isArray(parsed.coCitations) ? parsed.coCitations.slice(0, 15) : [],
+      citationSources: Array.isArray(parsed.citationSources)
+        ? parsed.citationSources.slice(0, 10).map((s: any) => ({
+            url: String(s.url || ""),
+            type: (["own_site", "competitor", "portal", "ugc", "news", "government", "unknown"].includes(s.type) ? s.type : "unknown") as LLMResult["citationSources"][number]["type"],
+          }))
+        : [],
     };
   } catch {
     // Minimal fallback: just check if brand name appears (no regex sentiment, no co-citations)
@@ -156,6 +171,7 @@ RULES:
       context: mentioned ? response.substring(0, 300) : "",
       sentiment: mentioned ? "neutral" : "absent",
       coCitations: [],
+      citationSources: [],
     };
   }
 }
@@ -394,7 +410,7 @@ export async function runAIVisibility(
   const configuredLLMs: string[] = ["ChatGPT"];
   if (process.env.GOOGLE_GEMINI_API_KEY) configuredLLMs.push("Gemini");
 
-  const emptyResult: LLMResult = { mentioned: false, position: 0, context: "", sentiment: "absent", coCitations: [] };
+  const emptyResult: LLMResult = { mentioned: false, position: 0, context: "", sentiment: "absent", coCitations: [], citationSources: [] };
   const queryResults: QueryResult[] = [];
 
   // Track per-platform health so we can tell live vs degraded vs broken in the UI.
