@@ -136,17 +136,14 @@ export default function DashboardPage() {
     locality_domination: 10, citation_booster: 8, gbp_posts: 3, prompt_volumes: 3,
   };
 
-  const spendCredits = (action: string): boolean => {
-    const cost = CREDIT_COSTS[action] || 1;
-    const remaining = CREDITS_TOTAL - creditsUsed;
-    if (remaining < cost) {
-      addLog(`> Not enough credits (need ${cost}, have ${remaining}). Upgrade your plan.`);
-      return false;
-    }
+  // Track credit usage locally (never blocks — upsell model).
+  // Server-side also tracks via enforceCredits() for billing.
+  const spendCredits = (_action: string): boolean => {
+    const cost = CREDIT_COSTS[_action] || 1;
     const next = creditsUsed + cost;
     setCreditsUsed(next);
     localStorage.setItem("cabbge_credits_used", String(next));
-    return true;
+    return true; // always allow — upsell when they hit their plan limit
   };
 
   // Load company: try Supabase first, fall back to localStorage

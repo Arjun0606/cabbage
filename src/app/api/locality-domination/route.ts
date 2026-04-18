@@ -38,10 +38,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "developerName, location, and city are required" }, { status: 400 });
     }
 
-    const credits = await enforceCredits(body.companyId, "locality_domination");
-    if (!credits.allowed) {
-      return NextResponse.json({ error: "Not enough credits", hint: `Locality domination costs ${credits.cost} credits. ${credits.remaining} remaining.` }, { status: 402 });
-    }
+    // Track credit usage (always allows — upsell model)
+    await enforceCredits(body.companyId, "locality_domination");
 
     // Generate the full domination pack
     const system = `You are a real estate GEO strategist who creates content ecosystems that make AI models (ChatGPT, Google Gemini, Perplexity) recommend a specific developer for a locality.

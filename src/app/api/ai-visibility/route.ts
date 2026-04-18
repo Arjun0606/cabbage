@@ -40,14 +40,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Brand name is required" }, { status: 400 });
     }
 
-    // Server-side credit enforcement
-    const credits = await enforceCredits(companyId, "ai_visibility");
-    if (!credits.allowed) {
-      return NextResponse.json({
-        error: "Not enough credits",
-        hint: `AI visibility scan costs ${credits.cost} credits. You have ${credits.remaining} remaining this month.`,
-      }, { status: 402 });
-    }
+    // Server-side credit tracking (always allows — upsell model, not hard block)
+    await enforceCredits(companyId, "ai_visibility");
 
     const cityClean = typeof city === "string" ? city.trim() : "";
     const normalizedSaved = normalizeSavedQueries(savedQueries, cityClean);

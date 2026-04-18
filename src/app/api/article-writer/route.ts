@@ -47,10 +47,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const credits = await enforceCredits(body.companyId, "article");
-    if (!credits.allowed) {
-      return NextResponse.json({ error: "Not enough credits", hint: `Article costs ${credits.cost} credits. ${credits.remaining} remaining.` }, { status: 402 });
-    }
+    // Track credit usage (always allows — upsell model)
+    await enforceCredits(body.companyId, "article");
 
     if (!articleType || !ARTICLE_TYPE_INSTRUCTIONS[articleType as ArticleType]) {
       return NextResponse.json(

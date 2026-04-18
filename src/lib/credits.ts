@@ -84,7 +84,16 @@ export async function enforceCredits(
     const remaining = Math.max(0, MONTHLY_INCLUDED - totalUsed);
 
     if (remaining < cost) {
-      return { allowed: false, remaining, cost };
+      // Soft limit — still allow the action but flag it as overage.
+      // The product philosophy is to let users use freely, then upsell
+      // more credits when they've seen the value. Hard blocks kill adoption.
+      // Record usage even on overage so billing can track it.
+      await supabase.from("credit_usage").insert({
+        company_id: companyId,
+        action,
+        credits_used: cost,
+      }).then(() => {}, () => {});
+      return { allowed: true, remaining: remaining - cost, cost };
     }
 
     // Record usage

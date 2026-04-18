@@ -23,11 +23,8 @@ export function Sidebar({ companyName, creditsUsed = 0, creditsTotal = 1000 }: P
     { href: "/settings", label: "Settings", icon: Settings, active: pathname === "/settings" },
   ];
 
-  const remaining = creditsTotal - creditsUsed;
-  const pct = Math.min(100, (remaining / creditsTotal) * 100);
-
-  // Color-code credits ring: green > 60%, amber > 25%, red below
-  const ringColor = pct > 60 ? "#7CB342" : pct > 25 ? "#F59E0B" : "#EF4444";
+  // Credit display removed — let users use freely, upsell when they see value
+  void creditsUsed; void creditsTotal;
 
   return (
     <div className="w-[56px] h-screen bg-[#0a0a0b] border-r border-white/[0.06] flex flex-col items-center flex-shrink-0">
@@ -74,25 +71,9 @@ export function Sidebar({ companyName, creditsUsed = 0, creditsTotal = 1000 }: P
         ))}
       </nav>
 
-      {/* Credits ring — color-coded by remaining */}
-      <div className="py-2 mb-1" title={`${remaining.toLocaleString()} credits remaining`}>
-        <div className="relative w-8 h-8">
-          <svg width="32" height="32" className="-rotate-90">
-            <circle cx="16" cy="16" r="12" fill="none" stroke="rgb(39 39 42 / 0.4)" strokeWidth="2" />
-            <circle
-              cx="16" cy="16" r="12"
-              fill="none" stroke={ringColor} strokeWidth="2"
-              strokeDasharray={2 * Math.PI * 12}
-              strokeDashoffset={2 * Math.PI * 12 - (pct / 100) * 2 * Math.PI * 12}
-              strokeLinecap="round"
-              className="transition-all duration-500"
-            />
-          </svg>
-          <span className="absolute inset-0 flex items-center justify-center text-[7px] font-bold text-zinc-400 tabular-nums">
-            {remaining > 999 ? "1K" : remaining}
-          </span>
-        </div>
-      </div>
+      {/* Credits ring hidden — product philosophy: let users use freely,
+          upsell when they've seen the value. Showing a shrinking counter
+          makes users wary and reduces engagement. */}
 
       {/* Account avatar */}
       <div className="pb-3">
