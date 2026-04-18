@@ -388,7 +388,7 @@ Classify each query:
   // Try the AI generator. If it throws, log and fall through to the safety net.
   let text = "";
   try {
-    text = await aiLight(system, prompt, 2500);
+    text = await aiLight(system, prompt, 3500);
   } catch (err) {
     console.error(
       "generateSearchQueries: aiLight threw —",
@@ -401,8 +401,14 @@ Classify each query:
 
   const jsonMatch = text.match(/\[[\s\S]*\]/);
   if (jsonMatch) {
+    // Handle truncated JSON arrays — try to salvage partial results
+    let jsonStr = jsonMatch[0];
+    try { JSON.parse(jsonStr); } catch {
+      const lastObj = jsonStr.lastIndexOf("}");
+      if (lastObj > 0) jsonStr = jsonStr.slice(0, lastObj + 1) + "]";
+    }
     try {
-      const parsed = JSON.parse(jsonMatch[0]);
+      const parsed = JSON.parse(jsonStr);
       if (Array.isArray(parsed) && parsed.length > 0) {
         const queries: QueryWithMeta[] = [];
         for (const item of parsed) {

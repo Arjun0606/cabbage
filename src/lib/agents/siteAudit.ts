@@ -271,12 +271,23 @@ IMPORTANT:
 - Include checks specific to what you see on THIS page — if they have a Book-Site-Visit button, check its placement; if they have a gallery, check its quality.
 - Be strict: "RERA passed" means the actual registration number is displayed in a visible trustworthy place, NOT just the word "RERA" appearing anywhere.
 
-Generate 12-20 checks that matter most for THIS website. Ordered by importance.`;
+Generate 10-15 checks that matter most for THIS website. Ordered by importance. Keep each check's details field under 100 chars to fit within the response.`;
 
   try {
-    const raw = await aiComplete(system, prompt, 2500);
+    const raw = await aiComplete(system, prompt, 3000);
     const cleaned = raw.replace(/```json?\n?/g, "").replace(/```/g, "").trim();
-    const parsed = JSON.parse(cleaned);
+    // Handle truncated JSON — try to salvage partial arrays
+    let jsonStr = cleaned;
+    try {
+      JSON.parse(jsonStr);
+    } catch {
+      // If truncated, try to close the array
+      const lastComplete = jsonStr.lastIndexOf("}");
+      if (lastComplete > 0) {
+        jsonStr = jsonStr.slice(0, lastComplete + 1) + "]";
+      }
+    }
+    const parsed = JSON.parse(jsonStr);
 
     if (Array.isArray(parsed) && parsed.length > 0) {
       return parsed
@@ -337,11 +348,20 @@ ${failedReChecks.map((c) => `- ${c.label}: ${c.details}`).join("\n") || "None"}
 Produce a JSON array of the top 10 fixes, ordered by impact. Each fix:
 {"title": "...", "severity": "critical|high|medium|low", "category": "Technical|On-Page|Content|Conversion|Compliance", "description": "2-3 sentences explaining why and how to fix", "snippet": "optional code snippet or copy to paste"}`;
 
-  const text = await aiComplete(system, prompt, 2000);
-  // Extract JSON from the response
+  const text = await aiComplete(system, prompt, 2500);
+  // Extract JSON from the response — handle truncated arrays
   const jsonMatch = text.match(/\[[\s\S]*\]/);
   if (jsonMatch) {
-    return JSON.parse(jsonMatch[0]);
+    try {
+      return JSON.parse(jsonMatch[0]);
+    } catch {
+      // Truncated — salvage partial
+      const partial = jsonMatch[0];
+      const lastObj = partial.lastIndexOf("}");
+      if (lastObj > 0) {
+        try { return JSON.parse(partial.slice(0, lastObj + 1) + "]"); } catch { /* give up */ }
+      }
+    }
   }
   return [];
 }
