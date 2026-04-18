@@ -3,129 +3,436 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Globe, ArrowRight, Loader2, Sparkles } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import {
+  Globe, ArrowRight, Loader2, Sparkles, CheckCircle2, Plus, X,
+  Building2, MapPin, Layers, AlertCircle,
+} from "lucide-react";
 
 /**
- * One-step onboarding — Okara model.
- * User pastes their website URL. Everything else is auto-discovered.
+ * Two-step onboarding:
+ * Step 1: Paste URL → auto-discover runs → extracts company data
+ * Step 2: Review extracted data → fill gaps → confirm → go to dashboard
+ *
+ * The user MUST confirm city + at least 1 project before proceeding.
+ * This prevents the "empty city" bug that caused 0/0 scans.
  */
+
+interface Project {
+  name: string;
+  location: string;
+  configurations: string;
+  priceRange: string;
+  website: string;
+  reraNumber: string;
+  amenities: string;
+  status: string;
+}
+
 export default function OnboardingPage() {
   const router = useRouter();
+  const [step, setStep] = useState<1 | 2>(1);
   const [website, setWebsite] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleStart = async () => {
+  // Company data (populated by auto-discover, editable by user)
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [cities, setCities] = useState<string[]>([""]);
+  const [industry, setIndustry] = useState("real_estate");
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [competitors, setCompetitors] = useState<string[]>([]);
+  const [newCityInput, setNewCityInput] = useState("");
+
+  // Auto-discover results for display
+  const [discovered, setDiscovered] = useState<any>(null);
+
+  // Step 1: Paste URL and auto-discover
+  const handleDiscover = async () => {
     if (!website.trim()) return;
-
-    // Normalize URL
     let url = website.trim();
     if (!url.match(/^https?:\/\//)) url = `https://${url}`;
-
-    // Extract a sensible company name from the domain
-    const hostname = url.replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0];
-    const inferredName = hostname.split(".")[0].charAt(0).toUpperCase() + hostname.split(".")[0].slice(1);
-
+    setWebsite(url);
     setLoading(true);
+    setError(null);
 
-    // Minimal seed data — dashboard auto-discover will fill everything else
+    try {
+      // Infer name from domain
+      const hostname = url.replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0];
+      const inferredName = hostname.split(".")[0].charAt(0).toUpperCase() + hostname.split(".")[0].slice(1);
+      setName(inferredName);
+
+      const res = await fetch("/api/auto-discover", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url, companyName: inferredName, industry }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+
+      setDiscovered(data);
+
+      // Populate fields from auto-discover
+      if (data.companyDescription) setDescription(data.companyDescription);
+      if (data.city) setCities([data.city]);
+
+      // Populate projects (filter out placeholders)
+      const placeholders = /^(unknown|featured|project\s*\d*|placeholder|n\/?a|not\s+specified|tbd)/i;
+      const validProjects = (data.inferredProjects || []).filter(
+        (p: any) => p?.name && !placeholders.test(p.name.trim()) && p.name.trim().length >= 3
+      );
+      if (validProjects.length > 0) {
+        setProjects(validProjects.map((p: any) => ({
+          name: p.name || "",
+          location: p.location || "",
+          configurations: p.configurations || "",
+          priceRange: p.priceRange || "",
+          website: p.website || "",
+          reraNumber: p.reraNumber || "",
+          amenities: p.amenities || "",
+          status: p.status || "Active",
+        })));
+
+        // Extract unique cities from project locations
+        const projectCities = new Set<string>();
+        if (data.city) projectCities.add(data.city);
+        validProjects.forEach((p: any) => {
+          if (p.location) {
+            const parts = p.location.split(",").map((s: string) => s.trim());
+            if (parts.length > 1) projectCities.add(parts[parts.length - 1]);
+          }
+        });
+        if (projectCities.size > 0) setCities(Array.from(projectCities));
+      }
+
+      // Populate competitors
+      const validCompetitors = (data.inferredCompetitors || []).filter(
+        (c: string) => c && c.trim().length >= 3 && !placeholders.test(c)
+      );
+      if (validCompetitors.length > 0) setCompetitors(validCompetitors);
+
+      // If auto-discover gave us a proper name
+      if (data.companyDescription) {
+        const nameFromDesc = data.companyDescription.split(" is ")[0]?.trim();
+        if (nameFromDesc && nameFromDesc.length > 2 && nameFromDesc.length < 60) {
+          setName(nameFromDesc);
+        }
+      }
+
+      setStep(2);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to analyze website. You can still fill in details manually.");
+      setStep(2); // Still go to step 2 so they can fill manually
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Step 2: Save and go to dashboard
+  const handleFinish = () => {
+    const primaryCity = cities.filter(Boolean)[0] || "";
+    if (!primaryCity) {
+      setError("Please add at least one city where you operate.");
+      return;
+    }
+    if (!name.trim()) {
+      setError("Company name is required.");
+      return;
+    }
+
     const data = {
-      name: inferredName,
-      description: "",
-      website: url,
-      city: "",
-      industry: "real_estate",
+      name: name.trim(),
+      description,
+      website,
+      city: primaryCity,
+      industry,
       yearEstablished: "",
       projectsCompleted: "",
       awards: "",
       sites: [] as { url: string; label: string }[],
-      projects: [] as any[],
-      competitors: [] as { name: string; website: string }[],
-      documents: {
-        productInfo: "",
-        competitorAnalysis: "",
-        brandVoice: "",
-        marketingStrategy: "",
-        brandValues: "",
-        brandVision: "",
-        targetAudience: "",
+      projects: projects.length > 0 ? projects : [],
+      competitors: competitors.map((c) => ({ name: c, website: "" })),
+      documents: discovered?.documents || {
+        productInfo: "", competitorAnalysis: "", brandVoice: "",
+        marketingStrategy: "", brandValues: "", brandVision: "", targetAudience: "",
       },
     };
     localStorage.setItem("cabbge_company", JSON.stringify(data));
 
-    // Brief delay to show loading state, then redirect
-    setTimeout(() => router.push("/dashboard"), 600);
+    // Also set company ID cookie for per-company rate limiting
+    document.cookie = `cabbge_company_id=${encodeURIComponent(name.trim().toLowerCase().replace(/\s+/g, "-"))};path=/;max-age=${60 * 60 * 24 * 365};samesite=lax`;
+
+    router.push("/dashboard");
+  };
+
+  const addProject = () => {
+    setProjects([...projects, { name: "", location: "", configurations: "", priceRange: "", website: "", reraNumber: "", amenities: "", status: "Active" }]);
+  };
+
+  const updateProject = (idx: number, field: keyof Project, value: string) => {
+    const updated = [...projects];
+    updated[idx] = { ...updated[idx], [field]: value };
+    setProjects(updated);
+  };
+
+  const removeProject = (idx: number) => {
+    setProjects(projects.filter((_, i) => i !== idx));
+  };
+
+  const addCity = () => {
+    if (newCityInput.trim() && !cities.includes(newCityInput.trim())) {
+      setCities([...cities, newCityInput.trim()]);
+      setNewCityInput("");
+    }
+  };
+
+  const removeCity = (idx: number) => {
+    if (cities.length > 1) setCities(cities.filter((_, i) => i !== idx));
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0b] text-zinc-100 flex items-center justify-center p-4">
-      <div className="w-full max-w-xl space-y-8">
-        {/* Logo + headline */}
-        <div className="text-center space-y-4">
-          <div className="flex items-center justify-center gap-3">
-            <img src="/logo.png" alt="Cabbge" className="w-12 h-12 object-contain" />
-            <h1 className="text-3xl font-bold text-zinc-100 tracking-tight">Cabbge</h1>
+    <div className="min-h-screen bg-[#0a0a0b] text-zinc-100">
+      <div className="max-w-2xl mx-auto px-6 py-12">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-xl bg-[#7CB342] flex items-center justify-center">
+              <Sparkles size={20} className="text-zinc-900" />
+            </div>
+            <h1 className="text-2xl font-bold tracking-tight">Cabbge</h1>
           </div>
-          <div className="space-y-2">
-            <p className="text-[20px] text-zinc-200 font-medium">Your AI CMO for Real Estate</p>
-            <p className="text-[14px] text-zinc-500">
-              Paste your website. We&apos;ll analyze your brand, audit your SEO, check your AI visibility, and generate everything you need to dominate your market.
+          <p className="text-zinc-400 text-[14px]">
+            {step === 1
+              ? "Paste your website. We'll analyze everything about your brand."
+              : "Review what we found. Fill in anything we missed."}
+          </p>
+        </div>
+
+        {/* Step indicator */}
+        <div className="flex items-center justify-center gap-3 mb-8">
+          <div className={`flex items-center gap-1.5 text-[12px] ${step >= 1 ? "text-[#7CB342]" : "text-zinc-600"}`}>
+            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold ${step >= 1 ? "bg-[#7CB342] text-zinc-900" : "bg-zinc-800 text-zinc-500"}`}>
+              {step > 1 ? <CheckCircle2 size={14} /> : "1"}
+            </div>
+            Website
+          </div>
+          <div className="w-8 h-px bg-zinc-800" />
+          <div className={`flex items-center gap-1.5 text-[12px] ${step >= 2 ? "text-[#7CB342]" : "text-zinc-600"}`}>
+            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold ${step >= 2 ? "bg-[#7CB342] text-zinc-900" : "bg-zinc-800 text-zinc-500"}`}>
+              2
+            </div>
+            Review & Confirm
+          </div>
+        </div>
+
+        {/* STEP 1: URL Input */}
+        {step === 1 && (
+          <div className="space-y-4">
+            <div className="relative">
+              <Globe size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
+              <Input
+                type="url"
+                placeholder="yourdeveloper.com"
+                value={website}
+                onChange={(e) => setWebsite(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleDiscover()}
+                autoFocus
+                disabled={loading}
+                className="bg-zinc-900/80 border-white/[0.08] text-[16px] h-14 pl-12 placeholder:text-zinc-600 focus:border-[#7CB342]/40"
+              />
+            </div>
+            <Button
+              onClick={handleDiscover}
+              disabled={!website.trim() || loading}
+              className="w-full bg-[#7CB342] hover:bg-[#8BC34A] text-zinc-950 h-14 text-[15px] font-semibold rounded-lg"
+            >
+              {loading ? (
+                <><Loader2 size={18} className="animate-spin mr-2" />Analyzing your website...</>
+              ) : (
+                <><Sparkles size={16} className="mr-2" />Analyze & Set Up<ArrowRight size={16} className="ml-2" /></>
+              )}
+            </Button>
+
+            {/* What happens */}
+            <div className="grid grid-cols-3 gap-3 mt-8">
+              {[
+                { icon: Globe, label: "Auto-extract", desc: "Brand, projects, city, competitors" },
+                { icon: MapPin, label: "Multi-city", desc: "All your project locations detected" },
+                { icon: Layers, label: "Configurations", desc: "BHK types, prices auto-filled" },
+              ].map(({ icon: Icon, label, desc }) => (
+                <div key={label} className="p-3 rounded-lg bg-zinc-900/40 border border-white/[0.04]">
+                  <Icon size={14} className="text-[#7CB342] mb-1.5" />
+                  <div className="text-[12px] font-semibold text-zinc-200">{label}</div>
+                  <div className="text-[11px] text-zinc-500">{desc}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* STEP 2: Review & Fill Gaps */}
+        {step === 2 && (
+          <div className="space-y-6">
+            {/* Auto-discover success banner */}
+            {discovered && (
+              <div className="p-3 rounded-lg bg-[#7CB342]/[0.06] border border-[#7CB342]/20 flex items-center gap-2">
+                <CheckCircle2 size={14} className="text-[#7CB342] flex-shrink-0" />
+                <span className="text-[12px] text-zinc-300">
+                  Auto-extracted {projects.length} project{projects.length !== 1 ? "s" : ""}, {competitors.length} competitor{competitors.length !== 1 ? "s" : ""}, and brand intelligence from your website. Review below.
+                </span>
+              </div>
+            )}
+
+            {error && (
+              <div className="p-3 rounded-lg bg-red-500/[0.06] border border-red-500/20 flex items-center gap-2">
+                <AlertCircle size={14} className="text-red-400 flex-shrink-0" />
+                <span className="text-[12px] text-red-400">{error}</span>
+              </div>
+            )}
+
+            {/* Company basics */}
+            <div className="space-y-3">
+              <h3 className="text-[13px] font-semibold text-zinc-300 flex items-center gap-2">
+                <Building2 size={14} /> Company
+              </h3>
+              <Input
+                placeholder="Company name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="bg-zinc-900/80 border-white/[0.06] text-[14px] h-10"
+              />
+              <Textarea
+                placeholder="Brief description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="bg-zinc-900/80 border-white/[0.06] text-[13px] min-h-[60px]"
+              />
+            </div>
+
+            {/* Cities (multi-city) */}
+            <div className="space-y-3">
+              <h3 className="text-[13px] font-semibold text-zinc-300 flex items-center gap-2">
+                <MapPin size={14} /> Cities You Operate In
+                <span className="text-[10px] text-red-400 font-normal">* Required</span>
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {cities.filter(Boolean).map((city, i) => (
+                  <Badge key={i} className="bg-zinc-800 text-zinc-200 border-zinc-700/50 rounded-md px-3 py-1.5 text-[12px] flex items-center gap-1.5">
+                    {city}
+                    {cities.length > 1 && (
+                      <button onClick={() => removeCity(i)} className="text-zinc-500 hover:text-red-400">
+                        <X size={12} />
+                      </button>
+                    )}
+                  </Badge>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Add another city (e.g. Bangalore)"
+                  value={newCityInput}
+                  onChange={(e) => setNewCityInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && addCity()}
+                  className="bg-zinc-900/80 border-white/[0.06] text-[13px] h-9 flex-1"
+                />
+                <button
+                  onClick={addCity}
+                  disabled={!newCityInput.trim()}
+                  className="h-9 px-3 rounded-lg bg-zinc-800 text-zinc-300 text-[12px] hover:bg-zinc-700 disabled:opacity-40 flex items-center gap-1"
+                >
+                  <Plus size={12} /> Add
+                </button>
+              </div>
+              {cities.filter(Boolean).length === 0 && (
+                <p className="text-[11px] text-red-400">At least one city is required for accurate AI visibility scans.</p>
+              )}
+            </div>
+
+            {/* Projects */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-[13px] font-semibold text-zinc-300 flex items-center gap-2">
+                  <Layers size={14} /> Projects
+                  <span className="text-[10px] text-zinc-500 font-normal">More projects = more hyper-local queries</span>
+                </h3>
+                <button
+                  onClick={addProject}
+                  className="text-[11px] text-[#7CB342] hover:text-[#8BC34A] flex items-center gap-1"
+                >
+                  <Plus size={12} /> Add Project
+                </button>
+              </div>
+              {projects.length === 0 && (
+                <div className="p-4 rounded-lg bg-amber-500/[0.04] border border-amber-500/20">
+                  <p className="text-[12px] text-amber-400">
+                    No projects detected. Add your projects with locations and configurations for the best AI visibility scans.
+                  </p>
+                  <button onClick={addProject} className="mt-2 text-[12px] text-[#7CB342] underline">
+                    + Add your first project
+                  </button>
+                </div>
+              )}
+              {projects.map((p, i) => (
+                <div key={i} className="p-4 rounded-lg bg-zinc-900/60 border border-white/[0.04] space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] text-zinc-500 uppercase tracking-wide">Project {i + 1}</span>
+                    <button onClick={() => removeProject(i)} className="text-zinc-600 hover:text-red-400">
+                      <X size={14} />
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input placeholder="Project name" value={p.name} onChange={(e) => updateProject(i, "name", e.target.value)} className="bg-zinc-800/60 border-white/[0.04] text-[12px] h-8" />
+                    <Input placeholder="Location (e.g. Gachibowli, Hyderabad)" value={p.location} onChange={(e) => updateProject(i, "location", e.target.value)} className="bg-zinc-800/60 border-white/[0.04] text-[12px] h-8" />
+                    <Input placeholder="Configurations (e.g. 2BHK, 3BHK, Villa)" value={p.configurations} onChange={(e) => updateProject(i, "configurations", e.target.value)} className="bg-zinc-800/60 border-white/[0.04] text-[12px] h-8" />
+                    <Input placeholder="Price range (e.g. ₹80L - 1.5Cr)" value={p.priceRange} onChange={(e) => updateProject(i, "priceRange", e.target.value)} className="bg-zinc-800/60 border-white/[0.04] text-[12px] h-8" />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Competitors */}
+            <div className="space-y-3">
+              <h3 className="text-[13px] font-semibold text-zinc-300">Competitors (auto-detected)</h3>
+              <div className="flex flex-wrap gap-2">
+                {competitors.map((c, i) => (
+                  <Badge key={i} className="bg-zinc-800 text-zinc-300 border-zinc-700/50 rounded-md px-2.5 py-1 text-[11px] flex items-center gap-1.5">
+                    {c}
+                    <button onClick={() => setCompetitors(competitors.filter((_, j) => j !== i))} className="text-zinc-600 hover:text-red-400">
+                      <X size={10} />
+                    </button>
+                  </Badge>
+                ))}
+                <Input
+                  placeholder="+ Add competitor"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && e.currentTarget.value.trim()) {
+                      setCompetitors([...competitors, e.currentTarget.value.trim()]);
+                      e.currentTarget.value = "";
+                    }
+                  }}
+                  className="bg-zinc-900/80 border-white/[0.06] text-[12px] h-7 w-40"
+                />
+              </div>
+            </div>
+
+            {/* Finish button */}
+            <Button
+              onClick={handleFinish}
+              disabled={!name.trim() || cities.filter(Boolean).length === 0}
+              className="w-full bg-[#7CB342] hover:bg-[#8BC34A] text-zinc-950 h-12 text-[15px] font-semibold rounded-lg mt-4"
+            >
+              <Sparkles size={16} className="mr-2" />
+              Launch Dashboard
+              <ArrowRight size={16} className="ml-2" />
+            </Button>
+            <p className="text-center text-[11px] text-zinc-600">
+              You can always edit these in the Company panel later.
             </p>
           </div>
-        </div>
-
-        {/* URL input — the entire onboarding */}
-        <div className="space-y-3">
-          <div className="relative">
-            <Globe size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
-            <Input
-              type="url"
-              placeholder="yourdeveloper.com"
-              value={website}
-              onChange={(e) => setWebsite(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleStart()}
-              autoFocus
-              disabled={loading}
-              className="bg-zinc-900/80 border-white/[0.08] text-[16px] h-14 pl-12 pr-4 placeholder:text-zinc-600 focus:border-[#7CB342]/40 focus:ring-[#7CB342]/10 transition-all"
-            />
-          </div>
-
-          <Button
-            onClick={handleStart}
-            disabled={!website.trim() || loading}
-            className="w-full bg-[#7CB342] hover:bg-[#8BC34A] text-zinc-950 h-14 text-[15px] font-semibold rounded-lg active:scale-[0.99] transition-all disabled:opacity-40 shadow-[0_0_20px_rgba(124,179,66,0.2)]"
-          >
-            {loading ? (
-              <><Loader2 size={18} className="animate-spin mr-2" />Initializing your CMO...</>
-            ) : (
-              <><Sparkles size={16} className="mr-2" />Activate Cabbge<ArrowRight size={16} className="ml-2" /></>
-            )}
-          </Button>
-        </div>
-
-        {/* What happens next */}
-        <div className="grid grid-cols-3 gap-3">
-          {[
-            { step: "1", label: "Analyze", desc: "Read your website & brand" },
-            { step: "2", label: "Scan", desc: "Check SEO + AI visibility" },
-            { step: "3", label: "Execute", desc: "Generate content & fixes" },
-          ].map(({ step, label, desc }) => (
-            <div key={step} className="p-3 rounded-lg bg-zinc-900/40 border border-white/[0.04]">
-              <div className="flex items-center gap-2 mb-1">
-                <div className="w-5 h-5 rounded-full bg-[#7CB342]/10 flex items-center justify-center text-[11px] font-semibold text-[#7CB342]">
-                  {step}
-                </div>
-                <span className="text-[12px] font-semibold text-zinc-200">{label}</span>
-              </div>
-              <p className="text-[11px] text-zinc-500 leading-snug">{desc}</p>
-            </div>
-          ))}
-        </div>
-
-        {/* Reassurance */}
-        <p className="text-center text-[11px] text-zinc-600">
-          Free scan, no credit card. Takes under a minute.
-        </p>
+        )}
       </div>
     </div>
   );
