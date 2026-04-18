@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { aiComplete } from "@/lib/ai";
+import { enforceCredits } from "@/lib/credits";
 
 /**
  * Locality Domination Pack
@@ -25,15 +26,21 @@ import { aiComplete } from "@/lib/ai";
 
 export async function POST(req: NextRequest) {
   try {
+    const body = await req.json();
     const {
       developerName, projectName, location, city,
       configurations, priceRange, amenities, website,
       reraNumber, brandVoice, targetAudience,
       nearbyLandmarks, competitorNames,
-    } = await req.json();
+    } = body;
 
     if (!developerName || !location || !city) {
       return NextResponse.json({ error: "developerName, location, and city are required" }, { status: 400 });
+    }
+
+    const credits = await enforceCredits(body.companyId, "locality_domination");
+    if (!credits.allowed) {
+      return NextResponse.json({ error: "Not enough credits", hint: `Locality domination costs ${credits.cost} credits. ${credits.remaining} remaining.` }, { status: 402 });
     }
 
     // Generate the full domination pack

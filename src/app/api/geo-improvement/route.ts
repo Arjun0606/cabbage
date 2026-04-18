@@ -45,12 +45,12 @@ Failed checks: ${failedList || "Not specified"}
 Return JSON:
 {
   "currentScore": ${score},
-  "targetScore": <realistic target after 30 days, typically +30-50 points>,
+  "targetScore": <realistic target based on ${missingList ? `${(missingQueries || []).length} missing queries` : "unknown gaps"}, ${failedList ? `${(failedChecks || []).length} failed checks` : "unknown checks"}, and market competition in ${city || "India"}>,
   "weekSummaries": [
-    { "week": 1, "theme": "Foundation — Technical SEO & AI Readiness", "expectedScore": ${Math.min(score + 15, 100)} },
-    { "week": 2, "theme": "Content — Location Pages & Articles", "expectedScore": ${Math.min(score + 25, 100)} },
-    { "week": 3, "theme": "Authority — Portals, GBP & Brand Mentions", "expectedScore": ${Math.min(score + 35, 100)} },
-    { "week": 4, "theme": "Optimize — Measure, Fix Gaps, Double Down", "expectedScore": ${Math.min(score + 45, 100)} }
+    { "week": 1, "theme": "Foundation — Technical SEO & AI Readiness", "expectedScore": "<realistic, based on current score, market competition, and number of missing queries>" },
+    { "week": 2, "theme": "Content — Location Pages & Articles", "expectedScore": "<realistic>" },
+    { "week": 3, "theme": "Authority — Portals, GBP & Brand Mentions", "expectedScore": "<realistic>" },
+    { "week": 4, "theme": "Optimize — Measure, Fix Gaps, Double Down", "expectedScore": "<realistic>" }
   ],
   "days": [
     {
@@ -65,7 +65,7 @@ Return JSON:
     ... (30 days total)
   ],
   "quickWins": ["5 things to do TODAY"],
-  "expectedTimeline": "30 days to go from ${score}% to ~${Math.min(score + 45, 70)}%"
+  "expectedTimeline": "<realistic timeline based on current score, market saturation, and content gaps — do NOT use fixed +45 formula>"
 }
 
 RULES:

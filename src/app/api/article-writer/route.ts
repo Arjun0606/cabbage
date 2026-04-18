@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { aiComplete } from "@/lib/ai";
+import { enforceCredits } from "@/lib/credits";
 
 type ArticleType =
   | "locality_guide"
@@ -44,6 +45,11 @@ export async function POST(req: NextRequest) {
         { error: "projectName, location, and city are required" },
         { status: 400 }
       );
+    }
+
+    const credits = await enforceCredits(body.companyId, "article");
+    if (!credits.allowed) {
+      return NextResponse.json({ error: "Not enough credits", hint: `Article costs ${credits.cost} credits. ${credits.remaining} remaining.` }, { status: 402 });
     }
 
     if (!articleType || !ARTICLE_TYPE_INSTRUCTIONS[articleType as ArticleType]) {

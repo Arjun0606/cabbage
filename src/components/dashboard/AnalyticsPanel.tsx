@@ -474,8 +474,12 @@ export function AnalyticsPanel({
 
               {auditResult.scores.pageSpeedAvailable === false && (
                 <SectionCard>
-                  <CardContent className="p-4">
-                    <p className="text-[13px] text-zinc-500">PageSpeed data temporarily unavailable (API quota). Real estate checks and AI analysis still ran below.</p>
+                  <CardContent className="p-4 flex items-start gap-3">
+                    <div className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0 mt-1.5" />
+                    <div>
+                      <p className="text-[13px] font-medium text-amber-400">Scores are partial — PageSpeed API unavailable</p>
+                      <p className="text-[11px] text-zinc-500 mt-1">Performance, Core Web Vitals, and SEO health data could not be fetched (API quota or connectivity). The overall score reflects HTML-based checks only. Real estate compliance and AI analysis ran normally. Re-scan later for full metrics.</p>
+                    </div>
                   </CardContent>
                 </SectionCard>
               )}

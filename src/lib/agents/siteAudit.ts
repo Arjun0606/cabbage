@@ -1,4 +1,4 @@
-import { aiComplete } from "@/lib/ai";
+import { aiComplete, aiLight, queryForVisibility } from "@/lib/ai";
 
 /**
  * Real estate audit checks are now fully AI-generated per website.
@@ -131,6 +131,81 @@ function extractSeoHealth(psiResult: Record<string, unknown>): SeoHealthCheck[] 
   }
 
   return checks;
+}
+
+// ---------- RERA Verification via Web Search ----------
+
+interface RERAVerification {
+  found: boolean;
+  numbers: string[];
+  verified: boolean;
+  verificationDetails: string;
+}
+
+async function verifyRERA(pageHtml: string): Promise<RERAVerification> {
+  const visibleText = pageHtml
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+    .replace(/<[^>]+>/g, " ");
+
+  // Common RERA number patterns across Indian states
+  const reraPatterns = [
+    /P\d{11,13}/g,
+    /PR[A-Z]{2}\d{6,10}/g,
+    /PRM\/[A-Z]{2}\/RERA\/\d+\/\d+\/[A-Z0-9/]+/g,
+    /PR\/[A-Z]{2}\/\d+\/\d+/g,
+    /UPRERAPRJ\d+/g,
+    /RERA[A-Z]*\d{5,}/g,
+    /[A-Z]{2,5}\/\d{4,}\/\d{4}/g,
+    /RC\/[A-Z]+\/RERA\/\d+\/\d+/g,
+  ];
+
+  const allMatches = new Set<string>();
+  for (const pattern of reraPatterns) {
+    const matches = visibleText.match(pattern);
+    if (matches) matches.forEach((m) => allMatches.add(m));
+  }
+  const numbers = Array.from(allMatches);
+
+  if (numbers.length === 0) {
+    return { found: false, numbers: [], verified: false, verificationDetails: "No RERA registration numbers found on page." };
+  }
+
+  // Verify up to 2 RERA numbers via web search
+  const toVerify = numbers.slice(0, 2);
+  const results: string[] = [];
+  let anyVerified = false;
+
+  for (const reraNumber of toVerify) {
+    try {
+      const { text, source } = await queryForVisibility(
+        "openai",
+        `Is RERA registration number ${reraNumber} valid? Check rera.gov.in or the relevant state RERA website. What project and developer is it registered to?`
+      );
+      if (text && (source === "web_search" || source === "grounded")) {
+        const parseResult = await aiLight(
+          "Determine if a RERA number was verified. Return only valid JSON.",
+          `Based on this web search result, is RERA number ${reraNumber} verified as valid?\n\n"${text.slice(0, 2000)}"\n\nReturn JSON: {"verified": true|false, "summary": "one line summary"}`,
+          200
+        );
+        const jsonMatch = parseResult.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          if (parsed.verified) anyVerified = true;
+          results.push(`${reraNumber}: ${parsed.summary || (parsed.verified ? "Verified" : "Not verified")}`);
+        } else {
+          results.push(`${reraNumber}: Web search returned data but could not parse verification`);
+        }
+      } else {
+        results.push(`${reraNumber}: Could not verify (web search unavailable)`);
+      }
+    } catch {
+      results.push(`${reraNumber}: Verification check failed`);
+    }
+  }
+  if (numbers.length > 2) results.push(`...and ${numbers.length - 2} more RERA numbers found`);
+
+  return { found: true, numbers, verified: anyVerified, verificationDetails: results.join("; ") };
 }
 
 // ---------- Real Estate Specific Checks ----------
@@ -313,7 +388,29 @@ export async function runSiteAudit(url: string): Promise<AuditResult> {
     pageHtml = "";
   }
 
-  const realEstateChecks = await runRealEstateChecks(url, pageHtml);
+  // Run real estate AI checks + RERA verification in parallel
+  const [aiChecks, reraResult] = await Promise.all([
+    runRealEstateChecks(url, pageHtml),
+    pageHtml ? verifyRERA(pageHtml) : Promise.resolve({ found: false, numbers: [], verified: false, verificationDetails: "Page not fetched" }),
+  ]);
+
+  // Inject RERA verification into the checks — replaces the AI's vibes-based
+  // "RERA text appears on page" with actual web-search verification.
+  const realEstateChecks = aiChecks.filter((c) => !c.id.includes("rera"));
+  const hasIndianContent = aiChecks.some((c) => c.category === "Compliance") || reraResult.found;
+  if (hasIndianContent) {
+    realEstateChecks.unshift({
+      id: "rera_verification",
+      label: "RERA Registration Verification",
+      category: "Compliance",
+      passed: reraResult.found && reraResult.verified,
+      details: reraResult.found && reraResult.verified
+        ? `RERA found AND verified via rera.gov.in. ${reraResult.verificationDetails}`
+        : reraResult.found
+          ? `RERA numbers found on page but not verified: ${reraResult.numbers.join(", ")}. ${reraResult.verificationDetails}`
+          : "No RERA registration numbers found on the page.",
+    });
+  }
 
   // Generate AI-powered fix recommendations
   const fixes = await generateAuditAnalysis(

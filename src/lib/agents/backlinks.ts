@@ -1,4 +1,4 @@
-import { aiComplete } from "@/lib/ai";
+import { aiComplete, aiLight, queryForVisibility } from "@/lib/ai";
 import { getMozBacklinks } from "@/lib/integrations/mozBacklinks";
 
 // ---------- Types ----------
@@ -12,7 +12,7 @@ export interface BacklinkResult {
   linkVelocity: string;
   anchorTexts: AnchorText[];
   recommendations: BacklinkRecommendation[];
-  dataSource: "moz_api" | "ai_estimated";
+  dataSource: "moz_api" | "web_search" | "ai_estimated";
 }
 
 interface Referrer {
@@ -106,7 +106,72 @@ async function fetchSiteSignals(url: string): Promise<{
   };
 }
 
-// ---------- AI-Powered Backlink Analysis ----------
+// ---------- Web-Search Backlink Data ----------
+
+/**
+ * Priority 2: Use ChatGPT web search to find real DA/backlink data from
+ * Moz, Ahrefs, SEMrush, or any publicly available source. Falls back to
+ * null if web search doesn't fire or returns nothing useful.
+ */
+async function analyzeBacklinksViaWebSearch(url: string): Promise<BacklinkResult | null> {
+  try {
+    const domain = new URL(url).hostname;
+    const { text, source } = await queryForVisibility(
+      "openai",
+      `What is the domain authority, total backlinks, and referring domains for ${domain}? Check Moz, Ahrefs, SEMrush, or any available source. Also list the top referring domains if available.`
+    );
+
+    if (!text || (source !== "web_search" && source !== "grounded")) {
+      console.log(`backlinks web search: source=${source}, skipping (need real web data)`);
+      return null;
+    }
+
+    const parsePrompt = `Extract backlink data from this web search result. Return ONLY valid JSON, no other text.
+
+Web search result:
+"""
+${text.slice(0, 3000)}
+"""
+
+Return this exact JSON structure (use 0 for any values not found):
+{
+  "domainAuthority": <number 0-100>,
+  "totalBacklinks": <number>,
+  "referringDomains": <number>,
+  "topReferrers": [{"domain": "example.com", "authority": 0, "linkCount": 0, "type": "dofollow"}],
+  "linkVelocity": "growing|stable|declining|unknown"
+}
+
+Only include data that was actually mentioned in the search result. Do NOT invent or estimate values — use 0 if not found.`;
+
+    const parsed = await aiLight("Extract structured data from text. Return only valid JSON.", parsePrompt, 800);
+    const jsonMatch = parsed.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return null;
+
+    const data = JSON.parse(jsonMatch[0]);
+    if (!data.domainAuthority && !data.totalBacklinks && !data.referringDomains) {
+      console.log("backlinks web search: parsed data has all zeros, falling back");
+      return null;
+    }
+
+    return {
+      url,
+      domainAuthority: data.domainAuthority || 0,
+      totalBacklinks: data.totalBacklinks || 0,
+      referringDomains: data.referringDomains || 0,
+      topReferrers: Array.isArray(data.topReferrers) ? data.topReferrers : [],
+      linkVelocity: data.linkVelocity || "unknown",
+      anchorTexts: [],
+      recommendations: [],
+      dataSource: "web_search",
+    };
+  } catch (err) {
+    console.error("backlinks web search failed:", err instanceof Error ? err.message : err);
+    return null;
+  }
+}
+
+// ---------- AI-Powered Backlink Analysis (fallback estimation) ----------
 
 async function analyzeBacklinks(
   url: string,
@@ -190,13 +255,11 @@ For recommendations, give 6-8 actionable items specific to Indian residential re
 export async function runBacklinkAnalysis(url: string): Promise<BacklinkResult> {
   if (!url.startsWith("http")) url = `https://${url}`;
 
-  // Try real Moz data first
+  // Priority 1: Try real Moz API data
   const mozData = await getMozBacklinks(url);
   if (mozData) {
-    // We have real data — still generate AI recommendations based on it
     const signals = await fetchSiteSignals(url);
     const aiResult = await analyzeBacklinks(url, signals);
-
     return {
       url,
       domainAuthority: mozData.domainAuthority,
@@ -215,7 +278,20 @@ export async function runBacklinkAnalysis(url: string): Promise<BacklinkResult> 
     };
   }
 
-  // Fallback to AI estimation
+  // Priority 2: Try web search for real backlink data (ChatGPT + Moz/Ahrefs/SEMrush)
+  const webSearchResult = await analyzeBacklinksViaWebSearch(url);
+  if (webSearchResult) {
+    const signals = await fetchSiteSignals(url);
+    const aiResult = await analyzeBacklinks(url, signals);
+    return {
+      ...webSearchResult,
+      anchorTexts: aiResult.anchorTexts,
+      recommendations: aiResult.recommendations,
+      dataSource: "web_search" as const,
+    };
+  }
+
+  // Priority 3: Fallback to pure AI estimation
   const signals = await fetchSiteSignals(url);
   const result = await analyzeBacklinks(url, signals);
   return { ...result, dataSource: "ai_estimated" as const };

@@ -27,16 +27,41 @@ function renderContent(text: string) {
   ));
 }
 
+const CHAT_STORAGE_KEY = "cabbge_chat_history";
+const WELCOME: Message = {
+  role: "assistant",
+  content: `hi, i'm your cmo.\n\ni'll scan for your highest-leverage growth opportunities and keep your actions feed fresh.\n\npick any item from your actions feed or ask me what to tackle first.`,
+};
+
+function loadChatHistory(): Message[] {
+  if (typeof window === "undefined") return [WELCOME];
+  try {
+    const raw = localStorage.getItem(CHAT_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw) as Message[];
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch { /* ignore */ }
+  return [WELCOME];
+}
+
+function saveChatHistory(messages: Message[]) {
+  try {
+    // Keep last 50 messages to avoid localStorage bloat
+    localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(messages.slice(-50)));
+  } catch { /* ignore */ }
+}
+
 export function ChatPanel({ company, auditResult, aiVisResult }: Props) {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      role: "assistant",
-      content: `hi, i'm your cmo.\n\ni'll scan for your highest-leverage growth opportunities and keep your actions feed fresh.\n\npick any item from your actions feed or ask me what to tackle first.`,
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>(loadChatHistory);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Persist chat history on every change
+  useEffect(() => {
+    saveChatHistory(messages);
+  }, [messages]);
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;

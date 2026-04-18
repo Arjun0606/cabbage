@@ -31,7 +31,9 @@ function slugify(text: string): string {
 }
 
 function buildProjectLine(project: Project, fallbackWebsite: string): string {
-  const url = project.website || `${fallbackWebsite.replace(/\/$/, "")}/projects/${slugify(project.name)}`;
+  // Only use real URLs — fabricated /projects/slug paths almost certainly 404
+  // and broken links in llms.txt are worse than no links.
+  const url = project.website || fallbackWebsite;
   let line = `- [${project.name}](${url}): ${project.location}, ${project.configurations}, starting ${project.priceRange}`;
   if (project.reraNumber) {
     line += `. RERA: ${project.reraNumber}`;

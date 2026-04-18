@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runAIVisibility } from "@/lib/agents/aiVisibility";
 import { generateSearchQueries, type QueryWithMeta } from "@/lib/agents/localityEngine";
+import { enforceCredits } from "@/lib/credits";
 
 /**
  * Normalize whatever the client sent for `savedQueries` into QueryWithMeta[].
@@ -33,10 +34,19 @@ function normalizeSavedQueries(input: unknown, defaultCity: string): QueryWithMe
 
 export async function POST(req: NextRequest) {
   try {
-    const { websiteUrl, brand, projects, city, savedQueries, projectDetails, industry, brandContext } = await req.json();
+    const { websiteUrl, brand, projects, city, savedQueries, projectDetails, industry, brandContext, companyId } = await req.json();
 
     if (!brand) {
       return NextResponse.json({ error: "Brand name is required" }, { status: 400 });
+    }
+
+    // Server-side credit enforcement
+    const credits = await enforceCredits(companyId, "ai_visibility");
+    if (!credits.allowed) {
+      return NextResponse.json({
+        error: "Not enough credits",
+        hint: `AI visibility scan costs ${credits.cost} credits. You have ${credits.remaining} remaining this month.`,
+      }, { status: 402 });
     }
 
     const cityClean = typeof city === "string" ? city.trim() : "";

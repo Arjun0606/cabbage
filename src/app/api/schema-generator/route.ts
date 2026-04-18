@@ -107,18 +107,17 @@ function buildOrganizationSchema(input: SchemaInput) {
 
   if (input.website) {
     schema.url = input.website;
-    // sameAs — the single most important property for GEO.
-    // AI systems use sameAs to verify entities exist across platforms.
-    // Developers should replace these with their actual profile URLs.
+    // sameAs — important for entity verification, but ONLY include URLs
+    // that actually exist. Fabricated sameAs links are worse than none —
+    // they signal the company is impersonating profiles it doesn't own.
+    // We only include the about page (likely exists) and Google Maps search
+    // (always valid). Users should add their real social profiles manually.
     schema.sameAs = [
       `${input.website}/about`,
       `https://www.google.com/maps/search/${encodeURIComponent(input.developerName + " " + input.city)}`,
-      `https://www.linkedin.com/company/${input.developerName.toLowerCase().replace(/\s+/g, "-")}`,
-      `https://www.youtube.com/@${input.developerName.toLowerCase().replace(/\s+/g, "")}`,
-      `https://www.facebook.com/${input.developerName.toLowerCase().replace(/\s+/g, "")}`,
-      `https://www.99acres.com/search/builder/${input.developerName.toLowerCase().replace(/\s+/g, "-")}`,
-      `https://www.justdial.com/${input.city}/${input.developerName.replace(/\s+/g, "-")}`,
     ];
+    // Note: Add your actual LinkedIn, Facebook, YouTube, 99acres, and
+    // JustDial profile URLs to this array after generating.
   }
 
   return schema;

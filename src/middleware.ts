@@ -17,6 +17,12 @@ const RATE_LIMIT_MAX_API = 30;        // 30 API calls per minute
 const RATE_LIMIT_MAX_FREE = 5;        // 5 free reports per minute (prevent abuse)
 
 function getRateLimitKey(req: NextRequest): string {
+  // Prefer company-level keying (from cookie set during onboarding) over IP.
+  // This prevents shared-office users from hitting one limit, and makes
+  // VPN-switching users unable to bypass it.
+  const companyId = req.cookies.get("cabbge_company_id")?.value;
+  if (companyId && companyId.length > 5) return `co:${companyId}`;
+
   const forwarded = req.headers.get("x-forwarded-for");
   const ip = forwarded?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || "unknown";
   return ip;

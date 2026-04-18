@@ -28,10 +28,14 @@ export async function GET(req: NextRequest) {
     const supabase = getServiceClient();
 
     // Get all companies with their projects
+    // Limit to 50 companies per cron run to avoid memory + timeout issues.
+    // If >50 companies exist, they'll be processed over multiple cron runs
+    // via the ascending order (oldest first, newest last).
     const { data: companies, error } = await supabase
       .from("companies")
       .select("id, name, website, city, description, product_info, brand_voice, brand_values, target_audience, marketing_strategy")
-      .order("created_at", { ascending: true });
+      .order("created_at", { ascending: true })
+      .limit(50);
 
     if (error) throw error;
     if (!companies?.length) {
