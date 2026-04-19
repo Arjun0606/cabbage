@@ -9,6 +9,7 @@ import { ChatPanel } from "@/components/dashboard/ChatPanel";
 import { TerminalHeader } from "@/components/dashboard/TerminalHeader";
 import { AgentStatusBar } from "@/components/dashboard/AgentStatusBar";
 import { GSCPanel } from "@/components/dashboard/GSCPanel";
+import { SiteSwitcher } from "@/components/dashboard/SiteSwitcher";
 import { recordScan, getAllTrends, type TrendData } from "@/lib/scanHistory";
 import { recordGEOScan, getGEOProgress, getSavedQueries, getSavedQueriesFingerprint, saveQueries, trackArticleGenerated, markArticlePublished, type GEOProgress } from "@/lib/geoHistory";
 
@@ -108,6 +109,17 @@ export default function DashboardPage() {
 
   const [activeTab, setActiveTab] = useState("health");
 
+  // Multi-site support: which site is the dashboard currently focused on?
+  // Each site (corporate + project microsites + NRI sites) has its own
+  // scan history, audit results, and GEO progress tracked independently.
+  // Defaults to the primary company website.
+  const [activeSiteUrl, setActiveSiteUrl] = useState<string>("");
+  // Keep activeSiteUrl in sync with company.website when company first loads,
+  // unless user has manually switched to a microsite.
+  useEffect(() => {
+    if (!activeSiteUrl && company.website) setActiveSiteUrl(company.website);
+  }, [company.website, activeSiteUrl]);
+
   const [isAuditing, setIsAuditing] = useState(false);
   const [isCheckingAI, setIsCheckingAI] = useState(false);
   const [isCheckingBacklinks, setIsCheckingBacklinks] = useState(false);
@@ -159,7 +171,7 @@ export default function DashboardPage() {
           localData = JSON.parse(saved);
           setCompany(localData);
           setTrends(getAllTrends(localData.website));
-          setGeoProgress(getGEOProgress(localData.name));
+          setGeoProgress(getGEOProgress(localData.name, localData.website));
         }
 
         // Then try to sync from Supabase (if configured)
@@ -287,7 +299,7 @@ export default function DashboardPage() {
             }, 1500);
           } else {
             // FRESHNESS CHECK: prompt re-scan if data is stale
-            const progress = getGEOProgress(localData.name);
+            const progress = getGEOProgress(localData.name, localData.website);
             if (progress.currentScan) {
               const daysSince = Math.floor((Date.now() - new Date(progress.currentScan.timestamp).getTime()) / (1000 * 60 * 60 * 24));
               if (daysSince >= 14) {
@@ -439,7 +451,7 @@ export default function DashboardPage() {
       // producing global-brand recommendations instead of city-specific results.
       addLog(`> Payload: brand="${company.name}" city="${company.city || "(EMPTY!)"}" projects=${company.projects.length}`);
       const res = await fetch("/api/ai-visibility", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
-        websiteUrl: company.website, brand: company.name, city: company.city, savedQueries: existingQueries,
+        websiteUrl: activeSiteUrl || company.website, brand: company.name, city: company.city, savedQueries: existingQueries,
         projects: company.projects.map(p => p.name),
         projectDetails: company.projects.map(p => ({ name: p.name, location: p.location, configurations: p.configurations, priceRange: p.priceRange })),
         industry: (company as any).industry,
@@ -517,8 +529,8 @@ export default function DashboardPage() {
       }
       // Record GEO scan for progress tracking
       if (data.queryResults?.length) {
-        recordGEOScan(company.name, company.city, data.scores, data.queryResults);
-        const updatedProgress = getGEOProgress(company.name);
+        recordGEOScan(company.name, company.city, data.scores, data.queryResults, activeSiteUrl || company.website);
+        const updatedProgress = getGEOProgress(company.name, activeSiteUrl || company.website);
         setGeoProgress(updatedProgress);
         if (updatedProgress.newlyFound.length > 0) {
           addLog(`> GEO Progress: +${updatedProgress.newlyFound.length} new queries found since last scan`);
@@ -1054,9 +1066,14 @@ export default function DashboardPage() {
   };
 
   const runFullScan = async () => {
-    const url = company.website;
+    // Multi-site: scan whichever site is currently active in the switcher,
+    // not just the primary corporate site. Falls back to primary if unset.
+    const url = activeSiteUrl || company.website;
     if (!url) { addLog("> Set your website URL first"); return; }
-    addLog("> Full scan started...");
+    const siteLabel = url === company.website
+      ? "Main site"
+      : (company.sites || []).find((s) => s.url === url)?.label || url;
+    addLog(`> Full scan started on ${siteLabel} (${url})...`);
     addLog("> Technical SEO scan...");
     addLog("> Analyzing backlinks...");
     addLog("> Checking AI visibility...");
@@ -1130,7 +1147,32 @@ export default function DashboardPage() {
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Terminal + Agent bar */}
-        <TerminalHeader logs={terminalLogs} onRunFullScan={runFullScan} onClearAndRescan={clearAndRescan} hasWebsite={!!company.website} />
+        <TerminalHeader
+          logs={terminalLogs}
+          onRunFullScan={runFullScan}
+          onClearAndRescan={clearAndRescan}
+          hasWebsite={!!company.website}
+          leftSlot={
+            <SiteSwitcher
+              primarySite={company.website ? { url: company.website, label: "Main site" } : undefined}
+              additionalSites={company.sites || []}
+              activeSiteUrl={activeSiteUrl || company.website}
+              onSwitch={(url) => {
+                setActiveSiteUrl(url);
+                // Clear in-memory scan state so the new site starts fresh.
+                // Persistent history per site is preserved in localStorage.
+                setAuditResult(null);
+                setAiVisResult(null);
+                setTechnicalResult(null);
+                setBacklinkResult(null);
+                setGeoProgress(getGEOProgress(company.name, url));
+                setTrends(getAllTrends(url));
+                const label = url === company.website ? "Main site" : (company.sites || []).find((s) => s.url === url)?.label || url;
+                addLog(`> Switched to ${label} (${url})`);
+              }}
+            />
+          }
+        />
         <AgentStatusBar
           isAuditing={isAuditing} isCheckingAI={isCheckingAI} isCheckingBacklinks={isCheckingBacklinks}
           isCheckingTechnical={isCheckingTechnical} isCheckingCompetitors={isCheckingCompetitors}

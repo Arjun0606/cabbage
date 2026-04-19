@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { ChevronUp, ChevronDown, Zap, Settings, RotateCcw } from "lucide-react";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, type ReactNode } from "react";
 import Link from "next/link";
 
 interface Props {
@@ -10,9 +10,11 @@ interface Props {
   onRunFullScan?: () => void;
   onClearAndRescan?: () => void;
   hasWebsite?: boolean;
+  /** Optional left-side slot — used for the SiteSwitcher so it shares the header row */
+  leftSlot?: ReactNode;
 }
 
-export function TerminalHeader({ logs, onRunFullScan, onClearAndRescan, hasWebsite }: Props) {
+export function TerminalHeader({ logs, onRunFullScan, onClearAndRescan, hasWebsite, leftSlot }: Props) {
   const [expanded, setExpanded] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -26,11 +28,14 @@ export function TerminalHeader({ logs, onRunFullScan, onClearAndRescan, hasWebsi
     <div className="bg-[#0c0c0d] border-b border-white/[0.06]">
       {/* Header bar */}
       <div className="flex items-center justify-between px-5 py-2.5">
-        <div className="flex items-center gap-2.5">
-          <div className="w-2 h-2 rounded-full bg-[#7CB342] animate-pulse shadow-[0_0_8px_rgba(124,179,66,0.5)]" />
-          <span className="text-[13px] font-mono text-zinc-300 tracking-tight">
-            Cabbge Terminal &bull; Running Daily
-          </span>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-2 h-2 rounded-full bg-[#7CB342] animate-pulse shadow-[0_0_8px_rgba(124,179,66,0.5)]" />
+            <span className="text-[13px] font-mono text-zinc-300 tracking-tight">
+              Cabbge Terminal &bull; Running Daily
+            </span>
+          </div>
+          {leftSlot}
         </div>
         <div className="flex items-center gap-2">
           <Link href="/settings">

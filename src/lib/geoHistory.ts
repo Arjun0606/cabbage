@@ -29,6 +29,7 @@ export interface GEOScanRecord {
   timestamp: string;
   brand: string;
   city: string;
+  siteUrl?: string;  // Which site this scan was run against (for multi-site support)
   scores: {
     overall: number;
     readiness: number;
@@ -281,7 +282,8 @@ export function recordGEOScan(
   brand: string,
   city: string,
   scores: GEOScanRecord["scores"],
-  queryResults: any[]  // Raw queryResults from AI visibility API
+  queryResults: any[],  // Raw queryResults from AI visibility API
+  siteUrl?: string       // Optional — which site this scan targeted (multi-site support)
 ): GEOScanRecord {
   const queries: GEOQuerySnapshot[] = queryResults.map((q) => {
     // Prefer metadata embedded in the queryResult (new path).
@@ -330,6 +332,7 @@ export function recordGEOScan(
     timestamp: new Date().toISOString(),
     brand,
     city,
+    siteUrl,
     scores,
     totalQueries: queries.length,
     mentionedCount,
@@ -345,9 +348,18 @@ export function recordGEOScan(
 
 // ---------- Get progress ----------
 
-export function getGEOProgress(brand?: string): GEOProgress {
+export function getGEOProgress(brand?: string, siteUrl?: string): GEOProgress {
+  // Normalize siteUrl for comparison (strip trailing slash)
+  const normalizedSiteUrl = siteUrl?.replace(/\/$/, "").toLowerCase();
   const allScans = getGEOHistory()
     .filter((r) => !brand || r.brand.toLowerCase() === brand.toLowerCase())
+    // If siteUrl is provided, only include scans for that site.
+    // Legacy scans (no siteUrl set) fall through so history isn't lost.
+    .filter((r) => {
+      if (!normalizedSiteUrl) return true;
+      if (!r.siteUrl) return true; // legacy — include so existing users see history
+      return r.siteUrl.replace(/\/$/, "").toLowerCase() === normalizedSiteUrl;
+    })
     .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
   if (allScans.length === 0) {
