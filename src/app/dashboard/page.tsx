@@ -92,6 +92,8 @@ export default function DashboardPage() {
   const [gscData, setGscData] = useState<any>(null);
   const [siteCrawlResult, setSiteCrawlResult] = useState<any>(null);
   const [isCrawling, setIsCrawling] = useState(false);
+  const [keywordResearchResult, setKeywordResearchResult] = useState<any>(null);
+  const [isResearchingKeywords, setIsResearchingKeywords] = useState(false);
   const [trends, setTrends] = useState<Record<string, TrendData>>({
     audit: { current: 0, previous: null, change: 0, direction: "new", history: [] },
     technical: { current: 0, previous: null, change: 0, direction: "new", history: [] },
@@ -397,6 +399,34 @@ export default function DashboardPage() {
       }
     } else {
       addLog(`> ${label}: ${newScore}/100`);
+    }
+  };
+
+  /**
+   * Keyword research: expand a seed keyword into 20 related queries
+   * with real search volume, difficulty, CPC, and current ranking.
+   * Uses GSC data + ChatGPT web_search to pull real metrics.
+   */
+  const runKeywordResearch = async (seed: string) => {
+    if (!company.city) { addLog("> Set your city first"); return; }
+    if (!spendCredits("prompt_volumes")) return;
+    setIsResearchingKeywords(true);
+    addLog(`> Researching keywords around "${seed}" in ${company.city}...`);
+    try {
+      const res = await fetch("/api/keyword-research", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ seed, city: company.city, gscData, companyId: (company as any)._companyId }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setKeywordResearchResult(data);
+      const highOpp = data.keywords?.filter((k: any) => k.opportunity === "high").length || 0;
+      addLog(`> Found ${data.totalKeywords} keywords — ${highOpp} high-opportunity ${highOpp === 1 ? "target" : "targets"}`);
+    } catch (err) {
+      addLog(`> Error: ${err instanceof Error ? err.message : "Keyword research failed"}`);
+    } finally {
+      setIsResearchingKeywords(false);
     }
   };
 
@@ -1325,6 +1355,9 @@ export default function DashboardPage() {
               siteCrawlResult={siteCrawlResult}
               isCrawling={isCrawling}
               onRunSiteCrawl={runSiteCrawl}
+              keywordResearchResult={keywordResearchResult}
+              isResearchingKeywords={isResearchingKeywords}
+              onRunKeywordResearch={runKeywordResearch}
             />
           </div>
 

@@ -40,6 +40,7 @@ import { ExecutionChecklist } from "./ExecutionChecklist";
 import { PublishButton } from "./PublishButton";
 import { GSCPanel } from "./GSCPanel";
 import { SiteCrawlPanel } from "./SiteCrawlPanel";
+import { KeywordResearchPanel } from "./KeywordResearchPanel";
 import { markArticlePublished } from "@/lib/geoHistory";
 
 interface Props {
@@ -144,6 +145,10 @@ interface Props {
   siteCrawlResult?: any;
   isCrawling?: boolean;
   onRunSiteCrawl?: () => void;
+  // Keyword research
+  keywordResearchResult?: any;
+  isResearchingKeywords?: boolean;
+  onRunKeywordResearch?: (seed: string) => void;
 }
 
 function ScoreCircle({ score, label, size = "md" }: { score: number; label: string; size?: "sm" | "md" }) {
@@ -249,6 +254,7 @@ export function AnalyticsPanel({
   onRunGbpPosts, gbpResult, isGeneratingGbp,
   gscData,
   siteCrawlResult, isCrawling, onRunSiteCrawl,
+  keywordResearchResult, isResearchingKeywords, onRunKeywordResearch,
 }: Props) {
   const cost = (action: string) => creditCosts[action] || 0;
   const [auditUrl, setAuditUrl] = useState(websiteUrl || "");
@@ -331,6 +337,17 @@ export function AnalyticsPanel({
           ) : onRunSiteCrawl ? (
             <SiteCrawlPanel data={null} onRunCrawl={onRunSiteCrawl} />
           ) : null}
+
+          {/* Keyword research — expand seed into volume-aware opportunities */}
+          {onRunKeywordResearch && (
+            <KeywordResearchPanel
+              city={city}
+              data={keywordResearchResult}
+              isLoading={isResearchingKeywords}
+              onSearch={onRunKeywordResearch}
+              onFixKeyword={onGeoFixQuery}
+            />
+          )}
 
           {/* Execution Checklist — the thing that makes this an execution engine */}
           <ExecutionChecklist
