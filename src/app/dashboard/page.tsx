@@ -96,6 +96,8 @@ export default function DashboardPage() {
   const [isResearchingKeywords, setIsResearchingKeywords] = useState(false);
   const [internalLinkingResult, setInternalLinkingResult] = useState<any>(null);
   const [isAnalyzingLinks, setIsAnalyzingLinks] = useState(false);
+  const [contentDecayReport, setContentDecayReport] = useState<any>(null);
+  const [snapshotCount, setSnapshotCount] = useState(0);
   const [trends, setTrends] = useState<Record<string, TrendData>>({
     audit: { current: 0, previous: null, change: 0, direction: "new", history: [] },
     technical: { current: 0, previous: null, change: 0, direction: "new", history: [] },
@@ -360,6 +362,19 @@ export default function DashboardPage() {
         if (data.topQueries) {
           setGscData(data);
           addLog(`> GSC: ${data.totalClicks?.toLocaleString()} clicks, ${data.totalImpressions?.toLocaleString()} impressions (last 30d)`);
+          // Record snapshot for content decay detection and run analysis
+          try {
+            const { recordGSCSnapshot, detectContentDecay, getSnapshotCount } = await import("@/lib/contentDecay");
+            if (data.topPages?.length) {
+              recordGSCSnapshot(websiteUrl, data.topPages);
+              const report = detectContentDecay(websiteUrl);
+              setContentDecayReport(report);
+              setSnapshotCount(getSnapshotCount(websiteUrl));
+              if (report.decayingPages.length > 0) {
+                addLog(`> Content decay: ${report.decayingPages.length} page${report.decayingPages.length === 1 ? "" : "s"} dropped in rankings`);
+              }
+            }
+          } catch { /* non-fatal */ }
         }
       } catch { /* GSC not connected — silent */ }
     })();
@@ -1393,6 +1408,8 @@ export default function DashboardPage() {
               internalLinkingResult={internalLinkingResult}
               isAnalyzingLinks={isAnalyzingLinks}
               onRunInternalLinking={runInternalLinking}
+              contentDecayReport={contentDecayReport}
+              snapshotCount={snapshotCount}
             />
           </div>
 

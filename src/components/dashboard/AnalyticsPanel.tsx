@@ -42,6 +42,8 @@ import { GSCPanel } from "./GSCPanel";
 import { SiteCrawlPanel } from "./SiteCrawlPanel";
 import { KeywordResearchPanel } from "./KeywordResearchPanel";
 import { InternalLinkingPanel } from "./InternalLinkingPanel";
+import { ContentDecayPanel } from "./ContentDecayPanel";
+import { SchemaDeployPanel } from "./SchemaDeployPanel";
 import { markArticlePublished } from "@/lib/geoHistory";
 
 interface Props {
@@ -154,6 +156,9 @@ interface Props {
   internalLinkingResult?: any;
   isAnalyzingLinks?: boolean;
   onRunInternalLinking?: () => void;
+  // Content decay (from GSC history)
+  contentDecayReport?: any;
+  snapshotCount?: number;
 }
 
 function ScoreCircle({ score, label, size = "md" }: { score: number; label: string; size?: "sm" | "md" }) {
@@ -261,6 +266,7 @@ export function AnalyticsPanel({
   siteCrawlResult, isCrawling, onRunSiteCrawl,
   keywordResearchResult, isResearchingKeywords, onRunKeywordResearch,
   internalLinkingResult, isAnalyzingLinks, onRunInternalLinking,
+  contentDecayReport, snapshotCount = 0,
 }: Props) {
   const cost = (action: string) => creditCosts[action] || 0;
   const [auditUrl, setAuditUrl] = useState(websiteUrl || "");
@@ -364,6 +370,13 @@ export function AnalyticsPanel({
               onAnalyze={onRunInternalLinking}
             />
           )}
+
+          {/* Content decay — tracks ranking drops from GSC history */}
+          <ContentDecayPanel
+            report={contentDecayReport || null}
+            snapshotCount={snapshotCount}
+            onRefreshPage={onGeoFixQuery ? (url) => onGeoFixQuery(`refresh content for ${url}`) : undefined}
+          />
 
           {/* Execution Checklist — the thing that makes this an execution engine */}
           <ExecutionChecklist
@@ -2354,6 +2367,13 @@ export function AnalyticsPanel({
 
               {schemaResult ? (
                 <>
+                  {/* Auto-deploy — saves schema to Cabbge, serves via public endpoint */}
+                  <SchemaDeployPanel
+                    defaultPageUrl={websiteUrl}
+                    schemaJson={(schemaResult.schemas && (schemaResult.schemas.realEstate || schemaResult.schemas.organization || Object.values(schemaResult.schemas)[0])) as Record<string, unknown> || null}
+                    schemaType={Object.keys(schemaResult.schemas || {})[0] || "Schema"}
+                  />
+
                   <SectionCard>
                     <CardContent className="p-5">
                       <div className="flex items-center justify-between mb-3">
