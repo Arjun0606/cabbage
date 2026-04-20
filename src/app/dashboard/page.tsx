@@ -94,6 +94,8 @@ export default function DashboardPage() {
   const [isCrawling, setIsCrawling] = useState(false);
   const [keywordResearchResult, setKeywordResearchResult] = useState<any>(null);
   const [isResearchingKeywords, setIsResearchingKeywords] = useState(false);
+  const [internalLinkingResult, setInternalLinkingResult] = useState<any>(null);
+  const [isAnalyzingLinks, setIsAnalyzingLinks] = useState(false);
   const [trends, setTrends] = useState<Record<string, TrendData>>({
     audit: { current: 0, previous: null, change: 0, direction: "new", history: [] },
     technical: { current: 0, previous: null, change: 0, direction: "new", history: [] },
@@ -399,6 +401,36 @@ export default function DashboardPage() {
       }
     } else {
       addLog(`> ${label}: ${newScore}/100`);
+    }
+  };
+
+  /**
+   * Internal linking analysis — needs a crawl to already exist.
+   * Finds orphan pages, hub pages, and suggests specific link insertions
+   * between topically-related pages. Uses Jaccard similarity on titles
+   * — no paid APIs needed.
+   */
+  const runInternalLinking = async () => {
+    if (!siteCrawlResult) {
+      addLog("> Run Site Crawl first — internal linking needs crawl data");
+      return;
+    }
+    setIsAnalyzingLinks(true);
+    addLog("> Analyzing internal linking graph...");
+    try {
+      const res = await fetch("/api/internal-linking", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ crawl: siteCrawlResult }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setInternalLinkingResult(data);
+      addLog(`> ${data.suggestions.length} link suggestions, ${data.orphanPages.length} orphan pages, ${data.topicalClusters.length} topic clusters`);
+    } catch (err) {
+      addLog(`> Error: ${err instanceof Error ? err.message : "Linking analysis failed"}`);
+    } finally {
+      setIsAnalyzingLinks(false);
     }
   };
 
@@ -1358,6 +1390,9 @@ export default function DashboardPage() {
               keywordResearchResult={keywordResearchResult}
               isResearchingKeywords={isResearchingKeywords}
               onRunKeywordResearch={runKeywordResearch}
+              internalLinkingResult={internalLinkingResult}
+              isAnalyzingLinks={isAnalyzingLinks}
+              onRunInternalLinking={runInternalLinking}
             />
           </div>
 

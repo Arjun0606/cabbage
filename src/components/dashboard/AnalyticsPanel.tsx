@@ -41,6 +41,7 @@ import { PublishButton } from "./PublishButton";
 import { GSCPanel } from "./GSCPanel";
 import { SiteCrawlPanel } from "./SiteCrawlPanel";
 import { KeywordResearchPanel } from "./KeywordResearchPanel";
+import { InternalLinkingPanel } from "./InternalLinkingPanel";
 import { markArticlePublished } from "@/lib/geoHistory";
 
 interface Props {
@@ -149,6 +150,10 @@ interface Props {
   keywordResearchResult?: any;
   isResearchingKeywords?: boolean;
   onRunKeywordResearch?: (seed: string) => void;
+  // Internal linking
+  internalLinkingResult?: any;
+  isAnalyzingLinks?: boolean;
+  onRunInternalLinking?: () => void;
 }
 
 function ScoreCircle({ score, label, size = "md" }: { score: number; label: string; size?: "sm" | "md" }) {
@@ -255,6 +260,7 @@ export function AnalyticsPanel({
   gscData,
   siteCrawlResult, isCrawling, onRunSiteCrawl,
   keywordResearchResult, isResearchingKeywords, onRunKeywordResearch,
+  internalLinkingResult, isAnalyzingLinks, onRunInternalLinking,
 }: Props) {
   const cost = (action: string) => creditCosts[action] || 0;
   const [auditUrl, setAuditUrl] = useState(websiteUrl || "");
@@ -346,6 +352,16 @@ export function AnalyticsPanel({
               isLoading={isResearchingKeywords}
               onSearch={onRunKeywordResearch}
               onFixKeyword={onGeoFixQuery}
+            />
+          )}
+
+          {/* Internal linking graph — uses the crawl to find link opportunities */}
+          {onRunInternalLinking && (
+            <InternalLinkingPanel
+              data={internalLinkingResult}
+              isLoading={isAnalyzingLinks}
+              hasCrawl={!!siteCrawlResult}
+              onAnalyze={onRunInternalLinking}
             />
           )}
 
