@@ -39,6 +39,7 @@ import { GEOProgressPanel } from "./GEOProgressPanel";
 import { ExecutionChecklist } from "./ExecutionChecklist";
 import { PublishButton } from "./PublishButton";
 import { GSCPanel } from "./GSCPanel";
+import { SiteCrawlPanel } from "./SiteCrawlPanel";
 import { markArticlePublished } from "@/lib/geoHistory";
 
 interface Props {
@@ -139,6 +140,10 @@ interface Props {
   isGeneratingGbp?: boolean;
   // Google Search Console
   gscData?: any;
+  // Full-site crawler
+  siteCrawlResult?: any;
+  isCrawling?: boolean;
+  onRunSiteCrawl?: () => void;
 }
 
 function ScoreCircle({ score, label, size = "md" }: { score: number; label: string; size?: "sm" | "md" }) {
@@ -243,6 +248,7 @@ export function AnalyticsPanel({
   onRunLocalityDomination, localityDominationResult, isGeneratingDomination,
   onRunGbpPosts, gbpResult, isGeneratingGbp,
   gscData,
+  siteCrawlResult, isCrawling, onRunSiteCrawl,
 }: Props) {
   const cost = (action: string) => creditCosts[action] || 0;
   const [auditUrl, setAuditUrl] = useState(websiteUrl || "");
@@ -319,6 +325,13 @@ export function AnalyticsPanel({
         {/* -------- HEALTH TAB (Health + Technical + Checks) -------- */}
         {/* ================================================================ */}
         <TabsContent value="health" className="space-y-4">
+          {/* Full-site crawler — visits every page, per-URL audit */}
+          {onRunSiteCrawl && (siteCrawlResult || isCrawling) ? (
+            <SiteCrawlPanel data={siteCrawlResult} isRunning={isCrawling} onRunCrawl={onRunSiteCrawl} />
+          ) : onRunSiteCrawl ? (
+            <SiteCrawlPanel data={null} onRunCrawl={onRunSiteCrawl} />
+          ) : null}
+
           {/* Execution Checklist — the thing that makes this an execution engine */}
           <ExecutionChecklist
             companyName={companyName}

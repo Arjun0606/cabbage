@@ -90,6 +90,8 @@ export default function DashboardPage() {
   const [isCheckingBrand, setIsCheckingBrand] = useState(false);
   const [isCheckingCitability, setIsCheckingCitability] = useState(false);
   const [gscData, setGscData] = useState<any>(null);
+  const [siteCrawlResult, setSiteCrawlResult] = useState<any>(null);
+  const [isCrawling, setIsCrawling] = useState(false);
   const [trends, setTrends] = useState<Record<string, TrendData>>({
     audit: { current: 0, previous: null, change: 0, direction: "new", history: [] },
     technical: { current: 0, previous: null, change: 0, direction: "new", history: [] },
@@ -395,6 +397,44 @@ export default function DashboardPage() {
       }
     } else {
       addLog(`> ${label}: ${newScore}/100`);
+    }
+  };
+
+  /**
+   * Full-site crawler: visits every page, runs per-URL audit.
+   * Much deeper than runAudit (single-page). Produces URL inventory
+   * with issues, orphan detection, duplicate titles, thin content, etc.
+   */
+  const runSiteCrawl = async () => {
+    const url = activeSiteUrl || company.website;
+    if (!url) { addLog("> Set your website URL first"); return; }
+    if (!spendCredits("audit")) return;
+    setIsCrawling(true);
+    addLog(`> Crawling ${url} — this takes 30-90 seconds...`);
+    try {
+      const res = await fetch("/api/site-crawl", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url, maxPages: 50 }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setSiteCrawlResult(data);
+      addLog(`> Crawled ${data.totalPages} pages in ${(data.durationMs / 1000).toFixed(1)}s`);
+      const issueCount = (data.pages || []).filter((p: any) => p.issues?.length > 0).length;
+      if (issueCount > 0) {
+        addLog(`> ${issueCount}/${data.totalPages} pages have issues. Check the Site Audit tab.`);
+      } else {
+        addLog(`> Clean crawl — no issues detected on ${data.totalPages} pages`);
+      }
+      // Persist per-site in localStorage so switching sites loads the right crawl
+      try {
+        localStorage.setItem(`cabbge_crawl_${url}`, JSON.stringify(data));
+      } catch { /* quota — skip */ }
+    } catch (err) {
+      addLog(`> Error: ${err instanceof Error ? err.message : "Crawl failed"}`);
+    } finally {
+      setIsCrawling(false);
     }
   };
 
@@ -1167,6 +1207,11 @@ export default function DashboardPage() {
                 setBacklinkResult(null);
                 setGeoProgress(getGEOProgress(company.name, url));
                 setTrends(getAllTrends(url));
+                // Load this site's site-crawl from localStorage if we have one
+                try {
+                  const savedCrawl = localStorage.getItem(`cabbge_crawl_${url}`);
+                  setSiteCrawlResult(savedCrawl ? JSON.parse(savedCrawl) : null);
+                } catch { setSiteCrawlResult(null); }
                 const label = url === company.website ? "Main site" : (company.sites || []).find((s) => s.url === url)?.label || url;
                 addLog(`> Switched to ${label} (${url})`);
               }}
@@ -1277,6 +1322,9 @@ export default function DashboardPage() {
               gbpResult={gbpResult}
               isGeneratingGbp={isGeneratingGbp}
               gscData={gscData}
+              siteCrawlResult={siteCrawlResult}
+              isCrawling={isCrawling}
+              onRunSiteCrawl={runSiteCrawl}
             />
           </div>
 
