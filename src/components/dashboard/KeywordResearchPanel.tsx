@@ -97,8 +97,7 @@ export function KeywordResearchPanel({ city, data, isLoading, onSearch, onFixKey
             </button>
           </div>
           <p className="text-[11px] text-zinc-500">
-            Enter a seed keyword — we&apos;ll expand it into 20 related queries with real search volume, difficulty, and CPC.
-            GSC-connected sites also show current impressions and ranking.
+            We&apos;ve already researched keywords around your primary project automatically. Enter a different seed above to explore another angle — we&apos;ll expand it into 20 related queries with real search volume, difficulty, and CPC.
           </p>
         </CardContent>
       </Card>
@@ -219,15 +218,15 @@ export function KeywordResearchPanel({ city, data, isLoading, onSearch, onFixKey
         </>
       )}
 
-      {/* Empty state */}
+      {/* Empty state — only shown if we don't have a city yet (auto-seed can't fire) */}
       {!data && !isLoading && (
         <Card className="bg-zinc-900/60 border-white/[0.06] rounded-xl">
           <CardContent className="p-8 text-center">
             <Target size={28} className="text-zinc-500 mx-auto mb-3" />
-            <h3 className="text-[14px] font-semibold mb-1">Find your best content opportunities</h3>
+            <h3 className="text-[14px] font-semibold mb-1">Keyword research runs automatically</h3>
             <p className="text-[12px] text-zinc-500 max-w-md mx-auto">
-              Enter a seed keyword (e.g. &quot;3BHK Gachibowli&quot;) to discover 20 related searches with real volume and difficulty.
-              High-opportunity keywords = high volume + low competition.
+              Once your city and projects are set, Cabbge auto-researches keywords around your primary project.
+              Or enter any seed above to explore a different angle.
             </p>
           </CardContent>
         </Card>

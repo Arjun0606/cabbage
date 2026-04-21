@@ -474,11 +474,14 @@ export default function DashboardPage() {
    * with real search volume, difficulty, CPC, and current ranking.
    * Uses GSC data + ChatGPT web_search to pull real metrics.
    */
-  const runKeywordResearch = async (seed: string) => {
-    if (!company.city) { addLog("> Set your city first"); return; }
+  const runKeywordResearch = async (seed: string, silent: boolean = false) => {
+    if (!company.city) {
+      if (!silent) addLog("> Set your city first");
+      return;
+    }
     if (!spendCredits("prompt_volumes")) return;
     setIsResearchingKeywords(true);
-    addLog(`> Researching keywords around "${seed}" in ${company.city}...`);
+    if (!silent) addLog(`> Researching keywords around "${seed}" in ${company.city}...`);
     try {
       const res = await fetch("/api/keyword-research", {
         method: "POST",
@@ -489,13 +492,46 @@ export default function DashboardPage() {
       if (data.error) throw new Error(data.error);
       setKeywordResearchResult(data);
       const highOpp = data.keywords?.filter((k: any) => k.opportunity === "high").length || 0;
-      addLog(`> Found ${data.totalKeywords} keywords — ${highOpp} high-opportunity ${highOpp === 1 ? "target" : "targets"}`);
+      if (!silent) addLog(`> Found ${data.totalKeywords} keywords — ${highOpp} high-opportunity ${highOpp === 1 ? "target" : "targets"}`);
     } catch (err) {
-      addLog(`> Error: ${err instanceof Error ? err.message : "Keyword research failed"}`);
+      if (!silent) addLog(`> Error: ${err instanceof Error ? err.message : "Keyword research failed"}`);
     } finally {
       setIsResearchingKeywords(false);
     }
   };
+
+  /**
+   * Derive a smart seed from the company data so keyword research can
+   * auto-fire without user input. Priority:
+   *  1. Top project's primary config in its locality ("3BHK in Gachibowli")
+   *  2. Top project's locality ("apartments in Gachibowli")
+   *  3. Company city fallback ("real estate developers in Hyderabad")
+   */
+  const deriveSmartSeed = (): string | null => {
+    if (!company.city) return null;
+    const firstProject = (company.projects || [])[0] as any;
+    if (firstProject?.location && firstProject?.configurations) {
+      // Pick the first config token (2BHK / 3BHK / Villa / etc.)
+      const firstConfig = firstProject.configurations.split(/[,/]/)[0].trim();
+      if (firstConfig) return `${firstConfig} in ${firstProject.location}`;
+    }
+    if (firstProject?.location) {
+      return `apartments in ${firstProject.location}`;
+    }
+    return `real estate developers in ${company.city}`;
+  };
+
+  // Auto-fire keyword research once per session as soon as we have a city.
+  // Silent mode — no terminal logs — since the user didn't explicitly click anything.
+  useEffect(() => {
+    if (!company.city || !company.name) return;
+    if (keywordResearchResult || isResearchingKeywords) return;
+    const seed = deriveSmartSeed();
+    if (!seed) return;
+    // Fire and forget — the panel shows its own loading state
+    runKeywordResearch(seed, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [company.city, company.name, company.projects]);
 
   /**
    * Full-site crawler: visits every page, runs per-URL audit.
