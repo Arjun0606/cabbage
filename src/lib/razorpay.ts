@@ -1,16 +1,14 @@
 /**
  * Razorpay client — server-side only.
  *
- * Subscription plans are created in the Razorpay dashboard.
- * Plan IDs are stored as env vars so we can swap pricing without code changes.
+ * Single subscription plan (Cabbge Base). Overage via credit top-ups,
+ * created as one-off Razorpay orders rather than subscription items.
  *
  * Required env vars:
  *   RAZORPAY_KEY_ID            (public — also used as NEXT_PUBLIC_RAZORPAY_KEY_ID for checkout)
  *   RAZORPAY_KEY_SECRET        (server-side)
  *   RAZORPAY_WEBHOOK_SECRET    (for verifying webhook signatures)
- *   RAZORPAY_PLAN_STARTER      (plan_xxxxx — ₹7,500/mo)
- *   RAZORPAY_PLAN_GROWTH       (plan_xxxxx — ₹24,000/mo)
- *   RAZORPAY_PLAN_ENTERPRISE   (plan_xxxxx — custom)
+ *   RAZORPAY_PLAN_BASE         (plan_xxxxx — ₹50,000/mo base subscription)
  */
 
 import crypto from "crypto";
@@ -34,12 +32,36 @@ function authHeader(): string {
   return "Basic " + Buffer.from(`${keyId}:${secret}`).toString("base64");
 }
 
-export function getPlanId(plan: "starter" | "growth" | "enterprise"): string {
-  const env = plan === "starter" ? process.env.RAZORPAY_PLAN_STARTER
-    : plan === "growth" ? process.env.RAZORPAY_PLAN_GROWTH
-    : process.env.RAZORPAY_PLAN_ENTERPRISE;
-  if (!env) throw new Error(`Razorpay plan ID not configured for '${plan}'`);
+export function getBasePlanId(): string {
+  const env = process.env.RAZORPAY_PLAN_BASE;
+  if (!env) throw new Error("RAZORPAY_PLAN_BASE env var not configured");
   return env;
+}
+
+/**
+ * Create a one-off order for a credit top-up.
+ * Caller passes the INR amount (in rupees, we convert to paise for Razorpay).
+ */
+export async function createCreditTopupOrder(params: {
+  amountRupees: number;
+  receipt: string;
+  notes?: Record<string, string>;
+}): Promise<{ id: string; amount: number; currency: string }> {
+  const res = await fetch(`${API}/orders`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: authHeader() },
+    body: JSON.stringify({
+      amount: Math.round(params.amountRupees * 100),
+      currency: "INR",
+      receipt: params.receipt,
+      notes: params.notes || {},
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Razorpay order failed: ${err}`);
+  }
+  return res.json();
 }
 
 export async function createCustomer(email: string, name?: string): Promise<{ id: string }> {

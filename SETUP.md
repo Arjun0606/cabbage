@@ -27,16 +27,18 @@ Safe to run multiple times (idempotent). The original `supabase/schema.sql` shou
 - Go to [razorpay.com](https://razorpay.com) → Sign up → Complete KYC (usually 2-3 business days for live mode).
 - While KYC is pending, use **Test Mode** for development.
 
-### 2b. Create subscription plans
+### 2b. Create ONE subscription plan
 Dashboard → Subscriptions → Plans → Create Plan:
 
 | Plan name | Billing cycle | Amount | Currency |
 |-----------|---------------|--------|----------|
-| Cabbge Starter | Monthly | ₹7,500 | INR |
-| Cabbge Growth | Monthly | ₹24,000 | INR |
-| Cabbge Enterprise | Custom — contact sales, create manually per customer |
+| Cabbge Base | Monthly | ₹50,000 | INR |
 
-Copy each plan's ID (looks like `plan_XXXXXXXXXXXXXX`).
+Copy the plan's ID (looks like `plan_XXXXXXXXXXXXXX`).
+
+Credit top-ups (1,000 / 5,000 / 10,000 credit packs) are one-off Razorpay
+**orders** created dynamically by `/api/billing/topup` — you do NOT need
+to create separate Razorpay plans for them.
 
 ### 2c. Add env vars to Vercel
 
@@ -46,9 +48,7 @@ Vercel → Project → Settings → Environment Variables → add:
 RAZORPAY_KEY_ID             = rzp_test_xxxxx (or rzp_live_xxxxx in production)
 RAZORPAY_KEY_SECRET         = <your secret>
 RAZORPAY_WEBHOOK_SECRET     = <generate a random string, 32+ chars>
-RAZORPAY_PLAN_STARTER       = plan_xxx  (from step 2b)
-RAZORPAY_PLAN_GROWTH        = plan_xxx  (from step 2b)
-RAZORPAY_PLAN_ENTERPRISE    = plan_xxx  (optional — fallback if sales uses it)
+RAZORPAY_PLAN_BASE          = plan_xxx  (from step 2b — Cabbge Base ₹50,000/mo)
 ```
 
 ### 2d. Configure the webhook
@@ -124,8 +124,14 @@ Once env vars are set and migration run:
 
 ## Pricing rationale
 
-- **Starter ₹7,500/mo**: ~₹2.5L/year. A mid-sized builder doing their own SEO pays ₹15-40L/yr to an in-house manager. ~1/20th the cost.
-- **Growth ₹24,000/mo**: ~₹3L/year. An agency retainer in India for SEO + content is ₹3-10L/month. ~5% of agency cost.
-- **Enterprise**: custom. DLF-scale deals start around ₹5-15L/year depending on scope.
+**Cabbge Base: ₹50,000/mo (~$600)** — one plan, everything included.
+- ~₹6L/year. In-house SEO manager: ₹15-40L/year. Agency retainer: ₹3-10L/month.
+- Replaces both at a fraction of the cost.
+- Includes generous monthly credit allowance.
+- Overage handled via credit top-ups (like Claude: pay-as-you-go, no tier jumping):
+  - 1,000 credits = ₹5,000 (₹5/credit)
+  - 5,000 credits = ₹20,000 (₹4/credit)
+  - 10,000 credits = ₹35,000 (₹3.50/credit)
 
-All three replace both agency and in-house headcount for the SEO+GEO function.
+**Why flat + credits:** customers don't have to re-negotiate when they grow.
+No "you've outgrown Starter, please upgrade to Growth" churn moment. They just buy more credits when they need to.

@@ -1,26 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/db/supabase-server";
 import { getServiceClient } from "@/lib/db/supabase";
-import { createCustomer, createSubscription, getPlanId } from "@/lib/razorpay";
+import { createCustomer, createSubscription, getBasePlanId } from "@/lib/razorpay";
 import { isDemoRequest } from "@/lib/demo";
 
 /**
  * POST /api/billing/checkout
- * Body: { plan: "starter" | "growth" | "enterprise" }
  *
- * Creates a Razorpay subscription for the authenticated user and returns
- * the subscription ID + key ID for the frontend to open checkout.
+ * Creates the Cabbge Base subscription (single plan) for the authenticated
+ * user. Credit top-ups are handled separately via /api/billing/topup.
  */
 export async function POST(req: NextRequest) {
   try {
-    const { plan } = await req.json();
-    if (!["starter", "growth", "enterprise"].includes(plan)) {
-      return NextResponse.json({ error: "Invalid plan" }, { status: 400 });
-    }
-
-    // Demo mode: simulate a successful checkout without charging.
-    // Returns a fake subscription id so the frontend's Razorpay flow
-    // can be UI-tested, but no real subscription is created.
+    // Demo mode: simulate success without real charge
     if (isDemoRequest(req)) {
       return NextResponse.json({
         demoMode: true,
@@ -35,9 +27,8 @@ export async function POST(req: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
-    const planId = getPlanId(plan);
+    const planId = getBasePlanId();
 
-    // Look up or create a Razorpay customer for this user
     const service = getServiceClient();
     const { data: existingSub } = await service
       .from("subscriptions")
@@ -51,18 +42,16 @@ export async function POST(req: NextRequest) {
       customerId = customer.id;
     }
 
-    // Create the subscription
     const subscription = await createSubscription({
       planId,
       customerId,
       totalCount: 12,
-      notes: { user_id: user.id, plan },
+      notes: { user_id: user.id, plan: "base" },
     });
 
-    // Save pending subscription state (status will flip to 'active' via webhook)
     await service.from("subscriptions").upsert({
       user_id: user.id,
-      plan,
+      plan: "base",
       status: "pending",
       razorpay_subscription_id: subscription.id,
       razorpay_customer_id: customerId,
