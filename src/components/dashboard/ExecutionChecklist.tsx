@@ -29,8 +29,6 @@ interface Props {
   hasSchema: boolean;
   hasLlmsTxt: boolean;
   hasGbpPosts: boolean;
-  hasCitationBooster: boolean;
-  hasLocalityDomination: boolean;
   onRunAction: (action: string) => void;
 }
 
@@ -50,7 +48,7 @@ function saveCompletedItems(items: Set<string>) {
 export function ExecutionChecklist({
   companyName, websiteUrl, city,
   auditResult, aiVisResult, technicalResult, backlinkResult,
-  hasArticles, hasSchema, hasLlmsTxt, hasGbpPosts, hasCitationBooster, hasLocalityDomination,
+  hasArticles, hasSchema, hasLlmsTxt, hasGbpPosts,
   onRunAction,
 }: Props) {
   const [completed, setCompleted] = useState<Set<string>>(new Set());
@@ -97,24 +95,11 @@ export function ExecutionChecklist({
     items.push({ id: "publish-articles", category: "on-site", title: "Publish articles to your website", description: "Generated articles only help SEO when they're live on your website. Use the Publish button or copy to your CMS.", actionType: "manual" });
   }
 
-  if (!hasLocalityDomination) {
-    items.push({ id: "gen-domination", category: "on-site", title: `Generate Locality Domination Pack for ${city || "your area"}`, description: "9 pages + 50 FAQs — become THE authority for your locality in AI search.", actionLabel: "Generate Pack", actionType: "auto", onAction: () => onRunAction("locality_domination"), creditCost: 10 });
-  } else {
-    items.push({ id: "publish-domination", category: "on-site", title: "Publish all Locality Domination pages", description: "Master guide, buyer pages, comparisons, FAQs — each page needs to be live on your website.", actionType: "manual" });
-  }
-
   // --- OFF-SITE / CITATIONS ---
   items.push({ id: "submit-99acres", category: "off-site", title: "Optimize your 99acres listing", description: "99acres is the #1 source Google and AI models cite for Indian real estate. Paste your optimized listing copy.", actionLabel: "Open 99acres", actionType: "link", actionUrl: "https://www.99acres.com/post-property" });
-  items.push({ id: "submit-magicbricks", category: "off-site", title: "Optimize your MagicBricks listing", description: "MagicBricks drives massive search traffic. Use the optimized copy from Citation Booster.", actionLabel: "Open MagicBricks", actionType: "link", actionUrl: "https://post.magicbricks.com/" });
+  items.push({ id: "submit-magicbricks", category: "off-site", title: "Optimize your MagicBricks listing", description: "MagicBricks drives massive search traffic for Indian property buyers.", actionLabel: "Open MagicBricks", actionType: "link", actionUrl: "https://post.magicbricks.com/" });
   items.push({ id: "submit-housing", category: "off-site", title: "Optimize your Housing.com listing", description: "Housing.com listings feed Google's knowledge graph.", actionLabel: "Open Housing.com", actionType: "link", actionUrl: "https://www.housing.com/post-property" });
   items.push({ id: "claim-gbp", category: "off-site", title: "Claim & optimize Google Business Profile", description: "Most critical listing — shows in Google Maps, AI answers, and local search.", actionLabel: "Open GBP", actionType: "link", actionUrl: "https://business.google.com/" });
-
-  if (!hasCitationBooster) {
-    items.push({ id: "gen-citations", category: "off-site", title: "Generate Citation Booster toolkit", description: "Directory listings, press release, Quora/Reddit answers — all ready to submit.", actionLabel: "Generate", actionType: "auto", onAction: () => onRunAction("citation_booster"), creditCost: 8 });
-  } else {
-    items.push({ id: "submit-quora", category: "off-site", title: "Post answers on Quora", description: "Find real estate questions about your city and post the generated answers mentioning your brand.", actionLabel: "Open Quora", actionType: "link", actionUrl: "https://www.quora.com/" });
-    items.push({ id: "send-press", category: "off-site", title: "Send the press release to 5 publications", description: "Local news coverage creates brand mentions that AI models use for citations.", actionType: "manual" });
-  }
 
   // --- GEO ---
   if (!aiVisResult) {

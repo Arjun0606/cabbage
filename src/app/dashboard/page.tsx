@@ -70,13 +70,11 @@ export default function DashboardPage() {
   const [selectedProject, setSelectedProject] = useState<number | null>(null);
 
   // New feature states (round 2)
-  const [landingPageResult, setLandingPageResult] = useState<any>(null);
   const [portalResult, setPortalResult] = useState<any>(null);
   const [neighborhoodResult, setNeighborhoodResult] = useState<any>(null);
   const [progressResult, setProgressResult] = useState<any>(null);
   const [reportResult, setReportResult] = useState<any>(null);
   const [adsResult, setAdsResult] = useState<any>(null);
-  const [isGeneratingLanding, setIsGeneratingLanding] = useState(false);
   const [isGeneratingPortal, setIsGeneratingPortal] = useState(false);
   const [isGeneratingNeighborhood, setIsGeneratingNeighborhood] = useState(false);
   const [isGeneratingProgress, setIsGeneratingProgress] = useState(false);
@@ -172,10 +170,10 @@ export default function DashboardPage() {
   const CREDIT_COSTS: Record<string, number> = {
     audit: 2, technical: 1, ai_visibility: 4, backlinks: 1, competitors: 2,
     content: 3, content_plan: 3, article: 5, campaign: 3, partner: 3,
-    schema: 2, landing: 5, portal: 2, neighborhood: 3, progress: 2,
+    schema: 2, portal: 2, neighborhood: 3, progress: 2,
     report: 5, ads: 3, llms_txt: 2, geo_improvement: 3, crawler: 1,
     brand_presence: 2, citability: 2, chat: 1, locality: 1,
-    locality_domination: 10, citation_booster: 8, gbp_posts: 3, prompt_volumes: 3,
+    gbp_posts: 3, prompt_volumes: 3,
   };
 
   // Track credit usage locally (never blocks — upsell model).
@@ -921,21 +919,6 @@ export default function DashboardPage() {
 
   // ---- Round 2 feature runners ----
 
-  const runLandingPage = async (pageType: string) => {
-    if (!spendCredits("landing")) return;
-    setIsGeneratingLanding(true);
-    addLog(`> Generating ${pageType} landing page...`);
-    try {
-      const ctx = getProjectContext();
-      const res = await fetch("/api/landing-page", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...ctx, pageType }) });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      setLandingPageResult(data);
-      addLog(`> Landing page ready: "${data.title}"`);
-    } catch (err) { addLog(`> Error: ${err instanceof Error ? err.message : "Failed"}`); }
-    finally { setIsGeneratingLanding(false); }
-  };
-
   const runPortalOptimizer = async () => {
     if (!spendCredits("portal")) return;
     setIsGeneratingPortal(true);
@@ -1113,7 +1096,6 @@ export default function DashboardPage() {
 
   // ---- GEO fix actions (high-token, high-value) ----
 
-  const [geoContentResult, setGeoContentResult] = useState<any>(null);
   const [isFixingGeo, setIsFixingGeo] = useState(false);
   const [gbpResult, setGbpResult] = useState<any>(null);
   const [isGeneratingGbp, setIsGeneratingGbp] = useState(false);
@@ -1157,71 +1139,15 @@ export default function DashboardPage() {
     const blindSpots = geoProgress.neverFound.length > 0 ? geoProgress.neverFound :
       geoProgress.currentScan?.queries.filter(q => !q.chatgpt.mentioned && !q.gemini.mentioned).map(q => q.query) || [];
     if (!blindSpots.length) { addLog("> No blind spots to fix"); return; }
-    if (!spendCredits("report")) return;  // 5cr for batch
-    setIsFixingGeo(true);
-    addLog(`> Generating content for ${Math.min(blindSpots.length, 10)} blind spot queries...`);
-    try {
-      const ctx = getProjectContext();
-      const res = await fetch("/api/geo-content-batch", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ queries: blindSpots.slice(0, 10), ...ctx }),
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      setGeoContentResult(data);
-      addLog(`> Generated ${data.totalPieces} content pieces targeting ${data.queriesTargeted} queries`);
-      addLog(`> Publish these to your website, then re-scan to see improvement`);
-    } catch (err) { addLog(`> Error: ${err instanceof Error ? err.message : "Failed"}`); }
-    finally { setIsFixingGeo(false); }
-  };
-
-  const [localityDominationResult, setLocalityDominationResult] = useState<any>(null);
-  const [isGeneratingDomination, setIsGeneratingDomination] = useState(false);
-  const [citationBoosterResult, setCitationBoosterResult] = useState<any>(null);
-  const [isBoostingCitations, setIsBoostingCitations] = useState(false);
-
-  const runLocalityDomination = async () => {
-    if (!spendCredits("locality_domination")) return;
-    setIsGeneratingDomination(true);
-    const ctx = getProjectContext();
-    addLog(`> Generating Locality Domination Pack for ${ctx.location || ctx.city}...`);
-    try {
-      const res = await fetch("/api/locality-domination", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...ctx, nearbyLandmarks: "",
-          competitorNames: company.competitors.map((c: any) => c.name),
-        }),
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      setLocalityDominationResult(data);
-      addLog(`> Domination Pack: ${data.totalPages} pages, ${data.totalFaqs} FAQs, ~${data.totalWords?.toLocaleString()} words`);
-      addLog(`> Publish all pages to become THE authority for ${ctx.location || ctx.city}`);
-    } catch (err) { addLog(`> Error: ${err instanceof Error ? err.message : "Failed"}`); }
-    finally { setIsGeneratingDomination(false); }
-  };
-
-  const runCitationBooster = async () => {
-    if (!spendCredits("citation_booster")) return;
-    setIsBoostingCitations(true);
-    addLog(`> Generating Citation Booster toolkit...`);
-    try {
-      const ctx = getProjectContext();
-      const res = await fetch("/api/citation-booster", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...ctx, yearEstablished: company.yearEstablished, projectsCompleted: company.projectsCompleted, awards: company.awards,
-        }),
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      setCitationBoosterResult(data);
-      const listings = Object.keys(data.directoryListings || {}).length;
-      addLog(`> Citation Booster: ${listings} directory listings, press release, ${data.communityAnswers?.length || 0} community answers, GBP optimization`);
-      addLog(`> Execute these to increase brand mentions across the web — the #1 factor for AI citations`);
-    } catch (err) { addLog(`> Error: ${err instanceof Error ? err.message : "Failed"}`); }
-    finally { setIsBoostingCitations(false); }
+    // Write one high-quality article for the TOP blind spot. Better than
+    // blasting 10 thin AI-generated pages at once — each real article has
+    // a far higher chance of actually getting cited.
+    addLog(`> Top blind spot: "${blindSpots[0]}"`);
+    addLog(`> Writing a full GEO-optimized article for it...`);
+    await runGeoFixForQuery(blindSpots[0]);
+    if (blindSpots.length > 1) {
+      addLog(`> Done. Run again for next blind spot: "${blindSpots[1]}"`);
+    }
   };
 
   const runGbpPosts = async () => {
@@ -1460,8 +1386,6 @@ export default function DashboardPage() {
               schemaResult={schemaResult} isGeneratingSchema={isGeneratingSchema}
               onRunSchemaGenerator={runSchemaGenerator}
               // Round 2 features
-              landingPageResult={landingPageResult} isGeneratingLanding={isGeneratingLanding}
-              onRunLandingPage={runLandingPage}
               portalResult={portalResult} isGeneratingPortal={isGeneratingPortal}
               onRunPortalOptimizer={runPortalOptimizer}
               neighborhoodResult={neighborhoodResult} isGeneratingNeighborhood={isGeneratingNeighborhood}
@@ -1487,12 +1411,6 @@ export default function DashboardPage() {
               onGeoFixQuery={runGeoFixForQuery}
               onGeoFixAll={runFixAllBlindSpots}
               isFixingGeo={isFixingGeo}
-              onRunCitationBooster={runCitationBooster}
-              citationBoosterResult={citationBoosterResult}
-              isBoostingCitations={isBoostingCitations}
-              onRunLocalityDomination={runLocalityDomination}
-              localityDominationResult={localityDominationResult}
-              isGeneratingDomination={isGeneratingDomination}
               onRunGbpPosts={runGbpPosts}
               gbpResult={gbpResult}
               isGeneratingGbp={isGeneratingGbp}

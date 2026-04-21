@@ -107,7 +107,7 @@ Day 21: Generate and send channel partner content pack to top 5 brokers
 Week 4 (Days 22-28) — Optimize & Scale:
 Day 22: Generate festive campaign content for next upcoming festival
 Day 23: Write location guide for 2nd project location
-Day 24: Create landing page for site visits
+Day 24: Optimize your portal listings (99acres / MagicBricks)
 Day 25: Generate Google + Meta ad copy
 Day 26: Run neighborhood analysis for all project locations
 Day 27: Generate construction progress update content
@@ -131,7 +131,7 @@ ${formatWritingInstructions(writingInstructions, "geoImprovement", "GEO improvem
     }
 
     plan.currentScore = score;
-    if (!plan.targetScore) plan.targetScore = Math.min(score + 45, 70);
+    if (!plan.targetScore) plan.targetScore = realisticTarget(score);
 
     return NextResponse.json(plan);
   } catch (error) {
@@ -140,6 +140,14 @@ ${formatWritingInstructions(writingInstructions, "geoImprovement", "GEO improvem
       { status: 500 }
     );
   }
+}
+
+// Target score scales with headroom — a site at 30 has far more to gain
+// than a site at 75. Fixed "+45 capped at 70" was misleading for both ends.
+function realisticTarget(currentScore: number): number {
+  const headroom = Math.max(0, 100 - currentScore);
+  const gain = Math.max(10, Math.round(headroom * 0.4));
+  return Math.min(currentScore + gain, 85);
 }
 
 function buildFallbackPlan(companyName: string, city: string, currentScore: number, projects: any[]): GeoImprovementPlan {
@@ -170,7 +178,7 @@ function buildFallbackPlan(companyName: string, city: string, currentScore: numb
     { day: 21, action: `Send channel partner content pack to top 5 brokers`, why: "Broker mentions and referrals create organic brand signals AI picks up", cabbageFeature: "Content tab → Channel Partners", priority: "should-do", timeEstimate: "15 min", category: "authority" },
     { day: 22, action: `Generate festive campaign content for the next upcoming festival`, why: "Seasonal content shows freshness — AI models prefer recently updated sites", cabbageFeature: "Content tab → Festive Campaigns", priority: "nice-to-have", timeEstimate: "15 min", category: "content" },
     { day: 23, action: `Write locality guide for 2nd project location`, why: "Each location guide captures a new set of buyer queries in AI", cabbageFeature: "Content tab → Full Articles → Locality Guide", priority: "should-do", timeEstimate: "20 min", category: "content" },
-    { day: 24, action: `Create site visit landing page for ${projectName}`, why: "Dedicated landing pages with structured data rank in AI shopping results", cabbageFeature: "Content tab → Landing Pages", priority: "should-do", timeEstimate: "15 min", category: "content" },
+    { day: 24, action: `Optimize ${projectName} listing on 99acres, MagicBricks, Housing.com`, why: "Portal listings feed directly into AI answers — optimized descriptions dramatically improve citation rate", cabbageFeature: "Ads & Portals tab → Portal Optimizer", priority: "should-do", timeEstimate: "30 min", category: "authority" },
     { day: 25, action: `Generate Google + Meta ad copy for ${projectName}`, why: "Paid ads drive branded search volume, which AI models track as authority signal", cabbageFeature: "Ads & Portals tab → Google + Meta Ads", priority: "nice-to-have", timeEstimate: "15 min", category: "authority" },
     { day: 26, action: `Run neighborhood analysis for ${location}`, why: "Neighborhood data enriches your location pages and improves citability", cabbageFeature: "Locality tab → Neighborhood", priority: "should-do", timeEstimate: "10 min", category: "content" },
     { day: 27, action: `Publish construction progress update for ${projectName}`, why: "Progress updates show the project is active and trustworthy", cabbageFeature: "Content tab → Construction Updates", priority: "nice-to-have", timeEstimate: "15 min", category: "content" },
@@ -179,9 +187,13 @@ function buildFallbackPlan(companyName: string, city: string, currentScore: numb
     { day: 30, action: `Review report, set 3 priorities for next month, share with team`, why: "Consistent monthly cycles compound — month 2 is where AI mention rates really climb", cabbageFeature: "Report tab", priority: "must-do", timeEstimate: "30 min", category: "monitoring" },
   ];
 
+  const target = realisticTarget(currentScore);
+  const stepA = Math.min(currentScore + Math.round((target - currentScore) * 0.33), 100);
+  const stepB = Math.min(currentScore + Math.round((target - currentScore) * 0.55), 100);
+  const stepC = Math.min(currentScore + Math.round((target - currentScore) * 0.78), 100);
   return {
     currentScore,
-    targetScore: Math.min(currentScore + 45, 70),
+    targetScore: target,
     days,
     quickWins: [
       "Generate and upload llms.txt (AI/GEO tab → 10 min)",
@@ -190,12 +202,12 @@ function buildFallbackPlan(companyName: string, city: string, currentScore: numb
       "Run Citability Audit — see what's wrong with your content structure (AI/GEO tab → 3 min)",
       "Optimize your 99acres listing description (Ads & Portals tab → 20 min)",
     ],
-    expectedTimeline: `30 days to go from ${currentScore}% to ~${Math.min(currentScore + 45, 70)}%. Most improvement in first 2 weeks.`,
+    expectedTimeline: `30 days to go from ${currentScore}% to ~${target}%. Most improvement in first 2 weeks.`,
     weekSummaries: [
-      { week: 1, theme: "Foundation — Technical SEO & AI Readiness", expectedScore: Math.min(currentScore + 15, 100) },
-      { week: 2, theme: "Content Depth — Location Pages & Articles", expectedScore: Math.min(currentScore + 25, 100) },
-      { week: 3, theme: "Authority — Portals, GBP & Brand Mentions", expectedScore: Math.min(currentScore + 35, 100) },
-      { week: 4, theme: "Optimize — Measure, Fix Gaps, Double Down", expectedScore: Math.min(currentScore + 45, 100) },
+      { week: 1, theme: "Foundation — Technical SEO & AI Readiness", expectedScore: stepA },
+      { week: 2, theme: "Content Depth — Location Pages & Articles", expectedScore: stepB },
+      { week: 3, theme: "Authority — Portals, GBP & Brand Mentions", expectedScore: stepC },
+      { week: 4, theme: "Optimize — Measure, Fix Gaps, Double Down", expectedScore: target },
     ],
   };
 }

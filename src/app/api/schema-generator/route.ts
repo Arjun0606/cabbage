@@ -107,17 +107,8 @@ function buildOrganizationSchema(input: SchemaInput) {
 
   if (input.website) {
     schema.url = input.website;
-    // sameAs — important for entity verification, but ONLY include URLs
-    // that actually exist. Fabricated sameAs links are worse than none —
-    // they signal the company is impersonating profiles it doesn't own.
-    // We only include the about page (likely exists) and Google Maps search
-    // (always valid). Users should add their real social profiles manually.
-    schema.sameAs = [
-      `${input.website}/about`,
-      `https://www.google.com/maps/search/${encodeURIComponent(input.developerName + " " + input.city)}`,
-    ];
-    // Note: Add your actual LinkedIn, Facebook, YouTube, 99acres, and
-    // JustDial profile URLs to this array after generating.
+    // sameAs intentionally omitted — fabricated entity links hurt more than
+    // they help. Users add real social/portal URLs manually in the UI.
   }
 
   return schema;

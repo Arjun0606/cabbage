@@ -138,6 +138,56 @@ export function KeywordResearchPanel({ city, data, isLoading, onSearch, onFixKey
 
       {data && !isLoading && (
         <>
+          {/* Top Opportunities — the "what should I do next" answer */}
+          {(() => {
+            const scored = data.keywords
+              .filter((k) => k.opportunity === "high" && k.monthlyVolume !== null && k.monthlyVolume > 0)
+              .slice()
+              .sort((a, b) => {
+                const aScore = (a.monthlyVolume || 0) / Math.max(1, a.difficulty || 50);
+                const bScore = (b.monthlyVolume || 0) / Math.max(1, b.difficulty || 50);
+                return bScore - aScore;
+              })
+              .slice(0, 5);
+            if (scored.length === 0) return null;
+            return (
+              <Card className="bg-[#7CB342]/[0.04] border-[#7CB342]/20 rounded-xl">
+                <CardHeader className="pb-2">
+                  <div className="flex items-center gap-2">
+                    <Target size={14} className="text-[#7CB342]" />
+                    <CardTitle className="text-[13px] font-semibold">Top 5 Opportunities</CardTitle>
+                    <span className="text-[11px] text-zinc-500 ml-auto">High volume, low difficulty — write articles for these first</span>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-1.5">
+                  {scored.map((kw, i) => (
+                    <div key={i} className="flex items-center justify-between gap-3 py-1.5 text-[13px] border-b border-white/[0.04] last:border-0">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <span className="text-[10px] text-zinc-600 tabular-nums w-4">{i + 1}</span>
+                        <span className="text-zinc-200 truncate">{kw.keyword}</span>
+                        {kw.source === "gsc" && (
+                          <Badge className="text-[9px] h-3.5 px-1 rounded bg-blue-500/10 text-blue-400 border-0 flex-shrink-0">GSC</Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3 flex-shrink-0 text-[11px] tabular-nums">
+                        <span className="text-zinc-300">{(kw.monthlyVolume || 0).toLocaleString()}/mo</span>
+                        <span className={diffColor(kw.difficulty)}>KD {kw.difficulty ?? "—"}</span>
+                        {onFixKeyword && (
+                          <button
+                            onClick={() => onFixKeyword(kw.keyword)}
+                            className="text-[10px] font-medium px-2 py-0.5 rounded bg-[#7CB342]/15 text-[#7CB342] border border-[#7CB342]/30 hover:bg-[#7CB342]/25 flex items-center gap-1"
+                          >
+                            <PenTool size={9} /> Write
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            );
+          })()}
+
           {/* Clusters summary */}
           {data.clusters.length > 1 && (
             <Card className="bg-zinc-900/60 border-white/[0.06] rounded-xl">

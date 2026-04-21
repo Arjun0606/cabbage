@@ -191,10 +191,33 @@ export function ActionsFeed({
       id: "geo_won",
       icon: <TrendingUp size={16} />,
       iconBg: "bg-[#7CB342]/10 text-[#7CB342]",
-      title: `Won ${geoProgress.newlyFound.length} New Queries`,
-      subtitle: "Your visibility is improving — keep going",
+      title: `Won ${geoProgress.newlyFound.length} New ${geoProgress.newlyFound.length === 1 ? "Query" : "Queries"}`,
+      subtitle: "Click to see which queries now mention you",
       priority: "low",
       actionTab: "aigeo",
+      items: geoProgress.newlyFound.map((q: string) => ({
+        title: q,
+        severity: "won",
+        description: "Now mentioned in ChatGPT/Gemini results",
+      })),
+    });
+  }
+
+  // GEO newly lost — visible downgrade
+  if (geoProgress?.newlyLost?.length > 0) {
+    feedItems.push({
+      id: "geo_lost",
+      icon: <TrendingDown size={16} />,
+      iconBg: "bg-amber-500/10 text-amber-400",
+      title: `Lost ${geoProgress.newlyLost.length} ${geoProgress.newlyLost.length === 1 ? "Query" : "Queries"}`,
+      subtitle: "Click to see which queries stopped mentioning you",
+      priority: "high",
+      actionTab: "aigeo",
+      items: geoProgress.newlyLost.map((q: string) => ({
+        title: q,
+        severity: "lost",
+        description: "No longer surfaced in ChatGPT/Gemini — consider publishing targeted content",
+      })),
     });
   }
 
@@ -356,6 +379,8 @@ export function ActionsFeed({
     high: "border-amber-500/30 text-amber-400 bg-amber-500/8",
     medium: "border-zinc-600 text-zinc-400 bg-zinc-800/30",
     low: "border-zinc-700 text-zinc-500 bg-zinc-800/30",
+    won: "border-[#7CB342]/30 text-[#7CB342] bg-[#7CB342]/8",
+    lost: "border-amber-500/30 text-amber-400 bg-amber-500/8",
   };
 
   return (

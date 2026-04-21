@@ -1,28 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
-import { aiComplete } from "@/lib/ai";
 import { sanitizeUrl, sanitizeText } from "@/lib/security";
 
-// ---------- Types ----------
+// Deterministic brand-presence scan.
+// Previous version asked an LLM to "guess" whether a brand was likely on GBP,
+// Wikipedia, JustDial, etc. That's noise — the customer knows better than the
+// model. We now only report what we can verify from the homepage itself, and
+// list actionable entity signals to fix. No hallucinated "likely_present".
 
-interface PlatformResult {
-  platform: string;
-  status: "likely_present" | "likely_absent" | "unknown";
-  importance: "critical" | "high" | "medium";
+interface EntitySignal {
+  signal: string;
+  present: boolean;
   impact: string;
-  actionIfMissing: string;
+  fix?: string;
 }
 
 interface BrandPresenceResult {
   brand: string;
   score: number;
-  platforms: PlatformResult[];
   sameAsLinks: string[];
   existingEntitySignals: string[];
   missingEntitySignals: string[];
   recommendations: string[];
+  entityChecks: EntitySignal[];
 }
-
-// ---------- Helpers ----------
 
 async function safeFetch(
   url: string,
@@ -42,25 +42,18 @@ async function safeFetch(
   }
 }
 
-/**
- * Extract sameAs links from Organization JSON-LD schema on the page.
- */
 function extractSameAsLinks(html: string): string[] {
   const sameAsLinks: string[] = [];
-  // Find all JSON-LD blocks
   const jsonLdMatches = html.match(
     /<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi
   );
   if (!jsonLdMatches) return sameAsLinks;
-
   for (const match of jsonLdMatches) {
-    const content = match.replace(
-      /<script[^>]*type=["']application\/ld\+json["'][^>]*>/i,
-      ""
-    ).replace(/<\/script>/i, "");
+    const content = match
+      .replace(/<script[^>]*type=["']application\/ld\+json["'][^>]*>/i, "")
+      .replace(/<\/script>/i, "");
     try {
       const data = JSON.parse(content);
-      // Handle single object or array
       const items = Array.isArray(data) ? data : [data];
       for (const item of items) {
         if (
@@ -68,23 +61,17 @@ function extractSameAsLinks(html: string): string[] {
           item["@type"] === "LocalBusiness" ||
           item["@type"] === "RealEstateAgent"
         ) {
-          if (Array.isArray(item.sameAs)) {
-            sameAsLinks.push(...item.sameAs);
-          } else if (typeof item.sameAs === "string") {
-            sameAsLinks.push(item.sameAs);
-          }
+          if (Array.isArray(item.sameAs)) sameAsLinks.push(...item.sameAs);
+          else if (typeof item.sameAs === "string") sameAsLinks.push(item.sameAs);
         }
       }
     } catch {
-      // Malformed JSON-LD, skip
+      // malformed JSON-LD — skip
     }
   }
   return sameAsLinks;
 }
 
-/**
- * Check if H1 on the page contains the brand name.
- */
 function checkH1ForBrand(html: string, brand: string): boolean {
   const h1Match = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
   if (!h1Match) return false;
@@ -92,15 +79,11 @@ function checkH1ForBrand(html: string, brand: string): boolean {
   return h1Text.toLowerCase().includes(brand.toLowerCase());
 }
 
-/**
- * Check if page has Organization schema.
- */
 function hasOrganizationSchema(html: string): boolean {
   const jsonLdMatches = html.match(
     /<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi
   );
   if (!jsonLdMatches) return false;
-
   for (const match of jsonLdMatches) {
     const content = match
       .replace(/<script[^>]*type=["']application\/ld\+json["'][^>]*>/i, "")
@@ -124,26 +107,19 @@ function hasOrganizationSchema(html: string): boolean {
   return false;
 }
 
-// ---------- Platform definitions for scoring ----------
-
-const PLATFORM_WEIGHTS: Record<string, number> = {
-  "Google Business Profile": 20,
-  "YouTube": 10,
-  "Wikipedia": 15,
-  "99acres / MagicBricks / Housing.com": 10,
-  "LinkedIn": 10,
-  "JustDial / IndiaMART": 5,
-  "RERA Website": 10,
-  "Local News / Press Coverage": 10,
-};
-
-// ---------- Route Handler ----------
+function extractTitleAndMeta(html: string): { title: string; description: string } {
+  const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+  const descMatch = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i);
+  return {
+    title: titleMatch ? titleMatch[1].trim() : "",
+    description: descMatch ? descMatch[1].trim() : "",
+  };
+}
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const brand = sanitizeText(body.brand, 200);
-    const city = sanitizeText(body.city || "", 100);
     const websiteRaw = body.website || "";
 
     if (!brand) {
@@ -153,7 +129,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Validate website if provided
     let safeWebsite = "";
     let origin = "";
     if (websiteRaw) {
@@ -163,232 +138,116 @@ export async function POST(req: NextRequest) {
       origin = new URL(url).origin;
     }
 
-    // ---------- Programmatic checks (parallel) ----------
-
-    const programmaticChecks = safeWebsite
-      ? Promise.all([
-          safeFetch(`${origin}/about`),
-          safeFetch(origin, { timeout: 10000 }),
-        ])
-      : Promise.resolve([null, null] as [Response | null, Response | null]);
-
-    // ---------- AI-based platform presence check ----------
-
-    const cityContext = city ? ` in ${city}` : "";
-
-    const systemPrompt = `You are an expert at assessing brand presence across digital platforms for Indian real estate developers. You will evaluate whether a given brand likely has presence on key platforms based on your knowledge.
-
-Respond ONLY with valid JSON — no markdown fences, no extra text. Use exactly this structure:
-{
-  "platforms": [
-    {
-      "platform": "Platform Name",
-      "status": "likely_present" | "likely_absent" | "unknown",
-      "reasoning": "Brief explanation"
+    if (!safeWebsite) {
+      return NextResponse.json(
+        { error: "Website URL is required for brand presence scan" },
+        { status: 400 }
+      );
     }
-  ]
-}`;
 
-    const userPrompt = `Assess the digital presence of the Indian real estate developer "${brand}"${cityContext}.
-
-Check these platforms:
-1. Google Business Profile — do they likely have a GBP listing?
-2. YouTube — do they have a YouTube channel or videos about their projects?
-3. Wikipedia — do they have a Wikipedia page?
-4. 99acres / MagicBricks / Housing.com — are they listed on major Indian property portals?
-5. LinkedIn — does the company have a LinkedIn page?
-6. JustDial / IndiaMART — are they listed on local business directories?
-7. RERA Website — are they registered with their state RERA authority?
-8. Local News / Press Coverage — any press mentions or news articles?
-
-${safeWebsite ? `Their website is: ${safeWebsite}` : ""}
-
-For each platform, assess whether the brand is likely present, likely absent, or if you're unsure. Base this on your knowledge of the brand — if you don't recognize the brand at all, mark platforms as "unknown" rather than guessing.`;
-
-    const [programmaticResults, aiResponse] = await Promise.all([
-      programmaticChecks,
-      aiComplete(systemPrompt, userPrompt, 2000),
+    const [homepageRes, aboutRes, robotsRes] = await Promise.all([
+      safeFetch(origin, { timeout: 10000 }),
+      safeFetch(`${origin}/about`),
+      safeFetch(`${origin}/robots.txt`),
     ]);
-
-    const [aboutRes, homepageRes] = programmaticResults as [
-      Response | null,
-      Response | null
-    ];
-
-    // ---------- Parse AI response ----------
-
-    const platformImpacts: Record<string, { importance: "critical" | "high" | "medium"; impact: string; action: string }> = {
-      "Google Business Profile": {
-        importance: "critical",
-        impact: "Google AI Overviews draws heavily from GBP — this is the #1 source for local AI answers",
-        action: "Claim your Google Business Profile at business.google.com",
-      },
-      "YouTube": {
-        importance: "high",
-        impact: "YouTube is the 2nd largest search engine — project videos significantly boost AI visibility",
-        action: "Create a YouTube channel with project walkthroughs, construction updates, and buyer testimonials",
-      },
-      "Wikipedia": {
-        importance: "high",
-        impact: "Wikipedia is the top source AI models cite — a Wikipedia page massively boosts entity recognition",
-        action: "Create a Wikipedia page for the company if it meets notability guidelines (requires third-party coverage)",
-      },
-      "99acres / MagicBricks / Housing.com": {
-        importance: "high",
-        impact: "Property portals are high-authority domains that AI models trust for real estate information",
-        action: "List all active projects on 99acres, MagicBricks, and Housing.com with complete information",
-      },
-      "LinkedIn": {
-        importance: "medium",
-        impact: "LinkedIn company pages contribute to entity recognition and professional credibility signals",
-        action: "Create/update your LinkedIn company page with complete information, projects, and employee profiles",
-      },
-      "JustDial / IndiaMART": {
-        importance: "medium",
-        impact: "Local directory listings strengthen NAP consistency which helps AI understand your brand as an entity",
-        action: "Claim listings on JustDial and IndiaMART with consistent name, address, and phone number",
-      },
-      "RERA Website": {
-        importance: "critical",
-        impact: "RERA registration is a strong authority signal — AI models reference RERA data for real estate queries",
-        action: "Ensure all projects are RERA registered and the registration numbers are visible on your website",
-      },
-      "Local News / Press Coverage": {
-        importance: "high",
-        impact: "Third-party mentions in news correlate 3x more with AI visibility than backlinks (Ahrefs Dec 2025)",
-        action: "Build press relationships — project launches, milestones, and CSR activities are all newsworthy",
-      },
-    };
-
-    let aiPlatforms: { platform: string; status: string; reasoning: string }[] = [];
-    try {
-      const parsed = JSON.parse(aiResponse);
-      aiPlatforms = parsed.platforms || [];
-    } catch {
-      // If AI response is malformed, fall back to unknown for all
-      aiPlatforms = Object.keys(platformImpacts).map((p) => ({
-        platform: p,
-        status: "unknown",
-        reasoning: "Could not determine presence",
-      }));
-    }
-
-    const platforms: PlatformResult[] = aiPlatforms.map((p) => {
-      const meta = platformImpacts[p.platform] || {
-        importance: "medium" as const,
-        impact: "Contributes to overall brand entity signals",
-        action: "Establish presence on this platform",
-      };
-      return {
-        platform: p.platform,
-        status: p.status as "likely_present" | "likely_absent" | "unknown",
-        importance: meta.importance,
-        impact: meta.impact,
-        actionIfMissing: meta.action,
-      };
-    });
-
-    // ---------- Programmatic signals ----------
 
     const existingEntitySignals: string[] = [];
     const missingEntitySignals: string[] = [];
+    const recommendations: string[] = [];
+    const entityChecks: EntitySignal[] = [];
     let sameAsLinks: string[] = [];
     let homepageHtml = "";
 
     if (homepageRes && homepageRes.ok) {
       homepageHtml = await homepageRes.text();
+      const { title, description } = extractTitleAndMeta(homepageHtml);
 
-      if (checkH1ForBrand(homepageHtml, brand)) {
-        existingEntitySignals.push("H1 on homepage mentions the brand name");
-      } else {
-        missingEntitySignals.push(
-          "H1 on homepage does not mention the brand name — add it for stronger entity recognition"
-        );
-      }
+      const h1HasBrand = checkH1ForBrand(homepageHtml, brand);
+      entityChecks.push({
+        signal: "H1 on homepage mentions the brand name",
+        present: h1HasBrand,
+        impact: "AI models extract H1 as the primary entity on the page",
+        fix: h1HasBrand ? undefined : `Add "${brand}" to your homepage H1 — AI models need this signal to recognise you as the entity`,
+      });
 
-      if (hasOrganizationSchema(homepageHtml)) {
-        existingEntitySignals.push("Organization schema (JSON-LD) found on homepage");
+      const titleHasBrand = title.toLowerCase().includes(brand.toLowerCase());
+      entityChecks.push({
+        signal: "<title> tag includes brand name",
+        present: titleHasBrand,
+        impact: "Title tag is the strongest entity signal for search crawlers",
+        fix: titleHasBrand ? undefined : `Include "${brand}" in your homepage <title> tag`,
+      });
+
+      const descHasBrand = description.toLowerCase().includes(brand.toLowerCase());
+      entityChecks.push({
+        signal: "Meta description mentions brand",
+        present: descHasBrand,
+        impact: "Meta description is often used as-is in AI search summaries",
+        fix: descHasBrand ? undefined : `Mention "${brand}" explicitly in your meta description`,
+      });
+
+      const hasOrgSchema = hasOrganizationSchema(homepageHtml);
+      entityChecks.push({
+        signal: "Organization / LocalBusiness schema on homepage",
+        present: hasOrgSchema,
+        impact: "JSON-LD Organization schema is the #1 machine-readable entity signal",
+        fix: hasOrgSchema ? undefined : "Add Organization JSON-LD schema to your homepage — use the Schema tab to generate it",
+      });
+
+      if (hasOrgSchema) {
         sameAsLinks = extractSameAsLinks(homepageHtml);
-        if (sameAsLinks.length > 0) {
-          existingEntitySignals.push(
-            `Organization schema has ${sameAsLinks.length} sameAs link(s) to external profiles`
-          );
-        } else {
-          missingEntitySignals.push(
-            "Organization schema found but no sameAs links — add links to your social profiles and directory listings"
-          );
-        }
-      } else {
-        missingEntitySignals.push(
-          "No Organization schema found on homepage — add JSON-LD Organization markup with sameAs links"
-        );
+        entityChecks.push({
+          signal: `sameAs links connect your entity to external profiles (${sameAsLinks.length} found)`,
+          present: sameAsLinks.length > 0,
+          impact: "sameAs links let AI models verify you own those external profiles — critical for entity resolution",
+          fix: sameAsLinks.length > 0 ? undefined : "Add sameAs links to LinkedIn, YouTube, GBP, and portal listings inside your Organization schema",
+        });
+      }
+    } else {
+      missingEntitySignals.push("Homepage could not be fetched — cannot run entity checks");
+    }
+
+    entityChecks.push({
+      signal: "/about page exists",
+      present: !!(aboutRes && aboutRes.ok),
+      impact: "AI models specifically crawl /about pages to build entity knowledge",
+      fix: aboutRes && aboutRes.ok ? undefined : "Create a detailed /about page covering company history, leadership, and completed projects",
+    });
+
+    if (robotsRes && robotsRes.ok) {
+      const robotsText = await robotsRes.text();
+      const blocksGptBot = /user-agent:\s*gptbot[\s\S]*?disallow:\s*\//i.test(robotsText);
+      const blocksGoogleExt = /user-agent:\s*google-extended[\s\S]*?disallow:\s*\//i.test(robotsText);
+      entityChecks.push({
+        signal: "robots.txt does not block AI crawlers (GPTBot, Google-Extended)",
+        present: !blocksGptBot && !blocksGoogleExt,
+        impact: "Blocking AI crawlers makes every other signal irrelevant — they can't see your site",
+        fix: blocksGptBot || blocksGoogleExt
+          ? "Remove GPTBot / Google-Extended Disallow rules from robots.txt — these block the AI models you're trying to rank in"
+          : undefined,
+      });
+    }
+
+    for (const c of entityChecks) {
+      if (c.present) existingEntitySignals.push(c.signal);
+      else {
+        missingEntitySignals.push(c.signal);
+        if (c.fix) recommendations.push(c.fix);
       }
     }
 
-    if (aboutRes && aboutRes.ok) {
-      existingEntitySignals.push("/about page exists and is accessible");
-    } else if (safeWebsite) {
-      missingEntitySignals.push(
-        "/about page not found — create a detailed about page with company history, leadership, and achievements"
-      );
-    }
-
-    // Add AI-detected signals
-    for (const p of platforms) {
-      if (p.status === "likely_present") {
-        existingEntitySignals.push(`${p.platform} presence detected`);
-      } else if (p.status === "likely_absent") {
-        missingEntitySignals.push(`No ${p.platform} presence found`);
-      }
-    }
-
-    // ---------- Score calculation ----------
-
-    let score = 0;
-    const maxScore = Object.values(PLATFORM_WEIGHTS).reduce((a, b) => a + b, 0);
-
-    for (const p of platforms) {
-      const weight = PLATFORM_WEIGHTS[p.platform] || 5;
-      if (p.status === "likely_present") {
-        score += weight;
-      } else if (p.status === "unknown") {
-        score += Math.floor(weight / 2); // Partial credit for unknown
-      }
-    }
-
-    // Bonus for programmatic signals (up to 10 points)
-    if (homepageHtml && checkH1ForBrand(homepageHtml, brand)) score += 3;
-    if (homepageHtml && hasOrganizationSchema(homepageHtml)) score += 4;
-    if (sameAsLinks.length > 0) score += 3;
-
-    const normalizedScore = Math.min(
-      100,
-      Math.round((score / (maxScore + 10)) * 100)
-    );
-
-    // ---------- Recommendations ----------
-
-    const recommendations: string[] = [];
-    for (const p of platforms) {
-      if (p.status === "likely_absent") {
-        recommendations.push(`${p.platform}: ${p.actionIfMissing}`);
-      }
-    }
-    for (const signal of missingEntitySignals) {
-      if (!recommendations.some((r) => r.includes(signal.split(" — ")[0]))) {
-        const fix = signal.includes(" — ") ? signal.split(" — ")[1] : signal;
-        recommendations.push(fix);
-      }
-    }
+    const passed = entityChecks.filter((c) => c.present).length;
+    const total = entityChecks.length;
+    const score = total === 0 ? 0 : Math.round((passed / total) * 100);
 
     const result: BrandPresenceResult = {
       brand,
-      score: normalizedScore,
-      platforms,
+      score,
       sameAsLinks,
       existingEntitySignals,
       missingEntitySignals,
       recommendations,
+      entityChecks,
     };
 
     return NextResponse.json(result);

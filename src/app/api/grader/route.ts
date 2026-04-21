@@ -40,19 +40,15 @@ export async function POST(req: NextRequest) {
       platform: string;
     }> = [];
 
-    // Run all 3 queries against ChatGPT (with web search)
-    for (const query of queries) {
-      const { text, source } = await queryForVisibility("openai", query);
-
+    async function runQuery(platform: "openai" | "gemini", label: string, query: string) {
+      const { text, source } = await queryForVisibility(platform, query);
       if (!text || source === "failed" || source === "missing_key") {
-        results.push({ query, mentioned: false, competitors: [], platform: "ChatGPT" });
-        continue;
+        results.push({ query, mentioned: false, competitors: [], platform: label });
+        return;
       }
-
-      // Quick AI analysis — is the brand mentioned? who else is?
       const analysis = await aiLight(
         "Analyze this AI response. Return only valid JSON.",
-        `Is "${brand}" mentioned in this ChatGPT response? Also list other companies/brands mentioned.
+        `Is "${brand}" mentioned in this ${label} response? Also list other companies/brands mentioned.
 
 Response:
 """
@@ -66,7 +62,6 @@ Return JSON:
 }`,
         300
       );
-
       try {
         const jsonMatch = analysis.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
@@ -75,18 +70,23 @@ Return JSON:
             query,
             mentioned: Boolean(parsed.mentioned),
             competitors: Array.isArray(parsed.competitors) ? parsed.competitors.slice(0, 5) : [],
-            platform: "ChatGPT",
+            platform: label,
           });
-        } else {
-          // Fallback: simple text match
-          const mentioned = text.toLowerCase().includes(brand.toLowerCase());
-          results.push({ query, mentioned, competitors: [], platform: "ChatGPT" });
+          return;
         }
-      } catch {
-        const mentioned = text.toLowerCase().includes(brand.toLowerCase());
-        results.push({ query, mentioned, competitors: [], platform: "ChatGPT" });
-      }
+      } catch { /* fall through */ }
+      const mentioned = text.toLowerCase().includes(brand.toLowerCase());
+      results.push({ query, mentioned, competitors: [], platform: label });
     }
+
+    // Run each query against BOTH ChatGPT and Gemini — this is what the
+    // product promises ("ChatGPT + Gemini"). Running ChatGPT alone was a bug.
+    await Promise.all(
+      queries.flatMap((q) => [
+        runQuery("openai", "ChatGPT", q),
+        runQuery("gemini", "Gemini", q),
+      ])
+    );
 
     const mentionedCount = results.filter((r) => r.mentioned).length;
     const score = Math.round((mentionedCount / results.length) * 100);
