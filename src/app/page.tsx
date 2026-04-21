@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -17,7 +16,6 @@ import {
 import Link from "next/link";
 
 export default function Home() {
-  const router = useRouter();
   const [url, setUrl] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [report, setReport] = useState<any>(null);
@@ -43,23 +41,6 @@ export default function Home() {
     }
   };
 
-  const goToDashboard = () => {
-    const normalized = url.trim().replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/$/, "");
-    const namePart = normalized.split(".")[0];
-    const companyData = {
-      name: namePart.charAt(0).toUpperCase() + namePart.slice(1),
-      description: "",
-      website: url.trim().startsWith("http") ? url.trim() : `https://${url.trim()}`,
-      city: "",
-      sites: [],
-      projects: [],
-      competitors: [],
-      documents: { productInfo: "", competitorAnalysis: "", brandVoice: "", marketingStrategy: "" },
-    };
-    localStorage.setItem("cabbge_company", JSON.stringify(companyData));
-    router.push("/dashboard");
-  };
-
   const scoreColor = (score: number) =>
     score >= 80 ? "text-zinc-100" :
     score >= 60 ? "text-yellow-400" :
@@ -68,15 +49,38 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center px-4">
-      {/* Logo */}
-      <div className="mb-10 flex flex-col items-center gap-3">
+      {/* Logo + headline */}
+      <div className="mb-10 flex flex-col items-center gap-3 text-center">
         <img src="/logo.png" alt="Cabbge" className="w-14 h-14 object-contain" />
-        <h1 className="text-xl font-semibold text-zinc-100">
-          Meet Cabbge, the AI CMO
+        <h1 className="text-2xl sm:text-3xl font-bold text-zinc-100 tracking-tight max-w-xl">
+          SEO + GEO execution for Indian real estate
         </h1>
-        <p className="text-sm text-zinc-500 text-center max-w-md">
-          The only AI CMO you need for growth and marketing.
+        <p className="text-sm text-zinc-400 text-center max-w-lg leading-relaxed">
+          Cabbge scans your corporate site and project microsites daily, tracks your brand&apos;s visibility
+          in ChatGPT and Google AI, and generates + publishes the content you need to win buyer queries.
+          Better than an SEO agency, cheaper than hiring in-house.
         </p>
+        <div className="flex items-center gap-2 mt-2">
+          <Link
+            href="/signup"
+            className="h-9 px-4 rounded-lg bg-[#7CB342] text-zinc-950 text-[13px] font-semibold hover:bg-[#8BC34A] active:scale-[0.97] flex items-center gap-1.5"
+          >
+            Start 14-day trial <ArrowRight size={13} />
+          </Link>
+          <Link
+            href="/pricing"
+            className="h-9 px-4 rounded-lg text-[13px] text-zinc-300 hover:text-zinc-100 hover:bg-zinc-900 flex items-center gap-1.5"
+          >
+            See pricing
+          </Link>
+        </div>
+      </div>
+
+      {/* Free report divider */}
+      <div className="w-full max-w-lg flex items-center gap-3 mb-4 text-[11px] text-zinc-600 uppercase tracking-wide">
+        <div className="h-px flex-1 bg-zinc-800" />
+        <span>or try a free scan first</span>
+        <div className="h-px flex-1 bg-zinc-800" />
       </div>
 
       {/* Input */}
@@ -190,18 +194,27 @@ export default function Home() {
           )}
 
           {/* CTA */}
-          <Card className="bg-zinc-900/60 border-zinc-700/50">
+          <Card className="bg-[#7CB342]/[0.04] border-[#7CB342]/20">
             <CardContent className="p-5 text-center space-y-3">
               <p className="text-sm text-zinc-300">
-                This is just the surface. Get the full report with <strong>AI Visibility across ChatGPT, Claude, Gemini</strong>, backlink analysis, competitor intelligence, and AI-generated content.
+                This is the surface. Full Cabbge adds <strong className="text-zinc-100">AI visibility tracking on ChatGPT + Google AI</strong>,
+                a full-site crawler, keyword research with real volume, content generation that auto-publishes, and daily rank tracking.
               </p>
-              <Button
-                onClick={goToDashboard}
-                className="bg-zinc-100 text-zinc-900 hover:bg-white"
-              >
-                <Zap size={14} className="mr-2" />
-                Open Full Dashboard
-              </Button>
+              <div className="flex items-center justify-center gap-2">
+                <Link
+                  href="/signup"
+                  className="h-10 px-5 rounded-lg bg-[#7CB342] text-zinc-950 text-[13px] font-semibold hover:bg-[#8BC34A] active:scale-[0.97] flex items-center gap-1.5"
+                >
+                  <Zap size={13} /> Start Free Trial
+                </Link>
+                <Link
+                  href="/pricing"
+                  className="h-10 px-4 rounded-lg text-[13px] text-zinc-400 hover:text-zinc-200 flex items-center gap-1.5"
+                >
+                  See pricing
+                </Link>
+              </div>
+              <p className="text-[10px] text-zinc-500">14 days free. No credit card required.</p>
             </CardContent>
           </Card>
         </div>

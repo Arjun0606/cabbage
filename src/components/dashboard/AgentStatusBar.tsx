@@ -7,6 +7,10 @@ import {
   Link2,
   Wrench,
   Users,
+  Globe,
+  Target,
+  TrendingDown,
+  Rocket,
 } from "lucide-react";
 
 interface AgentStatus {
@@ -29,6 +33,15 @@ interface Props {
   backlinkResult: any;
   technicalResult: any;
   competitorResults: any[];
+  // Newer scans (optional — show pills when running or done)
+  isCrawling?: boolean;
+  siteCrawlResult?: any;
+  isResearchingKeywords?: boolean;
+  keywordResearchResult?: any;
+  isAnalyzingLinks?: boolean;
+  internalLinkingResult?: any;
+  contentDecayReport?: any;
+  schemaResult?: any;
   onNavigateToTab?: (tab: string) => void;
 }
 
@@ -43,6 +56,14 @@ export function AgentStatusBar({
   backlinkResult,
   technicalResult,
   competitorResults,
+  isCrawling,
+  siteCrawlResult,
+  isResearchingKeywords,
+  keywordResearchResult,
+  isAnalyzingLinks,
+  internalLinkingResult,
+  contentDecayReport,
+  schemaResult,
   onNavigateToTab,
 }: Props) {
   const agents: AgentStatus[] = [
@@ -85,6 +106,46 @@ export function AgentStatusBar({
       status: isCheckingCompetitors ? "running" : competitorResults?.length > 0 ? "done" : "idle",
       resultCount: competitorResults?.length,
       tab: "health",
+    },
+    {
+      id: "crawl",
+      name: "Site Crawl",
+      icon: <Globe size={13} />,
+      status: isCrawling ? "running" : siteCrawlResult ? "done" : "idle",
+      resultCount: siteCrawlResult?.totalPages,
+      tab: "health",
+    },
+    {
+      id: "keyword_research",
+      name: "Keywords",
+      icon: <Target size={13} />,
+      status: isResearchingKeywords ? "running" : keywordResearchResult ? "done" : "idle",
+      resultCount: keywordResearchResult?.totalKeywords,
+      tab: "health",
+    },
+    {
+      id: "internal_linking",
+      name: "Linking",
+      icon: <Link2 size={13} />,
+      status: isAnalyzingLinks ? "running" : internalLinkingResult ? "done" : "idle",
+      resultCount: internalLinkingResult?.suggestions?.length,
+      tab: "health",
+    },
+    {
+      id: "content_decay",
+      name: "Decay",
+      icon: <TrendingDown size={13} />,
+      status: contentDecayReport?.decayingPages?.length > 0 ? "done" : "idle",
+      resultCount: contentDecayReport?.decayingPages?.length,
+      tab: "health",
+    },
+    {
+      id: "schema",
+      name: "Schema",
+      icon: <Rocket size={13} />,
+      status: schemaResult ? "done" : "idle",
+      resultCount: Object.keys(schemaResult?.schemas || {}).length || undefined,
+      tab: "content",
     },
   ];
 

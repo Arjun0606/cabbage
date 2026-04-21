@@ -19,10 +19,14 @@ export function SchemaDeployPanel({ defaultPageUrl, schemaJson, schemaType, comp
   const [deploying, setDeploying] = useState(false);
   const [deployedUrl, setDeployedUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+  const [deployError, setDeployError] = useState<string | null>(null);
+  const [deployWarning, setDeployWarning] = useState<string | null>(null);
 
   const handleDeploy = async () => {
     if (!pageUrl.trim() || !schemaJson || !schemaType) return;
     setDeploying(true);
+    setDeployError(null);
+    setDeployWarning(null);
     try {
       const res = await fetch("/api/schema-deploy", {
         method: "POST",
@@ -35,12 +39,19 @@ export function SchemaDeployPanel({ defaultPageUrl, schemaJson, schemaType, comp
         }),
       });
       const data = await res.json();
+      if (!res.ok || data.error) {
+        setDeployError(data.error || `Deploy failed (HTTP ${res.status})`);
+        return;
+      }
+      if (data.warning) setDeployWarning(data.warning);
       if (data.publicUrl) {
         setDeployedUrl(data.publicUrl);
         if (onDeployed) onDeployed(data.publicUrl);
+      } else {
+        setDeployError("Deploy succeeded but no public URL was returned. Supabase may not be configured — your schema is saved locally only and won't serve to your live site. See SETUP.md.");
       }
-    } catch {
-      /* user will retry */
+    } catch (err) {
+      setDeployError(err instanceof Error ? err.message : "Could not reach Cabbge server. Check your internet connection.");
     } finally {
       setDeploying(false);
     }
@@ -110,9 +121,21 @@ export function SchemaDeployPanel({ defaultPageUrl, schemaJson, schemaType, comp
             {deploying ? <Loader2 size={13} className="animate-spin" /> : <Rocket size={13} />}
             {deployedUrl ? "Redeploy" : "Deploy Schema"}
           </button>
-          {deployedUrl && (
+          {deployedUrl && !deployError && (
             <div className="mt-2 p-2 rounded-md bg-[#7CB342]/[0.06] border border-[#7CB342]/20 text-[11px] text-[#7CB342] flex items-center gap-2">
               <Check size={12} /> Deployed. Schema is live at your public endpoint.
+            </div>
+          )}
+          {deployWarning && !deployError && (
+            <div className="mt-2 p-2 rounded-md bg-amber-500/[0.06] border border-amber-500/20 text-[11px] text-amber-300 flex items-start gap-2">
+              <span className="mt-0.5">⚠️</span>
+              <span>{deployWarning}</span>
+            </div>
+          )}
+          {deployError && (
+            <div className="mt-2 p-2 rounded-md bg-red-500/[0.06] border border-red-500/20 text-[11px] text-red-300 flex items-start gap-2">
+              <span className="mt-0.5">⚠</span>
+              <span>{deployError}</span>
             </div>
           )}
         </div>

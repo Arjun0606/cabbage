@@ -343,6 +343,34 @@ export function AnalyticsPanel({
         {/* -------- HEALTH TAB (Health + Technical + Checks) -------- */}
         {/* ================================================================ */}
         <TabsContent value="health" className="space-y-4">
+          {/* First-run banner — shown when user has nothing scanned yet */}
+          {!auditResult && !aiVisResult && !technicalResult && !backlinkResult && !siteCrawlResult && !isAuditing && !isCheckingAI && !isCheckingBacklinks && !isCheckingTechnical && !isCrawling && (
+            <div className="rounded-xl border border-[#7CB342]/25 bg-[#7CB342]/[0.04] p-5">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-lg bg-[#7CB342]/15 flex items-center justify-center flex-shrink-0">
+                  <span className="text-[#7CB342] text-[16px]">👋</span>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-[14px] font-semibold text-zinc-100 mb-1">
+                    Welcome to Cabbge. Let&apos;s run your first scan.
+                  </h3>
+                  <p className="text-[12px] text-zinc-400 mb-3 leading-relaxed">
+                    Click <span className="text-[#7CB342] font-medium">Run Full Scan</span> in the terminal above. In ~90 seconds we&apos;ll:
+                  </p>
+                  <ul className="text-[12px] text-zinc-400 space-y-1 ml-0.5">
+                    <li>✓ Audit your site for SEO + technical issues</li>
+                    <li>✓ Check if ChatGPT &amp; Google AI recommend your brand</li>
+                    <li>✓ Analyze your backlink profile</li>
+                    <li>✓ Identify your top content opportunities</li>
+                  </ul>
+                  <p className="text-[11px] text-zinc-500 mt-3">
+                    Then use <span className="text-zinc-300">Site Crawl</span> for a full URL-by-URL audit, <span className="text-zinc-300">Keyword Research</span> to find opportunities, and the content generators below to fix everything.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Full-site crawler — visits every page, per-URL audit */}
           {onRunSiteCrawl && (siteCrawlResult || isCrawling) ? (
             <SiteCrawlPanel data={siteCrawlResult} isRunning={isCrawling} onRunCrawl={onRunSiteCrawl} />
@@ -368,6 +396,8 @@ export function AnalyticsPanel({
               isLoading={isAnalyzingLinks}
               hasCrawl={!!siteCrawlResult}
               onAnalyze={onRunInternalLinking}
+              onRunCrawl={onRunSiteCrawl}
+              isCrawling={isCrawling}
             />
           )}
 

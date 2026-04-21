@@ -33,13 +33,16 @@ interface Props {
   isLoading?: boolean;
   hasCrawl: boolean;
   onAnalyze: () => void;
+  /** If provided, the "no crawl yet" state shows a Crawl Now button that triggers this. */
+  onRunCrawl?: () => void;
+  isCrawling?: boolean;
 }
 
 function pathOf(url: string): string {
   try { return new URL(url).pathname; } catch { return url; }
 }
 
-export function InternalLinkingPanel({ data, isLoading, hasCrawl, onAnalyze }: Props) {
+export function InternalLinkingPanel({ data, isLoading, hasCrawl, onAnalyze, onRunCrawl, isCrawling }: Props) {
   const [tab, setTab] = useState<"suggestions" | "orphans" | "clusters">("suggestions");
 
   if (!hasCrawl) {
@@ -49,9 +52,19 @@ export function InternalLinkingPanel({ data, isLoading, hasCrawl, onAnalyze }: P
           <LinkIcon size={24} className="text-zinc-500 mx-auto mb-2" />
           <h3 className="text-[13px] font-semibold mb-1">Internal linking analysis</h3>
           <p className="text-[11px] text-zinc-500 mb-3 max-w-md mx-auto">
-            Run &quot;Crawl Site&quot; first. Internal linking uses the crawl data to find orphan pages
-            and suggest specific links between topically-related pages.
+            Uses site-crawl data to find orphan pages and suggest specific link insertions
+            between topically-related pages. Takes ~60 seconds.
           </p>
+          {onRunCrawl && (
+            <button
+              onClick={onRunCrawl}
+              disabled={isCrawling}
+              className="h-8 px-4 rounded-lg bg-[#7CB342] text-zinc-950 text-[12px] font-semibold hover:bg-[#8BC34A] active:scale-[0.97] disabled:opacity-40 inline-flex items-center gap-1.5"
+            >
+              {isCrawling ? <Loader2 size={12} className="animate-spin" /> : null}
+              {isCrawling ? "Crawling..." : "Crawl Site now"}
+            </button>
+          )}
         </CardContent>
       </Card>
     );

@@ -775,6 +775,15 @@ export default function DashboardPage() {
   // Rich context builder — feeds ALL brand knowledge into every content generator
   const getProjectContext = () => {
     const p = selectedProject !== null ? company.projects[selectedProject] : null;
+    // Load per-channel writing instructions saved in Settings.
+    // These get injected into every generator so voice stays consistent
+    // across articles / LinkedIn / WhatsApp / etc.
+    let writingInstructions: Record<string, string> = {};
+    try {
+      const raw = typeof window !== "undefined" ? localStorage.getItem("cabbge_writing_instructions") : null;
+      if (raw) writingInstructions = JSON.parse(raw);
+    } catch { /* non-fatal */ }
+
     return {
       projectName: p?.name || company.name,
       developerName: company.name,
@@ -803,6 +812,8 @@ export default function DashboardPage() {
       yearEstablished: company.yearEstablished || "",
       projectsCompleted: company.projectsCompleted || "",
       awards: company.awards || "",
+      // Per-channel writing instructions from Settings → Personalization
+      writingInstructions,
     };
   };
 
@@ -1339,13 +1350,18 @@ export default function DashboardPage() {
           isCheckingTechnical={isCheckingTechnical} isCheckingCompetitors={isCheckingCompetitors}
           auditResult={auditResult} aiVisResult={aiVisResult} backlinkResult={backlinkResult}
           technicalResult={technicalResult} competitorResults={competitorResults}
+          isCrawling={isCrawling} siteCrawlResult={siteCrawlResult}
+          isResearchingKeywords={isResearchingKeywords} keywordResearchResult={keywordResearchResult}
+          isAnalyzingLinks={isAnalyzingLinks} internalLinkingResult={internalLinkingResult}
+          contentDecayReport={contentDecayReport}
+          schemaResult={schemaResult}
           onNavigateToTab={setActiveTab}
         />
 
         {/* Main content — 3 columns */}
         <div className="flex-1 flex min-h-0">
-          {/* LEFT: Company or Chat (toggled) */}
-          <div className="w-[320px] flex-shrink-0 border-r border-white/[0.06] flex flex-col min-h-0">
+          {/* LEFT: Company or Chat (toggled) — hide on narrow screens so center has room */}
+          <div className="hidden lg:flex w-[320px] flex-shrink-0 border-r border-white/[0.06] flex-col min-h-0">
             {/* Toggle tabs */}
             <div className="flex border-b border-white/[0.06] flex-shrink-0">
               <button
@@ -1452,8 +1468,8 @@ export default function DashboardPage() {
             />
           </div>
 
-          {/* RIGHT: Actions Feed — scrollable */}
-          <div className="w-[340px] flex-shrink-0 border-l border-white/[0.06] overflow-y-auto min-h-0">
+          {/* RIGHT: Actions Feed — hide on tablet/narrow; collapse to in-flow section on mobile would be nice later */}
+          <div className="hidden xl:block w-[340px] flex-shrink-0 border-l border-white/[0.06] overflow-y-auto min-h-0">
             <ActionsFeed
               auditResult={auditResult} aiVisResult={aiVisResult} backlinkResult={backlinkResult}
               technicalResult={technicalResult} competitorResults={competitorResults}

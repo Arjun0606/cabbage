@@ -38,6 +38,8 @@ export async function POST(req: NextRequest) {
       brandVoice, brandValues, brandVision, targetAudience,
       productInfo, amenities, reraNumber, status,
       allProjects, competitors,
+      // Per-channel writing instructions from Settings → Personalization
+      writingInstructions,
     } = body;
 
     if (!projectName || !location || !city) {
@@ -122,6 +124,11 @@ ${targetAudience ? `- Target Buyers: ${targetAudience.substring(0, 400)}` : ""}
 ${productInfo ? `- Product Info: ${productInfo.substring(0, 400)}` : ""}` : ""}
 ${allProjects?.length > 1 ? `\n**Other projects by ${developerName}:** ${allProjects.filter((p: any) => p.name !== projectName).map((p: any) => `${p.name} (${p.location})`).join(", ")}` : ""}
 ${competitors?.length ? `**Competitors:** ${competitors.join(", ")}` : ""}
+
+${(writingInstructions?.articles || writingInstructions?.general) ? `**Writing Instructions (from Settings → Personalization — follow EXACTLY):**
+${writingInstructions?.general ? `General: ${String(writingInstructions.general).substring(0, 2000)}` : ""}
+${writingInstructions?.articles ? `Article-specific: ${String(writingInstructions.articles).substring(0, 2000)}` : ""}
+These override any generic tone — match the voice, phrasing rules, dos/donts listed above.` : ""}
 
 **SEO Details:**
 - Topic: ${topic || articleType.replace(/_/g, " ")}

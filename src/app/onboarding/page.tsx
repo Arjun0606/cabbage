@@ -45,6 +45,9 @@ export default function OnboardingPage() {
   const [industry, setIndustry] = useState("real_estate");
   const [projects, setProjects] = useState<Project[]>([]);
   const [competitors, setCompetitors] = useState<string[]>([]);
+  const [extraSites, setExtraSites] = useState<Array<{ url: string; label: string; type?: string }>>([]);
+  const [siteCandidates, setSiteCandidates] = useState<Array<{ url: string; label: string; type: string; reason: string }>>([]);
+  const [importingSites, setImportingSites] = useState(false);
   const [newCityInput, setNewCityInput] = useState("");
 
   // Auto-discover results for display
@@ -152,7 +155,7 @@ export default function OnboardingPage() {
       yearEstablished: "",
       projectsCompleted: "",
       awards: "",
-      sites: [] as { url: string; label: string }[],
+      sites: extraSites.map((s) => ({ url: s.url, label: s.label, type: s.type || "other" })),
       projects: projects.length > 0 ? projects : [],
       competitors: competitors.map((c) => ({ name: c, website: "" })),
       documents: discovered?.documents || {
@@ -191,6 +194,28 @@ export default function OnboardingPage() {
 
   const removeProject = (idx: number) => {
     setProjects(projects.filter((_, i) => i !== idx));
+  };
+
+  // Auto-detect project microsites from the corporate sitemap.
+  const importSitesFromSitemap = async () => {
+    if (!website) return;
+    setImportingSites(true);
+    try {
+      const res = await fetch("/api/sitemap-import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: website }),
+      });
+      const data = await res.json();
+      if (data.candidates) setSiteCandidates(data.candidates);
+    } catch { /* non-fatal */ }
+    finally { setImportingSites(false); }
+  };
+
+  const toggleSiteCandidate = (c: { url: string; label: string; type: string }) => {
+    const exists = extraSites.some((s) => s.url === c.url);
+    if (exists) setExtraSites(extraSites.filter((s) => s.url !== c.url));
+    else setExtraSites([...extraSites, { url: c.url, label: c.label, type: c.type }]);
   };
 
   const addCity = () => {
@@ -360,6 +385,91 @@ export default function OnboardingPage() {
               {cities.filter(Boolean).length === 0 && (
                 <p className="text-[11px] text-red-400">At least one city is required for accurate AI visibility scans.</p>
               )}
+            </div>
+
+            {/* Additional Sites — corporate + project microsites + NRI sites */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-[13px] font-semibold text-zinc-300 flex items-center gap-2">
+                  <Globe size={14} /> Additional Sites
+                  <span className="text-[10px] text-zinc-500 font-normal">project microsites, NRI sites, etc.</span>
+                </h3>
+                <button
+                  onClick={importSitesFromSitemap}
+                  disabled={!website || importingSites}
+                  className="text-[11px] text-[#7CB342] hover:text-[#8BC34A] flex items-center gap-1 disabled:opacity-40"
+                >
+                  {importingSites ? <Loader2 size={11} className="animate-spin" /> : <Plus size={11} />}
+                  {importingSites ? "Scanning sitemap..." : "Auto-detect from sitemap"}
+                </button>
+              </div>
+
+              <p className="text-[11px] text-zinc-500">
+                Cabbge tracks each site independently — your corporate site, individual project microsites (e.g. <span className="text-zinc-400">thecamellias.com</span>), and country-specific sites (NRI, UAE).
+                Each gets its own scans, content decay tracking, and GEO progress.
+              </p>
+
+              {/* Currently added sites */}
+              {extraSites.length > 0 && (
+                <div className="space-y-1.5">
+                  {extraSites.map((s, i) => (
+                    <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-zinc-800/40 border border-white/[0.04]">
+                      <span className="text-[12px] text-zinc-200 flex-1 truncate">{s.label}</span>
+                      <span className="text-[10px] text-zinc-500 truncate max-w-[240px]">{s.url.replace(/^https?:\/\//, "")}</span>
+                      <button onClick={() => setExtraSites(extraSites.filter((_, j) => j !== i))} className="text-zinc-500 hover:text-red-400 flex-shrink-0">
+                        <X size={12} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Sitemap candidates (pick to add) */}
+              {siteCandidates.length > 0 && (
+                <div className="p-3 rounded-lg bg-zinc-800/30 border border-white/[0.04]">
+                  <p className="text-[11px] text-zinc-400 mb-2">
+                    Found {siteCandidates.length} potential site{siteCandidates.length === 1 ? "" : "s"} on your sitemap. Pick the ones you want Cabbge to track:
+                  </p>
+                  <div className="space-y-1 max-h-[220px] overflow-y-auto">
+                    {siteCandidates.map((c, i) => {
+                      const selected = extraSites.some((s) => s.url === c.url);
+                      return (
+                        <button
+                          key={i}
+                          onClick={() => toggleSiteCandidate(c)}
+                          className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-left transition-colors ${
+                            selected ? "bg-[#7CB342]/10 border border-[#7CB342]/30" : "border border-transparent hover:bg-zinc-800/40"
+                          }`}
+                        >
+                          <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center flex-shrink-0 ${
+                            selected ? "bg-[#7CB342] border-[#7CB342]" : "border-zinc-600"
+                          }`}>
+                            {selected && <CheckCircle2 size={10} className="text-zinc-900" />}
+                          </div>
+                          <span className="text-[11px] text-zinc-300 truncate flex-1">{c.url.replace(/^https?:\/\//, "").replace(/\/$/, "")}</span>
+                          <span className="text-[9px] text-zinc-500 uppercase tracking-wide flex-shrink-0">{c.type.replace("_", " ")}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Manual add */}
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Add site manually (e.g. thecamellias.com)"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && e.currentTarget.value.trim()) {
+                      let u = e.currentTarget.value.trim();
+                      if (!u.match(/^https?:\/\//)) u = `https://${u}`;
+                      setExtraSites([...extraSites, { url: u, label: u.replace(/^https?:\/\//, "").replace(/\/$/, ""), type: "other" }]);
+                      e.currentTarget.value = "";
+                    }
+                  }}
+                  className="bg-zinc-900/80 border-white/[0.06] text-[13px] h-9 flex-1"
+                />
+              </div>
             </div>
 
             {/* Projects */}
