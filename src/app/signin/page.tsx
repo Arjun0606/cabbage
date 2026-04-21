@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getBrowserSupabase } from "@/lib/db/supabase-browser";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,14 @@ import { Loader2, Mail, Lock, Sparkles, AlertCircle } from "lucide-react";
 import Link from "next/link";
 
 export default function SignInPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#0a0a0b]" />}>
+      <SignInInner />
+    </Suspense>
+  );
+}
+
+function SignInInner() {
   const router = useRouter();
   const params = useSearchParams();
   const redirectTo = params.get("next") || "/dashboard";
