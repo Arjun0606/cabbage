@@ -179,16 +179,17 @@ export default function DemoPage() {
 
         {phase === "url" && (
           <div className="bg-zinc-900/60 border border-white/[0.06] rounded-xl p-6">
-            <h1 className="text-[20px] font-bold mb-2">Prospect website</h1>
+            <h1 className="text-[20px] font-bold mb-2">Any website</h1>
             <p className="text-[13px] text-zinc-400 mb-5">
-              Paste your prospect&apos;s URL. We auto-discover brand, projects, competitors,
-              and their city in ~10 seconds. Then you&apos;re in a full dashboard to pitch from.
+              Paste <span className="text-zinc-200">any</span> website URL — real estate developer, your own site, a prospect,
+              a competitor. We auto-discover brand, projects, competitors, and city in ~10 seconds, then drop you into
+              a full dashboard with unlimited access to every feature.
             </p>
             <div className="relative mb-3">
               <Globe size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
               <Input
                 type="url"
-                placeholder="dlf.in / prestigeconstructions.com / ..."
+                placeholder="https://yourwebsite.com"
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleStartDemo()}

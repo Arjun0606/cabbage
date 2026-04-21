@@ -93,6 +93,7 @@ export default function PricingPage() {
   const router = useRouter();
   const [loading, setLoading] = useState<Plan | null>(null);
   const [authed, setAuthed] = useState<boolean | null>(null);
+  const [inDemoMode, setInDemoMode] = useState(false);
 
   useEffect(() => {
     // Preload Razorpay checkout
@@ -101,8 +102,14 @@ export default function PricingPage() {
     s.async = true;
     document.body.appendChild(s);
 
-    // Check auth state (so we can send unauth'd users to signup first)
-    fetch("/api/billing/status").then((r) => r.json()).then((d) => setAuthed(!!d.authenticated)).catch(() => setAuthed(false));
+    // Check auth + demo state
+    fetch("/api/billing/status")
+      .then((r) => r.json())
+      .then((d) => {
+        setAuthed(!!d.authenticated);
+        setInDemoMode(!!d.demoMode);
+      })
+      .catch(() => setAuthed(false));
   }, []);
 
   const handleChoose = async (plan: Plan) => {
@@ -111,7 +118,7 @@ export default function PricingPage() {
       return;
     }
 
-    if (!authed) {
+    if (!authed && !inDemoMode) {
       router.push(`/signup?next=${encodeURIComponent(`/pricing?plan=${plan}`)}`);
       return;
     }
@@ -125,6 +132,13 @@ export default function PricingPage() {
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
+
+      if (data.demoMode) {
+        // In demo mode we skip the real Razorpay payment — confirm the flow visually.
+        alert(`Demo mode — in a real session, Razorpay Checkout would open here to charge the ${plan} plan. Redirecting you back to the dashboard with the "upgrade" flow simulated.`);
+        router.push("/dashboard?upgraded=demo");
+        return;
+      }
 
       // Open Razorpay checkout
       const rzp = new window.Razorpay({
@@ -165,6 +179,12 @@ export default function PricingPage() {
         </div>
       </div>
 
+      {inDemoMode && (
+        <div className="bg-amber-500/[0.08] border-b border-amber-500/30 px-5 py-2 text-center text-[12px] text-amber-200">
+          <span className="font-semibold text-amber-400">Sales Demo · </span>
+          Checkout buttons won&apos;t charge — they simulate the flow so you can show the full journey without touching real money.
+        </div>
+      )}
       <div className="max-w-6xl mx-auto px-6 py-16">
         <div className="text-center mb-12">
           <h1 className="text-3xl sm:text-4xl font-bold tracking-tight mb-3">Simple pricing. Always-on SEO + GEO execution.</h1>

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/db/supabase-server";
 import { getServiceClient } from "@/lib/db/supabase";
 import { createCustomer, createSubscription, getPlanId } from "@/lib/razorpay";
+import { isDemoRequest } from "@/lib/demo";
 
 /**
  * POST /api/billing/checkout
@@ -12,14 +13,27 @@ import { createCustomer, createSubscription, getPlanId } from "@/lib/razorpay";
  */
 export async function POST(req: NextRequest) {
   try {
-    const supabase = await getServerSupabase();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-
     const { plan } = await req.json();
     if (!["starter", "growth", "enterprise"].includes(plan)) {
       return NextResponse.json({ error: "Invalid plan" }, { status: 400 });
     }
+
+    // Demo mode: simulate a successful checkout without charging.
+    // Returns a fake subscription id so the frontend's Razorpay flow
+    // can be UI-tested, but no real subscription is created.
+    if (isDemoRequest(req)) {
+      return NextResponse.json({
+        demoMode: true,
+        subscriptionId: `demo_sub_${Date.now()}`,
+        keyId: process.env.RAZORPAY_KEY_ID || "demo_key",
+        email: "demo@cabbge.com",
+        message: "Demo mode — no charge will happen. In a real session, Razorpay Checkout would open here.",
+      });
+    }
+
+    const supabase = await getServerSupabase();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
     const planId = getPlanId(plan);
 

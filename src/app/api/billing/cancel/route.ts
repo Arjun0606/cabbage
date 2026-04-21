@@ -1,14 +1,19 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/db/supabase-server";
 import { getServiceClient } from "@/lib/db/supabase";
 import { cancelSubscription } from "@/lib/razorpay";
+import { isDemoRequest } from "@/lib/demo";
 
 /**
  * POST /api/billing/cancel — cancels at the end of the current cycle.
  * User keeps access until current_period_end, then subscription ends.
  */
-export async function POST() {
+export async function POST(req: NextRequest) {
   try {
+    if (isDemoRequest(req)) {
+      return NextResponse.json({ demoMode: true, success: true, message: "Demo cancel — nothing actually cancelled." });
+    }
+
     const supabase = await getServerSupabase();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
