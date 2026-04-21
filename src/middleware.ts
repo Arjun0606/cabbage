@@ -1,28 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
+import { updateSession } from "@/lib/db/supabase-middleware";
 
 /**
- * Security middleware — runs on every request.
- *
+ * Security + auth middleware.
  * 1. Security headers (XSS, clickjacking, MIME sniffing, etc.)
- * 2. API rate limiting (in-memory, per IP)
- * 3. CORS protection
- * 4. Cron endpoint protection
+ * 2. API rate limiting (per company cookie, fallback IP)
+ * 3. Cron endpoint protection
+ * 4. Supabase session refresh on every request
+ * 5. Auth guards for protected routes (/dashboard, /settings, /onboarding)
  */
 
 // ---------- Rate Limiting ----------
 
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
-const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
-const RATE_LIMIT_MAX_API = 30;        // 30 API calls per minute
-const RATE_LIMIT_MAX_FREE = 5;        // 5 free reports per minute (prevent abuse)
+const RATE_LIMIT_WINDOW = 60 * 1000;
+const RATE_LIMIT_MAX_API = 30;
+const RATE_LIMIT_MAX_FREE = 5;
 
 function getRateLimitKey(req: NextRequest): string {
-  // Prefer company-level keying (from cookie set during onboarding) over IP.
-  // This prevents shared-office users from hitting one limit, and makes
-  // VPN-switching users unable to bypass it.
   const companyId = req.cookies.get("cabbge_company_id")?.value;
   if (companyId && companyId.length > 5) return `co:${companyId}`;
-
   const forwarded = req.headers.get("x-forwarded-for");
   const ip = forwarded?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || "unknown";
   return ip;
@@ -31,21 +28,15 @@ function getRateLimitKey(req: NextRequest): string {
 function checkRateLimit(key: string, max: number): { allowed: boolean; remaining: number } {
   const now = Date.now();
   const entry = rateLimitMap.get(key);
-
   if (!entry || now > entry.resetAt) {
     rateLimitMap.set(key, { count: 1, resetAt: now + RATE_LIMIT_WINDOW });
     return { allowed: true, remaining: max - 1 };
   }
-
-  if (entry.count >= max) {
-    return { allowed: false, remaining: 0 };
-  }
-
+  if (entry.count >= max) return { allowed: false, remaining: 0 };
   entry.count++;
   return { allowed: true, remaining: max - entry.count };
 }
 
-// Clean up old entries every 5 minutes
 if (typeof setInterval !== "undefined") {
   setInterval(() => {
     const now = Date.now();
@@ -55,13 +46,12 @@ if (typeof setInterval !== "undefined") {
   }, 5 * 60 * 1000);
 }
 
-// ---------- Middleware ----------
+// Protected routes that require authentication
+const PROTECTED_PATHS = ["/dashboard", "/settings", "/onboarding"];
+// Routes that signed-in users should not see (auto-redirect to dashboard)
+const GUEST_ONLY_PATHS = ["/signin", "/signup"];
 
-export function middleware(req: NextRequest) {
-  const { pathname } = req.nextUrl;
-  const response = NextResponse.next();
-
-  // Security headers — every response
+function applySecurityHeaders(response: NextResponse): NextResponse {
   response.headers.set("X-Content-Type-Options", "nosniff");
   response.headers.set("X-Frame-Options", "DENY");
   response.headers.set("X-XSS-Protection", "1; mode=block");
@@ -69,10 +59,54 @@ export function middleware(req: NextRequest) {
   response.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
   response.headers.set(
     "Content-Security-Policy",
-    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://api.openai.com https://api.anthropic.com https://api.perplexity.ai https://generativelanguage.googleapis.com https://www.googleapis.com https://accounts.google.com https://oauth2.googleapis.com https://lsapi.seomoz.com https://public-api.wordpress.com https://api.webflow.com;"
+    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://api.openai.com https://api.anthropic.com https://api.perplexity.ai https://generativelanguage.googleapis.com https://www.googleapis.com https://accounts.google.com https://oauth2.googleapis.com https://lsapi.seomoz.com https://public-api.wordpress.com https://api.webflow.com https://*.supabase.co wss://*.supabase.co https://api.razorpay.com https://checkout.razorpay.com;"
   );
+  return response;
+}
 
-  // Protect cron endpoint
+export async function middleware(req: NextRequest) {
+  const { pathname } = req.nextUrl;
+
+  // Skip Supabase session refresh for static assets, auth callbacks, and the public loader
+  const skipAuth = pathname.startsWith("/_next")
+    || pathname.startsWith("/api/schema-loader")
+    || pathname.startsWith("/api/schema-deploy")
+    || pathname === "/favicon.ico";
+
+  // Refresh Supabase session (writes updated cookies onto response)
+  let response: NextResponse;
+  let user: { id: string; email?: string } | null = null;
+  if (!skipAuth) {
+    try {
+      const result = await updateSession(req);
+      response = result.response;
+      user = result.user;
+    } catch {
+      response = NextResponse.next({ request: req });
+    }
+  } else {
+    response = NextResponse.next({ request: req });
+  }
+
+  // Protected routes — redirect to signin if not authenticated
+  const isProtected = PROTECTED_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"));
+  if (isProtected && !user) {
+    const url = req.nextUrl.clone();
+    url.pathname = "/signin";
+    url.searchParams.set("next", pathname);
+    return applySecurityHeaders(NextResponse.redirect(url));
+  }
+
+  // Guest-only routes — redirect to dashboard if already signed in
+  const isGuestOnly = GUEST_ONLY_PATHS.includes(pathname);
+  if (isGuestOnly && user) {
+    const url = req.nextUrl.clone();
+    url.pathname = "/dashboard";
+    url.search = "";
+    return applySecurityHeaders(NextResponse.redirect(url));
+  }
+
+  // Cron endpoint protection
   if (pathname === "/api/cron/scan") {
     const authHeader = req.headers.get("authorization");
     if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -80,10 +114,10 @@ export function middleware(req: NextRequest) {
     }
   }
 
-  // Rate limiting for API routes
+  // API rate limiting
   if (pathname.startsWith("/api/")) {
     const ip = getRateLimitKey(req);
-    const isFreeReport = pathname === "/api/free-report";
+    const isFreeReport = pathname === "/api/free-report" || pathname === "/api/grader";
     const max = isFreeReport ? RATE_LIMIT_MAX_FREE : RATE_LIMIT_MAX_API;
     const limitKey = isFreeReport ? `free:${ip}` : `api:${ip}`;
 
@@ -93,7 +127,7 @@ export function middleware(req: NextRequest) {
     response.headers.set("X-RateLimit-Remaining", remaining.toString());
 
     if (!allowed) {
-      return NextResponse.json(
+      return applySecurityHeaders(NextResponse.json(
         { error: "Rate limit exceeded. Please wait a moment." },
         {
           status: 429,
@@ -103,16 +137,15 @@ export function middleware(req: NextRequest) {
             "X-RateLimit-Remaining": "0",
           },
         }
-      );
+      ));
     }
   }
 
-  return response;
+  return applySecurityHeaders(response);
 }
 
 export const config = {
   matcher: [
-    // Match all paths except static files and _next
     "/((?!_next/static|_next/image|favicon.ico).*)",
   ],
 };

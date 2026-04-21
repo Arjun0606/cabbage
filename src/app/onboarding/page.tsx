@@ -132,7 +132,7 @@ export default function OnboardingPage() {
   };
 
   // Step 2: Save and go to dashboard
-  const handleFinish = () => {
+  const handleFinish = async () => {
     const primaryCity = cities.filter(Boolean)[0] || "";
     if (!primaryCity) {
       setError("Please add at least one city where you operate.");
@@ -161,6 +161,17 @@ export default function OnboardingPage() {
       },
     };
     localStorage.setItem("cabbge_company", JSON.stringify(data));
+
+    // Persist to Supabase linked to the authenticated user. Non-blocking —
+    // if Supabase isn't configured or auth failed, the localStorage copy
+    // still drives the dashboard.
+    try {
+      await fetch("/api/companies", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+    } catch { /* non-fatal */ }
 
     // Also set company ID cookie for per-company rate limiting
     document.cookie = `cabbge_company_id=${encodeURIComponent(name.trim().toLowerCase().replace(/\s+/g, "-"))};path=/;max-age=${60 * 60 * 24 * 365};samesite=lax`;

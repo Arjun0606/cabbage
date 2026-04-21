@@ -10,6 +10,8 @@ import { TerminalHeader } from "@/components/dashboard/TerminalHeader";
 import { AgentStatusBar } from "@/components/dashboard/AgentStatusBar";
 import { GSCPanel } from "@/components/dashboard/GSCPanel";
 import { SiteSwitcher } from "@/components/dashboard/SiteSwitcher";
+import { TrialBanner } from "@/components/dashboard/TrialBanner";
+import { PaywallOverlay } from "@/components/dashboard/PaywallOverlay";
 import { recordScan, getAllTrends, type TrendData } from "@/lib/scanHistory";
 import { recordGEOScan, getGEOProgress, getSavedQueries, getSavedQueriesFingerprint, saveQueries, trackArticleGenerated, markArticlePublished, type GEOProgress } from "@/lib/geoHistory";
 
@@ -98,6 +100,23 @@ export default function DashboardPage() {
   const [isAnalyzingLinks, setIsAnalyzingLinks] = useState(false);
   const [contentDecayReport, setContentDecayReport] = useState<any>(null);
   const [snapshotCount, setSnapshotCount] = useState(0);
+  const [billing, setBilling] = useState<{
+    plan: string;
+    status: string;
+    daysLeftInTrial: number;
+    canAccess: boolean;
+    email?: string;
+  } | null>(null);
+
+  // Fetch billing status on mount
+  useEffect(() => {
+    fetch("/api/billing/status")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.authenticated) setBilling(d);
+      })
+      .catch(() => { /* if Supabase not configured, dashboard still works */ });
+  }, []);
   const [trends, setTrends] = useState<Record<string, TrendData>>({
     audit: { current: 0, previous: null, change: 0, direction: "new", history: [] },
     technical: { current: 0, previous: null, change: 0, direction: "new", history: [] },
@@ -1258,11 +1277,31 @@ export default function DashboardPage() {
     await runFullScan();
   };
 
+  // Paywall: show overlay when trial expired OR subscription canceled/past-due
+  const paywallReason: "trial_expired" | "canceled" | "past_due" | null =
+    billing && !billing.canAccess
+      ? billing.status === "canceled" || billing.status === "expired"
+        ? "canceled"
+        : billing.status === "past_due"
+          ? "past_due"
+          : "trial_expired"
+      : null;
+
   return (
     <div className="h-screen bg-[#0a0a0b] text-zinc-100 flex overflow-hidden">
+      {paywallReason && <PaywallOverlay email={billing?.email} reason={paywallReason} />}
       <Sidebar companyName={company.name} creditsUsed={creditsUsed} creditsTotal={CREDITS_TOTAL} />
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        {/* Trial reminder banner (during trial only) */}
+        {billing && (
+          <TrialBanner
+            plan={billing.plan}
+            status={billing.status}
+            daysLeftInTrial={billing.daysLeftInTrial}
+            canAccess={billing.canAccess}
+          />
+        )}
         {/* Terminal + Agent bar */}
         <TerminalHeader
           logs={terminalLogs}

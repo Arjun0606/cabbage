@@ -1,163 +1,228 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Check, Zap, ArrowRight } from "lucide-react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { Check, Loader2, Sparkles, ArrowRight } from "lucide-react";
 import Link from "next/link";
 
-const FEATURES = [
-  "SEO & Performance Audit (15 real estate checks)",
-  "AI Visibility — ChatGPT + Google AI",
-  "AI Crawler Access Analysis",
-  "Brand Presence Scanner",
-  "Content Citability Audit",
-  "Technical SEO Analysis",
-  "Backlink Profile & Link Building",
-  "Competitor Intelligence",
-  "Full Article Writer (7 types incl. NRI Guide)",
-  "Festive Campaign Generator (12 festivals)",
-  "Channel Partner Content Packs",
-  "Property Portal Optimizer (99acres, MagicBricks, Housing.com)",
-  "Google & Meta Ads Copy Generator",
-  "Landing Page Generator (5 types)",
-  "Property Schema / Structured Data Generator",
-  "llms.txt Generator for AI Crawlers",
-  "30-Day Daily Action Plan",
-  "Neighborhood Intelligence & Walk Score",
-  "Construction Progress Content (8 channels)",
-  "Monthly Board-Ready Marketing Report",
-  "AI CMO Chat Assistant",
-  "Automated Scans Every 4 Hours",
-  "Works for Any City Worldwide",
+type Plan = "starter" | "growth" | "enterprise";
+
+interface Tier {
+  id: Plan;
+  name: string;
+  tagline: string;
+  price: string;
+  priceUnit: string;
+  highlight?: boolean;
+  features: string[];
+  cta: string;
+}
+
+const TIERS: Tier[] = [
+  {
+    id: "starter",
+    name: "Starter",
+    tagline: "Single-site developers getting serious about AI search",
+    price: "₹7,500",
+    priceUnit: "/month",
+    features: [
+      "1 website (+ up to 3 project microsites)",
+      "Daily AI visibility scans (ChatGPT + Gemini)",
+      "Full-site SEO crawler (up to 50 pages)",
+      "Keyword research with real volume & KD",
+      "GEO-optimized article generation (unlimited within credits)",
+      "Internal linking analysis",
+      "Content decay detection",
+      "Google Search Console integration",
+      "Schema auto-deploy",
+      "500 credits/month",
+      "Email support",
+    ],
+    cta: "Start Free Trial",
+  },
+  {
+    id: "growth",
+    name: "Growth",
+    tagline: "Mid-tier builders with multiple projects",
+    price: "₹24,000",
+    priceUnit: "/month",
+    highlight: true,
+    features: [
+      "Everything in Starter, plus:",
+      "5 websites + unlimited project microsites",
+      "Daily scans on every site",
+      "Full-site crawler (up to 200 pages per site)",
+      "Competitive citation alerts",
+      "Per-segment GEO breakdowns (config / price / funnel)",
+      "Publish-to-WordPress / Webflow integration",
+      "Auto-refresh queries when projects change",
+      "2,500 credits/month",
+      "Priority email + WhatsApp support",
+    ],
+    cta: "Start Free Trial",
+  },
+  {
+    id: "enterprise",
+    name: "Enterprise",
+    tagline: "DLF / Prestige / Godrej scale — many brands, many cities",
+    price: "Custom",
+    priceUnit: "",
+    features: [
+      "Everything in Growth, plus:",
+      "Unlimited websites & project microsites",
+      "Multi-team access with role-based permissions",
+      "Multi-site publish to many WordPress sites at once",
+      "Dedicated Razorpay / Stripe billing",
+      "India data residency",
+      "SLA + dedicated account manager",
+      "Custom credit pools + rollover",
+      "Weekly strategy call",
+      "White-label option available",
+    ],
+    cta: "Talk to Sales",
+  },
 ];
 
+declare global {
+  interface Window {
+    Razorpay: new (options: Record<string, unknown>) => { open: () => void; on: (event: string, handler: (response: unknown) => void) => void };
+  }
+}
+
 export default function PricingPage() {
+  const router = useRouter();
+  const [loading, setLoading] = useState<Plan | null>(null);
+  const [authed, setAuthed] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    // Preload Razorpay checkout
+    const s = document.createElement("script");
+    s.src = "https://checkout.razorpay.com/v1/checkout.js";
+    s.async = true;
+    document.body.appendChild(s);
+
+    // Check auth state (so we can send unauth'd users to signup first)
+    fetch("/api/billing/status").then((r) => r.json()).then((d) => setAuthed(!!d.authenticated)).catch(() => setAuthed(false));
+  }, []);
+
+  const handleChoose = async (plan: Plan) => {
+    if (plan === "enterprise") {
+      window.location.href = "mailto:sales@cabbge.com?subject=Cabbge%20Enterprise%20Pricing";
+      return;
+    }
+
+    if (!authed) {
+      router.push(`/signup?next=${encodeURIComponent(`/pricing?plan=${plan}`)}`);
+      return;
+    }
+
+    setLoading(plan);
+    try {
+      const res = await fetch("/api/billing/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+
+      // Open Razorpay checkout
+      const rzp = new window.Razorpay({
+        key: data.keyId,
+        subscription_id: data.subscriptionId,
+        name: "Cabbge",
+        description: `${plan.charAt(0).toUpperCase() + plan.slice(1)} plan`,
+        prefill: { email: data.email },
+        theme: { color: "#7CB342" },
+        handler: () => {
+          // Webhook will flip status to active. Redirect to dashboard.
+          router.push("/dashboard?upgraded=true");
+        },
+        modal: {
+          ondismiss: () => setLoading(null),
+        },
+      });
+      rzp.open();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Checkout failed");
+      setLoading(null);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100">
-      <div className="border-b border-zinc-800 px-6 py-4">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
+    <div className="min-h-screen bg-[#0a0a0b] text-zinc-100">
+      <div className="border-b border-white/[0.06] px-6 py-4">
+        <div className="max-w-6xl mx-auto flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
-            <img src="/logo.png" alt="Cabbge" className="w-7 h-7 object-contain" />
-            <span className="font-bold text-zinc-100">Cabbge</span>
+            <div className="w-7 h-7 rounded-lg bg-[#7CB342] flex items-center justify-center">
+              <Sparkles size={14} className="text-zinc-900" />
+            </div>
+            <span className="text-[15px] font-semibold">Cabbge</span>
           </Link>
-          <Link href="/">
-            <Button size="sm" className="bg-zinc-100 text-zinc-900 hover:bg-white">
-              Get Started <ArrowRight size={14} className="ml-1" />
-            </Button>
+          <Link href={authed ? "/dashboard" : "/signin"} className="text-[13px] text-zinc-400 hover:text-zinc-200">
+            {authed ? "Dashboard" : "Sign in"}
           </Link>
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-6 py-16">
-        <div className="text-center mb-16 space-y-4">
-          <h1 className="text-4xl font-bold tracking-tight">
-            One person. Entire SEO &amp; GEO department.
-          </h1>
-          <p className="text-zinc-400 text-lg max-w-xl mx-auto">
-            Everything your marketing team needs to dominate Google Search and AI recommendations. Token-based — pay for what you use.
+      <div className="max-w-6xl mx-auto px-6 py-16">
+        <div className="text-center mb-12">
+          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight mb-3">Simple pricing. Always-on SEO + GEO execution.</h1>
+          <p className="text-zinc-400 text-[15px] max-w-2xl mx-auto">
+            14-day free trial. No credit card required. Full features. Cancel anytime.
           </p>
         </div>
 
-        {/* Pricing Card */}
-        <Card className="bg-zinc-900 border-zinc-800 max-w-md mx-auto mb-16">
-          <CardContent className="p-8 space-y-6">
-            <div className="text-center">
-              <div className="text-sm text-zinc-400 mb-2">Starts at</div>
-              <div className="flex items-baseline justify-center gap-1">
-                <span className="text-5xl font-bold">$500</span>
-                <span className="text-zinc-500">/month</span>
+        <div className="grid md:grid-cols-3 gap-6">
+          {TIERS.map((tier) => (
+            <div
+              key={tier.id}
+              className={`rounded-2xl p-6 border ${
+                tier.highlight
+                  ? "bg-[#7CB342]/[0.04] border-[#7CB342]/30 shadow-[0_0_32px_rgba(124,179,66,0.08)]"
+                  : "bg-zinc-900/60 border-white/[0.06]"
+              }`}
+            >
+              {tier.highlight && (
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-[#7CB342] mb-2">
+                  Most popular
+                </div>
+              )}
+              <h3 className="text-[18px] font-bold mb-1">{tier.name}</h3>
+              <p className="text-[12px] text-zinc-500 mb-4 min-h-[32px]">{tier.tagline}</p>
+              <div className="flex items-baseline gap-1 mb-5">
+                <span className="text-3xl font-bold">{tier.price}</span>
+                {tier.priceUnit && <span className="text-[13px] text-zinc-500">{tier.priceUnit}</span>}
               </div>
-              <p className="text-sm text-zinc-400 mt-2">
-                Includes 1,000 credits. Use more, pay more.
-              </p>
-              <p className="text-xs text-zinc-600 mt-1">
-                Larger teams with more projects typically use 1,500–3,000 credits/month.
-              </p>
-            </div>
-
-            <div className="border-t border-zinc-800 pt-4 space-y-3">
-              <div className="text-xs text-zinc-500 uppercase tracking-wider mb-2">Credit usage</div>
-              <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
-                {[
-                  ["Full SEO audit", "5"],
-                  ["AI Visibility check", "10"],
-                  ["Full article (1,500+ words)", "3"],
-                  ["Festive campaign", "5"],
-                  ["Channel partner pack", "3"],
-                  ["Landing page", "5"],
-                  ["Schema generator", "3"],
-                  ["Google + Meta ads", "5"],
-                  ["Portal optimizer", "5"],
-                  ["Competitor scan", "5"],
-                  ["Technical audit", "3"],
-                  ["Chat message", "1"],
-                ].map(([name, credits]) => (
-                  <div key={name} className="flex justify-between text-zinc-400">
-                    <span>{name}</span>
-                    <span className="text-zinc-600">{credits}</span>
-                  </div>
+              <button
+                onClick={() => handleChoose(tier.id)}
+                disabled={loading === tier.id}
+                className={`w-full h-10 rounded-lg font-semibold text-[13px] transition-all mb-6 flex items-center justify-center gap-1.5 ${
+                  tier.highlight
+                    ? "bg-[#7CB342] text-zinc-950 hover:bg-[#8BC34A] active:scale-[0.97]"
+                    : "bg-zinc-800 text-zinc-100 border border-white/[0.08] hover:bg-zinc-700 active:scale-[0.97]"
+                } disabled:opacity-60`}
+              >
+                {loading === tier.id ? <Loader2 size={14} className="animate-spin" /> : null}
+                {tier.cta} {!loading && <ArrowRight size={13} />}
+              </button>
+              <ul className="space-y-2">
+                {tier.features.map((f, i) => (
+                  <li key={i} className="flex items-start gap-2 text-[12px] text-zinc-300">
+                    <Check size={13} className="text-[#7CB342] flex-shrink-0 mt-0.5" />
+                    <span>{f}</span>
+                  </li>
                 ))}
-              </div>
+              </ul>
             </div>
-
-            <Link href="/onboarding" className="block">
-              <Button className="w-full bg-zinc-100 text-zinc-900 hover:bg-white h-11">
-                <Zap size={14} className="mr-2" />
-                Get Started
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
-
-        {/* Comparison */}
-        <div className="mb-16">
-          <h2 className="text-center text-xl font-bold mb-8">
-            Replace your agency. Keep your results.
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-2xl mx-auto">
-            <Card className="bg-zinc-900 border-zinc-800">
-              <CardContent className="p-4 text-center">
-                <div className="text-lg font-bold text-red-400 line-through">₹2–5L/mo</div>
-                <div className="text-xs text-zinc-500 mt-1">SEO agency retainer</div>
-              </CardContent>
-            </Card>
-            <Card className="bg-zinc-900 border-zinc-800">
-              <CardContent className="p-4 text-center">
-                <div className="text-lg font-bold text-red-400 line-through">₹1.5L+/mo</div>
-                <div className="text-xs text-zinc-500 mt-1">In-house SEO hire</div>
-              </CardContent>
-            </Card>
-            <Card className="bg-zinc-900 border-zinc-100 ring-1 ring-zinc-100">
-              <CardContent className="p-4 text-center">
-                <div className="text-lg font-bold text-zinc-100">~₹42K/mo</div>
-                <div className="text-xs text-zinc-400 mt-1">Cabbge — does 10x more</div>
-              </CardContent>
-            </Card>
-          </div>
+          ))}
         </div>
 
-        {/* Features */}
-        <div className="max-w-lg mx-auto">
-          <h2 className="text-center text-xl font-bold mb-8">
-            Everything included. No upsells.
-          </h2>
-          <div className="space-y-2.5">
-            {FEATURES.map((feature) => (
-              <div key={feature} className="flex items-center gap-3 text-sm">
-                <Check size={16} className="text-zinc-100 flex-shrink-0" />
-                <span className="text-zinc-300">{feature}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="mt-16 text-center">
-          <Link href="/onboarding">
-            <Button size="lg" className="bg-zinc-100 text-zinc-900 hover:bg-white">
-              <Zap size={16} className="mr-2" />
-              Start Now
-            </Button>
-          </Link>
+        <div className="mt-12 text-center text-[12px] text-zinc-500">
+          All plans include GST as applicable. Billed monthly in INR via Razorpay.
+          <br />
+          Need a custom setup, dedicated region, or annual pricing?{" "}
+          <a href="mailto:sales@cabbge.com" className="text-[#7CB342] hover:text-[#8BC34A]">Contact sales</a>.
         </div>
       </div>
     </div>

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/db/supabase";
+import { getCurrentUser } from "@/lib/db/supabase-server";
 
 /**
  * GET /api/companies?id=xxx — fetch company by ID
@@ -45,59 +46,78 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "name and website are required" }, { status: 400 });
     }
 
-    // Check if company exists by website
-    const { data: existing } = await db
-      .from("companies")
-      .select("id")
-      .eq("website", website)
-      .maybeSingle();
+    // Attach owner_id if the request is authenticated. Falls back to null
+    // (unowned company) so existing non-auth flows still work.
+    let ownerId: string | null = null;
+    try {
+      const user = await getCurrentUser();
+      if (user) ownerId = user.id;
+    } catch { /* Supabase auth not configured — continue anonymously */ }
+
+    // Check if company exists, preferring the user's own company if auth'd
+    let existing: { id: string } | null = null;
+    if (ownerId) {
+      const { data } = await db
+        .from("companies")
+        .select("id")
+        .eq("owner_id", ownerId)
+        .eq("website", website)
+        .maybeSingle();
+      existing = data;
+    }
+    if (!existing) {
+      const { data } = await db
+        .from("companies")
+        .select("id")
+        .eq("website", website)
+        .is("owner_id", null)
+        .maybeSingle();
+      existing = data;
+    }
 
     let companyId: string;
 
     if (existing) {
-      // Update existing company
+      // Update existing company — claim ownership if it was unowned
       companyId = existing.id;
-      const { error } = await db
-        .from("companies")
-        .update({
-          name,
-          description,
-          website,
-          city,
-          product_info: documents?.productInfo || null,
-          brand_voice: documents?.brandVoice || null,
-          brand_values: documents?.brandValues || null,
-          brand_vision: documents?.brandVision || null,
-          target_audience: documents?.targetAudience || null,
-          marketing_strategy: documents?.marketingStrategy || null,
-          competitor_analysis: documents?.competitorAnalysis || null,
-          sites: sites || [],
-          documents: documents || {},
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", companyId);
+      const updatePayload: Record<string, unknown> = {
+        name,
+        description,
+        website,
+        city,
+        product_info: documents?.productInfo || null,
+        brand_voice: documents?.brandVoice || null,
+        brand_values: documents?.brandValues || null,
+        brand_vision: documents?.brandVision || null,
+        target_audience: documents?.targetAudience || null,
+        marketing_strategy: documents?.marketingStrategy || null,
+        competitor_analysis: documents?.competitorAnalysis || null,
+        sites: sites || [],
+        documents: documents || {},
+        updated_at: new Date().toISOString(),
+      };
+      if (ownerId) updatePayload.owner_id = ownerId;
+      const { error } = await db.from("companies").update(updatePayload).eq("id", companyId);
       if (error) throw error;
     } else {
       // Create new company
-      const { data, error } = await db
-        .from("companies")
-        .insert({
-          name,
-          description,
-          website,
-          city,
-          product_info: documents?.productInfo || null,
-          brand_voice: documents?.brandVoice || null,
-          brand_values: documents?.brandValues || null,
-          brand_vision: documents?.brandVision || null,
-          target_audience: documents?.targetAudience || null,
-          marketing_strategy: documents?.marketingStrategy || null,
-          competitor_analysis: documents?.competitorAnalysis || null,
-          sites: sites || [],
-          documents: documents || {},
-        })
-        .select("id")
-        .single();
+      const insertPayload: Record<string, unknown> = {
+        name,
+        description,
+        website,
+        city,
+        product_info: documents?.productInfo || null,
+        brand_voice: documents?.brandVoice || null,
+        brand_values: documents?.brandValues || null,
+        brand_vision: documents?.brandVision || null,
+        target_audience: documents?.targetAudience || null,
+        marketing_strategy: documents?.marketingStrategy || null,
+        competitor_analysis: documents?.competitorAnalysis || null,
+        sites: sites || [],
+        documents: documents || {},
+      };
+      if (ownerId) insertPayload.owner_id = ownerId;
+      const { data, error } = await db.from("companies").insert(insertPayload).select("id").single();
       if (error) throw error;
       companyId = data.id;
     }

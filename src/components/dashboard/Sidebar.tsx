@@ -6,6 +6,7 @@ import {
   Bot,
   Settings,
   PlusCircle,
+  LogOut,
 } from "lucide-react";
 import Image from "next/image";
 
@@ -74,6 +75,15 @@ export function Sidebar({ companyName, creditsUsed = 0, creditsTotal = 1000 }: P
       {/* Credits ring hidden — product philosophy: let users use freely,
           upsell when they've seen the value. Showing a shrinking counter
           makes users wary and reduces engagement. */}
+
+      {/* Sign out */}
+      <a
+        href="/auth/signout"
+        className="w-8 h-8 mb-2 rounded-md flex items-center justify-center text-zinc-600 hover:bg-zinc-800/60 hover:text-zinc-400 transition-colors"
+        title="Sign out"
+      >
+        <LogOut size={14} />
+      </a>
 
       {/* Account avatar */}
       <div className="pb-3">
