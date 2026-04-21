@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/db/supabase-server";
 import { getServiceClient } from "@/lib/db/supabase";
 
@@ -8,8 +8,21 @@ import { getServiceClient } from "@/lib/db/supabase";
  *   { plan, status, trialEndsAt, daysLeftInTrial, canAccess, needsUpgrade }
  * Called by the dashboard client on load to show/hide paywall.
  */
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    // Demo mode unlocks full access without auth or subscription
+    const inDemoMode = req.cookies.get("cabbge_demo")?.value === "1";
+    if (inDemoMode) {
+      return NextResponse.json({
+        authenticated: false,
+        demoMode: true,
+        plan: "demo",
+        status: "demo",
+        canAccess: true,
+        needsUpgrade: false,
+      });
+    }
+
     const supabase = await getServerSupabase();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {

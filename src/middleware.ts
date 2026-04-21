@@ -50,6 +50,8 @@ if (typeof setInterval !== "undefined") {
 const PROTECTED_PATHS = ["/dashboard", "/settings", "/onboarding"];
 // Routes that signed-in users should not see (auto-redirect to dashboard)
 const GUEST_ONLY_PATHS = ["/signin", "/signup"];
+// When the demo cookie is set, protected routes are unlocked (sales team pitching)
+const DEMO_COOKIE = "cabbge_demo";
 
 function applySecurityHeaders(response: NextResponse): NextResponse {
   response.headers.set("X-Content-Type-Options", "nosniff");
@@ -88,18 +90,22 @@ export async function middleware(req: NextRequest) {
     response = NextResponse.next({ request: req });
   }
 
-  // Protected routes — redirect to signin if not authenticated
+  // Demo mode — sales team pitching prospects. Cookie bypasses auth +
+  // paywall checks so you can show the full product with a prospect's data.
+  const inDemoMode = req.cookies.get(DEMO_COOKIE)?.value === "1";
+
+  // Protected routes — redirect to signin if not authenticated (unless in demo)
   const isProtected = PROTECTED_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"));
-  if (isProtected && !user) {
+  if (isProtected && !user && !inDemoMode) {
     const url = req.nextUrl.clone();
     url.pathname = "/signin";
     url.searchParams.set("next", pathname);
     return applySecurityHeaders(NextResponse.redirect(url));
   }
 
-  // Guest-only routes — redirect to dashboard if already signed in
+  // Guest-only routes — redirect to dashboard if already signed in (demo mode is NOT a session)
   const isGuestOnly = GUEST_ONLY_PATHS.includes(pathname);
-  if (isGuestOnly && user) {
+  if (isGuestOnly && user && !inDemoMode) {
     const url = req.nextUrl.clone();
     url.pathname = "/dashboard";
     url.search = "";

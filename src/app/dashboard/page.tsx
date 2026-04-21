@@ -12,6 +12,7 @@ import { GSCPanel } from "@/components/dashboard/GSCPanel";
 import { SiteSwitcher } from "@/components/dashboard/SiteSwitcher";
 import { TrialBanner } from "@/components/dashboard/TrialBanner";
 import { PaywallOverlay } from "@/components/dashboard/PaywallOverlay";
+import { DemoBanner } from "@/components/dashboard/DemoBanner";
 import { recordScan, getAllTrends, type TrendData } from "@/lib/scanHistory";
 import { recordGEOScan, getGEOProgress, getSavedQueries, getSavedQueriesFingerprint, saveQueries, trackArticleGenerated, markArticlePublished, type GEOProgress } from "@/lib/geoHistory";
 
@@ -1288,9 +1289,13 @@ export default function DashboardPage() {
     await runFullScan();
   };
 
+  // Demo mode: never paywall, always show demo banner at the top.
+  const isDemoMode = billing?.plan === "demo" || (typeof window !== "undefined" && localStorage.getItem("cabbge_demo_mode") === "true");
+
   // Paywall: show overlay when trial expired OR subscription canceled/past-due
+  // (but never in demo mode)
   const paywallReason: "trial_expired" | "canceled" | "past_due" | null =
-    billing && !billing.canAccess
+    !isDemoMode && billing && !billing.canAccess
       ? billing.status === "canceled" || billing.status === "expired"
         ? "canceled"
         : billing.status === "past_due"
@@ -1304,8 +1309,12 @@ export default function DashboardPage() {
       <Sidebar companyName={company.name} creditsUsed={creditsUsed} creditsTotal={CREDITS_TOTAL} />
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Trial reminder banner (during trial only) */}
-        {billing && (
+        {/* Demo mode banner — sits above trial banner, always visible in demo */}
+        {isDemoMode && (
+          <DemoBanner prospectName={company.name} prospectUrl={company.website} />
+        )}
+        {/* Trial reminder banner (during trial only, hidden in demo) */}
+        {!isDemoMode && billing && (
           <TrialBanner
             plan={billing.plan}
             status={billing.status}
