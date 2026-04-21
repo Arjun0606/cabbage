@@ -108,11 +108,7 @@ Rules:
       competitiveSection: result.competitiveSection || "",
       recommendations: result.recommendations || [],
       kpis: result.kpis || [],
-      costSavings: result.costSavings || {
-        agencyCost: "3,00,000",
-        cabbageCost: "41,500",
-        savings: "2,58,500",
-      },
+      costSavings: result.costSavings || null,
     });
   } catch (error) {
     console.error("Marketing report error:", error);

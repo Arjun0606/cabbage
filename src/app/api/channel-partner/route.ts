@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { aiComplete } from "@/lib/ai";
+import { formatWritingInstructions } from "@/lib/writingInstructions";
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,6 +14,7 @@ export async function POST(req: NextRequest) {
       usps,
       reraNumber,
       amenities,
+      writingInstructions,
     } = await req.json();
 
     if (!projectName || !city || !location) {
@@ -55,7 +57,8 @@ Return JSON with exactly this structure:
   "comparisonPoints": ["5-6 talking points on why this project stands out vs nearby competitors — be specific to the location and segment"]
 }
 
-For brokerFAQs, include exactly 5 entries covering: pricing concerns, location/connectivity, builder reputation, possession timeline, and investment potential.`;
+For brokerFAQs, include exactly 5 entries covering: pricing concerns, location/connectivity, builder reputation, possession timeline, and investment potential.
+${formatWritingInstructions(writingInstructions, "channelPartner", "Channel partner")}`;
 
     const text = await aiComplete(system, prompt, 2500);
 

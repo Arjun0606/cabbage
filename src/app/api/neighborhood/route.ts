@@ -19,9 +19,15 @@ export async function POST(req: NextRequest) {
     const priceStr = priceRange || "";
     const amenStr = amenities || "";
 
-    const system = `You are an expert Indian real estate location analyst and neighbourhood intelligence specialist. You have deep knowledge of Indian cities — their micro-markets, infrastructure projects, connectivity networks, school ecosystems, healthcare facilities, commercial hubs, and upcoming development plans. You provide accurate, detailed neighbourhood data that real estate marketers use for listing descriptions, landing pages, and buyer presentations.
+    const system = `You are an expert Indian real estate location analyst. You provide neighbourhood context that real estate marketers use in listings and landing pages.
 
-IMPORTANT: Return ONLY valid JSON with the exact structure specified. No markdown fences, no commentary outside the JSON. All scores must be integers between 0 and 100. All distances should be realistic for the given location.`;
+CRITICAL HONESTY RULES:
+1. NEVER fabricate specific place names, school names, hospital names, or metro station names you are not highly confident actually exist in the given location.
+2. NEVER invent specific distances like "2.3 km" or "4.7 km". Use approximate ranges ("within 3 km", "5-7 km away") or omit the distance if uncertain.
+3. Only include entries you are genuinely confident about. A shorter, accurate list beats a long fabricated one.
+4. For every place you name: if the exact distance is unknown, use "Approximate — within ${radiusStr}" or a range.
+
+IMPORTANT: Return ONLY valid JSON with the exact structure specified. No markdown fences, no commentary outside the JSON. All scores must be integers between 0 and 100.`;
 
     const prompt = `Generate comprehensive neighbourhood intelligence for the following location in India.
 
@@ -91,14 +97,14 @@ Provide rich, accurate neighbourhood data and return JSON with this EXACT struct
 }
 
 Rules:
-- Include 6-8 entries each for education, healthcare, and shopping.
-- Include 4-6 IT hubs / business parks (critical for cities like Bangalore, Hyderabad, Pune, Gurgaon, Noida).
-- Include 3-5 upcoming infrastructure projects with realistic timelines.
-- Include 8-10 nearby landmarks for Google Maps optimisation.
-- Education MUST include a mix of CBSE, ICSE, IB, and state board schools.
-- All distances must be realistic and plausible for the given location.
+- Accuracy over completeness. Only include places you are CONFIDENT actually exist in this location. Prefer a shorter, accurate list over a long invented one.
+- For distance fields: use approximate phrases like "within 2 km", "3-5 km away", or "near ${location}" when not certain of exact distance. NEVER invent specific decimal kilometres.
+- Include 3-8 entries each for education, healthcare, and shopping — only verified-to-exist places.
+- Include 2-6 IT hubs / business parks (only include for cities that actually have them: Bangalore, Hyderabad, Pune, Gurgaon, Noida, Chennai, Mumbai).
+- Include 2-5 upcoming infrastructure projects ONLY if you have genuine knowledge of them. Otherwise return an empty array.
+- Include 5-10 nearby landmarks — only if well-known and verifiable.
 - walkScore and connectivityScore must reflect the actual ground reality of the location.
-- "whyLiveHere" points should be specific to this location, not generic. Mention actual place names.
+- "whyLiveHere" points should be specific to this location, not generic. Mention real place names only if confident.
 - SEO content paragraphs should read naturally while incorporating keywords — no keyword stuffing.
 - If ${projectStr ? `the project "${projectStr}" is known, reference it subtly in the whyLiveHere and seoContent sections` : "no project name is given, keep content location-focused"}.`;
 
@@ -139,6 +145,9 @@ Rules:
     // Ensure scores are numbers in range
     result.walkScore = Math.max(0, Math.min(100, Math.round(Number(result.walkScore) || 0)));
     result.connectivityScore = Math.max(0, Math.min(100, Math.round(Number(result.connectivityScore) || 0)));
+
+    // Data source flag — distances and place details are AI-estimated, not verified via Places API.
+    result.dataSource = "ai_estimated";
 
     return NextResponse.json(result);
   } catch (error) {

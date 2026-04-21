@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { aiComplete } from "@/lib/ai";
+import { formatWritingInstructions } from "@/lib/writingInstructions";
 
 interface ActionItem {
   day: number;
@@ -23,7 +24,7 @@ interface GeoImprovementPlan {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { companyName, website, city, currentScore, currentMentionRate, missingQueries, failedChecks, projects } = body;
+    const { companyName, website, city, currentScore, currentMentionRate, missingQueries, failedChecks, projects, writingInstructions } = body;
 
     if (!companyName || !website) {
       return NextResponse.json({ error: "companyName and website are required" }, { status: 400 });
@@ -116,7 +117,8 @@ Days 29-30 — Report & Plan:
 Day 29: Generate monthly marketing report
 Day 30: Review report, identify top 3 priorities for next month, share report with management
 
-Personalize EVERYTHING to ${companyName}, ${city}, and the specific projects and missing queries listed above.`;
+Personalize EVERYTHING to ${companyName}, ${city}, and the specific projects and missing queries listed above.
+${formatWritingInstructions(writingInstructions, "geoImprovement", "GEO improvement plan")}`;
 
     const raw = await aiComplete(systemPrompt, userPrompt, 4000);
 

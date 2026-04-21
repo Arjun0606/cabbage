@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { aiComplete } from "@/lib/ai";
+import { formatWritingInstructions } from "@/lib/writingInstructions";
 
 /**
  * Google Business Profile Post Generator
@@ -16,7 +17,7 @@ export async function POST(req: NextRequest) {
     const {
       projectName, developerName, location, city,
       configurations, priceRange, amenities, website,
-      brandVoice, targetAudience,
+      brandVoice, targetAudience, writingInstructions,
     } = await req.json();
 
     if (!developerName || !city) {
@@ -69,7 +70,8 @@ Generate as many posts as this business needs. Consider:
 - What types work best: updates, offers, events, what's new, local lifestyle, testimonials
 - Cover enough variety for consistent posting over the next month
 
-Make every post genuinely useful and specific to ${location || city}. Use REAL landmarks.`;
+Make every post genuinely useful and specific to ${location || city}. Use REAL landmarks.
+${formatWritingInstructions(writingInstructions, "gbpPosts", "GBP post")}`;
 
     const raw = await aiComplete(system, prompt, 3000);
 

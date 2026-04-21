@@ -17,6 +17,10 @@ interface KeywordResult {
   gscClicks?: number;
   opportunity: "high" | "medium" | "low";
   source: "gsc" | "web_search" | "inferred";
+  seedCity?: string;
+  seedProject?: string;
+  seedConfig?: string;
+  seedLocality?: string;
 }
 
 interface KeywordResearchResult {
@@ -24,6 +28,7 @@ interface KeywordResearchResult {
   city?: string;
   totalKeywords: number;
   keywords: KeywordResult[];
+  seedsUsed?: Array<{ seed: string; city?: string; project?: string; config?: string; locality?: string; dimension: string }>;
   clusters: Array<{
     name: string;
     keywordCount: number;
@@ -57,14 +62,33 @@ function oppBadgeColor(opp: "high" | "medium" | "low"): string {
 export function KeywordResearchPanel({ city, data, isLoading, onSearch, onFixKeyword }: Props) {
   const [seed, setSeed] = useState("");
   const [filter, setFilter] = useState<"all" | "high" | "gsc">("all");
+  const [dimensionFilter, setDimensionFilter] = useState<string>("all");
 
   const handleSearch = () => {
     if (seed.trim()) onSearch(seed.trim());
   };
 
+  // Collect unique dimension values from actual results
+  const dimensionOptions = (() => {
+    if (!data?.keywords) return [] as Array<{ key: string; label: string; type: string }>;
+    const seen = new Map<string, { key: string; label: string; type: string }>();
+    for (const k of data.keywords) {
+      if (k.seedConfig) seen.set(`config:${k.seedConfig}`, { key: `config:${k.seedConfig}`, label: k.seedConfig, type: "config" });
+      if (k.seedLocality) seen.set(`locality:${k.seedLocality}`, { key: `locality:${k.seedLocality}`, label: k.seedLocality, type: "locality" });
+      if (k.seedCity) seen.set(`city:${k.seedCity}`, { key: `city:${k.seedCity}`, label: k.seedCity, type: "city" });
+    }
+    return Array.from(seen.values());
+  })();
+
   const filtered = data?.keywords.filter((k) => {
-    if (filter === "high") return k.opportunity === "high";
-    if (filter === "gsc") return k.source === "gsc";
+    if (filter === "high" && k.opportunity !== "high") return false;
+    if (filter === "gsc" && k.source !== "gsc") return false;
+    if (dimensionFilter !== "all") {
+      const [type, val] = dimensionFilter.split(":");
+      if (type === "config" && k.seedConfig !== val) return false;
+      if (type === "locality" && k.seedLocality !== val) return false;
+      if (type === "city" && k.seedCity !== val) return false;
+    }
     return true;
   }) || [];
 
@@ -159,6 +183,31 @@ export function KeywordResearchPanel({ city, data, isLoading, onSearch, onFixKey
                   ))}
                 </div>
               </div>
+              {dimensionOptions.length > 0 && (
+                <div className="flex items-center gap-1.5 flex-wrap pt-2 mt-1 border-t border-white/[0.04]">
+                  <span className="text-[10px] uppercase tracking-wide text-zinc-500 mr-1">Slice by</span>
+                  <button
+                    onClick={() => setDimensionFilter("all")}
+                    className={`px-2 py-0.5 rounded-md text-[11px] transition-colors ${
+                      dimensionFilter === "all" ? "bg-zinc-800 text-zinc-200" : "text-zinc-500 hover:text-zinc-300"
+                    }`}
+                  >
+                    All dimensions
+                  </button>
+                  {dimensionOptions.map((opt) => (
+                    <button
+                      key={opt.key}
+                      onClick={() => setDimensionFilter(opt.key)}
+                      className={`px-2 py-0.5 rounded-md text-[11px] transition-colors flex items-center gap-1 ${
+                        dimensionFilter === opt.key ? "bg-zinc-800 text-zinc-200" : "text-zinc-500 hover:text-zinc-300"
+                      }`}
+                    >
+                      <span className="text-[9px] uppercase tracking-wide text-zinc-600">{opt.type}</span>
+                      <span>{opt.label}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </CardHeader>
             <CardContent>
               {filtered.length === 0 ? (

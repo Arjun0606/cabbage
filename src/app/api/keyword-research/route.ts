@@ -1,14 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
-import { runKeywordResearch } from "@/lib/agents/keywordResearch";
+import { runKeywordResearch, runKeywordPortfolio } from "@/lib/agents/keywordResearch";
 import { enforceCredits } from "@/lib/credits";
 
+/**
+ * POST body shapes:
+ *   { mode: "portfolio", city, projects, gscData? }  — multi-dim research
+ *   { seed, city, gscData? }                          — single seed (legacy)
+ */
 export async function POST(req: NextRequest) {
   try {
-    const { seed, city, gscData, companyId } = await req.json();
+    const body = await req.json();
+    const { seed, city, gscData, companyId, projects, mode } = body;
+
+    await enforceCredits(companyId, "prompt_volumes");
+
+    if (mode === "portfolio") {
+      if (!city || !Array.isArray(projects)) {
+        return NextResponse.json({ error: "city and projects[] required for portfolio mode" }, { status: 400 });
+      }
+      const result = await runKeywordPortfolio({ city, projects }, gscData);
+      return NextResponse.json(result);
+    }
+
     if (!seed || !city) {
       return NextResponse.json({ error: "seed and city are required" }, { status: 400 });
     }
-    await enforceCredits(companyId, "prompt_volumes");
     const result = await runKeywordResearch(seed, city, gscData);
     return NextResponse.json(result);
   } catch (error) {

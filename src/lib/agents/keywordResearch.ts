@@ -26,6 +26,22 @@ export interface KeywordResult {
   gscClicks?: number;
   opportunity: "high" | "medium" | "low";  // derived — high volume + low difficulty = high
   source: "gsc" | "web_search" | "inferred";
+  // Multi-dimensional tags for filtering — populated by runKeywordPortfolio
+  seedCity?: string;
+  seedProject?: string;
+  seedConfig?: string;
+  seedLocality?: string;
+}
+
+export interface KeywordPortfolioSeed {
+  seed: string;
+  city?: string;
+  project?: string;
+  config?: string;
+  locality?: string;
+  priceTier?: string;
+  /** Dimension label for UI filters — "By Project", "By Config", etc. */
+  dimension: "project" | "config" | "city" | "locality" | "general";
 }
 
 export interface KeywordResearchResult {
@@ -33,6 +49,8 @@ export interface KeywordResearchResult {
   city?: string;
   totalKeywords: number;
   keywords: KeywordResult[];
+  /** For portfolio runs: the full set of seeds that were expanded */
+  seedsUsed?: KeywordPortfolioSeed[];
   clusters: Array<{
     name: string;
     keywordCount: number;
@@ -261,6 +279,166 @@ export async function runKeywordResearch(
     totalKeywords: results.length,
     keywords: results,
     clusters: clusterKeywords(results),
+    generatedAt: new Date().toISOString(),
+  };
+}
+
+// ---------- Multi-dimensional Portfolio Runner ----------
+
+/**
+ * Build a seed portfolio from company data so keyword research covers
+ * every city × project × configuration angle the brand cares about.
+ *
+ * Priorities (to keep the seed count reasonable):
+ *  - One seed per unique city (up to 3)
+ *  - One seed per unique config (2BHK / 3BHK / villa etc. — up to 4)
+ *  - One seed per unique project locality (up to 3)
+ *  - One "decision" seed ("top builders in <primary city>")
+ * Total capped at ~8 seeds to keep runtime predictable.
+ */
+export function buildSeedPortfolio(input: {
+  city: string;
+  projects: Array<{ name?: string; location?: string; configurations?: string; priceRange?: string }>;
+}): KeywordPortfolioSeed[] {
+  const seeds: KeywordPortfolioSeed[] = [];
+  const seen = new Set<string>();
+
+  const add = (s: KeywordPortfolioSeed) => {
+    const key = s.seed.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    seeds.push(s);
+  };
+
+  const projects = input.projects || [];
+  const primaryCity = input.city.trim();
+
+  // 1. Decision / city-wide (always include)
+  if (primaryCity) {
+    add({ seed: `best real estate developers in ${primaryCity}`, city: primaryCity, dimension: "city" });
+  }
+
+  // 2. Per unique city from project locations
+  const cities = new Set<string>();
+  for (const p of projects) {
+    if (!p.location) continue;
+    const parts = p.location.split(",").map((s) => s.trim()).filter(Boolean);
+    if (parts.length > 1) cities.add(parts[parts.length - 1]);
+  }
+  cities.delete(primaryCity);
+  Array.from(cities).slice(0, 2).forEach((c) => {
+    add({ seed: `best real estate developers in ${c}`, city: c, dimension: "city" });
+  });
+
+  // 3. Per unique project locality with primary config
+  const localities = Array.from(new Set(projects.map((p) => p.location).filter(Boolean))) as string[];
+  for (const loc of localities.slice(0, 3)) {
+    const project = projects.find((p) => p.location === loc);
+    const firstConfig = project?.configurations?.split(/[,/]/)[0]?.trim();
+    if (firstConfig) {
+      add({
+        seed: `best ${firstConfig} in ${loc}`,
+        city: primaryCity,
+        project: project?.name,
+        config: firstConfig,
+        locality: loc,
+        dimension: "locality",
+      });
+    } else {
+      add({ seed: `apartments in ${loc}`, city: primaryCity, locality: loc, dimension: "locality" });
+    }
+  }
+
+  // 4. Per unique configuration (so 2BHK buyer perspective is covered even if the primary locality seed used 3BHK)
+  const configs = new Set<string>();
+  for (const p of projects) {
+    if (!p.configurations) continue;
+    for (const c of p.configurations.split(/[,/]/).map((s) => s.trim()).filter(Boolean)) {
+      configs.add(c);
+    }
+  }
+  Array.from(configs).slice(0, 3).forEach((cfg) => {
+    add({
+      seed: `${cfg} in ${primaryCity}`,
+      city: primaryCity,
+      config: cfg,
+      dimension: "config",
+    });
+  });
+
+  return seeds.slice(0, 8);
+}
+
+/**
+ * Run keyword research across every dimension (city × project × config).
+ * Parallelizes the individual research calls so total time ≈ single-seed time.
+ * Results are merged, deduplicated (keyword → best-data wins), and each
+ * keyword is tagged with the seed context that discovered it.
+ */
+export async function runKeywordPortfolio(
+  input: {
+    city: string;
+    projects: Array<{ name?: string; location?: string; configurations?: string; priceRange?: string }>;
+  },
+  gscData?: Parameters<typeof runKeywordResearch>[2]
+): Promise<KeywordResearchResult> {
+  const seeds = buildSeedPortfolio(input);
+  if (seeds.length === 0) throw new Error("No seeds could be derived — set a city or add at least one project.");
+
+  // Expand each seed in parallel. Each call returns 20 keywords, so a portfolio
+  // of 6 seeds returns 120 raw before dedup.
+  const perSeedResults = await Promise.all(
+    seeds.map(async (s) => {
+      try {
+        const r = await runKeywordResearch(s.seed, s.city || input.city, gscData);
+        return { seed: s, result: r };
+      } catch (err) {
+        console.error(`Portfolio seed "${s.seed}" failed:`, err instanceof Error ? err.message : err);
+        return null;
+      }
+    })
+  );
+
+  // Merge — dedupe by lowercase keyword, prefer the row with GSC data,
+  // otherwise the row with non-null metrics, otherwise first seen.
+  const merged = new Map<string, KeywordResult>();
+  for (const entry of perSeedResults) {
+    if (!entry) continue;
+    const { seed, result } = entry;
+    for (const kw of result.keywords) {
+      const key = kw.keyword.toLowerCase();
+      const tagged: KeywordResult = {
+        ...kw,
+        seedCity: seed.city,
+        seedProject: seed.project,
+        seedConfig: seed.config,
+        seedLocality: seed.locality,
+      };
+      const existing = merged.get(key);
+      if (!existing) {
+        merged.set(key, tagged);
+      } else {
+        // Prefer richer data
+        const existingScore = (existing.source === "gsc" ? 3 : 0) + (existing.monthlyVolume !== null ? 1 : 0) + (existing.difficulty !== null ? 1 : 0);
+        const newScore = (tagged.source === "gsc" ? 3 : 0) + (tagged.monthlyVolume !== null ? 1 : 0) + (tagged.difficulty !== null ? 1 : 0);
+        if (newScore > existingScore) merged.set(key, tagged);
+      }
+    }
+  }
+
+  const keywords = Array.from(merged.values()).sort((a, b) => {
+    const oppRank = { high: 0, medium: 1, low: 2 };
+    if (oppRank[a.opportunity] !== oppRank[b.opportunity]) return oppRank[a.opportunity] - oppRank[b.opportunity];
+    return (b.monthlyVolume || 0) - (a.monthlyVolume || 0);
+  });
+
+  return {
+    seed: `portfolio:${seeds.length} seeds`,
+    city: input.city,
+    totalKeywords: keywords.length,
+    keywords,
+    seedsUsed: seeds,
+    clusters: clusterKeywords(keywords),
     generatedAt: new Date().toISOString(),
   };
 }

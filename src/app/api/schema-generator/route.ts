@@ -139,6 +139,10 @@ function buildFAQPageSchema(faqs: FAQ[]) {
 }
 
 function buildBreadcrumbListSchema(input: SchemaInput) {
+  if (!input.website) return null;
+  const base = input.website.replace(/\/$/, "");
+  const citySlug = input.city.toLowerCase().replace(/\s+/g, "-");
+  const locationSlug = input.location.toLowerCase().replace(/\s+/g, "-");
   return {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
@@ -147,23 +151,19 @@ function buildBreadcrumbListSchema(input: SchemaInput) {
         "@type": "ListItem",
         position: 1,
         name: "Home",
-        item: input.website || "https://example.com",
+        item: base,
       },
       {
         "@type": "ListItem",
         position: 2,
         name: `Projects in ${input.city}`,
-        item: input.website
-          ? `${input.website.replace(/\/$/, "")}/${input.city.toLowerCase().replace(/\s+/g, "-")}`
-          : `https://example.com/${input.city.toLowerCase().replace(/\s+/g, "-")}`,
+        item: `${base}/${citySlug}`,
       },
       {
         "@type": "ListItem",
         position: 3,
         name: `Projects in ${input.location}`,
-        item: input.website
-          ? `${input.website.replace(/\/$/, "")}/${input.city.toLowerCase().replace(/\s+/g, "-")}/${input.location.toLowerCase().replace(/\s+/g, "-")}`
-          : `https://example.com/${input.city.toLowerCase().replace(/\s+/g, "-")}/${input.location.toLowerCase().replace(/\s+/g, "-")}`,
+        item: `${base}/${citySlug}/${locationSlug}`,
       },
       {
         "@type": "ListItem",
@@ -316,13 +316,14 @@ export async function POST(req: NextRequest) {
     const faqs = await generateFAQs(input);
 
     // Build all schemas programmatically
-    const schemas = {
+    const breadcrumb = buildBreadcrumbListSchema(input);
+    const schemas: Record<string, unknown> = {
       realEstateListing: buildRealEstateListingSchema(input),
       organization: buildOrganizationSchema(input),
       faqPage: buildFAQPageSchema(faqs),
-      breadcrumbList: buildBreadcrumbListSchema(input),
       localBusiness: buildLocalBusinessSchema(input),
     };
+    if (breadcrumb) schemas.breadcrumbList = breadcrumb;
 
     const htmlSnippet = buildHTMLSnippet(schemas);
 

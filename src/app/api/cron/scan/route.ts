@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
     // via the ascending order (oldest first, newest last).
     const { data: companies, error } = await supabase
       .from("companies")
-      .select("id, name, website, city, description, product_info, brand_voice, brand_values, target_audience, marketing_strategy")
+      .select("id, name, website, sites, city, description, product_info, brand_voice, brand_values, target_audience, marketing_strategy")
       .order("created_at", { ascending: true })
       .limit(50);
 
@@ -53,40 +53,51 @@ export async function GET(req: NextRequest) {
         .select("name, website, location, configurations, price_range, rera_number, amenities, status")
         .eq("company_id", company.id);
 
-      // ---- PHASE 1: SCANS (parallel) ----
-      try {
-        const [auditRes, techRes, backlinkRes] = await Promise.all([
-          fetchApi(origin, "/api/audit", { url: company.website }),
-          fetchApi(origin, "/api/technical-seo", { url: company.website }),
-          fetchApi(origin, "/api/backlinks", { url: company.website }),
-        ]);
+      // Build the full list of sites to scan — main website + any
+      // additional sites (project microsites, NRI sites, landing pages).
+      const additionalSites: Array<{ url: string; label?: string }> = Array.isArray(company.sites) ? company.sites : [];
+      const allSites: Array<{ url: string; label: string }> = [
+        { url: company.website, label: "Main site" },
+        ...additionalSites
+          .filter((s) => s?.url && s.url !== company.website)
+          .map((s) => ({ url: s.url, label: s.label || s.url })),
+      ];
 
-        // Store scan results
-        if (auditRes?.scores) {
-          await supabase.from("scan_history").insert({
-            company_id: company.id, scan_type: "audit", url: company.website,
-            score: auditRes.scores.overall || 0, results: auditRes, triggered_by: "cron",
-          });
-          companyResult.scans.push(`Audit: ${auditRes.scores.overall}/100`);
-        }
+      // ---- PHASE 1: SCANS (per-site, parallel within each site) ----
+      for (const site of allSites) {
+        try {
+          const [auditRes, techRes, backlinkRes] = await Promise.all([
+            fetchApi(origin, "/api/audit", { url: site.url }),
+            fetchApi(origin, "/api/technical-seo", { url: site.url }),
+            fetchApi(origin, "/api/backlinks", { url: site.url }),
+          ]);
 
-        if (techRes?.onPageScore !== undefined) {
-          await supabase.from("scan_history").insert({
-            company_id: company.id, scan_type: "technical", url: company.website,
-            score: techRes.onPageScore || 0, results: techRes, triggered_by: "cron",
-          });
-          companyResult.scans.push(`Technical: ${techRes.onPageScore}/100`);
-        }
+          if (auditRes?.scores) {
+            await supabase.from("scan_history").insert({
+              company_id: company.id, scan_type: "audit", url: site.url,
+              score: auditRes.scores.overall || 0, results: auditRes, triggered_by: "cron",
+            });
+            companyResult.scans.push(`[${site.label}] Audit: ${auditRes.scores.overall}/100`);
+          }
 
-        if (backlinkRes?.domainAuthority !== undefined) {
-          await supabase.from("scan_history").insert({
-            company_id: company.id, scan_type: "backlinks", url: company.website,
-            score: backlinkRes.domainAuthority || 0, results: backlinkRes, triggered_by: "cron",
-          });
-          companyResult.scans.push(`Backlinks: DA ${backlinkRes.domainAuthority}`);
+          if (techRes?.onPageScore !== undefined) {
+            await supabase.from("scan_history").insert({
+              company_id: company.id, scan_type: "technical", url: site.url,
+              score: techRes.onPageScore || 0, results: techRes, triggered_by: "cron",
+            });
+            companyResult.scans.push(`[${site.label}] Technical: ${techRes.onPageScore}/100`);
+          }
+
+          if (backlinkRes?.domainAuthority !== undefined) {
+            await supabase.from("scan_history").insert({
+              company_id: company.id, scan_type: "backlinks", url: site.url,
+              score: backlinkRes.domainAuthority || 0, results: backlinkRes, triggered_by: "cron",
+            });
+            companyResult.scans.push(`[${site.label}] Backlinks: DA ${backlinkRes.domainAuthority}`);
+          }
+        } catch (err) {
+          companyResult.errors.push(`[${site.label}] Scan error: ${err instanceof Error ? err.message : "unknown"}`);
         }
-      } catch (err) {
-        companyResult.errors.push(`Scan error: ${err instanceof Error ? err.message : "unknown"}`);
       }
 
       // ---- PHASE 2: AI VISIBILITY (with full project context) ----

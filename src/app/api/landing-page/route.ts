@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { aiComplete } from "@/lib/ai";
+import { formatWritingInstructions } from "@/lib/writingInstructions";
 
 type PageType =
   | "site_visit"
@@ -21,6 +22,7 @@ export async function POST(req: NextRequest) {
       reraNumber,
       amenities,
       pageType,
+      writingInstructions,
     } = await req.json();
 
     if (!projectName || !city || !location) {
@@ -95,6 +97,7 @@ PROJECT DETAILS:
 
 PAGE TYPE: ${type}
 ${pageTypeInstructions}
+${formatWritingInstructions(writingInstructions, "landingPages", "Landing page")}
 
 The HTML page MUST include ALL of these sections:
 1. Hero section with a compelling headline, subheadline, and a CTA lead capture form (name, phone, email)

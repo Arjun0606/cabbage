@@ -474,6 +474,11 @@ export default function DashboardPage() {
    * with real search volume, difficulty, CPC, and current ranking.
    * Uses GSC data + ChatGPT web_search to pull real metrics.
    */
+  /**
+   * Single-seed mode (user typed a seed) OR portfolio mode (auto, silent).
+   * Portfolio covers every city × project × config the brand cares about
+   * so the returned keyword bank is comprehensive, not single-angle.
+   */
   const runKeywordResearch = async (seed: string, silent: boolean = false) => {
     if (!company.city) {
       if (!silent) addLog("> Set your city first");
@@ -481,18 +486,29 @@ export default function DashboardPage() {
     }
     if (!spendCredits("prompt_volumes")) return;
     setIsResearchingKeywords(true);
-    if (!silent) addLog(`> Researching keywords around "${seed}" in ${company.city}...`);
+    const portfolio = seed === "__portfolio__";
+    if (!silent) {
+      addLog(portfolio
+        ? `> Running multi-dimensional keyword research across all cities, projects, and configs...`
+        : `> Researching keywords around "${seed}" in ${company.city}...`);
+    }
     try {
+      const body = portfolio
+        ? { mode: "portfolio", city: company.city, projects: company.projects, gscData, companyId: (company as any)._companyId }
+        : { seed, city: company.city, gscData, companyId: (company as any)._companyId };
       const res = await fetch("/api/keyword-research", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ seed, city: company.city, gscData, companyId: (company as any)._companyId }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       setKeywordResearchResult(data);
       const highOpp = data.keywords?.filter((k: any) => k.opportunity === "high").length || 0;
-      if (!silent) addLog(`> Found ${data.totalKeywords} keywords — ${highOpp} high-opportunity ${highOpp === 1 ? "target" : "targets"}`);
+      if (!silent) {
+        const dims = data.seedsUsed?.length ? ` across ${data.seedsUsed.length} dimensions` : "";
+        addLog(`> Found ${data.totalKeywords} keywords${dims} — ${highOpp} high-opportunity ${highOpp === 1 ? "target" : "targets"}`);
+      }
     } catch (err) {
       if (!silent) addLog(`> Error: ${err instanceof Error ? err.message : "Keyword research failed"}`);
     } finally {
@@ -500,36 +516,13 @@ export default function DashboardPage() {
     }
   };
 
-  /**
-   * Derive a smart seed from the company data so keyword research can
-   * auto-fire without user input. Priority:
-   *  1. Top project's primary config in its locality ("3BHK in Gachibowli")
-   *  2. Top project's locality ("apartments in Gachibowli")
-   *  3. Company city fallback ("real estate developers in Hyderabad")
-   */
-  const deriveSmartSeed = (): string | null => {
-    if (!company.city) return null;
-    const firstProject = (company.projects || [])[0] as any;
-    if (firstProject?.location && firstProject?.configurations) {
-      // Pick the first config token (2BHK / 3BHK / Villa / etc.)
-      const firstConfig = firstProject.configurations.split(/[,/]/)[0].trim();
-      if (firstConfig) return `${firstConfig} in ${firstProject.location}`;
-    }
-    if (firstProject?.location) {
-      return `apartments in ${firstProject.location}`;
-    }
-    return `real estate developers in ${company.city}`;
-  };
-
-  // Auto-fire keyword research once per session as soon as we have a city.
-  // Silent mode — no terminal logs — since the user didn't explicitly click anything.
+  // Auto-fire multi-dimensional keyword research once per session.
+  // Covers every city × project × config the brand cares about — not one angle.
+  // Silent — no terminal logs — since the user didn't explicitly click anything.
   useEffect(() => {
     if (!company.city || !company.name) return;
     if (keywordResearchResult || isResearchingKeywords) return;
-    const seed = deriveSmartSeed();
-    if (!seed) return;
-    // Fire and forget — the panel shows its own loading state
-    runKeywordResearch(seed, true);
+    runKeywordResearch("__portfolio__", true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [company.city, company.name, company.projects]);
 
@@ -1377,6 +1370,11 @@ export default function DashboardPage() {
                 setAiVisResult(null);
                 setTechnicalResult(null);
                 setBacklinkResult(null);
+                // These are tied to a specific site URL — clear so users don't
+                // see stale results from the previous site after switching.
+                setCitabilityResult(null);
+                setCrawlerAccessResult(null);
+                setInternalLinkingResult(null);
                 setGeoProgress(getGEOProgress(company.name, url));
                 setTrends(getAllTrends(url));
                 // Load this site's site-crawl from localStorage if we have one

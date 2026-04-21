@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { aiComplete } from "@/lib/ai";
+import { formatWritingInstructions } from "@/lib/writingInstructions";
 
 /* ------------------------------------------------------------------ */
 /*  Indian festival calendar — approximate Gregorian windows.         */
@@ -56,6 +57,7 @@ export async function POST(req: NextRequest) {
       priceRange,
       usps,
       targetFestival,
+      writingInstructions,
     } = await req.json();
 
     if (!projectName || !location || !city) {
@@ -126,7 +128,8 @@ Rules:
 - WhatsApp messages should use emojis tastefully.
 - Google Ad headlines MUST be under 30 characters. Descriptions MUST be under 90 characters.
 - SMS MUST be under 160 characters total.
-- All content should feel urgent and time-limited to the festive window.`;
+- All content should feel urgent and time-limited to the festive window.
+${formatWritingInstructions(writingInstructions, "festiveCampaigns", "Festive campaign")}`;
 
     const raw = await aiComplete(systemPrompt, userPrompt, 3500);
 
