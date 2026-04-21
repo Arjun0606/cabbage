@@ -13,6 +13,12 @@ export interface BacklinkResult {
   anchorTexts: AnchorText[];
   recommendations: BacklinkRecommendation[];
   dataSource: "moz_api" | "web_search" | "ai_estimated";
+  /** Real, verified referrers from high-value domains via web search.
+   *  Every entry has a specific citation URL — no fabrication. */
+  verifiedReferrers?: VerifiedReferrer[];
+  /** Which high-value domains we checked but didn't find linking to this site.
+   *  These become outreach targets. */
+  unlinkedHighValueDomains?: { domain: string; authority: number; type: string }[];
 }
 
 interface Referrer {
@@ -181,43 +187,38 @@ async function analyzeBacklinks(
 
 You must return valid JSON only, no other text.`;
 
-  const prompt = `Analyze the backlink profile for ${url} (Indian real estate developer):
+  // Fallback prompt ONLY asks for a DA guess + strategic recommendations.
+  // We deliberately do NOT ask the AI to invent topReferrers or anchorTexts
+  // — fabricated referring domains look plausible but are worse than useless:
+  // users trust them, then notice they aren't real, then lose trust in the
+  // whole product. Better to show nothing than to show fakes.
+  const prompt = `For ${url} (Indian real estate developer), provide ONLY:
 
 Site Signals:
 - HTTPS: ${signals.hasHttps}
-- Server: ${signals.serverHeader}
-- Schema.org markup: ${signals.schemaMarkup}
-- Sitemap URLs: ${signals.sitemapUrls}
-- Total indexed pages (est): ${signals.pageCount}
+- Schema: ${signals.schemaMarkup}
+- Indexed pages (est): ${signals.pageCount}
 
-Based on these signals and your knowledge of Indian real estate developer websites of this scale, provide a realistic backlink estimate in this JSON format:
-
+JSON output:
 {
-  "domainAuthority": <0-100 estimated DA>,
-  "totalBacklinks": <estimated total>,
-  "referringDomains": <estimated unique domains>,
-  "topReferrers": [
-    {"domain": "likely referring domain", "authority": <0-100>, "linkCount": <est>, "type": "dofollow|nofollow"}
-  ],
-  "linkVelocity": "growing|stable|declining",
-  "anchorTexts": [
-    {"text": "likely anchor text", "count": <est>, "percentage": <0-100>}
-  ],
+  "domainAuthority": <0-100 rough estimate based on site scale — this is a ROUGH guess, clearly labeled as estimated in the UI>,
+  "linkVelocity": "growing|stable|declining|unknown",
   "recommendations": [
     {
-      "title": "recommendation title",
-      "description": "2-3 sentences specific to Indian real estate",
+      "title": "...",
+      "description": "2-3 sentences, specific to Indian real estate link building — portal listings, local PR, RERA pages, broker blogs",
       "priority": "high|medium|low",
       "category": "Content|Outreach|Technical|Local"
     }
   ]
 }
 
-For topReferrers, include likely sources for Indian real estate sites: 99acres, MagicBricks, Housing.com, local news portals, RERA websites, real estate blogs, Google Business Profile, social media. List 8-10 referrers.
-For anchorTexts, include brand name, project names, location-based terms, generic terms.
-For recommendations, give 6-8 actionable items specific to Indian residential real estate SEO link building. Focus on strategies that actually work in India: portal optimization, local directory listings, PR in local media, RERA page backlinks, real estate forum participation, guest posts on property portals.`;
+Rules:
+- recommendations: 6-8 actionable items. Specific to Indian real estate.
+- DO NOT invent referring domains. DO NOT invent anchor text distributions.
+  We don't have that data without a Moz/Ahrefs API key.`;
 
-  const text = await aiComplete(system, prompt, 2000);
+  const text = await aiComplete(system, prompt, 1500);
   const jsonMatch = text.match(/\{[\s\S]*\}/);
 
   if (jsonMatch) {
@@ -226,11 +227,11 @@ For recommendations, give 6-8 actionable items specific to Indian residential re
       return {
         url,
         domainAuthority: data.domainAuthority || 0,
-        totalBacklinks: data.totalBacklinks || 0,
-        referringDomains: data.referringDomains || 0,
-        topReferrers: data.topReferrers || [],
+        totalBacklinks: 0,                     // unknown without real API
+        referringDomains: 0,                   // unknown without real API
+        topReferrers: [],                      // explicitly empty — no fabrication
         linkVelocity: data.linkVelocity || "unknown",
-        anchorTexts: data.anchorTexts || [],
+        anchorTexts: [],                       // explicitly empty — no fabrication
         recommendations: data.recommendations || [],
         dataSource: "ai_estimated",
       };
@@ -248,6 +249,89 @@ For recommendations, give 6-8 actionable items specific to Indian residential re
     recommendations: [],
     dataSource: "ai_estimated",
   };
+}
+
+// ---------- Verified Referrer Discovery ----------
+
+/**
+ * Uses ChatGPT web_search to VERIFY whether specific high-value Indian
+ * real-estate domains link to the target URL. Only returns referrers
+ * the web search could confirm with a specific page URL. Much slower
+ * than fabrication but every result is real and auditable.
+ *
+ * Why we check these specific domains: every Indian RE buyer discovers
+ * developers through the property portals and ~3 news sites. If you're
+ * linked from these, you're visible. If not, that's your #1 gap.
+ */
+const HIGH_VALUE_RE_DOMAINS = [
+  { domain: "99acres.com", authority: 76, type: "portal" },
+  { domain: "magicbricks.com", authority: 74, type: "portal" },
+  { domain: "housing.com", authority: 72, type: "portal" },
+  { domain: "nobroker.in", authority: 68, type: "portal" },
+  { domain: "squareyards.com", authority: 62, type: "portal" },
+  { domain: "proptiger.com", authority: 60, type: "portal" },
+  { domain: "commonfloor.com", authority: 58, type: "portal" },
+  { domain: "economictimes.indiatimes.com", authority: 92, type: "news" },
+  { domain: "livemint.com", authority: 88, type: "news" },
+  { domain: "moneycontrol.com", authority: 90, type: "news" },
+];
+
+export interface VerifiedReferrer {
+  domain: string;
+  authority: number;
+  type: string;
+  verifiedAt: string;
+  citationUrl?: string;
+}
+
+export async function findVerifiedReferrers(url: string): Promise<{
+  verified: VerifiedReferrer[];
+  checked: number;
+  source: "web_search" | "unavailable";
+}> {
+  try {
+    const domain = new URL(url).hostname.replace(/^www\./, "");
+    const brand = domain.split(".")[0];
+
+    // One web search query covering multiple candidates at once
+    const siteQueries = HIGH_VALUE_RE_DOMAINS.slice(0, 6)
+      .map((d) => `site:${d.domain} "${brand}"`)
+      .join(" OR ");
+    const { text, source } = await queryForVisibility(
+      "openai",
+      `Check which of these Indian real estate sites link to or mention ${domain} (brand: ${brand}): ${HIGH_VALUE_RE_DOMAINS.map((d) => d.domain).join(", ")}. Only report the ones where you can see an actual page URL linking to ${domain}. Query: ${siteQueries}`
+    );
+
+    if (!text || (source !== "web_search" && source !== "grounded")) {
+      return { verified: [], checked: 0, source: "unavailable" };
+    }
+
+    // Parse — for each candidate domain, check if it's mentioned with a real URL
+    const verified: VerifiedReferrer[] = [];
+    for (const cand of HIGH_VALUE_RE_DOMAINS) {
+      // Look for mentions with a URL pointing to that domain
+      const mentionRegex = new RegExp(`https?://(?:[\\w-]+\\.)?${cand.domain.replace(/\./g, "\\.")}[^\\s)"']*`, "i");
+      const urlMatch = text.match(mentionRegex);
+      if (urlMatch) {
+        verified.push({
+          domain: cand.domain,
+          authority: cand.authority,
+          type: cand.type,
+          verifiedAt: new Date().toISOString(),
+          citationUrl: urlMatch[0],
+        });
+      }
+    }
+
+    return {
+      verified,
+      checked: HIGH_VALUE_RE_DOMAINS.length,
+      source: "web_search",
+    };
+  } catch (err) {
+    console.error("findVerifiedReferrers failed:", err instanceof Error ? err.message : err);
+    return { verified: [], checked: 0, source: "unavailable" };
+  }
 }
 
 // ---------- Main Function ----------
@@ -291,8 +375,32 @@ export async function runBacklinkAnalysis(url: string): Promise<BacklinkResult> 
     };
   }
 
-  // Priority 3: Fallback to pure AI estimation
+  // Priority 3: Fallback to AI-estimated DA + recommendations (NO fabricated referrers).
+  // Augment with verified-referrer check via web search — real, auditable data.
   const signals = await fetchSiteSignals(url);
-  const result = await analyzeBacklinks(url, signals);
-  return { ...result, dataSource: "ai_estimated" as const };
+  const [estimate, verifiedRes] = await Promise.all([
+    analyzeBacklinks(url, signals),
+    findVerifiedReferrers(url),
+  ]);
+
+  // Which high-value domains we checked but DIDN'T find — these are outreach targets
+  const verifiedSet = new Set(verifiedRes.verified.map((v) => v.domain));
+  const unlinked = HIGH_VALUE_RE_DOMAINS.filter((d) => !verifiedSet.has(d.domain));
+
+  // If we got verified referrers, expose them as topReferrers so the UI
+  // shows REAL data instead of an empty list.
+  const realReferrers: Referrer[] = verifiedRes.verified.map((v) => ({
+    domain: v.domain,
+    authority: v.authority,
+    linkCount: 1,
+    type: "dofollow" as const,
+  }));
+
+  return {
+    ...estimate,
+    topReferrers: realReferrers,  // only real data, possibly empty
+    verifiedReferrers: verifiedRes.verified,
+    unlinkedHighValueDomains: unlinked,
+    dataSource: "ai_estimated" as const,
+  };
 }

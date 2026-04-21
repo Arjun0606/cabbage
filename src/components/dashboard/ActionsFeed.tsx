@@ -8,13 +8,15 @@ import {
   ChevronDown,
   Wrench,
   Link2,
-  Users,
   Copy,
   Check,
   FileText,
-  MapPin,
   Search,
   TrendingUp,
+  TrendingDown,
+  Target,
+  Eye,
+  Rocket,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -25,6 +27,13 @@ interface Props {
   technicalResult: any;
   competitorResults: any[];
   geoProgress?: any;
+  // Newer signals added as the product grew — feed them in so Actions
+  // Feed reflects the full picture, not just the first 5 scans.
+  siteCrawlResult?: any;
+  keywordResearchResult?: any;
+  internalLinkingResult?: any;
+  contentDecayReport?: any;
+  gscData?: any;
   onNavigateToTab?: (tab: string) => void;
 }
 
@@ -39,7 +48,13 @@ interface FeedItem {
   items?: { title: string; severity: string; description: string; snippet?: string }[];
 }
 
-export function ActionsFeed({ auditResult, aiVisResult, backlinkResult, technicalResult, competitorResults, geoProgress, onNavigateToTab }: Props) {
+export function ActionsFeed({
+  auditResult, aiVisResult, backlinkResult, technicalResult, competitorResults,
+  geoProgress, siteCrawlResult, keywordResearchResult, internalLinkingResult,
+  contentDecayReport, gscData,
+  onNavigateToTab,
+}: Props) {
+  void competitorResults; // kept in props for stability; not currently rendered as a feed item
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
   const [copiedSnippet, setCopiedSnippet] = useState<string | null>(null);
 
@@ -181,6 +196,125 @@ export function ActionsFeed({ auditResult, aiVisResult, backlinkResult, technica
       priority: "low",
       actionTab: "aigeo",
     });
+  }
+
+  // Content decay — pages dropping in Google rankings (from GSC history)
+  if (contentDecayReport?.decayingPages?.length > 0) {
+    const critical = contentDecayReport.decayingPages.filter((p: any) => p.severity === "critical").length;
+    feedItems.push({
+      id: "content_decay",
+      icon: <TrendingDown size={16} />,
+      iconBg: critical > 0 ? "bg-red-500/10 text-red-400" : "bg-amber-500/10 text-amber-400",
+      title: `${contentDecayReport.decayingPages.length} Page${contentDecayReport.decayingPages.length === 1 ? "" : "s"} Declining`,
+      subtitle: critical > 0
+        ? `${critical} critical — dropped out of top 10. Refresh content now.`
+        : "Google rankings dropped — refresh content before they fall further",
+      priority: critical > 0 ? "critical" : "high",
+      actionTab: "health",
+    });
+  }
+
+  // Competitor citation alerts — competitors mentioned for queries you're invisible on
+  if (geoProgress?.competitorAlerts?.length > 0) {
+    feedItems.push({
+      id: "competitor_alerts",
+      icon: <Eye size={16} />,
+      iconBg: "bg-red-500/10 text-red-400",
+      title: `Competitors Winning ${geoProgress.competitorAlerts.length} Quer${geoProgress.competitorAlerts.length === 1 ? "y" : "ies"}`,
+      subtitle: "AI recommends your competitors — not you — on these searches",
+      priority: "critical",
+      actionTab: "aigeo",
+    });
+  }
+
+  // GSC "almost winning" — positions 4-20 with impressions (easy pushes to top 3)
+  if (gscData?.topQueries?.length > 0) {
+    const almost = gscData.topQueries.filter((q: any) => q.position > 3 && q.position <= 20 && q.impressions > 10);
+    if (almost.length > 0) {
+      feedItems.push({
+        id: "gsc_almost",
+        icon: <TrendingUp size={16} />,
+        iconBg: "bg-blue-500/10 text-blue-400",
+        title: `${almost.length} Almost-Winning Quer${almost.length === 1 ? "y" : "ies"}`,
+        subtitle: "Ranked 4-20 on Google with impressions — push to top 3 for 5-10× clicks",
+        priority: "high",
+        actionTab: "search",
+      });
+    }
+  }
+
+  // Site crawl findings — orphan pages, thin content, broken links
+  if (siteCrawlResult?.summary) {
+    const s = siteCrawlResult.summary;
+    const criticalIssues = s.pagesWithBrokenLinks + s.noindexPages;
+    const highIssues = s.pagesWithThinContent + s.pagesWithoutTitle + s.pagesWithoutH1 + s.orphanPages;
+    if (criticalIssues > 0 || highIssues > 3) {
+      const parts = [];
+      if (s.pagesWithBrokenLinks > 0) parts.push(`${s.pagesWithBrokenLinks} broken`);
+      if (s.pagesWithThinContent > 0) parts.push(`${s.pagesWithThinContent} thin`);
+      if (s.orphanPages > 0) parts.push(`${s.orphanPages} orphan`);
+      if (s.pagesWithoutH1 > 0) parts.push(`${s.pagesWithoutH1} no H1`);
+      feedItems.push({
+        id: "crawl_issues",
+        icon: <Globe size={16} />,
+        iconBg: criticalIssues > 0 ? "bg-red-500/10 text-red-400" : "bg-amber-500/10 text-amber-400",
+        title: "Site-wide SEO Issues",
+        subtitle: `${siteCrawlResult.totalPages} pages crawled — ${parts.join(", ")} pages`,
+        priority: criticalIssues > 0 ? "critical" : "high",
+        actionTab: "health",
+      });
+    }
+  }
+
+  // Internal linking — orphan pages + link suggestions
+  if (internalLinkingResult) {
+    const orphans = internalLinkingResult.orphanPages?.length || 0;
+    const suggestions = internalLinkingResult.suggestions?.length || 0;
+    if (orphans > 0 || suggestions >= 5) {
+      feedItems.push({
+        id: "internal_linking",
+        icon: <Link2 size={16} />,
+        iconBg: orphans > 3 ? "bg-amber-500/10 text-amber-400" : "bg-zinc-800 text-zinc-400",
+        title: "Internal Linking Gaps",
+        subtitle: orphans > 0
+          ? `${orphans} orphan page${orphans === 1 ? "" : "s"} + ${suggestions} linking opportunities`
+          : `${suggestions} specific link suggestions`,
+        priority: orphans > 3 ? "high" : "medium",
+        actionTab: "health",
+      });
+    }
+  }
+
+  // Keyword research — high-opportunity keywords worth writing for
+  if (keywordResearchResult?.keywords?.length > 0) {
+    const highOpp = keywordResearchResult.keywords.filter((k: any) => k.opportunity === "high");
+    if (highOpp.length > 0) {
+      feedItems.push({
+        id: "keyword_opps",
+        icon: <Target size={16} />,
+        iconBg: "bg-[#7CB342]/10 text-[#7CB342]",
+        title: `${highOpp.length} High-Opportunity Keyword${highOpp.length === 1 ? "" : "s"}`,
+        subtitle: highOpp[0]?.keyword ? `Start with: "${highOpp[0].keyword}"` : "High volume + low difficulty targets found",
+        priority: "high",
+        actionTab: "health",
+      });
+    }
+  }
+
+  // Schema not deployed — high-impact easy win
+  if (aiVisResult?.aiReadiness) {
+    const schemaCheck = aiVisResult.aiReadiness.find((c: any) => c.check?.toLowerCase().includes("schema") || c.check?.toLowerCase().includes("structured data"));
+    if (schemaCheck && !schemaCheck.passed) {
+      feedItems.push({
+        id: "schema_missing",
+        icon: <Rocket size={16} />,
+        iconBg: "bg-amber-500/10 text-amber-400",
+        title: "Schema Not Deployed",
+        subtitle: "No JSON-LD on your pages — AI can't understand context. 1-line fix via schema loader.",
+        priority: "high",
+        actionTab: "content",
+      });
+    }
   }
 
   // Empty state

@@ -1473,27 +1473,86 @@ export function AnalyticsPanel({
                 </CardContent>
               </SectionCard>
 
-              {backlinkResult.topReferrers?.length > 0 && (
+              {/* Top referrers: honest display with data-source clarity */}
+              <SectionCard>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center gap-2">
+                    <CardTitle className="text-[13px] font-semibold">Verified Referring Domains</CardTitle>
+                    <Badge className={`text-[10px] h-5 px-1.5 rounded-md border-0 ml-auto ${
+                      backlinkResult.dataSource === "moz_api" ? "bg-[#7CB342]/10 text-[#7CB342]" :
+                      backlinkResult.dataSource === "web_search" ? "bg-blue-500/10 text-blue-400" :
+                      "bg-amber-500/10 text-amber-400"
+                    }`}>
+                      {backlinkResult.dataSource === "moz_api" ? "Moz API · real data" :
+                       backlinkResult.dataSource === "web_search" ? "Web search · real data" :
+                       "No API · web search probe"}
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-1">
+                  {backlinkResult.topReferrers?.length > 0 ? (
+                    <>
+                      <p className="text-[11px] text-zinc-500 mb-2">
+                        {backlinkResult.dataSource === "moz_api"
+                          ? "Live data from Moz — your actual referring domains, sorted by authority."
+                          : "Confirmed via web search — each domain has a verified page linking to you."}
+                      </p>
+                      {backlinkResult.topReferrers.slice(0, 15).map((ref: any, i: number) => (
+                        <div key={i} className="flex items-center justify-between py-1.5 text-[13px]">
+                          <span className="text-zinc-300">{ref.domain}</span>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="text-[10px] border-zinc-700/50 rounded-md">
+                              DA {ref.authority}
+                            </Badge>
+                            <Badge variant="secondary" className={`text-[10px] rounded-md h-5 px-1.5 border-0 ${
+                              ref.type === "dofollow" ? "bg-zinc-800 text-zinc-300" : "bg-zinc-800 text-zinc-500"
+                            }`}>
+                              {ref.type}
+                            </Badge>
+                          </div>
+                        </div>
+                      ))}
+                    </>
+                  ) : (
+                    <div className="py-3">
+                      <p className="text-[12px] text-zinc-400 mb-2">
+                        No verified inbound links found from high-value Indian real estate domains.
+                      </p>
+                      <p className="text-[11px] text-zinc-500 leading-relaxed">
+                        Without a Moz / Ahrefs API key, Cabbge can&apos;t see your full backlink profile.
+                        We check the domains below via web search — none of them are currently linking to you.
+                        Add <code className="text-zinc-400">MOZ_API_TOKEN</code> to Vercel env vars for full data.
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </SectionCard>
+
+              {/* Outreach targets — high-value domains NOT linking to you yet */}
+              {backlinkResult.unlinkedHighValueDomains?.length > 0 && (
                 <SectionCard>
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-[13px] font-semibold">Top Referring Domains</CardTitle>
+                    <CardTitle className="text-[13px] font-semibold">Priority Outreach Targets</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-1">
-                    {backlinkResult.topReferrers.map((ref: any, i: number) => (
-                      <div key={i} className="flex items-center justify-between py-1.5 text-[13px]">
-                        <span className="text-zinc-300">{ref.domain}</span>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="text-[10px] border-zinc-700/50 rounded-md">
-                            DA {ref.authority}
-                          </Badge>
-                          <Badge variant="secondary" className={`text-[10px] rounded-md h-5 px-1.5 border-0 ${
-                            ref.type === "dofollow" ? "bg-zinc-800 text-zinc-300" : "bg-zinc-800 text-zinc-500"
-                          }`}>
-                            {ref.type}
-                          </Badge>
+                  <CardContent>
+                    <p className="text-[11px] text-zinc-500 mb-3">
+                      These high-authority Indian real estate domains DON&apos;T currently link to you. Each inbound link from these would move DA significantly.
+                    </p>
+                    <div className="space-y-1">
+                      {backlinkResult.unlinkedHighValueDomains.map((d: any, i: number) => (
+                        <div key={i} className="flex items-center justify-between py-1 text-[12px]">
+                          <span className="text-zinc-300">{d.domain}</span>
+                          <div className="flex items-center gap-2">
+                            <Badge className="text-[9px] h-4 px-1.5 rounded bg-zinc-800 text-zinc-500 border-0">
+                              {d.type}
+                            </Badge>
+                            <Badge variant="outline" className="text-[10px] border-zinc-700/50 rounded-md">
+                              DA {d.authority}
+                            </Badge>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </CardContent>
                 </SectionCard>
               )}

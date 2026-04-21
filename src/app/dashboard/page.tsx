@@ -1519,6 +1519,11 @@ export default function DashboardPage() {
               auditResult={auditResult} aiVisResult={aiVisResult} backlinkResult={backlinkResult}
               technicalResult={technicalResult} competitorResults={competitorResults}
               geoProgress={geoProgress}
+              siteCrawlResult={siteCrawlResult}
+              keywordResearchResult={keywordResearchResult}
+              internalLinkingResult={internalLinkingResult}
+              contentDecayReport={contentDecayReport}
+              gscData={gscData}
               onNavigateToTab={setActiveTab}
             />
           </div>
