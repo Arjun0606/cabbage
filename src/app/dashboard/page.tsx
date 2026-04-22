@@ -1370,7 +1370,7 @@ export default function DashboardPage() {
                 ...(company.sites || []),
               ]}
               companyName={company.name} city={company.city}
-              contentResult={contentResult} contentPlanResult={contentPlanResult}
+              contentResult={contentResult} onUpdateContent={setContentResult} contentPlanResult={contentPlanResult}
               localityResult={localityResult} isGeneratingContent={isGeneratingContent}
               onRunContent={runContent} onRunContentPlan={runContentPlan}
               onRunLocalitySearch={runLocalitySearch} trends={trends}

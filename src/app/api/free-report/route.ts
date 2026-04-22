@@ -90,12 +90,26 @@ export async function POST(req: NextRequest) {
 
     // Site file checks
     const baseUrl = new URL(normalizedUrl).origin;
+    // SPA-fallback servers return 200 on every path — so we verify the
+    // response looks like a real file, not index.html.
     const [hasLlmsTxt, hasSitemap] = await Promise.all([
       fetch(`${baseUrl}/llms.txt`, { headers: { "User-Agent": "Cabbge/1.0" } })
-        .then(r => r.ok && r.status === 200)
+        .then(async r => {
+          if (!r.ok) return false;
+          const ct = r.headers.get("content-type") || "";
+          if (ct.includes("text/html")) return false;
+          const body = (await r.text()).trim();
+          return body.startsWith("#") || body.toLowerCase().includes("llms");
+        })
         .catch(() => false),
       fetch(`${baseUrl}/sitemap.xml`, { headers: { "User-Agent": "Cabbge/1.0" } })
-        .then(r => r.ok && r.status === 200)
+        .then(async r => {
+          if (!r.ok) return false;
+          const ct = r.headers.get("content-type") || "";
+          if (ct.includes("text/html") && !ct.includes("xml")) return false;
+          const body = (await r.text()).trim();
+          return body.startsWith("<?xml") || body.includes("<urlset") || body.includes("<sitemapindex");
+        })
         .catch(() => false),
     ]);
 

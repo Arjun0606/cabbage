@@ -66,6 +66,7 @@ interface Props {
   companyName: string;
   city: string;
   contentResult: any;
+  onUpdateContent?: (next: any) => void;
   contentPlanResult: any;
   localityResult: any;
   isGeneratingContent: boolean;
@@ -225,7 +226,7 @@ export function AnalyticsPanel({
   isAuditing, isCheckingAI, isCheckingBacklinks, isCheckingTechnical,
   onRunAudit, onRunAIVisibility, onRunBacklinks, onRunTechnical,
   websiteUrl, allSites, companyName, city,
-  contentResult, contentPlanResult, localityResult, isGeneratingContent,
+  contentResult, onUpdateContent, contentPlanResult, localityResult, isGeneratingContent,
   onRunContent, onRunContentPlan, onRunLocalitySearch, trends,
   projects, selectedProject, onSelectProject,
   articleResult, isGeneratingArticle, onRunArticleWriter,
@@ -1641,7 +1642,7 @@ export function AnalyticsPanel({
                               onSave={(newText) => {
                                 const updated = [...contentResult.linkedinPosts];
                                 updated[i] = newText;
-                                // No state setter needed — mutates in place for display
+                                onUpdateContent?.({ ...contentResult, linkedinPosts: updated });
                               }}
                               onRegenerate={onRunContent}
                               isRegenerating={isGeneratingContent}
@@ -1665,6 +1666,7 @@ export function AnalyticsPanel({
                               onSave={(newText) => {
                                 const updated = [...contentResult.whatsappMessages];
                                 updated[i] = newText;
+                                onUpdateContent?.({ ...contentResult, whatsappMessages: updated });
                               }}
                               onRegenerate={onRunContent}
                               isRegenerating={isGeneratingContent}

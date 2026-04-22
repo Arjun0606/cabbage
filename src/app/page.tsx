@@ -151,7 +151,7 @@ export default function Home() {
           {/* Checks */}
           <Card className="bg-zinc-900 border-zinc-800">
             <CardContent className="p-5 space-y-1.5">
-              <h3 className="text-sm font-medium text-zinc-300 mb-3">SEO Checks</h3>
+              <h3 className="text-sm font-medium text-zinc-300 mb-3">Real Estate SEO Checks</h3>
               {[
                 { label: "RERA / Regulatory number visible", passed: report.checks.rera },
                 { label: "Pricing displayed on page", passed: report.checks.pricing },
@@ -161,6 +161,12 @@ export default function Home() {
                 { label: "Floor plans on page", passed: report.checks.floorPlans },
                 { label: "EMI / loan information", passed: report.checks.emiLoan },
                 { label: "Location map with landmarks", passed: report.checks.locationMap },
+                { label: "Virtual tour / 360° gallery", passed: report.checks.virtualTour },
+                { label: "Amenities listed", passed: report.checks.amenities },
+                { label: "Project gallery", passed: report.checks.gallery },
+                { label: "Builder credentials / about", passed: report.checks.builderCredentials },
+                { label: "Possession date on page", passed: report.checks.possessionDate },
+                { label: "Legal / approval documents", passed: report.checks.legalDocs },
                 { label: "llms.txt for AI crawlers", passed: report.checks.llmsTxt },
                 { label: "Sitemap.xml", passed: report.checks.sitemap },
               ].map(({ label, passed }) => (

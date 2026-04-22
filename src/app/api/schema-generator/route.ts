@@ -129,39 +129,57 @@ function buildFAQPageSchema(faqs: FAQ[]) {
   };
 }
 
-function buildBreadcrumbListSchema(input: SchemaInput) {
+async function buildBreadcrumbListSchema(input: SchemaInput) {
   if (!input.website) return null;
   const base = input.website.replace(/\/$/, "");
   const citySlug = input.city.toLowerCase().replace(/\s+/g, "-");
   const locationSlug = input.location.toLowerCase().replace(/\s+/g, "-");
+
+  // Never ship breadcrumb items with URLs we haven't verified. Guessed
+  // `${base}/${citySlug}` paths almost always 404 — Google then flags the
+  // schema as broken. We HEAD-check each candidate and drop `item` for
+  // positions whose URL doesn't resolve (schema.org allows items with
+  // only a `name`, commonly used for the final crumb).
+  async function verify(url: string): Promise<boolean> {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 4000);
+      const res = await fetch(url, { method: "HEAD", signal: controller.signal, redirect: "follow" });
+      clearTimeout(timeout);
+      if (res.ok) return true;
+      if (res.status === 405) {
+        const c2 = new AbortController();
+        const t2 = setTimeout(() => c2.abort(), 4000);
+        const res2 = await fetch(url, { method: "GET", signal: c2.signal, redirect: "follow" });
+        clearTimeout(t2);
+        return res2.ok;
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  }
+
+  const cityUrl = `${base}/${citySlug}`;
+  const locationUrl = `${base}/${citySlug}/${locationSlug}`;
+  const [cityOk, locationOk] = await Promise.all([verify(cityUrl), verify(locationUrl)]);
+
+  const items: Array<Record<string, unknown>> = [
+    { "@type": "ListItem", position: 1, name: "Home", item: base },
+  ];
+  let position = 2;
+  if (cityOk) {
+    items.push({ "@type": "ListItem", position: position++, name: `Projects in ${input.city}`, item: cityUrl });
+  }
+  if (locationOk) {
+    items.push({ "@type": "ListItem", position: position++, name: `Projects in ${input.location}`, item: locationUrl });
+  }
+  items.push({ "@type": "ListItem", position: position, name: input.projectName });
+
   return {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
-    itemListElement: [
-      {
-        "@type": "ListItem",
-        position: 1,
-        name: "Home",
-        item: base,
-      },
-      {
-        "@type": "ListItem",
-        position: 2,
-        name: `Projects in ${input.city}`,
-        item: `${base}/${citySlug}`,
-      },
-      {
-        "@type": "ListItem",
-        position: 3,
-        name: `Projects in ${input.location}`,
-        item: `${base}/${citySlug}/${locationSlug}`,
-      },
-      {
-        "@type": "ListItem",
-        position: 4,
-        name: input.projectName,
-      },
-    ],
+    itemListElement: items,
   };
 }
 
@@ -234,29 +252,39 @@ Return JSON array:
   const text = await aiComplete(system, prompt, 1500);
   const jsonMatch = text.match(/\[[\s\S]*\]/);
   if (!jsonMatch) {
-    // Fallback FAQs
-    return [
-      {
+    // Fallback: only return FAQs we can build from user-supplied facts.
+    // Never fabricate a "Yes, RERA-registered" answer or invent amenities —
+    // those end up in JSON-LD and become legal claims.
+    const faqs: FAQ[] = [];
+    if (input.priceRange) {
+      faqs.push({
         question: `What is the price range of ${input.projectName}?`,
-        answer: `${input.projectName} by ${input.developerName} is priced at ${input.priceRange || "price on request"}. Contact the sales team for the latest pricing and payment plans.`,
-      },
-      {
-        question: `Where is ${input.projectName} located?`,
-        answer: `${input.projectName} is located in ${input.location}, ${input.city}. The project offers excellent connectivity to major landmarks and infrastructure.`,
-      },
-      {
+        answer: `${input.projectName} by ${input.developerName} is priced at ${input.priceRange}. Contact the sales team for the latest pricing and payment plans.`,
+      });
+    }
+    faqs.push({
+      question: `Where is ${input.projectName} located?`,
+      answer: `${input.projectName} is located in ${input.location}, ${input.city}.`,
+    });
+    if (input.configurations) {
+      faqs.push({
         question: `What configurations are available at ${input.projectName}?`,
-        answer: `${input.projectName} offers ${input.configurations}. Multiple floor plans are available to suit different family sizes and budgets.`,
-      },
-      {
+        answer: `${input.projectName} offers ${input.configurations}.`,
+      });
+    }
+    if (input.reraNumber) {
+      faqs.push({
         question: `Is ${input.projectName} RERA registered?`,
-        answer: `Yes, ${input.projectName} is a RERA-registered project. ${input.reraNumber ? `The RERA number is ${input.reraNumber}.` : "Contact the developer for the RERA registration number."}`,
-      },
-      {
+        answer: `Yes, ${input.projectName} is RERA-registered. The RERA number is ${input.reraNumber}.`,
+      });
+    }
+    if (input.amenities) {
+      faqs.push({
         question: `What amenities does ${input.projectName} offer?`,
-        answer: `${input.projectName} offers ${input.amenities || "world-class amenities including clubhouse, swimming pool, gymnasium, and landscaped gardens"}.`,
-      },
-    ];
+        answer: `${input.projectName} offers ${input.amenities}.`,
+      });
+    }
+    return faqs;
   }
 
   try {
@@ -307,7 +335,7 @@ export async function POST(req: NextRequest) {
     const faqs = await generateFAQs(input);
 
     // Build all schemas programmatically
-    const breadcrumb = buildBreadcrumbListSchema(input);
+    const breadcrumb = await buildBreadcrumbListSchema(input);
     const schemas: Record<string, unknown> = {
       realEstateListing: buildRealEstateListingSchema(input),
       organization: buildOrganizationSchema(input),

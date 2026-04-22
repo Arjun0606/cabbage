@@ -94,18 +94,9 @@ export function ActionsFeed({
     }
   }
 
-  // GEO Progress — newly lost queries
-  if (geoProgress?.newlyLost?.length > 0) {
-    feedItems.push({
-      id: "geo_lost",
-      icon: <TrendingUp size={16} />,
-      iconBg: "bg-red-500/10 text-red-400",
-      title: `Lost ${geoProgress.newlyLost.length} Queries`,
-      subtitle: "Competitors may have overtaken you — act now",
-      priority: "critical",
-      actionTab: "aigeo",
-    });
-  }
+  // (The "newly lost queries" item is rendered below as an expandable
+  //  list with severity badges. A second summary-only push here was a
+  //  duplicate React key — removed.)
 
   // SEO fixes
   if (auditResult?.fixes?.length) {
