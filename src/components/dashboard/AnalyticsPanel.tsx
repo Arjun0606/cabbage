@@ -2381,6 +2381,18 @@ export function AnalyticsPanel({
 
           {neighborhoodResult ? (
             <>
+              {/* Data source badge — is this Places-verified or AI-estimated? */}
+              <div className="flex items-center gap-2">
+                <Badge className={`text-[10px] h-5 px-1.5 rounded-md border-0 ${
+                  neighborhoodResult.dataSource === "places_api"
+                    ? "bg-[#7CB342]/10 text-[#7CB342]"
+                    : "bg-amber-500/10 text-amber-400"
+                }`}>
+                  {neighborhoodResult.dataSource === "places_api"
+                    ? "Verified via Google Places"
+                    : "AI-estimated — verify before publishing"}
+                </Badge>
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 <SectionCard>
                   <CardContent className="p-5 text-center">

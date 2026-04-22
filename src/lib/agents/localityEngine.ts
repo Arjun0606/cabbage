@@ -10,6 +10,7 @@
  */
 
 import { aiComplete, aiLight } from "@/lib/ai";
+import { geocodeLocality, findNearbyLocalities, isPlacesConfigured } from "@/lib/integrations/googlePlaces";
 
 // ---------- Types ----------
 
@@ -153,9 +154,20 @@ Return JSON:
   "marketInsight": "2-3 sentence market overview for this locality — price trends, demand drivers, upcoming infrastructure"
 }
 
-Be hyper-specific to ${locality}, ${city}. Use real place names, real infrastructure projects, real schools/offices/metro stations nearby.`;
+Keep the response grounded in the supplied data. If you're uncertain about a specific place, infrastructure project, school, or metro station, omit it rather than guessing.`;
 
-  const text = await aiComplete(system, prompt, 2500);
+  // Run AI generation and real geographic lookup in parallel.
+  // Places gives us ground truth for nearbyAreas — AI gets overridden.
+  const [text, placesNearby] = await Promise.all([
+    aiComplete(system, prompt, 2500),
+    (async () => {
+      if (!isPlacesConfigured()) return [];
+      const coords = await geocodeLocality(locality, city);
+      if (!coords) return [];
+      return findNearbyLocalities(coords, 6000, 10);
+    })(),
+  ]);
+
   const jsonMatch = text.match(/\{[\s\S]*\}/);
 
   const defaults: LocalitySearchResult = {
@@ -170,14 +182,29 @@ Be hyper-specific to ${locality}, ${city}. Use real place names, real infrastruc
     marketInsight: "",
   };
 
+  let parsed: Partial<LocalitySearchResult> = {};
   if (jsonMatch) {
     try {
-      const parsed = JSON.parse(jsonMatch[0]);
-      return { ...defaults, ...parsed, locality, city };
+      parsed = JSON.parse(jsonMatch[0]);
     } catch { /* use defaults */ }
   }
 
-  return defaults;
+  // Override nearbyAreas with verified Places data when available.
+  // Keep the AI's list as a fallback only when Places isn't configured.
+  const nearbyAreas = placesNearby.length > 0
+    ? placesNearby
+        .filter((p) => p.name.toLowerCase() !== locality.toLowerCase())
+        .slice(0, 8)
+        .map((p) => `${p.name} (${p.distanceKm} km)`)
+    : (Array.isArray(parsed.nearbyAreas) ? parsed.nearbyAreas : []);
+
+  return {
+    ...defaults,
+    ...parsed,
+    locality,
+    city,
+    nearbyAreas,
+  };
 }
 
 /**

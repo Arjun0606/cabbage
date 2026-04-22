@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { aiComplete } from "@/lib/ai";
+import { geocodeLocality, findNearbyPOIs, isPlacesConfigured } from "@/lib/integrations/googlePlaces";
 
 export async function POST(req: NextRequest) {
   try {
@@ -146,8 +147,59 @@ Rules:
     result.walkScore = Math.max(0, Math.min(100, Math.round(Number(result.walkScore) || 0)));
     result.connectivityScore = Math.max(0, Math.min(100, Math.round(Number(result.connectivityScore) || 0)));
 
-    // Data source flag — distances and place details are AI-estimated, not verified via Places API.
+    // When Google Places is configured, OVERRIDE the AI-generated lists
+    // with verified geographic data. The model happily places Kokapet
+    // next to Banjara Hills (they're 15 km apart) — Places has ground
+    // truth, so prefer it for anything POI-shaped.
     result.dataSource = "ai_estimated";
+    if (isPlacesConfigured()) {
+      const coords = await geocodeLocality(location, city);
+      if (coords) {
+        const [schools, healthcare, shopping, transit] = await Promise.all([
+          findNearbyPOIs(coords, ["primary_school", "secondary_school", "school", "university"], 5000, 8),
+          findNearbyPOIs(coords, ["hospital", "doctor", "pharmacy"], 5000, 8),
+          findNearbyPOIs(coords, ["shopping_mall", "supermarket"], 5000, 8),
+          findNearbyPOIs(coords, ["subway_station", "train_station", "bus_station"], 5000, 5),
+        ]);
+
+        if (schools.length > 0) {
+          result.education = schools.map((p) => ({
+            name: p.name,
+            type: p.type.replace(/_/g, " "),
+            distance: `${p.distanceKm} km`,
+          }));
+        }
+        if (healthcare.length > 0) {
+          result.healthcare = healthcare.map((p) => ({
+            name: p.name,
+            type: p.type.replace(/_/g, " "),
+            distance: `${p.distanceKm} km`,
+          }));
+        }
+        if (shopping.length > 0) {
+          result.shopping = shopping.map((p) => ({
+            name: p.name,
+            type: p.type.replace(/_/g, " "),
+            distance: `${p.distanceKm} km`,
+          }));
+        }
+        if (transit.length > 0) {
+          const nearestMetro = transit.find((t) => t.type.includes("subway"));
+          const nearestBus = transit.find((t) => t.type.includes("bus"));
+          if (nearestMetro || nearestBus) {
+            result.connectivity = result.connectivity || {};
+            if (nearestMetro) {
+              result.connectivity.metro = `${nearestMetro.name} — ${nearestMetro.distanceKm} km`;
+            }
+            if (nearestBus) {
+              result.connectivity.bus = `${nearestBus.name} — ${nearestBus.distanceKm} km`;
+            }
+          }
+        }
+        result.dataSource = "places_api";
+        result.verifiedAt = new Date().toISOString();
+      }
+    }
 
     return NextResponse.json(result);
   } catch (error) {
