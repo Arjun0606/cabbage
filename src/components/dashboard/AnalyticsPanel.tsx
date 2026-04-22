@@ -36,6 +36,7 @@ import { EditableBlock } from "./EditableBlock";
 import { GEOProgressPanel } from "./GEOProgressPanel";
 import { ExecutionChecklist } from "./ExecutionChecklist";
 import { PublishButton } from "./PublishButton";
+import { DeployViaLoader } from "./DeployViaLoader";
 import { GSCPanel } from "./GSCPanel";
 import { SiteCrawlPanel } from "./SiteCrawlPanel";
 import { KeywordResearchPanel } from "./KeywordResearchPanel";
@@ -1801,8 +1802,15 @@ export function AnalyticsPanel({
                           <h4 className="text-[15px] font-semibold text-zinc-100">{articleResult.title}</h4>
                           <p className="text-[12px] text-zinc-500 mt-1">{articleResult.metaDescription}</p>
                         </div>
-                        <div className="flex items-center gap-2 flex-shrink-0">
+                        <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
                           <Badge className="bg-zinc-800 text-zinc-300 border-0 text-[10px] h-5 rounded-md">{articleResult.wordCount} words</Badge>
+                          <DeployViaLoader
+                            html={articleResult.content}
+                            title={articleResult.title}
+                            metaDescription={articleResult.metaDescription}
+                            defaultSiteUrl={websiteUrl}
+                            contentType="article"
+                          />
                           <PublishButton
                             title={articleResult.title}
                             content={articleResult.content}
