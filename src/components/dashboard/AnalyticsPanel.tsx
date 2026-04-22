@@ -313,17 +313,21 @@ export function AnalyticsPanel({
       )}
 
       <Tabs value={activeTab} onValueChange={onTabChange} className="space-y-5">
-        <TabsList className="bg-zinc-900/60 border border-zinc-800/50 rounded-lg p-0.5 h-auto flex-wrap">
-          <TabsTrigger value="health" className="text-[13px] rounded-md px-3.5 py-1.5">Health</TabsTrigger>
-          <TabsTrigger value="links" className="text-[13px] rounded-md px-3.5 py-1.5">Links</TabsTrigger>
-          <TabsTrigger value="technical" className="text-[13px] rounded-md px-3.5 py-1.5">Technical</TabsTrigger>
-          <TabsTrigger value="aigeo" className="text-[13px] rounded-md px-3.5 py-1.5">AI/GEO</TabsTrigger>
-          <TabsTrigger value="checks" className="text-[13px] rounded-md px-3.5 py-1.5">Checks</TabsTrigger>
+        {/* Primary nav — execution-first, ordered by daily usage. The
+            "Deep analysis" group after the divider is for tools a CMO
+            dives into weekly rather than daily. */}
+        <TabsList className="bg-zinc-900/60 border border-zinc-800/50 rounded-lg p-0.5 h-auto flex-wrap gap-0.5">
+          <TabsTrigger value="health" className="text-[13px] rounded-md px-3.5 py-1.5">Overview</TabsTrigger>
+          <TabsTrigger value="aigeo" className="text-[13px] rounded-md px-3.5 py-1.5">AI Search</TabsTrigger>
           <TabsTrigger value="content" className="text-[13px] rounded-md px-3.5 py-1.5">Content</TabsTrigger>
-          <TabsTrigger value="locality" className="text-[13px] rounded-md px-3.5 py-1.5">Locality</TabsTrigger>
-          <TabsTrigger value="ads" className="text-[13px] rounded-md px-3.5 py-1.5">Ads &amp; Portals</TabsTrigger>
+          <TabsTrigger value="ads" className="text-[13px] rounded-md px-3.5 py-1.5">Portals &amp; Ads</TabsTrigger>
           <TabsTrigger value="report" className="text-[13px] rounded-md px-3.5 py-1.5">Report</TabsTrigger>
-          {gscData && <TabsTrigger value="search" className="text-[13px] rounded-md px-3.5 py-1.5">Search</TabsTrigger>}
+          <div className="w-px h-5 bg-zinc-800/60 mx-1 self-center" aria-hidden />
+          <TabsTrigger value="links" className="text-[13px] rounded-md px-3.5 py-1.5 text-zinc-400 data-[state=active]:text-zinc-100">Links</TabsTrigger>
+          <TabsTrigger value="technical" className="text-[13px] rounded-md px-3.5 py-1.5 text-zinc-400 data-[state=active]:text-zinc-100">Technical</TabsTrigger>
+          <TabsTrigger value="checks" className="text-[13px] rounded-md px-3.5 py-1.5 text-zinc-400 data-[state=active]:text-zinc-100">Checks</TabsTrigger>
+          <TabsTrigger value="locality" className="text-[13px] rounded-md px-3.5 py-1.5 text-zinc-400 data-[state=active]:text-zinc-100">Locality</TabsTrigger>
+          {gscData && <TabsTrigger value="search" className="text-[13px] rounded-md px-3.5 py-1.5 text-zinc-400 data-[state=active]:text-zinc-100">Search</TabsTrigger>}
         </TabsList>
 
         {/* ================================================================ */}
