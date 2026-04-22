@@ -101,12 +101,19 @@ export async function POST(req: NextRequest) {
         }, { onConflict: "site_url,page_path" });
 
       if (error) {
-        // Supabase exists but table doesn't — return hint for setup
-        return NextResponse.json({
-          success: false,
-          warning: "Supabase 'deployed_schemas' table missing. Schema saved locally only.",
-          saved_locally: true,
-        });
+        // Schema was not persisted — fail loudly so the UI doesn't show a
+        // green "deployed" state while the customer's site has nothing to
+        // fetch. Previously returned 200 with success=false (swallowed).
+        return NextResponse.json(
+          {
+            success: false,
+            saved_locally: true,
+            saved_cloud: false,
+            error: "Failed to persist schema — 'deployed_schemas' table missing or Supabase insert failed.",
+            details: error.message,
+          },
+          { status: 500 }
+        );
       }
 
       return NextResponse.json({
@@ -115,14 +122,17 @@ export async function POST(req: NextRequest) {
         saved_cloud: true,
         publicUrl: `${req.nextUrl.origin}/api/schema-deploy?url=${encodeURIComponent(pageUrl)}`,
       });
-    } catch {
-      return NextResponse.json({
-        success: true,
-        saved_locally: true,
-        saved_cloud: false,
-        warning: "Supabase not configured. Schema saved locally; customer site won't be able to fetch it. Configure Supabase for production deployment.",
-        publicUrl: `${req.nextUrl.origin}/api/schema-deploy?url=${encodeURIComponent(pageUrl)}`,
-      });
+    } catch (err) {
+      return NextResponse.json(
+        {
+          success: false,
+          saved_locally: false,
+          saved_cloud: false,
+          error: "Supabase not configured — schema cannot be served to your site. Configure Supabase for production deployment.",
+          details: err instanceof Error ? err.message : String(err),
+        },
+        { status: 500 }
+      );
     }
   } catch (error) {
     return NextResponse.json(

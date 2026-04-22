@@ -699,13 +699,11 @@ export function AnalyticsPanel({
                   <CardTitle className="text-[13px] font-semibold">Server Timing</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-3 gap-4 text-center">
+                  <div className="grid grid-cols-2 gap-4 text-center">
                     {[
                       { label: "TTFB", value: `${technicalResult.serverTiming.ttfb}ms` },
-                      { label: "DOM Complete", value: `${technicalResult.serverTiming.domComplete}ms` },
                       { label: "Download", value: `${technicalResult.serverTiming.download}ms` },
-                      { label: "Connection", value: `${technicalResult.serverTiming.connection}ms` },
-                      { label: "TLS", value: `${technicalResult.serverTiming.tlsHandshake}ms` },
+                      { label: "DOM Complete", value: `${technicalResult.serverTiming.domComplete}ms` },
                       { label: "Total", value: `${technicalResult.serverTiming.timeToInteractive}ms` },
                     ].map(({ label, value }) => (
                       <div key={label} className="py-1">

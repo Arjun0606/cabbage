@@ -293,33 +293,67 @@ export async function findVerifiedReferrers(url: string): Promise<{
     const domain = new URL(url).hostname.replace(/^www\./, "");
     const brand = domain.split(".")[0];
 
-    // One web search query covering multiple candidates at once
-    const siteQueries = HIGH_VALUE_RE_DOMAINS.slice(0, 6)
-      .map((d) => `site:${d.domain} "${brand}"`)
-      .join(" OR ");
+    const domainList = HIGH_VALUE_RE_DOMAINS.map((d) => d.domain).join(", ");
+    // Ask the model explicitly for a JSON list with citationUrls — the
+    // previous prose response ("99acres has a listing for X") rarely
+    // included the linking URL, so the URL-regex match nearly always
+    // produced zero verified referrers.
     const { text, source } = await queryForVisibility(
       "openai",
-      `Check which of these Indian real estate sites link to or mention ${domain} (brand: ${brand}): ${HIGH_VALUE_RE_DOMAINS.map((d) => d.domain).join(", ")}. Only report the ones where you can see an actual page URL linking to ${domain}. Query: ${siteQueries}`
+      `Search the web to find which of these Indian real estate sites have a page that links to or mentions "${domain}" (brand: ${brand}):
+${domainList}
+
+For each one you confirm with a real visible URL, return JSON. If you can't confirm any, return an empty array. Respond ONLY with valid JSON, no prose:
+
+{"matches": [{"domain": "99acres.com", "url": "https://99acres.com/..."}]}
+
+Only include domains where you can see an actual linking/mentioning page URL. Never guess.`
     );
 
     if (!text || (source !== "web_search" && source !== "grounded")) {
       return { verified: [], checked: 0, source: "unavailable" };
     }
 
-    // Parse — for each candidate domain, check if it's mentioned with a real URL
+    // First try to parse the JSON contract
     const verified: VerifiedReferrer[] = [];
-    for (const cand of HIGH_VALUE_RE_DOMAINS) {
-      // Look for mentions with a URL pointing to that domain
-      const mentionRegex = new RegExp(`https?://(?:[\\w-]+\\.)?${cand.domain.replace(/\./g, "\\.")}[^\\s)"']*`, "i");
-      const urlMatch = text.match(mentionRegex);
-      if (urlMatch) {
-        verified.push({
-          domain: cand.domain,
-          authority: cand.authority,
-          type: cand.type,
-          verifiedAt: new Date().toISOString(),
-          citationUrl: urlMatch[0],
-        });
+    const seen = new Set<string>();
+    const jsonMatch = text.match(/\{[\s\S]*"matches"[\s\S]*\}/);
+    if (jsonMatch) {
+      try {
+        const parsed = JSON.parse(jsonMatch[0]);
+        for (const m of parsed.matches || []) {
+          const cand = HIGH_VALUE_RE_DOMAINS.find((d) => d.domain === m.domain);
+          if (!cand || seen.has(cand.domain)) continue;
+          if (typeof m.url === "string" && m.url.startsWith("http") && m.url.includes(cand.domain)) {
+            verified.push({
+              domain: cand.domain,
+              authority: cand.authority,
+              type: cand.type,
+              verifiedAt: new Date().toISOString(),
+              citationUrl: m.url,
+            });
+            seen.add(cand.domain);
+          }
+        }
+      } catch { /* fall through to regex */ }
+    }
+
+    // Regex backstop — catches plain URLs if the model didn't return JSON
+    if (verified.length === 0) {
+      for (const cand of HIGH_VALUE_RE_DOMAINS) {
+        if (seen.has(cand.domain)) continue;
+        const mentionRegex = new RegExp(`https?://(?:[\\w-]+\\.)?${cand.domain.replace(/\./g, "\\.")}[^\\s)"']*`, "i");
+        const urlMatch = text.match(mentionRegex);
+        if (urlMatch) {
+          verified.push({
+            domain: cand.domain,
+            authority: cand.authority,
+            type: cand.type,
+            verifiedAt: new Date().toISOString(),
+            citationUrl: urlMatch[0],
+          });
+          seen.add(cand.domain);
+        }
       }
     }
 

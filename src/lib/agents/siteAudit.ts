@@ -384,9 +384,15 @@ export async function runSiteAudit(url: string): Promise<AuditResult> {
   const seoHealth = mobileResult ? extractSeoHealth(mobileResult) : [];
 
   const hasPageSpeed = mobileResult !== null;
+  // Overall = average of the four mobile Lighthouse categories (what
+  // Google ranks on). Previously this mixed mobile.seo + desktop.performance
+  // + mobile.accessibility which isn't a meaningful composite — and dropped
+  // best-practices entirely.
   const scores = {
     overall: hasPageSpeed
-      ? Math.round((mobileScores.seo + desktopScores.performance + mobileScores.accessibility) / 3)
+      ? Math.round(
+          (mobileScores.performance + mobileScores.seo + mobileScores.accessibility + mobileScores.bestPractices) / 4
+        )
       : 0,
     performanceMobile: mobileScores.performance,
     performanceDesktop: desktopScores.performance,
@@ -414,11 +420,15 @@ export async function runSiteAudit(url: string): Promise<AuditResult> {
     pageHtml ? verifyRERA(pageHtml) : Promise.resolve({ found: false, numbers: [], verified: false, verificationDetails: "Page not fetched" }),
   ]);
 
-  // Inject RERA verification into the checks — replaces the AI's vibes-based
-  // "RERA text appears on page" with actual web-search verification.
+  // Inject RERA verification into the checks — but ONLY for Indian sites.
+  // Previously a "Compliance"-category check from any locale (Dubai Land
+  // Department, UK HMRC, etc.) triggered the RERA check, which doesn't
+  // exist outside India.
   const realEstateChecks = aiChecks.filter((c) => !c.id.includes("rera"));
-  const hasIndianContent = aiChecks.some((c) => c.category === "Compliance") || reraResult.found;
-  if (hasIndianContent) {
+  const hostIsIndian = /\.in($|\/|:)/i.test(url);
+  const contentLooksIndian = /\b(RERA|₹|Lakh|Crore|Cr\.|Lac|Rs\.?|INR)\b/.test(pageHtml);
+  const isIndianSite = hostIsIndian || contentLooksIndian || reraResult.found;
+  if (isIndianSite) {
     realEstateChecks.unshift({
       id: "rera_verification",
       label: "RERA Registration Verification",

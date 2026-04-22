@@ -161,13 +161,16 @@ RULES:
         : [],
     };
   } catch {
-    // Minimal fallback: just check if brand name appears (no regex sentiment, no co-citations)
+    // JSON parse failed. Fall back to a lightweight keyword check, but
+    // mark the result honestly: position is unknown (not 1), sentiment
+    // stays "neutral". Otherwise a keyword match would score as a #1
+    // top-of-list mention and silently inflate the AI visibility score.
     const lower = response.toLowerCase();
     const brandLower = brand.toLowerCase();
     const mentioned = lower.includes(brandLower) || projects.some(p => lower.includes(p.toLowerCase()));
     return {
       mentioned,
-      position: mentioned ? 1 : 0,
+      position: 0, // unknown — scoring routine treats 0 as "not ranked"
       context: mentioned ? response.substring(0, 300) : "",
       sentiment: mentioned ? "neutral" : "absent",
       coCitations: [],
@@ -185,7 +188,10 @@ function calculateScore(results: QueryResult[], llmKey: keyof Omit<QueryResult, 
     if (res.mentioned) {
       // Position scoring: top-3 positions get much higher weight (reflects how AI ranks)
       // Position 1 = 100, position 2 = 85, position 3 = 72, position 4 = 60, etc.
-      const positionScore = res.position === 1 ? 100
+      // Position 0 = unknown (fallback keyword match) — score conservatively
+      // so a parse failure doesn't masquerade as a top placement.
+      const positionScore = res.position === 0 ? 40
+        : res.position === 1 ? 100
         : res.position === 2 ? 85
         : res.position === 3 ? 72
         : Math.max(30, 72 - (res.position - 3) * 8);

@@ -20,8 +20,6 @@ export interface TechnicalSeoResult {
   serverTiming: {
     timeToInteractive: number;
     domComplete: number;
-    connection: number;
-    tlsHandshake: number;
     ttfb: number;
     download: number;
   };
@@ -285,10 +283,11 @@ export async function runTechnicalSeo(url: string): Promise<TechnicalSeoResult> 
       cacheable: !!headers["cache-control"],
     },
     serverTiming: {
+      // We only measure total, ttfb, and download at the transport layer.
+      // `connection` and `tlsHandshake` used to be fabricated as ttfb*0.2
+      // and ttfb*0.3 — fake numbers rendered like real measurements. Drop.
       timeToInteractive: timing.total,
       domComplete: timing.total,
-      connection: Math.round(timing.ttfb * 0.2),
-      tlsHandshake: Math.round(timing.ttfb * 0.3),
       ttfb: timing.ttfb,
       download: timing.download,
     },

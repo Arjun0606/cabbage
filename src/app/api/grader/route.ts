@@ -42,7 +42,10 @@ export async function POST(req: NextRequest) {
 
     async function runQuery(platform: "openai" | "gemini", label: string, query: string) {
       const { text, source } = await queryForVisibility(platform, query);
-      if (!text || source === "failed" || source === "missing_key") {
+      // Only trust web-searched responses. fallback_chat means we lost web
+      // search — the answer becomes "the model guessed from its training
+      // data", which we must never score as a real AI-visibility result.
+      if (!text || source === "failed" || source === "missing_key" || source === "fallback_chat") {
         results.push({ query, mentioned: false, competitors: [], platform: label });
         return;
       }
