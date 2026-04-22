@@ -89,7 +89,7 @@ Generate this JSON:
     }
   ],
 
-  "inferredCompetitors": ["<actual competitor developer names likely serving this market. 3-5 names. Never use placeholders>"],
+  "inferredCompetitors": ["<Only list competitor developer names you can see explicitly mentioned on the scraped site (e.g., in comparison pages, press releases, or copy). If none are mentioned, return an empty array []. Never guess at competitors based on market knowledge — that fabricates names.>"],
 
   "seoObservations": {
     "hasSchema": true/false,

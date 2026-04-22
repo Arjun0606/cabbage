@@ -49,6 +49,11 @@ export async function POST(req: NextRequest) {
 
     const systemPrompt = `You are a real estate marketing expert specializing in construction progress communication for Indian residential projects. You create multi-channel content that keeps existing buyers reassured, creates urgency for prospects, and builds SEO value for the developer's brand.
 
+CRITICAL HONESTY RULES:
+- The ONLY construction facts you can assert are what's in the user's input: phase, completion percentage, and the "Recent Milestones" field they supplied. Do NOT invent specific milestones (e.g., "Slab poured on floor 12", "Podium completed") that aren't in the input.
+- Do NOT invent specific possession dates, RERA numbers, pricing, or claims like "limited units left" / "price rising next month" unless supplied.
+- Use the milestones field as-is. If it's empty or generic, keep the content high-level rather than fabricating specifics.
+
 IMPORTANT: Return ONLY valid JSON — no markdown fences, no commentary outside the JSON.`;
 
     const userPrompt = `Generate a complete monthly construction progress update content pack for:
@@ -80,10 +85,10 @@ Return JSON with this EXACT structure:
 Rules:
 - All content should reference the current phase (${phaseLabel}) and completion percentage (${pct}%).
 - Buyer-facing content should be reassuring and transparent.
-- Prospect-facing content should create urgency and FOMO.
-- Blog post must be genuinely SEO-useful, not generic filler.
+- Prospect-facing urgency must be grounded in real project stage phrasing ("${phaseLabel} complete") rather than invented "limited units at current pricing" claims.
+- Blog post must be genuinely useful, not generic filler. Do not invent milestones beyond what's in Recent Milestones.
 - SMS must be strictly under 160 characters.
-- Do NOT invent RERA numbers, pricing, or details not provided.`;
+- Do NOT invent RERA numbers, pricing, specific completed milestones, or unit-count claims not provided.`;
 
     const raw = await aiComplete(systemPrompt, userPrompt, 3500);
 

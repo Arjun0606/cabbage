@@ -110,7 +110,15 @@ export async function searchLocality(
   configurations?: string,
   priceRange?: string
 ): Promise<LocalitySearchResult> {
-  const system = `You are Cabbge's locality intelligence engine for real estate. Given any city and locality anywhere in the world, provide comprehensive real estate market intelligence. Use real landmark names, real infrastructure, real market data. Return valid JSON only.`;
+  const system = `You are Cabbge's locality intelligence engine for real estate. Given any city and locality, provide real estate market intelligence.
+
+CRITICAL HONESTY RULES:
+- NEVER invent specific competitor project names, school names, hospital names, metro station names, or specific distance figures. If you aren't highly confident a place exists at that location, omit it.
+- For "nearbyAreas", use only regions you are confident are near ${locality} in ${city}. Prefer fewer accurate entries over a long made-up list.
+- For "competingProjects", list only projects you are confident actually exist in that locality. If uncertain, return an empty array — never fabricate project names.
+- "marketInsight" must stay generic (demand drivers, typical configurations, trajectory) unless you can cite specifics — do not invent percentage price trends or named infrastructure projects.
+
+Return valid JSON only.`;
 
   const prompt = `Real estate intelligence for ${locality}, ${city}:
 ${projectName ? `Project context: ${projectName}` : ""}

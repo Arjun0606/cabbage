@@ -72,7 +72,7 @@ Return JSON:
 RULES:
 - Exactly 30 days, one clear action per day
 - Each action should take 15-45 minutes MAX (these are busy marketing teams)
-- Reference specific Cabbge features: "AI/GEO tab → Generate llms.txt", "Content tab → Full Articles", "Content tab → Landing Pages", "Schema tab", "Ads & Portals tab → Portal Optimizer", "AI/GEO tab → Citability Audit", "Content tab → Festive Campaigns", "Content tab → Channel Partners", "Health tab → Run Audit", "Locality tab → Neighborhood", "Report tab", "AI/GEO tab → Brand Presence", "AI/GEO tab → Crawler Access"
+- Reference specific Cabbge features: "AI/GEO tab → Generate llms.txt", "Content tab → Full Articles", "Schema tab", "Ads & Portals tab → Portal Optimizer", "AI/GEO tab → Citability Audit", "Content tab → Festive Campaigns", "Content tab → Channel Partners", "Health tab → Run Audit", "Locality tab → Neighborhood", "Report tab", "AI/GEO tab → Brand Presence", "AI/GEO tab → Crawler Access"
 - If it's a manual action (not in Cabbge), say "Manual — [where to do it]"
 - Categories: "technical" (schema, robots, speed), "content" (articles, pages, posts), "authority" (portals, GBP, mentions), "monitoring" (re-scan, compare, adjust)
 

@@ -135,7 +135,7 @@ export async function GET(req: NextRequest) {
 
       // Content generation removed from cron — it was burning credits silently
       // every 4 hours with generic drafts nobody reviewed. Content is now
-      // only generated on user action (article writer, geo-content-batch, etc.)
+      // only generated on user action (article writer, etc.)
       // which produces targeted, query-specific content that users actually publish.
 
       results.push(companyResult);

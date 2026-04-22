@@ -143,7 +143,8 @@ export function CompanyPanel({ company, setCompany }: Props) {
   const documents = [
     { key: "productInfo", label: "Product Information", icon: FileText, hint: "What you sell, key features, pricing strategy" },
     { key: "brandVoice", label: "Brand Voice & Tone", icon: Building2, hint: "How your brand speaks — formal, friendly, luxurious?" },
-    { key: "brandValues", label: "Brand Values & Vision", icon: Globe, hint: "Mission, vision, core values, brand promise" },
+    { key: "brandValues", label: "Brand Values", icon: Globe, hint: "Core values and brand promise" },
+    { key: "brandVision", label: "Brand Vision", icon: Globe, hint: "Long-term vision and mission statement" },
     { key: "targetAudience", label: "Target Audience", icon: Users, hint: "Who are your buyers? Demographics, preferences" },
     { key: "marketingStrategy", label: "Marketing Strategy", icon: Globe, hint: "Current strategy, channels, campaigns, budget" },
     { key: "competitorAnalysis", label: "Competitor Analysis", icon: Users, hint: "Key competitors, their strengths, your differentiation" },

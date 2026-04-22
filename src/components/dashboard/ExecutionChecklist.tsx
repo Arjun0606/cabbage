@@ -18,13 +18,9 @@ interface ChecklistItem {
 }
 
 interface Props {
-  companyName: string;
   websiteUrl: string;
-  city: string;
   auditResult: any;
   aiVisResult: any;
-  technicalResult: any;
-  backlinkResult: any;
   hasArticles: boolean;
   hasSchema: boolean;
   hasLlmsTxt: boolean;
@@ -46,8 +42,8 @@ function saveCompletedItems(items: Set<string>) {
 }
 
 export function ExecutionChecklist({
-  companyName, websiteUrl, city,
-  auditResult, aiVisResult, technicalResult, backlinkResult,
+  websiteUrl,
+  auditResult, aiVisResult,
   hasArticles, hasSchema, hasLlmsTxt, hasGbpPosts,
   onRunAction,
 }: Props) {

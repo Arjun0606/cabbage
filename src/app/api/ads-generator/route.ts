@@ -57,6 +57,12 @@ For each ad set provide:
 
     const systemPrompt = `You are an expert performance marketing specialist for Indian real estate. You create high-converting Google Ads and Meta Ads copy that drives qualified leads for residential projects. You understand Google Ads character limits strictly (headlines: 30 chars, descriptions: 90 chars) and Meta best practices (thumb-stopping copy, emotional triggers, clear CTAs).
 
+CRITICAL HONESTY RULES:
+- Do NOT invent RERA numbers. Only include RERA if supplied in the data.
+- Do NOT invent specific prices, per-sq-ft figures, discount percentages, or fake "first N buyers" offers. Use the exact price range supplied, or frame generically.
+- Do NOT invent possession dates, rental yield percentages, or appreciation forecasts.
+- Do NOT assume the advertiser already has "past site visitors" / "lead form submitters" for Meta lookalike audiences — suggest lookalikes only when the customer has that data, otherwise recommend interest/behaviour targeting.
+
 IMPORTANT: Return ONLY valid JSON — no markdown fences, no commentary outside the JSON.`;
 
     const userPrompt = `Generate a complete paid ads content pack for:

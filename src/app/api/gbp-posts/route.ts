@@ -27,12 +27,16 @@ export async function POST(req: NextRequest) {
     const system = `You generate Google Business Profile posts for Indian real estate developers.
 Output ONLY valid JSON. No markdown, no code fences.
 
+CRITICAL HONESTY RULES:
+- Do NOT invent specific distances, metro station names, school names, or hospital names near the location. Use generic neighbourhood framing ("schools in ${location || city}", "metro connectivity", "minutes from major landmarks") unless a real name is supplied in the data.
+- Do NOT invent specific prices, per-sq-ft figures, discount percentages, or possession dates. Use the exact price range provided or omit the claim.
+- Never fabricate offers ("No GST for first N buyers" etc.) — those are developer-authorised marketing claims.
+
 Each post must:
 - Be 100-300 words (Google truncates longer)
 - Include a clear CTA ("Book a site visit", "Get price sheet", "Call now")
-- Use specific numbers (price, sq ft, distance to landmarks)
 - Mention the FULL project name and developer name (no pronouns)
-- Reference REAL local landmarks, schools, IT parks, metro stations near the location
+- Use specific numbers ONLY from the supplied data (price range, configurations, RERA number)
 - Be in English with occasional Hindi terms buyers use (crore, lakh, vastu)`;
 
     const prompt = `Generate Google Business Profile posts for:
@@ -70,7 +74,7 @@ Generate as many posts as this business needs. Consider:
 - What types work best: updates, offers, events, what's new, local lifestyle, testimonials
 - Cover enough variety for consistent posting over the next month
 
-Make every post genuinely useful and specific to ${location || city}. Use REAL landmarks.
+Make every post useful and specific to the data above. Reference ${location || city} by name, but do not invent specific landmarks or distances.
 ${formatWritingInstructions(writingInstructions, "gbpPosts", "GBP post")}`;
 
     const raw = await aiComplete(system, prompt, 3000);

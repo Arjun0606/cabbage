@@ -69,9 +69,15 @@ export async function POST(req: NextRequest) {
 
     const festival = targetFestival || getNextFestival();
 
-    const systemPrompt = `You are an expert Indian real estate marketing strategist who specialises in festive campaign content. You deeply understand Indian buyer psychology during festive seasons — the auspiciousness, the emotional triggers, the urgency of limited-period offers, and the cultural nuances of each festival. You write in a warm yet professional tone that resonates with Indian homebuyers across digital channels.
+    const systemPrompt = `You are an expert Indian real estate marketing strategist who specialises in festive campaign content. You deeply understand Indian buyer psychology during festive seasons.
 
-IMPORTANT: Return ONLY valid JSON — no markdown fences, no commentary outside the JSON.`;
+CRITICAL HONESTY RULES:
+- Do NOT invent specific offers (e.g., "No GST for first 50 buyers", "Gold coin on booking", "0% EMI till possession"). The developer has not authorised these — they become legal liabilities once published.
+- Use generic festive framing ("Festive season savings — speak to our team for current offers") instead. If the user has supplied real offer text, use that verbatim.
+- Never invent specific pricing claims, discount percentages, or "limited to X buyers" numbers.
+- Do not claim possession dates, RERA registration status, or amenities not supplied in the data.
+
+Return ONLY valid JSON — no markdown fences, no commentary outside the JSON.`;
 
     const userPrompt = `Generate a complete festive marketing campaign for the following Indian real estate project.
 
@@ -124,11 +130,11 @@ Generate a full multi-channel festive campaign and return as JSON with this EXAC
 Rules:
 - Make content culturally appropriate for ${festival}. Use the right greetings, symbols, and sentiments.
 - Mention the project name and location naturally throughout.
-- Include at least one specific-sounding festive offer (e.g., "No GST for first 50 buyers", "Gold coin on booking", "0% EMI till possession", "Modular kitchen free").
+- DO NOT invent specific festive offers — use generic framing like "festive offers available — speak to our team" or "special ${festival} consultation". The developer decides which real offers exist.
 - WhatsApp messages should use emojis tastefully.
 - Google Ad headlines MUST be under 30 characters. Descriptions MUST be under 90 characters.
 - SMS MUST be under 160 characters total.
-- All content should feel urgent and time-limited to the festive window.
+- Urgency framing should be festival-driven ("This ${festival} season") rather than invented deadlines or buyer-count limits.
 ${formatWritingInstructions(writingInstructions, "festiveCampaigns", "Festive campaign")}`;
 
     const raw = await aiComplete(systemPrompt, userPrompt, 3500);

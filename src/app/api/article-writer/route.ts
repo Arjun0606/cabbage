@@ -70,23 +70,27 @@ export async function POST(req: NextRequest) {
 
     const typeInstruction = ARTICLE_TYPE_INSTRUCTIONS[articleType as ArticleType];
 
-    const systemPrompt = `You are an expert real estate content writer who writes articles specifically optimized to be CITED BY AI SEARCH ENGINES (ChatGPT, Google AI Overview, Perplexity). You understand Generative Engine Optimization (GEO) deeply.
+    const systemPrompt = `You are an expert real estate content writer who writes articles optimised to be cited by AI search engines (ChatGPT, Google AI Overview, Perplexity). You understand Generative Engine Optimization (GEO).
 
-CRITICAL — AI CITABILITY RULES (based on Princeton/Georgia Tech research):
+CRITICAL HONESTY RULES — these override every other instruction:
+- NEVER invent specific prices, distances, areas, percentages, RERA numbers, phone numbers, years, or named entities (schools, hospitals, metro stations, landmarks) unless they appear in the DATA section below. If the data doesn't support it, don't write it.
+- If you don't have a specific number for something, omit the claim rather than inventing one. "Premium location" with no fabricated "2.5 km from HITEC City" is better than a confident lie.
+- Only name real places if they are extremely well-known regional landmarks in the supplied location/city (e.g., "${location}" itself, the city name). Do not invent specific school names, hospital brand names, or metro station names.
+- If you need to reference infrastructure, use generic language tied to the locality ("schools in ${location}", "metro connectivity in ${city}") rather than named entities.
 
-1. QUESTION-BASED HEADINGS: Every H2 must be a question that a home buyer would ask. Example: "## What is the price of 3BHK flats in Gachibowli?" NOT "## Pricing Details"
+AI CITABILITY RULES (Princeton/Georgia Tech research):
 
-2. ANSWER TARGET PATTERN: Immediately after every question H2, write a 40-60 word direct answer paragraph. This is what Google AI Overview and ChatGPT extract. Start with a definition or direct answer: "${projectName} is..." or "The price of..." — NOT "Let's explore..." or "In this section..."
+1. QUESTION-BASED HEADINGS: Every H2 must be a question a home buyer would ask.
 
-3. PASSAGE LENGTH: Key paragraphs should be 134-167 words — research shows this is the optimal length for AI citation. Each passage must be SELF-CONTAINED (understandable without reading anything else on the page).
+2. ANSWER TARGET PATTERN: Immediately after every question H2, write a 40-60 word direct answer paragraph. Start with a fact or definition from the data provided — not filler.
 
-4. LOW PRONOUN DENSITY: Never say "it", "they", "this project", "their". Always use the full name: "${projectName}", "${developerName}", "${location}". AI extracts individual passages — pronouns make them meaningless out of context.
+3. PASSAGE LENGTH: Key paragraphs 134-167 words, self-contained.
 
-5. STATISTICAL DENSITY: Every passage must contain at least ONE specific number: price per sq ft (₹X,XXX/sq ft), distance (X km from Y), area (X,XXX sq ft), year, percentage, or named source. NO vague quantifiers like "many", "several", "affordable".
+4. LOW PRONOUN DENSITY: Use "${projectName}", "${developerName}", "${location}" by name — not "it"/"they"/"this project".
 
-6. NAMED ENTITIES: Use full names of real landmarks, schools, hospitals, metro stations, IT parks, highways near ${location}. AI systems verify entities — real names get cited, generic descriptions don't.
+5. GROUND EVERY SPECIFIC CLAIM IN THE DATA. If the data has "${priceRange || "no price"}", use exactly that phrasing. Don't convert ranges to fake per-sqft figures.
 
-7. FAQ SECTION: End with 5-8 FAQs. Each answer must be 40-60 words, start with a direct factual statement, and include a specific number.
+6. FAQ SECTION: 5-8 FAQs. Every answer grounded in the data block.
 
 Return valid JSON:
 {
@@ -99,12 +103,12 @@ Return valid JSON:
   "suggestedInternalLinks": ["related topics"]
 }`;
 
-    const userPrompt = `Write a full SEO-optimized article with the following details:
+    const userPrompt = `Write a full SEO-optimized article using ONLY the data below. Do not invent facts not present here.
 
 **Article Type:** ${articleType}
 **Type-Specific Instructions:** ${typeInstruction}
 
-**Project Details:**
+**Project Details (the only facts you can assert):**
 - Project Name: ${projectName}
 - Developer: ${developerName || "Not specified"}
 - Location: ${location}
@@ -136,17 +140,17 @@ These override any generic tone — match the voice, phrasing rules, dos/donts l
 
 **Requirements:**
 1. Write 1500-2000 words
-2. EVERY H2 heading MUST be a question (e.g., "## What is the price of 3BHK in ${location}?" not "## Pricing")
-3. After EVERY H2, the FIRST paragraph must be a 40-60 word direct answer starting with a fact or definition
+2. EVERY H2 heading MUST be a question (e.g., "## What is the price of ${configurations || "homes"} in ${location}?" not "## Pricing")
+3. After EVERY H2, the FIRST paragraph must be a 40-60 word direct answer starting with a fact or definition — grounded in the data above, not invented
 4. Key paragraphs should be 134-167 words, self-contained, zero pronouns (use full names)
-5. Include specific numbers in every paragraph: ₹ prices, sq ft areas, km distances, years, percentages
-6. Reference REAL landmarks, schools, hospitals, metro stations, IT parks near ${location}, ${city} by name
+5. Use specific numbers ONLY when they're in the data above (price range, configurations, RERA number). Do NOT fabricate prices per sq ft, specific distances, or dated stats.
+6. When referencing infrastructure/neighbourhood, use generic phrasing tied to "${location}"/"${city}" rather than invented school/hospital/metro names
 7. Target keyword "${targetKeyword}" should appear 8-12 times naturally
 8. Add 2-3 CTA sections (Schedule a Site Visit, Download Brochure, Talk to Our Experts)
-9. End with 5-8 FAQ questions — each answer 40-60 words, starts with a direct fact, includes a number
+9. End with 5-8 FAQ questions — answers grounded in the data block only
 10. Suggest 4-6 internal link topics
 11. NO filler phrases like "In today's fast-paced world", "Let's dive in", "Looking for your dream home?"
-12. EVERY paragraph must teach the reader something specific they didn't know
+12. When unsure about a specific fact, write a more general sentence rather than inventing a number
 
 Return ONLY valid JSON. No markdown code blocks around the JSON.`;
 

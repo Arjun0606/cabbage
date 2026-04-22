@@ -8,13 +8,12 @@ import { ActionsFeed } from "@/components/dashboard/ActionsFeed";
 import { ChatPanel } from "@/components/dashboard/ChatPanel";
 import { TerminalHeader } from "@/components/dashboard/TerminalHeader";
 import { AgentStatusBar } from "@/components/dashboard/AgentStatusBar";
-import { GSCPanel } from "@/components/dashboard/GSCPanel";
 import { SiteSwitcher } from "@/components/dashboard/SiteSwitcher";
 import { TrialBanner } from "@/components/dashboard/TrialBanner";
 import { PaywallOverlay } from "@/components/dashboard/PaywallOverlay";
 import { DemoBanner } from "@/components/dashboard/DemoBanner";
 import { recordScan, getAllTrends, type TrendData } from "@/lib/scanHistory";
-import { recordGEOScan, getGEOProgress, getSavedQueries, getSavedQueriesFingerprint, saveQueries, trackArticleGenerated, markArticlePublished, type GEOProgress } from "@/lib/geoHistory";
+import { recordGEOScan, getGEOProgress, getSavedQueries, getSavedQueriesFingerprint, saveQueries, trackArticleGenerated, type GEOProgress } from "@/lib/geoHistory";
 
 /**
  * Stable hash of company.projects — used to detect when the project list
@@ -1433,7 +1432,7 @@ export default function DashboardPage() {
           <div className="hidden xl:block w-[340px] flex-shrink-0 border-l border-white/[0.06] overflow-y-auto min-h-0">
             <ActionsFeed
               auditResult={auditResult} aiVisResult={aiVisResult} backlinkResult={backlinkResult}
-              technicalResult={technicalResult} competitorResults={competitorResults}
+              technicalResult={technicalResult}
               geoProgress={geoProgress}
               siteCrawlResult={siteCrawlResult}
               keywordResearchResult={keywordResearchResult}

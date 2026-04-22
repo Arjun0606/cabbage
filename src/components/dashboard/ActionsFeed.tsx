@@ -25,7 +25,6 @@ interface Props {
   aiVisResult: any;
   backlinkResult: any;
   technicalResult: any;
-  competitorResults: any[];
   geoProgress?: any;
   // Newer signals added as the product grew — feed them in so Actions
   // Feed reflects the full picture, not just the first 5 scans.
@@ -35,6 +34,8 @@ interface Props {
   contentDecayReport?: any;
   gscData?: any;
   onNavigateToTab?: (tab: string) => void;
+  // NOTE: previous revisions took competitorResults here too; it was
+  // never rendered in the feed so it's been removed from the contract.
 }
 
 interface FeedItem {
@@ -49,12 +50,11 @@ interface FeedItem {
 }
 
 export function ActionsFeed({
-  auditResult, aiVisResult, backlinkResult, technicalResult, competitorResults,
+  auditResult, aiVisResult, backlinkResult, technicalResult,
   geoProgress, siteCrawlResult, keywordResearchResult, internalLinkingResult,
   contentDecayReport, gscData,
   onNavigateToTab,
 }: Props) {
-  void competitorResults; // kept in props for stability; not currently rendered as a feed item
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
   const [copiedSnippet, setCopiedSnippet] = useState<string | null>(null);
 

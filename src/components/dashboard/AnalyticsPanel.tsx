@@ -23,7 +23,6 @@ import {
   Code,
   Copy,
   Check,
-  Layout,
   Building,
   Navigation,
   HardHat,
@@ -401,13 +400,9 @@ export function AnalyticsPanel({
 
           {/* Execution Checklist — the thing that makes this an execution engine */}
           <ExecutionChecklist
-            companyName={companyName}
             websiteUrl={websiteUrl}
-            city={city}
             auditResult={auditResult}
             aiVisResult={aiVisResult}
-            technicalResult={technicalResult}
-            backlinkResult={backlinkResult}
             hasArticles={!!articleResult}
             hasSchema={!!schemaResult}
             hasLlmsTxt={!!llmsTxtResult}
@@ -1326,7 +1321,6 @@ export function AnalyticsPanel({
                             if (f.includes("report")) return { label: "Generate", onClick: onRunMarketingReport };
                             if (f.includes("campaign") || f.includes("festive")) return { label: "Open", onClick: () => onTabChange("content") };
                             if (f.includes("partner") || f.includes("channel")) return { label: "Generate", onClick: onRunChannelPartner };
-                            if (f.includes("landing")) return { label: "Open", onClick: () => onTabChange("content") };
                             if (f.includes("progress")) return { label: "Open", onClick: () => onTabChange("content") };
                             return null;
                           };
@@ -1569,7 +1563,7 @@ export function AnalyticsPanel({
         </TabsContent>
 
         {/* ================================================================ */}
-        {/* -------- CONTENT TAB (Content + Articles + Campaigns + Partners + Landing + Progress + Schema) -------- */}
+        {/* -------- CONTENT TAB (Topics + Articles + Campaigns + Partners + Progress + Schema) -------- */}
         {/* ================================================================ */}
         <TabsContent value="content" className="space-y-4">
 
