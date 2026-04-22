@@ -404,8 +404,12 @@ export function AnalyticsPanel({
             hasLlmsTxt={!!llmsTxtResult}
             hasGbpPosts={!!gbpResult}
             onRunAction={(action) => {
-              if (action === "tab-health") onTabChange("health");
+              if (action === "tab-health" || action === "tab-overview") onTabChange("health");
               else if (action === "tab-content") onTabChange("content");
+              else if (action === "tab-portals" || action === "tab-ads") onTabChange("ads");
+              else if (action === "tab-aigeo" || action === "tab-ai-search") onTabChange("aigeo");
+              else if (action === "tab-report") onTabChange("report");
+              else if (action === "tab-locality") onTabChange("locality");
               else if (action === "audit") onRunAudit(websiteUrl);
               else if (action === "ai_visibility") onRunAIVisibility();
               else if (action === "schema") onRunSchemaGenerator();
@@ -1896,18 +1900,10 @@ export function AnalyticsPanel({
                 )}
               </Button>
 
-              <div className="flex gap-2 flex-wrap">
-                {["Diwali", "Navratri", "Ugadi", "Akshaya Tritiya", "Independence Day", "Christmas", "New Year", "Holi"].map((f) => (
-                  <button
-                    key={f}
-                    onClick={() => onRunFestiveCampaign(f)}
-                    disabled={isGeneratingCampaign}
-                    className="text-[12px] px-3 py-1.5 rounded-lg border bg-zinc-900/50 border-zinc-800/50 text-zinc-500 hover:text-zinc-400 hover:border-zinc-600 transition-all disabled:opacity-40"
-                  >
-                    {f}
-                  </button>
-                ))}
-              </div>
+              <p className="text-[11px] text-zinc-500">
+                Clicks <span className="text-zinc-300">Generate</span> → Cabbge picks the next major Indian festival automatically (live, not a hardcoded calendar).
+                To target a different festival, type its name in the prompt bar above before generating.
+              </p>
 
               {festiveCampaignResult ? (
                 <>
@@ -2034,7 +2030,7 @@ export function AnalyticsPanel({
                   )}
                 </>
               ) : (
-                <EmptyState icon={PartyPopper} title="Generate festive campaign content" subtitle="Diwali, Navratri, Ugadi, Akshaya Tritiya — multi-channel campaigns" />
+                <EmptyState icon={PartyPopper} title="Generate festive campaign content" subtitle="WhatsApp, LinkedIn, email, ads + landing copy for the next upcoming Indian festival." />
               )}
             </div>
           )}
@@ -2678,7 +2674,7 @@ export function AnalyticsPanel({
               )}
             </>
           ) : (
-            <EmptyState icon={Building} title="Optimize your property portal listings" subtitle="99acres, MagicBricks, Housing.com, Google Business Profile" />
+            <EmptyState icon={Building} title="Optimize your property portal listings" subtitle="Portal-specific copy for every major Indian property portal, plus your Google Business Profile." />
           )}
         </TabsContent>
 

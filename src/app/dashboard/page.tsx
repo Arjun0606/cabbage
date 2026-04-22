@@ -153,7 +153,8 @@ export default function DashboardPage() {
 
 
   // ---- Credit system ----
-  const CREDITS_TOTAL = 1000;
+  // (credit counter is hidden per product philosophy — let users use
+  // freely, upsell when they see value)
   const [creditsUsed, setCreditsUsed] = useState(0);
 
   // Load credits from localStorage
@@ -1258,7 +1259,7 @@ export default function DashboardPage() {
   return (
     <div className="h-screen bg-[#0a0a0b] text-zinc-100 flex overflow-hidden">
       {paywallReason && <PaywallOverlay email={billing?.email} reason={paywallReason} />}
-      <Sidebar companyName={company.name} creditsUsed={creditsUsed} creditsTotal={CREDITS_TOTAL} />
+      <Sidebar companyName={company.name} />
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Demo mode banner — sits above trial banner, always visible in demo */}

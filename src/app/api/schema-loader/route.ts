@@ -11,8 +11,10 @@ import { NextRequest, NextResponse } from "next/server";
  * Served as application/javascript, cached at edge.
  */
 
-const SCRIPT = `(function(){
-  var origin = "https://cabbge.com";
+function buildScript(origin: string): string {
+  const originJson = JSON.stringify(origin);
+  return `(function(){
+  var origin = ${originJson};
   var pageUrl = window.location.origin + window.location.pathname;
   fetch(origin + "/api/schema-deploy?url=" + encodeURIComponent(pageUrl), {
     mode: "cors",
@@ -32,9 +34,10 @@ const SCRIPT = `(function(){
     })
     .catch(function(){ /* silent fail — never break the host site */ });
 })();`;
+}
 
-export async function GET(_req: NextRequest) {
-  return new NextResponse(SCRIPT, {
+export async function GET(req: NextRequest) {
+  return new NextResponse(buildScript(req.nextUrl.origin), {
     status: 200,
     headers: {
       "Content-Type": "application/javascript; charset=utf-8",

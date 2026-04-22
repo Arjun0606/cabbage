@@ -6,18 +6,22 @@ import { Check, Loader2, Sparkles, ArrowRight, Zap } from "lucide-react";
 import Link from "next/link";
 
 const FEATURES = [
-  "AI visibility scans on ChatGPT + Google AI — daily, automatic",
+  "AI visibility scans on ChatGPT + Gemini — daily, automatic",
+  "Real-time competitor alerts (new launches, pricing, sitemap changes)",
   "Full-site SEO crawler (per-URL audit, up to 200 pages)",
   "Keyword research with real search volume, difficulty, CPC",
   "Internal linking graph + orphan page detection",
   "Content decay alerts from GSC ranking history",
-  "Schema auto-deploy (one-line JS loader, any stack)",
-  "GEO-optimized article writer (unlimited within credits)",
-  "llms.txt, structured data, festive campaigns, channel partner packs",
-  "Google Search Console integration",
+  "One-line JS loader — publishes to any CMS (WordPress, Drupal, custom React, bespoke PHP)",
+  "Schema auto-deploy with the same one-line embed",
+  "GEO-optimised article writer grounded in your brand's data",
+  "Portal Optimizer — auto-picks the top Indian property portals for your city",
+  "Channel-partner packs (WhatsApp forwards, one-pagers, pitch scripts)",
+  "Festive campaigns across WhatsApp, LinkedIn, Meta, Google ads, email",
+  "llms.txt + structured data + crawler-access check",
+  "Google Search Console integration — real query data, not estimates",
   "Multi-site support — corporate + project microsites + NRI sites",
   "Per-config / per-price-tier / per-city GEO breakdowns",
-  "WordPress + Webflow publish integration",
   "Email support — priority response",
 ];
 
@@ -207,36 +211,41 @@ export default function PricingPage() {
           </div>
         </div>
 
-        {/* Credit top-ups */}
-        <div className="mb-6">
-          <h2 className="text-[20px] font-bold mb-1">Need more credits?</h2>
-          <p className="text-[13px] text-zinc-400 mb-5">
-            Top up anytime. Credits never expire. Pay-as-you-go like Claude — use what you need, buy more when you need it.
-          </p>
-          <div className="grid sm:grid-cols-3 gap-4">
-            {CREDIT_PACKS.map((p) => (
-              <div
-                key={p.id}
-                className={`rounded-xl p-5 border ${p.highlight ? "bg-zinc-900/80 border-white/[0.1]" : "bg-zinc-900/40 border-white/[0.04]"}`}
-              >
-                {p.highlight && (
-                  <div className="text-[10px] uppercase tracking-wide text-[#7CB342] font-semibold mb-2">Best value</div>
-                )}
-                <div className="text-[24px] font-bold mb-0.5">{p.credits.toLocaleString()} credits</div>
-                <div className="text-[13px] text-zinc-500 mb-3">{p.perCredit} / credit</div>
-                <div className="text-[18px] font-semibold mb-3">₹{p.rupees.toLocaleString()}</div>
-                <button
-                  onClick={() => handleTopup(p.id)}
-                  disabled={toppingUp === p.id}
-                  className="w-full h-9 rounded-lg bg-zinc-800 border border-white/[0.08] text-[13px] font-semibold hover:bg-zinc-700 active:scale-[0.97] disabled:opacity-60 flex items-center justify-center gap-1.5"
+        {/* Credit top-ups — only shown to signed-in customers, never on
+            the public marketing pricing page. Per product philosophy:
+            credits are hidden from acquisition, surfaced inside the
+            product when a customer actually needs more. */}
+        {(authed || inDemoMode) && (
+          <div className="mb-6">
+            <h2 className="text-[20px] font-bold mb-1">Need more credits?</h2>
+            <p className="text-[13px] text-zinc-400 mb-5">
+              Top up anytime. Credits never expire. Use what you need, buy more when you need it.
+            </p>
+            <div className="grid sm:grid-cols-3 gap-4">
+              {CREDIT_PACKS.map((p) => (
+                <div
+                  key={p.id}
+                  className={`rounded-xl p-5 border ${p.highlight ? "bg-zinc-900/80 border-white/[0.1]" : "bg-zinc-900/40 border-white/[0.04]"}`}
                 >
-                  {toppingUp === p.id ? <Loader2 size={13} className="animate-spin" /> : null}
-                  Top up
-                </button>
-              </div>
-            ))}
+                  {p.highlight && (
+                    <div className="text-[10px] uppercase tracking-wide text-[#7CB342] font-semibold mb-2">Best value</div>
+                  )}
+                  <div className="text-[24px] font-bold mb-0.5">{p.credits.toLocaleString()} credits</div>
+                  <div className="text-[13px] text-zinc-500 mb-3">{p.perCredit} / credit</div>
+                  <div className="text-[18px] font-semibold mb-3">₹{p.rupees.toLocaleString()}</div>
+                  <button
+                    onClick={() => handleTopup(p.id)}
+                    disabled={toppingUp === p.id}
+                    className="w-full h-9 rounded-lg bg-zinc-800 border border-white/[0.08] text-[13px] font-semibold hover:bg-zinc-700 active:scale-[0.97] disabled:opacity-60 flex items-center justify-center gap-1.5"
+                  >
+                    {toppingUp === p.id ? <Loader2 size={13} className="animate-spin" /> : null}
+                    Top up
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="mt-10 text-center text-[12px] text-zinc-500">
           GST extra as applicable. Cancel anytime. Enterprise + team seats →{" "}

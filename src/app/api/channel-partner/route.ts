@@ -28,10 +28,18 @@ export async function POST(req: NextRequest) {
     const priceStr = priceRange || "On request";
     const uspStr = usps || "";
     const devStr = developerName || "";
-    const reraStr = reraNumber || "Applied / Awaited";
+    const reraStr = reraNumber || "";
     const amenStr = amenities || "";
 
-    const system = `You are a real estate marketing expert who creates content packs for channel partners (brokers/CPs) selling residential projects in India. Write persuasive, specific, professional content. Use the RERA number if provided. Be factual — do not invent details not provided. Output valid JSON only, no markdown fences.`;
+    const system = `You are a real estate marketing expert who creates content packs for channel partners (brokers/CPs) selling residential projects in India. Write persuasive, specific, professional content.
+
+CRITICAL HONESTY RULES:
+- NEVER fabricate specific prices, per-sq-ft figures, rental yields, possession dates, RERA numbers, or amenity lists.
+- NEVER invent specific nearby landmarks, school names, hospital names, metro station names, or distances.
+- If the input doesn't supply a RERA number, do NOT say "Applied / Awaited" — omit the RERA line entirely.
+- Use only the facts supplied in the input block below.
+
+Output valid JSON only, no markdown fences.`;
 
     const prompt = `Create a complete channel partner content pack for:
 - Project: ${projectName} by ${devStr}

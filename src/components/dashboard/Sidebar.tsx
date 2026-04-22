@@ -12,20 +12,15 @@ import Image from "next/image";
 
 interface Props {
   companyName: string;
-  creditsUsed?: number;
-  creditsTotal?: number;
 }
 
-export function Sidebar({ companyName, creditsUsed = 0, creditsTotal = 1000 }: Props) {
+export function Sidebar({ companyName }: Props) {
   const pathname = usePathname();
 
   const navItems = [
     { href: "/dashboard", label: "CMO", icon: Bot, active: pathname === "/dashboard" },
     { href: "/settings", label: "Settings", icon: Settings, active: pathname === "/settings" },
   ];
-
-  // Credit display removed — let users use freely, upsell when they see value
-  void creditsUsed; void creditsTotal;
 
   return (
     <div className="w-[56px] h-screen bg-[#0a0a0b] border-r border-white/[0.06] flex flex-col items-center flex-shrink-0">

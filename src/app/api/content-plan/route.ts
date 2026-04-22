@@ -12,12 +12,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Don't fabricate a default configuration — if the project is
+    // villas / plots / penthouses, defaulting to "2BHK, 3BHK" makes the
+    // plan invent apartment-specific angles that don't apply.
     const plan = await generateContentPlan(
       projectName,
       developerName || "",
       location,
       city,
-      configurations || "2BHK, 3BHK",
+      configurations || "",
       priceRange || "",
       usps || ""
     );

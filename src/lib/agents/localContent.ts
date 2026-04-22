@@ -55,6 +55,12 @@ export async function generateLocalContent(
 1. Gets CITED by ChatGPT and Google AI Overview (question-based H2s, 40-60 word answer blocks)
 2. Reflects the brand's actual voice, values, and positioning
 3. References real project details, not generic marketing language
+
+CRITICAL HONESTY RULES:
+- NEVER fabricate specific statistics, year-over-year appreciation percentages, rental yields, or traffic numbers for a locality. If you don't have a verifiable source, omit the claim.
+- NEVER invent specific landmarks, schools, hospitals, metro stations, or distances. Use generic phrasing ("schools and hospitals within ${location}") rather than fake named places.
+- NEVER invent pricing, RERA numbers, possession dates, or amenities beyond what the user supplied.
+
 Output valid JSON only.`;
 
   const prompt = `Generate marketing content for:
@@ -85,11 +91,11 @@ Return JSON:
 }
 
 CRITICAL RULES:
-1. Blog titles = questions buyers type into ChatGPT. "What is the price of 3BHK in ${location}?" NOT "Discover Your Dream Home"
+1. Blog titles = questions buyers type into ChatGPT. "What is the price of ${configurations || "homes"} in ${location}?" NOT "Discover Your Dream Home"
 2. Always use "${projectName}", "${developerName}", "${location}" — never "our project", "we", "they"
 3. Content must reflect what ACTUALLY makes ${developerName} different (use the brand context above)
-4. Every LinkedIn post needs a real data point about ${location} or ${city} market
-5. WhatsApp messages should feel personal, include starting price ${priceRange ? "(" + priceRange + ")" : ""}`;
+4. LinkedIn posts should be grounded in the brand context above — no invented statistics or percentages.
+5. WhatsApp messages should feel personal${priceRange ? `, and mention starting price (${priceRange})` : ". Do NOT mention a starting price — none was supplied"}`;
 
   const text = await aiComplete(system, prompt, 3000);
   const jsonMatch = text.match(/\{[\s\S]*\}/);

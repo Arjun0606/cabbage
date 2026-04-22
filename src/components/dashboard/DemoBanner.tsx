@@ -28,7 +28,6 @@ export function DemoBanner({ prospectName, prospectUrl }: Props) {
       localStorage.removeItem("cabbge_scan_history");
       localStorage.removeItem("cabbge_has_scanned");
       localStorage.removeItem("cabbge_credits_used");
-      localStorage.removeItem("cabbge_chat_history");
       localStorage.removeItem("cabbge_generated_articles");
       localStorage.removeItem("cabbge_geo_schema_version");
       // Clear all site-crawl cache keys

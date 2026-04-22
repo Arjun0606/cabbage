@@ -61,7 +61,7 @@ function applySecurityHeaders(response: NextResponse): NextResponse {
   response.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
   response.headers.set(
     "Content-Security-Policy",
-    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://api.openai.com https://api.anthropic.com https://api.perplexity.ai https://generativelanguage.googleapis.com https://www.googleapis.com https://accounts.google.com https://oauth2.googleapis.com https://lsapi.seomoz.com https://public-api.wordpress.com https://api.webflow.com https://*.supabase.co wss://*.supabase.co https://api.razorpay.com https://checkout.razorpay.com;"
+    "default-src 'self'; script-src 'self' 'unsafe-inline' https://checkout.razorpay.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://www.googleapis.com https://accounts.google.com https://oauth2.googleapis.com https://lsapi.seomoz.com https://public-api.wordpress.com https://api.webflow.com https://*.supabase.co wss://*.supabase.co https://api.razorpay.com https://checkout.razorpay.com; frame-src https://checkout.razorpay.com; object-src 'none'; frame-ancestors 'none';"
   );
   return response;
 }
@@ -69,10 +69,18 @@ function applySecurityHeaders(response: NextResponse): NextResponse {
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Skip Supabase session refresh for static assets, auth callbacks, and the public loader
+  // Skip Supabase session refresh for static assets + the public loaders
+  // that run on every customer pageview. These must not touch Supabase
+  // and must not eat the API rate-limit budget (otherwise a mildly
+  // popular customer page 429s its own visitors).
+  const isPublicLoader =
+    pathname.startsWith("/api/schema-loader") ||
+    pathname.startsWith("/api/schema-deploy") ||
+    pathname.startsWith("/api/content-loader") ||
+    (pathname.startsWith("/api/content-deploy") && req.method === "GET");
+
   const skipAuth = pathname.startsWith("/_next")
-    || pathname.startsWith("/api/schema-loader")
-    || pathname.startsWith("/api/schema-deploy")
+    || isPublicLoader
     || pathname === "/favicon.ico";
 
   // Refresh Supabase session (writes updated cookies onto response)
@@ -112,16 +120,22 @@ export async function middleware(req: NextRequest) {
     return applySecurityHeaders(NextResponse.redirect(url));
   }
 
-  // Cron endpoint protection
-  if (pathname === "/api/cron/scan") {
+  // Cron endpoint protection — both cron paths enforced here for
+  // consistency. Also fail closed if CRON_SECRET is unset so a literal
+  // "Bearer undefined" header can't accidentally admit a caller.
+  if (pathname === "/api/cron/scan" || pathname === "/api/cron/benchmark") {
+    if (!process.env.CRON_SECRET) {
+      return NextResponse.json({ error: "Cron not configured" }, { status: 503 });
+    }
     const authHeader = req.headers.get("authorization");
     if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
   }
 
-  // API rate limiting
-  if (pathname.startsWith("/api/")) {
+  // API rate limiting — except the public loaders which customer sites
+  // hit on every pageview.
+  if (pathname.startsWith("/api/") && !isPublicLoader) {
     const ip = getRateLimitKey(req);
     const isFreeReport = pathname === "/api/free-report" || pathname === "/api/grader";
     const max = isFreeReport ? RATE_LIMIT_MAX_FREE : RATE_LIMIT_MAX_API;

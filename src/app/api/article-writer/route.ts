@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
 
     const typeInstruction = ARTICLE_TYPE_INSTRUCTIONS[articleType as ArticleType];
 
-    const systemPrompt = `You are an expert real estate content writer who writes articles optimised to be cited by AI search engines (ChatGPT, Google AI Overview, Perplexity). You understand Generative Engine Optimization (GEO).
+    const systemPrompt = `You are an expert real estate content writer who writes articles optimised to be cited by AI search engines (ChatGPT, Google AI Overview, Gemini). You understand Generative Engine Optimization (GEO).
 
 CRITICAL HONESTY RULES — these override every other instruction:
 - NEVER invent specific prices, distances, areas, percentages, RERA numbers, phone numbers, years, or named entities (schools, hospitals, metro stations, landmarks) unless they appear in the DATA section below. If the data doesn't support it, don't write it.

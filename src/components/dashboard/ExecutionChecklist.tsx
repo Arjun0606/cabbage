@@ -147,7 +147,7 @@ export function ExecutionChecklist({
 
   // --- GEO ---
   if (!aiVisResult) {
-    items.push({ id: "run-geo", category: "geo", title: "Run your first AI Visibility scan", description: "See how ChatGPT, Gemini, and Perplexity answer buyer queries about your area.", actionLabel: "Run Scan", actionType: "auto", onAction: () => onRunAction("ai_visibility"), creditCost: 2 });
+    items.push({ id: "run-geo", category: "geo", title: "Run your first AI Visibility scan", description: "See how ChatGPT and Gemini answer buyer queries about your area.", actionLabel: "Run Scan", actionType: "auto", onAction: () => onRunAction("ai_visibility"), creditCost: 2 });
   }
 
   if (!hasGbpPosts) {

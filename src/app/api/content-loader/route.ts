@@ -4,7 +4,10 @@ import { NextRequest, NextResponse } from "next/server";
  * Universal content loader — served as application/javascript so the
  * customer's site can embed a single <script> tag:
  *
- *   <script defer src="https://cabbge.com/api/content-loader"></script>
+ *   <script defer src="https://<cabbge-origin>/api/content-loader"></script>
+ *
+ * The origin is emitted at request time so the loader points back to
+ * whichever host served it (prod, preview, staging). No hardcoded domain.
  *
  * The script finds every [data-cabbge-slot] element on the page, fetches
  * the deployed HTML for (window.location.origin, slot), and injects it.
@@ -14,8 +17,10 @@ import { NextRequest, NextResponse } from "next/server";
  * Fails silently on every error — never break the host site.
  */
 
-const SCRIPT = `(function(){
-  var origin = "https://cabbge.com";
+function buildScript(origin: string): string {
+  const originJson = JSON.stringify(origin);
+  return `(function(){
+  var origin = ${originJson};
   var site = window.location.origin;
   var nodes = document.querySelectorAll("[data-cabbge-slot]");
   if (!nodes.length) return;
@@ -38,13 +43,14 @@ const SCRIPT = `(function(){
       .catch(function(){ /* silent */ });
   });
 })();`;
+}
 
-export async function GET(_req: NextRequest) {
-  return new NextResponse(SCRIPT, {
+export async function GET(req: NextRequest) {
+  return new NextResponse(buildScript(req.nextUrl.origin), {
     status: 200,
     headers: {
       "Content-Type": "application/javascript; charset=utf-8",
-      "Cache-Control": "public, max-age=86400, s-maxage=86400", // 24h
+      "Cache-Control": "public, max-age=86400, s-maxage=86400",
       "Access-Control-Allow-Origin": "*",
     },
   });

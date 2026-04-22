@@ -111,7 +111,7 @@ export default function GraderPage() {
           <div className="text-center py-12">
             <Loader2 size={32} className="animate-spin text-[#7CB342] mx-auto mb-4" />
             <p className="text-[14px] text-zinc-400">Asking ChatGPT about {brand} in {city}...</p>
-            <p className="text-[12px] text-zinc-600 mt-1">Running 3 real buyer queries with web search enabled</p>
+            <p className="text-[12px] text-zinc-600 mt-1">Running 3 buyer queries against ChatGPT + Gemini with live web search</p>
           </div>
         )}
 

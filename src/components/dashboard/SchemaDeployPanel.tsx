@@ -63,7 +63,8 @@ export function SchemaDeployPanel({ defaultPageUrl, schemaJson, schemaType, comp
     setTimeout(() => setCopied(null), 1500);
   };
 
-  const oneLineSnippet = `<script async src="https://cabbge.com/api/schema-loader"></script>`;
+  const appOrigin = typeof window !== "undefined" ? window.location.origin : "";
+  const oneLineSnippet = `<script async src="${appOrigin}/api/schema-loader"></script>`;
   const directSnippet = schemaJson
     ? `<script type="application/ld+json">\n${JSON.stringify(schemaJson, null, 2)}\n</script>`
     : "";
