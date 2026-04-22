@@ -31,8 +31,11 @@ export function TerminalHeader({ logs, onRunFullScan, onClearAndRescan, hasWebsi
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2.5">
             <div className="w-2 h-2 rounded-full bg-[#7CB342] animate-pulse shadow-[0_0_8px_rgba(124,179,66,0.5)]" />
-            <span className="text-[13px] font-mono text-zinc-300 tracking-tight">
-              Cabbge Terminal &bull; Running Daily
+            <span
+              className="text-[13px] font-mono text-zinc-300 tracking-tight"
+              title="Your site is auto-scanned every night at 02:30 IST. Run Full Scan to trigger one now."
+            >
+              Cabbge Terminal &bull; Auto-scan nightly
             </span>
           </div>
           {leftSlot}

@@ -203,7 +203,7 @@ export function PromptVolumes({ aiVisResult, companyName, city, onFixQuery, onFi
                     className="text-[11px] font-semibold px-3 py-1.5 rounded-md bg-[#7CB342] text-zinc-900 hover:bg-[#8BC34A] active:scale-[0.97] transition-all disabled:opacity-40 flex items-center gap-1.5 flex-shrink-0"
                   >
                     {isFixing ? <Loader2 size={12} className="animate-spin" /> : <Zap size={12} />}
-                    Fix All ({bulkFixCost}cr)
+                    Fix All
                   </button>
                 )}
               </div>
@@ -222,7 +222,7 @@ export function PromptVolumes({ aiVisResult, companyName, city, onFixQuery, onFi
                       {isFixing && fixingQuery === query ? (
                         <Loader2 size={10} className="animate-spin" />
                       ) : (
-                        <><PenTool size={10} />{articleCost}cr Fix</>
+                        <><PenTool size={10} /> Fix</>
                       )}
                     </button>
                   )}

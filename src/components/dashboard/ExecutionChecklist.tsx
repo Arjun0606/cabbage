@@ -169,7 +169,7 @@ export function ExecutionChecklist({
                         ) : item.actionType === "auto" && item.onAction ? (
                           <button onClick={item.onAction}
                             className="inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-1 rounded-md bg-[#7CB342]/10 text-[#7CB342] border border-[#7CB342]/20 hover:bg-[#7CB342]/20 active:scale-[0.97] transition-all">
-                            {item.creditCost && <span className="opacity-70">{item.creditCost}cr</span>} {item.actionLabel}
+                            {item.actionLabel}
                           </button>
                         ) : null}
                       </div>

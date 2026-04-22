@@ -16,33 +16,33 @@ import {
 import Link from "next/link";
 
 export default function Home() {
-  const [url, setUrl] = useState("");
+  const [brand, setBrand] = useState("");
+  const [city, setCity] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [report, setReport] = useState<any>(null);
+  const [grade, setGrade] = useState<any>(null);
 
-  const handleScan = async () => {
-    if (!url.trim()) return;
+  const handleGrade = async () => {
+    if (!brand.trim() || !city.trim()) return;
     setIsLoading(true);
-    setReport(null);
-
+    setGrade(null);
     try {
-      const res = await fetch("/api/free-report", {
+      const res = await fetch("/api/grader", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: url.trim() }),
+        body: JSON.stringify({ brand: brand.trim(), city: city.trim() }),
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-      setReport(data);
+      setGrade(data);
     } catch (err) {
-      setReport({ error: err instanceof Error ? err.message : "Scan failed" });
+      setGrade({ error: err instanceof Error ? err.message : "Scan failed" });
     } finally {
       setIsLoading(false);
     }
   };
 
   const scoreColor = (score: number) =>
-    score >= 80 ? "text-zinc-100" :
+    score >= 80 ? "text-[#7CB342]" :
     score >= 60 ? "text-yellow-400" :
     score >= 40 ? "text-orange-400" :
     "text-red-400";
@@ -52,13 +52,16 @@ export default function Home() {
       {/* Logo + headline */}
       <div className="mb-10 flex flex-col items-center gap-3 text-center">
         <img src="/logo.png" alt="Cabbge" className="w-14 h-14 object-contain" />
-        <h1 className="text-2xl sm:text-3xl font-bold text-zinc-100 tracking-tight max-w-xl">
-          SEO + GEO execution for Indian real estate
+        <div className="text-[10px] uppercase tracking-[0.25em] text-[#7CB342] font-semibold">
+          AI Search Visibility for Indian Real Estate
+        </div>
+        <h1 className="text-2xl sm:text-4xl font-bold text-zinc-100 tracking-tight max-w-2xl leading-tight">
+          When buyers ask ChatGPT which developer to choose, do you show up?
         </h1>
         <p className="text-sm text-zinc-400 text-center max-w-lg leading-relaxed">
-          Cabbge scans your corporate site and project microsites daily, tracks your brand&apos;s visibility
-          in ChatGPT and Google AI, and generates + publishes the content you need to win buyer queries.
-          Better than an SEO agency, cheaper than hiring in-house.
+          Cabbge tracks how ChatGPT and Gemini answer buyer queries about your city — and generates,
+          deploys and measures the content you need to win them. Your SEO agency won&apos;t do this.
+          Your in-house team can&apos;t do this alone.
         </p>
         <div className="flex items-center gap-2 mt-2">
           <Link
@@ -79,139 +82,123 @@ export default function Home() {
       {/* Free report divider */}
       <div className="w-full max-w-lg flex items-center gap-3 mb-4 text-[11px] text-zinc-600 uppercase tracking-wide">
         <div className="h-px flex-1 bg-zinc-800" />
-        <span>or try a free scan first</span>
+        <span>Grade your AI visibility free</span>
         <div className="h-px flex-1 bg-zinc-800" />
       </div>
 
-      {/* Input */}
-      <div className="w-full max-w-lg flex items-center gap-0 bg-zinc-900 border border-zinc-800 rounded-lg p-1.5">
-        <div className="pl-3">
-          <img src="/logo.png" alt="" className="w-5 h-5 object-contain" />
-        </div>
+      {/* Input — brand + city, runs the AI visibility grader */}
+      <div className="w-full max-w-lg flex flex-col sm:flex-row items-stretch gap-2 bg-zinc-900 border border-zinc-800 rounded-lg p-1.5">
         <Input
-          placeholder="yourcompany.com"
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleScan()}
-          className="border-0 bg-transparent focus-visible:ring-0 text-sm text-zinc-100 placeholder:text-zinc-600"
+          placeholder="Your brand (e.g. Prestige)"
+          value={brand}
+          onChange={(e) => setBrand(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && handleGrade()}
+          className="border-0 bg-transparent focus-visible:ring-0 text-sm text-zinc-100 placeholder:text-zinc-600 flex-1"
+        />
+        <Input
+          placeholder="City (e.g. Bangalore)"
+          value={city}
+          onChange={(e) => setCity(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && handleGrade()}
+          className="border-0 bg-transparent focus-visible:ring-0 text-sm text-zinc-100 placeholder:text-zinc-600 sm:w-40"
         />
         <Button
-          onClick={handleScan}
-          disabled={!url.trim() || isLoading}
-          className="bg-zinc-100 text-zinc-900 hover:bg-white text-sm px-4 rounded-md"
+          onClick={handleGrade}
+          disabled={!brand.trim() || !city.trim() || isLoading}
+          className="bg-[#7CB342] text-zinc-950 hover:bg-[#8BC34A] text-sm px-4 rounded-md"
         >
           {isLoading ? (
-            <><Loader2 size={14} className="animate-spin mr-1.5" /> Scanning...</>
+            <><Loader2 size={14} className="animate-spin mr-1.5" /> Grading...</>
           ) : (
-            <>Get Free Report <ArrowRight size={14} className="ml-1.5" /></>
+            <>Grade Now <ArrowRight size={14} className="ml-1.5" /></>
           )}
         </Button>
       </div>
 
       <p className="mt-3 text-xs text-zinc-600">
-        Free instant report. No signup required.
+        6 live queries to ChatGPT &amp; Gemini. Instant result. No signup required.
       </p>
 
-      {/* Report Results */}
-      {report && !report.error && (
+      {/* Grader result */}
+      {grade && !grade.error && (
         <div className="w-full max-w-lg mt-8 space-y-4">
-          {/* Scores */}
           <Card className="bg-zinc-900 border-zinc-800">
             <CardContent className="p-5">
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-start justify-between mb-4">
                 <div>
-                  <h3 className="text-sm font-medium text-zinc-300">Your SEO Health</h3>
-                  <p className="text-xs text-zinc-600 truncate">{report.url}</p>
+                  <h3 className="text-sm font-medium text-zinc-300">
+                    AI Visibility for <span className="text-zinc-100">{grade.brand}</span> in {grade.city}
+                  </h3>
+                  <p className="text-xs text-zinc-600 mt-0.5">
+                    Mentioned in {grade.mentionedCount} of {grade.totalQueries} buyer queries
+                  </p>
                 </div>
-                <div className={`text-3xl font-bold ${scoreColor(report.scores.overall)}`}>
-                  {report.scores.overall}
+                <div className={`text-4xl font-bold ${scoreColor(grade.score)}`}>
+                  {grade.score}
                   <span className="text-sm text-zinc-600 font-normal">/100</span>
                 </div>
               </div>
-
-              <div className="grid grid-cols-3 gap-3">
-                {[
-                  { label: "Performance", score: report.scores.performance },
-                  { label: "SEO", score: report.scores.seo },
-                  { label: "Real Estate", score: report.scores.realEstate },
-                ].map(({ label, score }) => (
-                  <div key={label} className="text-center p-2 rounded bg-zinc-800/50">
-                    {score !== null && score !== undefined ? (
-                      <div className={`text-lg font-bold ${scoreColor(score)}`}>{score}</div>
-                    ) : (
-                      <div className="text-lg font-bold text-zinc-600">—</div>
-                    )}
-                    <div className="text-[10px] text-zinc-500">{label}</div>
-                  </div>
-                ))}
-              </div>
+              <p className="text-[13px] text-zinc-300 leading-relaxed">{grade.verdict}</p>
             </CardContent>
           </Card>
 
-          {/* Checks */}
-          <Card className="bg-zinc-900 border-zinc-800">
-            <CardContent className="p-5 space-y-1.5">
-              <h3 className="text-sm font-medium text-zinc-300 mb-3">Real Estate SEO Checks</h3>
-              {[
-                { label: "RERA / Regulatory number visible", passed: report.checks.rera },
-                { label: "Pricing displayed on page", passed: report.checks.pricing },
-                { label: "Enquiry CTA above the fold", passed: report.checks.ctaAboveFold },
-                { label: "WhatsApp quick-connect", passed: report.checks.whatsapp },
-                { label: "Schema.org markup", passed: report.checks.schema },
-                { label: "Floor plans on page", passed: report.checks.floorPlans },
-                { label: "EMI / loan information", passed: report.checks.emiLoan },
-                { label: "Location map with landmarks", passed: report.checks.locationMap },
-                { label: "Virtual tour / 360° gallery", passed: report.checks.virtualTour },
-                { label: "Amenities listed", passed: report.checks.amenities },
-                { label: "Project gallery", passed: report.checks.gallery },
-                { label: "Builder credentials / about", passed: report.checks.builderCredentials },
-                { label: "Possession date on page", passed: report.checks.possessionDate },
-                { label: "Legal / approval documents", passed: report.checks.legalDocs },
-                { label: "llms.txt for AI crawlers", passed: report.checks.llmsTxt },
-                { label: "Sitemap.xml", passed: report.checks.sitemap },
-              ].map(({ label, passed }) => (
-                <div key={label} className="flex items-center gap-2 text-sm py-0.5">
-                  {passed ? (
-                    <CheckCircle2 size={14} className="text-zinc-100 flex-shrink-0" />
-                  ) : (
-                    <XCircle size={14} className="text-red-400 flex-shrink-0" />
-                  )}
-                  <span className={passed ? "text-zinc-400" : "text-zinc-300"}>{label}</span>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-
-          {/* Top Fixes */}
-          {report.fixes?.length > 0 && (
+          {grade.results?.length > 0 && (
             <Card className="bg-zinc-900 border-zinc-800">
               <CardContent className="p-5 space-y-2">
-                <h3 className="text-sm font-medium text-zinc-300 mb-3">Top 5 Fixes</h3>
-                {report.fixes.map((fix: string, i: number) => (
-                  <div key={i} className="flex items-start gap-2 text-sm">
-                    <Badge variant="outline" className="text-[10px] border-orange-800 text-orange-400 mt-0.5 flex-shrink-0">
-                      {i + 1}
-                    </Badge>
-                    <span className="text-zinc-300">{fix}</span>
+                <h3 className="text-sm font-medium text-zinc-300 mb-3">Per-query breakdown</h3>
+                {grade.results.map((r: any, i: number) => (
+                  <div key={i} className="flex items-start gap-2 text-sm py-1">
+                    {r.mentioned ? (
+                      <CheckCircle2 size={14} className="text-[#7CB342] flex-shrink-0 mt-0.5" />
+                    ) : (
+                      <XCircle size={14} className="text-red-400 flex-shrink-0 mt-0.5" />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="text-zinc-300 text-[13px]">&ldquo;{r.query}&rdquo;</div>
+                      <div className="text-[11px] text-zinc-500 mt-0.5">
+                        {r.platform}
+                        {r.mentioned && r.competitors?.length > 0 && " \u2014 alongside "}
+                        {r.mentioned && r.competitors?.length > 0 && (
+                          <span className="text-zinc-400">{r.competitors.slice(0, 3).join(", ")}</span>
+                        )}
+                        {!r.mentioned && r.competitors?.length > 0 && (
+                          <>recommended: <span className="text-red-400">{r.competitors.slice(0, 3).join(", ")}</span></>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 ))}
               </CardContent>
             </Card>
           )}
 
-          {/* CTA */}
+          {grade.competitors?.length > 0 && (
+            <Card className="bg-zinc-900 border-zinc-800">
+              <CardContent className="p-5">
+                <h3 className="text-sm font-medium text-zinc-300 mb-2">Who AI recommends in {grade.city}</h3>
+                <div className="flex flex-wrap gap-1.5">
+                  {grade.competitors.map((c: string, i: number) => (
+                    <Badge key={i} variant="outline" className="text-[11px] border-zinc-700 text-zinc-300">
+                      {c}
+                    </Badge>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           <Card className="bg-[#7CB342]/[0.04] border-[#7CB342]/20">
             <CardContent className="p-5 text-center space-y-3">
               <p className="text-sm text-zinc-300">
-                This is the surface. Full Cabbge adds <strong className="text-zinc-100">AI visibility tracking on ChatGPT + Google AI</strong>,
-                a full-site crawler, keyword research with real volume, content generation that auto-publishes, and daily rank tracking.
+                The full product tests <strong className="text-zinc-100">20+ hyper-local queries</strong> across your projects, tracks AI visibility daily,
+                and auto-generates the content you need to win queries you&apos;re invisible on.
               </p>
               <div className="flex items-center justify-center gap-2">
                 <Link
                   href="/signup"
                   className="h-10 px-5 rounded-lg bg-[#7CB342] text-zinc-950 text-[13px] font-semibold hover:bg-[#8BC34A] active:scale-[0.97] flex items-center gap-1.5"
                 >
-                  <Zap size={13} /> Start Free Trial
+                  <Zap size={13} /> Start 14-day trial
                 </Link>
                 <Link
                   href="/pricing"
@@ -226,12 +213,11 @@ export default function Home() {
         </div>
       )}
 
-      {/* Error state */}
-      {report?.error && (
+      {grade?.error && (
         <Card className="w-full max-w-lg mt-8 bg-zinc-900 border-red-900/50">
           <CardContent className="p-4 flex items-center gap-3">
             <AlertTriangle size={16} className="text-red-400" />
-            <span className="text-sm text-red-300">{report.error}</span>
+            <span className="text-sm text-red-300">{grade.error}</span>
           </CardContent>
         </Card>
       )}
@@ -242,8 +228,8 @@ export default function Home() {
           Pricing
         </Link>
         <span>&bull;</span>
-        <Link href="/onboarding" className="hover:text-zinc-400 transition-colors">
-          Detailed Setup
+        <Link href="/signup" className="hover:text-zinc-400 transition-colors">
+          Full setup
         </Link>
       </div>
     </div>

@@ -424,7 +424,7 @@ export function GEOProgressPanel({ progress, onWriteArticleForQuery, onFixAllBli
                               disabled={isGenerating}
                               className="text-[10px] font-medium px-2 py-0.5 rounded bg-[#7CB342]/10 text-[#7CB342] border border-[#7CB342]/20 hover:bg-[#7CB342]/20 active:scale-[0.97] transition-all disabled:opacity-40"
                             >
-                              {isGenerating ? <Loader2 size={10} className="animate-spin" /> : <><PenTool size={9} className="inline mr-0.5" />{articleCost}cr Fix</>}
+                              {isGenerating ? <Loader2 size={10} className="animate-spin" /> : <><PenTool size={9} className="inline mr-0.5" /> Fix</>}
                             </button>
                           )}
                         </>
@@ -451,7 +451,7 @@ export function GEOProgressPanel({ progress, onWriteArticleForQuery, onFixAllBli
                   className="text-[11px] font-medium px-3 py-1.5 rounded-md bg-[#7CB342] text-zinc-900 hover:bg-[#8BC34A] active:scale-[0.97] transition-all disabled:opacity-40 flex items-center gap-1.5"
                 >
                   {isGenerating ? <Loader2 size={12} className="animate-spin" /> : <Zap size={12} />}
-                  Fix All ({bulkFixCost}cr)
+                  Fix All
                 </button>
               )}
             </div>

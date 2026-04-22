@@ -110,7 +110,7 @@ export function EditableBlock({ text, onSave, onRegenerate, isRegenerating, rege
             title="Regenerate"
           >
             <RotateCcw size={11} className={`inline mr-1 ${isRegenerating ? "animate-spin" : ""}`} />
-            {isRegenerating ? "..." : regenerateCost ? `Redo (${regenerateCost})` : "Redo"}
+            {isRegenerating ? "..." : "Redo"}
           </button>
         )}
       </div>

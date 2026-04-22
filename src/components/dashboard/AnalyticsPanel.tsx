@@ -25,7 +25,6 @@ import {
   Check,
   Building,
   Navigation,
-  HardHat,
   BarChart3,
   Megaphone,
   ChevronDown,
@@ -96,9 +95,6 @@ interface Props {
   neighborhoodResult: any;
   isGeneratingNeighborhood: boolean;
   onRunNeighborhood: () => void;
-  progressResult: any;
-  isGeneratingProgress: boolean;
-  onRunProgressUpdate: (phase: string, pct?: number) => void;
   reportResult: any;
   isGeneratingReport: boolean;
   onRunMarketingReport: () => void;
@@ -234,7 +230,6 @@ export function AnalyticsPanel({
   schemaResult, isGeneratingSchema, onRunSchemaGenerator,
   portalResult, isGeneratingPortal, onRunPortalOptimizer,
   neighborhoodResult, isGeneratingNeighborhood, onRunNeighborhood,
-  progressResult, isGeneratingProgress, onRunProgressUpdate,
   reportResult, isGeneratingReport, onRunMarketingReport,
   adsResult, isGeneratingAds, onRunAdsGenerator,
   llmsTxtResult, isGeneratingLlmsTxt, onRunLlmsTxt,
@@ -333,31 +328,24 @@ export function AnalyticsPanel({
         {/* -------- HEALTH TAB (Health + Technical + Checks) -------- */}
         {/* ================================================================ */}
         <TabsContent value="health" className="space-y-4">
-          {/* First-run banner — shown when user has nothing scanned yet */}
+          {/* First-run banner — shown ONLY when user has nothing scanned
+              yet. After any scan completes, the ExecutionChecklist takes
+              over as the "what should I do next" surface. Previously both
+              rendered at the same time, competing for attention. */}
           {!auditResult && !aiVisResult && !technicalResult && !backlinkResult && !siteCrawlResult && !isAuditing && !isCheckingAI && !isCheckingBacklinks && !isCheckingTechnical && !isCrawling && (
             <div className="rounded-xl border border-[#7CB342]/25 bg-[#7CB342]/[0.04] p-5">
-              <div className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-lg bg-[#7CB342]/15 flex items-center justify-center flex-shrink-0">
-                  <span className="text-[#7CB342] text-[16px]">👋</span>
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-[14px] font-semibold text-zinc-100 mb-1">
-                    Welcome to Cabbge. Let&apos;s run your first scan.
-                  </h3>
-                  <p className="text-[12px] text-zinc-400 mb-3 leading-relaxed">
-                    Click <span className="text-[#7CB342] font-medium">Run Full Scan</span> in the terminal above. In ~90 seconds we&apos;ll:
-                  </p>
-                  <ul className="text-[12px] text-zinc-400 space-y-1 ml-0.5">
-                    <li>✓ Audit your site for SEO + technical issues</li>
-                    <li>✓ Check if ChatGPT &amp; Google AI recommend your brand</li>
-                    <li>✓ Analyze your backlink profile</li>
-                    <li>✓ Identify your top content opportunities</li>
-                  </ul>
-                  <p className="text-[11px] text-zinc-500 mt-3">
-                    Then use <span className="text-zinc-300">Site Crawl</span> for a full URL-by-URL audit, <span className="text-zinc-300">Keyword Research</span> to find opportunities, and the content generators below to fix everything.
-                  </p>
-                </div>
-              </div>
+              <h3 className="text-[14px] font-semibold text-zinc-100 mb-1">
+                Let&apos;s run your first scan.
+              </h3>
+              <p className="text-[12px] text-zinc-400 mb-3 leading-relaxed">
+                Click <span className="text-[#7CB342] font-medium">Run Full Scan</span> in the terminal above. In ~90 seconds Cabbge will:
+              </p>
+              <ul className="text-[12px] text-zinc-400 space-y-1 ml-0.5">
+                <li>&bull; Audit your site for SEO + technical issues</li>
+                <li>&bull; Check if ChatGPT &amp; Gemini recommend your brand</li>
+                <li>&bull; Analyse your backlink profile</li>
+                <li>&bull; Identify your top content opportunities</li>
+              </ul>
             </div>
           )}
 
@@ -398,7 +386,10 @@ export function AnalyticsPanel({
             onRefreshPage={onGeoFixQuery ? (url) => onGeoFixQuery(`refresh content for ${url}`) : undefined}
           />
 
-          {/* Execution Checklist — the thing that makes this an execution engine */}
+          {/* Execution Checklist — appears only after the user has at
+              least one scan. Before that the first-run banner guides the
+              first action. */}
+          {(auditResult || aiVisResult) && (
           <ExecutionChecklist
             websiteUrl={websiteUrl}
             auditResult={auditResult}
@@ -417,6 +408,7 @@ export function AnalyticsPanel({
               else if (action === "gbp_posts") onRunGbpPosts?.();
             }}
           />
+          )}
 
           {/* What Changed — SEO scores */}
           {trends.audit?.history?.length >= 2 && (
@@ -1213,14 +1205,14 @@ export function AnalyticsPanel({
                   disabled={isGeneratingLlmsTxt}
                   className="flex-1 bg-zinc-100 text-zinc-900 hover:bg-white h-10 text-[13px] font-medium rounded-lg"
                 >
-                  {isGeneratingLlmsTxt ? <><Loader2 size={15} className="animate-spin mr-2" />Generating...</> : <>{cost("llms_txt") > 0 && <span className="text-zinc-500 mr-1">{cost("llms_txt")}cr</span>}Generate llms.txt</>}
+                  {isGeneratingLlmsTxt ? <><Loader2 size={15} className="animate-spin mr-2" />Generating...</> : <>Generate llms.txt</>}
                 </Button>
                 <Button
                   onClick={onRunGeoImprovement}
                   disabled={isGeneratingGeoImprovement}
                   className="flex-1 bg-zinc-100 text-zinc-900 hover:bg-white h-10 text-[13px] font-medium rounded-lg"
                 >
-                  {isGeneratingGeoImprovement ? <><Loader2 size={15} className="animate-spin mr-2" />Planning...</> : <>{cost("geo_improvement") > 0 && <span className="text-zinc-500 mr-1">{cost("geo_improvement")}cr</span>}Get Improvement Plan</>}
+                  {isGeneratingGeoImprovement ? <><Loader2 size={15} className="animate-spin mr-2" />Planning...</> : <>Get Improvement Plan</>}
                 </Button>
               </div>
 
@@ -2149,69 +2141,6 @@ export function AnalyticsPanel({
             </div>
           )}
 
-          {/* --- Section 6: Construction Updates --- */}
-          <button
-            onClick={() => setContentSection(contentSection === "progress" ? null : "progress")}
-            className="w-full flex items-center justify-between px-4 py-3 rounded-lg bg-zinc-900/60 border border-zinc-800/50 text-left hover:border-zinc-700 transition-all"
-          >
-            <span className="flex items-center gap-2 text-[13px] font-semibold text-zinc-200">
-              <HardHat size={15} className="text-zinc-400" /> Construction Updates
-            </span>
-            <ChevronDown size={14} className={`text-zinc-500 transition-transform ${contentSection === "progress" ? "rotate-180" : ""}`} />
-          </button>
-          {contentSection === "progress" && (
-            <div className="space-y-4">
-              <div className="flex gap-2 flex-wrap">
-                {[
-                  { value: "excavation", label: "Excavation" },
-                  { value: "foundation", label: "Foundation" },
-                  { value: "structure", label: "Structure" },
-                  { value: "finishing", label: "Finishing" },
-                  { value: "landscaping", label: "Landscaping" },
-                  { value: "handover", label: "Handover" },
-                ].map((phase) => (
-                  <Button
-                    key={phase.value}
-                    onClick={() => onRunProgressUpdate(phase.value)}
-                    disabled={isGeneratingProgress}
-                    variant="outline"
-                    className="border-zinc-700 text-[13px] h-10 rounded-lg hover:border-zinc-600 hover:text-zinc-100"
-                  >
-                    {isGeneratingProgress ? <Loader2 size={14} className="animate-spin mr-2" /> : <HardHat size={14} className="mr-2" />}
-                    {phase.label}
-                  </Button>
-                ))}
-              </div>
-
-              {progressResult ? (
-                <>
-                  {[
-                    { key: "linkedinPost", label: "LinkedIn Post" },
-                    { key: "buyerWhatsApp", label: "WhatsApp (Existing Buyers)" },
-                    { key: "prospectWhatsApp", label: "WhatsApp (Prospects)" },
-                    { key: "emailSection", label: "Email Newsletter Section" },
-                    { key: "blogPost", label: "Website Blog Post" },
-                    { key: "socialCaption", label: "Instagram / Facebook Caption" },
-                    { key: "videoScript", label: "YouTube Video Script (60s)" },
-                    { key: "smsText", label: "SMS" },
-                  ].map(({ key, label }) => progressResult[key] && (
-                    <SectionCard key={key}>
-                      <CardContent className="p-5">
-                        <div className="flex items-center justify-between mb-3">
-                          <h4 className="text-[13px] font-semibold text-zinc-200">{label}</h4>
-                          <CopyBtn text={progressResult[key]} field={`progress-${key}`} />
-                        </div>
-                        <div className="p-3.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30 text-[13px] text-zinc-300 whitespace-pre-wrap leading-relaxed">{progressResult[key]}</div>
-                      </CardContent>
-                    </SectionCard>
-                  ))}
-                </>
-              ) : (
-                <EmptyState icon={HardHat} title="Generate construction progress updates" subtitle="LinkedIn, WhatsApp (buyers + prospects), email, blog, social, video script, SMS" />
-              )}
-            </div>
-          )}
-
           {/* --- Section 7: Property Schema --- */}
           <button
             onClick={() => setContentSection(contentSection === "schema" ? null : "schema")}
@@ -2511,7 +2440,7 @@ export function AnalyticsPanel({
                 disabled={isGeneratingGbp}
                 className="w-full bg-zinc-100 text-zinc-900 hover:bg-white active:scale-[0.99] h-10 text-[13px] font-medium rounded-lg transition-all"
               >
-                {isGeneratingGbp ? <><Loader2 size={15} className="animate-spin mr-2" />Generating...</> : <><>{cost("gbp_posts") > 0 && <span className="text-zinc-500 mr-1">{cost("gbp_posts")}cr</span>}</>Generate 8 GBP Posts</>}
+                {isGeneratingGbp ? <><Loader2 size={15} className="animate-spin mr-2" />Generating...</> : <>Generate 8 GBP Posts</>}
               </Button>
             </CardContent>
           </SectionCard>

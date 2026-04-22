@@ -5,7 +5,6 @@ import { Sidebar } from "@/components/dashboard/Sidebar";
 import { CompanyPanel } from "@/components/dashboard/CompanyPanel";
 import { AnalyticsPanel } from "@/components/dashboard/AnalyticsPanel";
 import { ActionsFeed } from "@/components/dashboard/ActionsFeed";
-import { ChatPanel } from "@/components/dashboard/ChatPanel";
 import { TerminalHeader } from "@/components/dashboard/TerminalHeader";
 import { AgentStatusBar } from "@/components/dashboard/AgentStatusBar";
 import { SiteSwitcher } from "@/components/dashboard/SiteSwitcher";
@@ -71,12 +70,10 @@ export default function DashboardPage() {
   // New feature states (round 2)
   const [portalResult, setPortalResult] = useState<any>(null);
   const [neighborhoodResult, setNeighborhoodResult] = useState<any>(null);
-  const [progressResult, setProgressResult] = useState<any>(null);
   const [reportResult, setReportResult] = useState<any>(null);
   const [adsResult, setAdsResult] = useState<any>(null);
   const [isGeneratingPortal, setIsGeneratingPortal] = useState(false);
   const [isGeneratingNeighborhood, setIsGeneratingNeighborhood] = useState(false);
-  const [isGeneratingProgress, setIsGeneratingProgress] = useState(false);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [isGeneratingAds, setIsGeneratingAds] = useState(false);
   const [llmsTxtResult, setLlmsTxtResult] = useState<any>(null);
@@ -153,8 +150,6 @@ export default function DashboardPage() {
 
   const [terminalLogs, setTerminalLogs] = useState<string[]>(["Cabbge initialized"]);
 
-  // Which panel is shown on the left: "company" or "chat"
-  const [leftPanel, setLeftPanel] = useState<"company" | "chat">("company");
 
   // ---- Credit system ----
   const CREDITS_TOTAL = 1000;
@@ -169,9 +164,9 @@ export default function DashboardPage() {
   const CREDIT_COSTS: Record<string, number> = {
     audit: 2, technical: 1, ai_visibility: 4, backlinks: 1, competitors: 2,
     content: 3, content_plan: 3, article: 5, campaign: 3, partner: 3,
-    schema: 2, portal: 2, neighborhood: 3, progress: 2,
+    schema: 2, portal: 2, neighborhood: 3,
     report: 5, ads: 3, llms_txt: 2, geo_improvement: 3, crawler: 1,
-    brand_presence: 2, citability: 2, chat: 1, locality: 1,
+    brand_presence: 2, citability: 2, locality: 1,
     gbp_posts: 3, prompt_volumes: 3,
   };
 
@@ -948,21 +943,6 @@ export default function DashboardPage() {
     finally { setIsGeneratingNeighborhood(false); }
   };
 
-  const runProgressUpdate = async (phase: string, completionPct?: number) => {
-    if (!spendCredits("progress")) return;
-    setIsGeneratingProgress(true);
-    addLog(`> Generating construction update (${phase})...`);
-    try {
-      const ctx = getProjectContext();
-      const res = await fetch("/api/progress-update", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...ctx, currentPhase: phase, completionPercentage: completionPct }) });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      setProgressResult(data);
-      addLog(`> Progress update content ready`);
-    } catch (err) { addLog(`> Error: ${err instanceof Error ? err.message : "Failed"}`); }
-    finally { setIsGeneratingProgress(false); }
-  };
-
   const runMarketingReport = async () => {
     if (!spendCredits("report")) return;
     setIsGeneratingReport(true);
@@ -1330,28 +1310,12 @@ export default function DashboardPage() {
         <div className="flex-1 flex min-h-0">
           {/* LEFT: Company or Chat (toggled) — hide on narrow screens so center has room */}
           <div className="hidden lg:flex w-[320px] flex-shrink-0 border-r border-white/[0.06] flex-col min-h-0">
-            {/* Toggle tabs */}
-            <div className="flex border-b border-white/[0.06] flex-shrink-0">
-              <button
-                onClick={() => setLeftPanel("company")}
-                className={`flex-1 py-2.5 text-[13px] font-medium transition-colors duration-150 ${leftPanel === "company" ? "text-zinc-100 border-b-2 border-[#7CB342]" : "text-zinc-500 hover:text-zinc-300"}`}
-              >
-                Company
-              </button>
-              <button
-                onClick={() => setLeftPanel("chat")}
-                className={`flex-1 py-2.5 text-[13px] font-medium transition-colors duration-150 ${leftPanel === "chat" ? "text-zinc-100 border-b-2 border-[#7CB342]" : "text-zinc-500 hover:text-zinc-300"}`}
-              >
-                Chat
-              </button>
-            </div>
-            {/* Panel content — scrollable */}
+            {/* Company context — the one surface here. The Chat toggle
+                was a generic LLM chatbox nobody used; the specialised
+                tools (audit, GEO scan, article writer) are faster and
+                more structured. */}
             <div className="flex-1 overflow-y-auto min-h-0">
-              {leftPanel === "company" ? (
-                <CompanyPanel company={company} setCompany={setCompany} />
-              ) : (
-                <ChatPanel company={company} auditResult={auditResult} aiVisResult={aiVisResult} />
-              )}
+              <CompanyPanel company={company} setCompany={setCompany} />
             </div>
           </div>
 
@@ -1389,8 +1353,6 @@ export default function DashboardPage() {
               onRunPortalOptimizer={runPortalOptimizer}
               neighborhoodResult={neighborhoodResult} isGeneratingNeighborhood={isGeneratingNeighborhood}
               onRunNeighborhood={runNeighborhood}
-              progressResult={progressResult} isGeneratingProgress={isGeneratingProgress}
-              onRunProgressUpdate={runProgressUpdate}
               reportResult={reportResult} isGeneratingReport={isGeneratingReport}
               onRunMarketingReport={runMarketingReport}
               adsResult={adsResult} isGeneratingAds={isGeneratingAds}
