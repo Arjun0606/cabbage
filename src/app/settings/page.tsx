@@ -85,6 +85,61 @@ export default function SettingsPage() {
   });
   const [instructionsSaved, setInstructionsSaved] = useState(false);
 
+  // Subscription state (loaded from /api/billing/status)
+  const [billing, setBilling] = useState<{
+    plan: string;
+    status: string;
+    daysLeftInTrial?: number;
+    trialEndsAt?: string | null;
+    currentPeriodEnd?: string | null;
+    cancelAtPeriodEnd?: boolean;
+    demoMode?: boolean;
+  } | null>(null);
+  const [billingBusy, setBillingBusy] = useState<"cancel" | "subscribe" | null>(null);
+  const [billingError, setBillingError] = useState<string | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/billing/status", { cache: "no-store" });
+        if (res.ok) setBilling(await res.json());
+      } catch { /* noop — UI will show "Not available" */ }
+    })();
+  }, []);
+
+  const handleCancelSubscription = async () => {
+    if (!confirm("Cancel at the end of the current billing cycle? You'll keep access until then.")) return;
+    setBillingBusy("cancel");
+    setBillingError(null);
+    try {
+      const res = await fetch("/api/billing/cancel", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Cancel failed");
+      const refresh = await fetch("/api/billing/status", { cache: "no-store" });
+      if (refresh.ok) setBilling(await refresh.json());
+    } catch (err) {
+      setBillingError(err instanceof Error ? err.message : "Cancel failed");
+    } finally {
+      setBillingBusy(null);
+    }
+  };
+
+  const handleStartCheckout = async () => {
+    setBillingBusy("subscribe");
+    setBillingError(null);
+    try {
+      const res = await fetch("/api/billing/checkout", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Checkout failed");
+      if (data.shortUrl) window.location.href = data.shortUrl;
+      else window.location.href = "/pricing";
+    } catch (err) {
+      setBillingError(err instanceof Error ? err.message : "Checkout failed");
+    } finally {
+      setBillingBusy(null);
+    }
+  };
+
   // Load saved state
   useEffect(() => {
     try {
@@ -330,24 +385,75 @@ export default function SettingsPage() {
             <TabsContent value="subscription" className="pt-6 max-w-2xl space-y-6">
               <Card className="bg-zinc-900 border-zinc-800">
                 <CardContent className="p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <h3 className="text-sm font-medium text-zinc-100">Current Plan</h3>
-                      <p className="text-xs text-zinc-500">Contact us to manage your subscription.</p>
-                    </div>
-                    <Badge className="bg-zinc-800 text-zinc-300">Active</Badge>
-                  </div>
-                  <p className="text-xs text-zinc-400">Your usage and billing details will be available in your account dashboard once connected.</p>
-                </CardContent>
-              </Card>
+                  {billing ? (
+                    <>
+                      <div className="flex items-center justify-between mb-4">
+                        <div>
+                          <h3 className="text-sm font-medium text-zinc-100">Current Plan</h3>
+                          <p className="text-xs text-zinc-500">
+                            {billing.demoMode
+                              ? "Demo session — no real billing."
+                              : billing.status === "trialing"
+                              ? `Trial — ${billing.daysLeftInTrial} day${billing.daysLeftInTrial === 1 ? "" : "s"} left`
+                              : billing.status === "active"
+                              ? billing.cancelAtPeriodEnd
+                                ? `Cancels at end of cycle${billing.currentPeriodEnd ? ` (${new Date(billing.currentPeriodEnd).toLocaleDateString()})` : ""}`
+                                : "Active — renews automatically"
+                              : billing.status}
+                          </p>
+                        </div>
+                        <Badge
+                          className={
+                            billing.status === "active"
+                              ? "bg-[#7CB342]/15 text-[#7CB342] border-0"
+                              : billing.status === "trialing"
+                              ? "bg-amber-500/15 text-amber-400 border-0"
+                              : "bg-zinc-800 text-zinc-400 border-0"
+                          }
+                        >
+                          {billing.status}
+                        </Badge>
+                      </div>
+                      <div className="text-xs text-zinc-400 mb-4">
+                        Plan: <span className="text-zinc-200">{billing.plan}</span>
+                      </div>
 
-              <Card className="bg-zinc-900 border-zinc-800">
-                <CardContent className="p-6 space-y-4">
-                  <h3 className="text-sm font-medium text-zinc-100">Need help?</h3>
-                  <p className="text-xs text-zinc-500">Contact our team for plan details, upgrades, or billing questions.</p>
-                  <Link href="/pricing">
-                    <Button className="w-full bg-zinc-100 text-zinc-900 hover:bg-white">View Plans</Button>
-                  </Link>
+                      {billingError && (
+                        <div className="text-xs text-red-400 mb-3">{billingError}</div>
+                      )}
+
+                      <div className="flex gap-2 flex-wrap">
+                        {billing.status !== "active" && !billing.demoMode && (
+                          <Button
+                            size="sm"
+                            className="bg-zinc-100 text-zinc-900 hover:bg-white text-xs"
+                            onClick={handleStartCheckout}
+                            disabled={billingBusy !== null}
+                          >
+                            {billingBusy === "subscribe" ? "Starting…" : "Subscribe — ₹50,000/mo"}
+                          </Button>
+                        )}
+                        {billing.status === "active" && !billing.cancelAtPeriodEnd && !billing.demoMode && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="border-zinc-700 text-xs text-zinc-300"
+                            onClick={handleCancelSubscription}
+                            disabled={billingBusy !== null}
+                          >
+                            {billingBusy === "cancel" ? "Cancelling…" : "Cancel subscription"}
+                          </Button>
+                        )}
+                        <Link href="/pricing">
+                          <Button variant="outline" size="sm" className="border-zinc-700 text-xs">
+                            Top up credits
+                          </Button>
+                        </Link>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-xs text-zinc-500">Loading billing status…</div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>

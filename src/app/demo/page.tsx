@@ -28,11 +28,18 @@ export default function DemoPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // If already authenticated for demo, skip password step
+  // If already authenticated for demo, skip password step. Cookie is now
+  // httpOnly so we check via the status endpoint rather than reading it.
   useEffect(() => {
-    if (typeof document !== "undefined" && document.cookie.includes("cabbge_demo_auth=1")) {
-      setPhase("url");
-    }
+    (async () => {
+      try {
+        const res = await fetch("/api/demo/auth", { method: "GET" });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.authenticated) setPhase("url");
+        }
+      } catch { /* offline or blocked — stay on password step */ }
+    })();
   }, []);
 
   const handlePassword = async () => {

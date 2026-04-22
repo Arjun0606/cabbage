@@ -22,13 +22,22 @@ export async function POST(req: NextRequest) {
   }
 
   const res = NextResponse.json({ ok: true });
-  // 24-hour auth cookie so the salesperson doesn't re-enter between demos
+  // 24-hour auth cookie. httpOnly — a single XSS anywhere would otherwise
+  // exfiltrate a password-equivalent. Client reads demo state via
+  // GET /api/demo/status instead of reading the cookie directly.
   res.cookies.set("cabbge_demo_auth", "1", {
-    httpOnly: false, // readable by client so it knows auth state
+    httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     maxAge: 60 * 60 * 24,
     path: "/",
   });
   return res;
+}
+
+export async function GET(req: NextRequest) {
+  // Status endpoint: lets the /demo page know whether the user has
+  // already entered the password, without exposing the cookie to JS.
+  const authed = req.cookies.get("cabbge_demo_auth")?.value === "1";
+  return NextResponse.json({ authenticated: authed });
 }

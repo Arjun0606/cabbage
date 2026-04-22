@@ -32,9 +32,27 @@ export async function POST(req: NextRequest) {
     const service = getServiceClient();
     const { data: existingSub } = await service
       .from("subscriptions")
-      .select("razorpay_customer_id")
+      .select("razorpay_customer_id, razorpay_subscription_id, status")
       .eq("user_id", user.id)
       .maybeSingle();
+
+    // If a pending subscription already exists for this user, re-use it
+    // rather than creating a second Razorpay subscription. Without this,
+    // a user who re-clicks "Subscribe" gets a second pending sub and can
+    // end up double-charged when they complete both.
+    if (existingSub?.razorpay_subscription_id && existingSub.status === "pending") {
+      return NextResponse.json({
+        subscriptionId: existingSub.razorpay_subscription_id,
+        keyId: process.env.RAZORPAY_KEY_ID,
+        email: user.email,
+        reused: true,
+      });
+    }
+
+    // If an active subscription already exists, checkout is a no-op.
+    if (existingSub?.status === "active") {
+      return NextResponse.json({ error: "You already have an active subscription" }, { status: 409 });
+    }
 
     let customerId = existingSub?.razorpay_customer_id;
     if (!customerId) {

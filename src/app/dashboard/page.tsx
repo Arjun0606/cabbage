@@ -352,7 +352,7 @@ export default function DashboardPage() {
   // GSC callback + auto-fetch data
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get("gsc_connected") === "true") {
+    if (params.get("gsc_connected") === "1" || params.get("gsc_connected") === "true") {
       addLog("> Google Search Console connected!");
       window.history.replaceState({}, "", "/dashboard");
     }

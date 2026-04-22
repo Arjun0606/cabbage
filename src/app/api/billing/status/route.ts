@@ -30,11 +30,35 @@ export async function GET(req: NextRequest) {
     }
 
     const service = getServiceClient();
-    const { data: sub } = await service
+    let { data: sub } = await service
       .from("subscriptions")
       .select("plan, status, trial_ends_at, current_period_end, cancel_at_period_end")
       .eq("user_id", user.id)
       .maybeSingle();
+
+    // Fallback trial: when the signup trigger didn't fire (or the user
+    // pre-dates the trigger), lazily create a 14-day trial row instead of
+    // instantly paywalling a brand-new signup.
+    if (!sub) {
+      const trialEnd = new Date(Date.now() + 14 * 86400_000).toISOString();
+      await service.from("subscriptions").upsert(
+        {
+          user_id: user.id,
+          plan: "trial",
+          status: "trialing",
+          trial_ends_at: trialEnd,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "user_id" }
+      );
+      sub = {
+        plan: "trial",
+        status: "trialing",
+        trial_ends_at: trialEnd,
+        current_period_end: null,
+        cancel_at_period_end: false,
+      };
+    }
 
     const now = Date.now();
     const trialEndsAt = sub?.trial_ends_at ? new Date(sub.trial_ends_at).getTime() : now;

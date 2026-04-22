@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/db/supabase-server";
-import { createCreditTopupOrder, verifyPaymentSignature } from "@/lib/razorpay";
+import { createCreditTopupOrder, verifyPaymentSignature, fetchRazorpayOrder } from "@/lib/razorpay";
 import { isDemoRequest } from "@/lib/demo";
 import { getServiceClient } from "@/lib/db/supabase";
 
@@ -79,10 +79,14 @@ async function handleCreate(req: NextRequest) {
 
 async function handleVerify(req: NextRequest) {
   try {
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, credits } = await req.json();
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = await req.json();
+
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+      return NextResponse.json({ error: "Missing payment fields" }, { status: 400 });
+    }
 
     if (isDemoRequest(req)) {
-      return NextResponse.json({ demoMode: true, success: true, credits, message: "Demo mode — credits not actually added." });
+      return NextResponse.json({ demoMode: true, success: true, message: "Demo mode — credits not actually added." });
     }
 
     const supabase = await getServerSupabase();
@@ -90,15 +94,40 @@ async function handleVerify(req: NextRequest) {
     if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
     const ok = verifyPaymentSignature({
-      subscriptionId: razorpay_order_id,  // order/subscription ID
+      subscriptionId: razorpay_order_id,
       paymentId: razorpay_payment_id,
       signature: razorpay_signature,
     });
     if (!ok) return NextResponse.json({ error: "Invalid payment signature" }, { status: 400 });
 
-    // Grant credits by writing a NEGATIVE credit_usage row (offsets usage).
-    // This works with the existing enforceCredits() calc: sum(credits_used).
+    // Source of truth for credits = the order notes we committed at create
+    // time. Never trust a client-supplied `credits` value — an attacker
+    // otherwise claims 10,000 after paying for 1,000.
+    const order = await fetchRazorpayOrder(razorpay_order_id);
+    if (order.status !== "paid") {
+      return NextResponse.json({ error: `Order is not paid (status: ${order.status})` }, { status: 400 });
+    }
+    if (order.notes?.user_id && order.notes.user_id !== user.id) {
+      return NextResponse.json({ error: "Order does not belong to current user" }, { status: 403 });
+    }
+    const credits = parseInt(order.notes?.credits || "0", 10);
+    if (!Number.isFinite(credits) || credits <= 0) {
+      return NextResponse.json({ error: "Order has no credits grant encoded" }, { status: 400 });
+    }
+
     const service = getServiceClient();
+
+    // Idempotency: if this payment_id already recorded, return existing.
+    const { data: existing } = await service
+      .from("credit_usage")
+      .select("credits_used")
+      .eq("action", "topup")
+      .contains("metadata", { razorpay_payment_id })
+      .maybeSingle();
+    if (existing) {
+      return NextResponse.json({ success: true, credits: Math.abs(existing.credits_used), alreadyApplied: true });
+    }
+
     const { data: company } = await service
       .from("companies")
       .select("id")
@@ -108,11 +137,12 @@ async function handleVerify(req: NextRequest) {
     if (!company) {
       return NextResponse.json({ error: "No company found for user — set up your company first." }, { status: 400 });
     }
+
     await service.from("credit_usage").insert({
       company_id: company.id,
       user_id: user.id,
       action: "topup",
-      credits_used: -Math.abs(Number(credits) || 0),
+      credits_used: -credits,
       metadata: { razorpay_payment_id, razorpay_order_id },
     });
 

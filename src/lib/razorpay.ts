@@ -114,6 +114,30 @@ export async function cancelSubscription(subscriptionId: string, cancelAtCycleEn
 }
 
 /**
+ * Fetch an existing Razorpay order (used to cross-check that the credits
+ * amount claimed by the client matches the amount we committed to when we
+ * created the order server-side — otherwise a client could claim 10,000
+ * credits after paying for 1,000).
+ */
+export async function fetchRazorpayOrder(orderId: string): Promise<{
+  id: string;
+  amount: number;
+  currency: string;
+  status: string;
+  notes: Record<string, string>;
+}> {
+  const res = await fetch(`${API}/orders/${orderId}`, {
+    method: "GET",
+    headers: { Authorization: authHeader() },
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Razorpay order fetch failed: ${err}`);
+  }
+  return res.json();
+}
+
+/**
  * Verify a Razorpay webhook signature. Throws if invalid.
  */
 export function verifyWebhookSignature(payload: string, signature: string): void {

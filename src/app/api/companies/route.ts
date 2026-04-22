@@ -1,15 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/db/supabase";
 import { getCurrentUser } from "@/lib/db/supabase-server";
+import { sanitizeUrl } from "@/lib/security";
 
 /**
- * GET /api/companies?id=xxx — fetch company by ID
- * GET /api/companies?website=xxx — fetch company by website
- * POST /api/companies — create or update company (upsert by website)
+ * GET /api/companies?id=xxx — fetch company by ID (scoped to current user)
+ * GET /api/companies?website=xxx — fetch company by website (scoped to current user)
+ * POST /api/companies — upsert the current user's company row
+ *
+ * All routes now require an authenticated Supabase session. Anonymous
+ * callers receive 401. Previous behaviour allowed unauth reads/writes
+ * against any company row by website alone — a trivial data-leak path.
  */
 
 export async function GET(req: NextRequest) {
   try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    }
+
     const db = getServiceClient();
     const id = req.nextUrl.searchParams.get("id");
     const website = req.nextUrl.searchParams.get("website");
@@ -18,7 +28,10 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Provide id or website" }, { status: 400 });
     }
 
-    let query = db.from("companies").select("*, projects(*), competitors(*)");
+    let query = db
+      .from("companies")
+      .select("*, projects(*), competitors(*)")
+      .eq("owner_id", user.id);
     if (id) query = query.eq("id", id);
     else if (website) query = query.eq("website", website);
 
@@ -37,6 +50,11 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    }
+
     const db = getServiceClient();
     const body = await req.json();
 
@@ -46,44 +64,45 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "name and website are required" }, { status: 400 });
     }
 
-    // Attach owner_id if the request is authenticated. Falls back to null
-    // (unowned company) so existing non-auth flows still work.
-    let ownerId: string | null = null;
-    try {
-      const user = await getCurrentUser();
-      if (user) ownerId = user.id;
-    } catch { /* Supabase auth not configured — continue anonymously */ }
+    // SSRF guard — the website + any additional sites get fetched by the
+    // cron scanner. Reject anything that sanitizeUrl refuses (non-http(s),
+    // private IP ranges, localhost, etc.).
+    const websiteCheck = sanitizeUrl(website);
+    if (!websiteCheck.valid) {
+      return NextResponse.json({ error: websiteCheck.error || "Invalid website URL" }, { status: 400 });
+    }
+    const safeWebsite = websiteCheck.url;
 
-    // Check if company exists, preferring the user's own company if auth'd
-    let existing: { id: string } | null = null;
-    if (ownerId) {
-      const { data } = await db
-        .from("companies")
-        .select("id")
-        .eq("owner_id", ownerId)
-        .eq("website", website)
-        .maybeSingle();
-      existing = data;
+    const safeSites: Array<{ url: string; label?: string }> = [];
+    if (Array.isArray(sites)) {
+      for (const s of sites) {
+        if (!s?.url) continue;
+        const c = sanitizeUrl(s.url);
+        if (!c.valid) {
+          return NextResponse.json({ error: `Invalid additional site URL: ${c.error}` }, { status: 400 });
+        }
+        safeSites.push({ url: c.url, label: typeof s.label === "string" ? s.label : undefined });
+      }
     }
-    if (!existing) {
-      const { data } = await db
-        .from("companies")
-        .select("id")
-        .eq("website", website)
-        .is("owner_id", null)
-        .maybeSingle();
-      existing = data;
-    }
+
+    // Look for an existing row owned by this user. We never attempt to
+    // "claim" unowned rows anymore — safer to let the user explicitly
+    // migrate if that ever becomes a real flow.
+    const { data: existing } = await db
+      .from("companies")
+      .select("id")
+      .eq("owner_id", user.id)
+      .eq("website", safeWebsite)
+      .maybeSingle();
 
     let companyId: string;
 
     if (existing) {
-      // Update existing company — claim ownership if it was unowned
       companyId = existing.id;
       const updatePayload: Record<string, unknown> = {
         name,
         description,
-        website,
+        website: safeWebsite,
         city,
         product_info: documents?.productInfo || null,
         brand_voice: documents?.brandVoice || null,
@@ -92,19 +111,18 @@ export async function POST(req: NextRequest) {
         target_audience: documents?.targetAudience || null,
         marketing_strategy: documents?.marketingStrategy || null,
         competitor_analysis: documents?.competitorAnalysis || null,
-        sites: sites || [],
+        sites: safeSites,
         documents: documents || {},
+        owner_id: user.id,
         updated_at: new Date().toISOString(),
       };
-      if (ownerId) updatePayload.owner_id = ownerId;
       const { error } = await db.from("companies").update(updatePayload).eq("id", companyId);
       if (error) throw error;
     } else {
-      // Create new company
       const insertPayload: Record<string, unknown> = {
         name,
         description,
-        website,
+        website: safeWebsite,
         city,
         product_info: documents?.productInfo || null,
         brand_voice: documents?.brandVoice || null,
@@ -113,16 +131,17 @@ export async function POST(req: NextRequest) {
         target_audience: documents?.targetAudience || null,
         marketing_strategy: documents?.marketingStrategy || null,
         competitor_analysis: documents?.competitorAnalysis || null,
-        sites: sites || [],
+        sites: safeSites,
         documents: documents || {},
+        owner_id: user.id,
       };
-      if (ownerId) insertPayload.owner_id = ownerId;
       const { data, error } = await db.from("companies").insert(insertPayload).select("id").single();
       if (error) throw error;
       companyId = data.id;
     }
 
-    // Sync projects — delete and re-insert (simplest for now)
+    // Sync projects — delete and re-insert (simplest for now). Scoped to
+    // the company we just verified the user owns.
     if (projects && Array.isArray(projects)) {
       await db.from("projects").delete().eq("company_id", companyId);
 
@@ -148,7 +167,6 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Sync competitors
     if (competitors && Array.isArray(competitors)) {
       await db.from("competitors").delete().eq("company_id", companyId);
 
