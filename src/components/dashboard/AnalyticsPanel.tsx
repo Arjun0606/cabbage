@@ -37,7 +37,6 @@ import { GEOProgressPanel } from "./GEOProgressPanel";
 import { ExecutionChecklist } from "./ExecutionChecklist";
 import { PublishButton } from "./PublishButton";
 import { DeployViaLoader } from "./DeployViaLoader";
-import { BroadcastButton } from "./BroadcastButton";
 import { GSCPanel } from "./GSCPanel";
 import { SiteCrawlPanel } from "./SiteCrawlPanel";
 import { KeywordResearchPanel } from "./KeywordResearchPanel";
@@ -2069,12 +2068,9 @@ export function AnalyticsPanel({
                   {channelPartnerResult.whatsappForward && (
                     <SectionCard>
                       <CardContent className="p-5">
-                        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                        <div className="flex items-center justify-between mb-3">
                           <h4 className="text-[13px] font-semibold text-zinc-200">WhatsApp Forward Message</h4>
-                          <div className="flex items-center gap-1.5">
-                            <BroadcastButton bodyText={channelPartnerResult.whatsappForward} label="Broadcast to brokers" />
-                            <CopyBtn text={channelPartnerResult.whatsappForward} field="cp-wa" />
-                          </div>
+                          <CopyBtn text={channelPartnerResult.whatsappForward} field="cp-wa" />
                         </div>
                         <div className="p-3.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30 text-[13px] text-zinc-300 whitespace-pre-wrap leading-relaxed">{channelPartnerResult.whatsappForward}</div>
                       </CardContent>
@@ -2620,12 +2616,32 @@ export function AnalyticsPanel({
 
           {portalResult ? (
             <>
-              {Object.entries(portalResult.portals || {}).map(([key, portal]: [string, any]) => (
+              {Object.entries(portalResult.portals || {}).map(([key, portal]: [string, any]) => {
+                const meta = (portalResult.meta?.portals || []).find((p: any) => p.key === key);
+                const displayName = meta?.name || key.replace(/([A-Z])/g, ' $1').trim();
+                return (
                 <SectionCard key={key}>
                   <CardContent className="p-5">
                     <div className="flex items-center justify-between mb-3">
-                      <h4 className="text-[13px] font-semibold text-zinc-200 capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}</h4>
-                      <CopyBtn text={`${portal.title}\n\n${portal.description}`} field={`portal-${key}`} />
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-[13px] font-semibold text-zinc-200">{displayName}</h4>
+                        {meta?.domain && (
+                          <span className="text-[10px] text-zinc-500 font-mono">{meta.domain}</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        {meta?.submitUrl && (
+                          <a
+                            href={meta.submitUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[11px] font-medium px-2 py-0.5 rounded bg-zinc-800 text-zinc-300 hover:bg-zinc-700 border border-zinc-700/50"
+                          >
+                            Open portal \u2197
+                          </a>
+                        )}
+                        <CopyBtn text={`${portal.title}\n\n${portal.description}`} field={`portal-${key}`} />
+                      </div>
                     </div>
                     <div className="space-y-3">
                       <div className="p-3 rounded-lg bg-zinc-800/40 border border-zinc-700/30">
@@ -2646,7 +2662,8 @@ export function AnalyticsPanel({
                     </div>
                   </CardContent>
                 </SectionCard>
-              ))}
+                );
+              })}
 
               {portalResult.googleBusinessProfile && (
                 <SectionCard>

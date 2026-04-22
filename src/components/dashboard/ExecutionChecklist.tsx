@@ -5,6 +5,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, Circle, ExternalLink, ChevronDown } from "lucide-react";
 
+interface DiscoveredPortal {
+  name: string;
+  domain: string;
+  submitUrl?: string;
+}
+
 interface ChecklistItem {
   id: string;
   category: "on-site" | "off-site" | "technical" | "geo";
@@ -49,8 +55,26 @@ export function ExecutionChecklist({
 }: Props) {
   const [completed, setCompleted] = useState<Set<string>>(new Set());
   const [expanded, setExpanded] = useState(true);
+  const [portals, setPortals] = useState<DiscoveredPortal[]>([]);
 
   useEffect(() => { setCompleted(getCompletedItems()); }, []);
+
+  // Live-discover the top Indian property portals — avoids hardcoding
+  // 99acres/MagicBricks/Housing.com into the checklist. Graceful fallback:
+  // if discovery fails we show a single generic "Optimise portal listings"
+  // item pointing at the Portal Optimizer tool.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/market-knowledge/portals");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled && Array.isArray(data.portals)) setPortals(data.portals);
+      } catch { /* silent */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const toggleItem = (id: string) => {
     const next = new Set(completed);
@@ -92,9 +116,33 @@ export function ExecutionChecklist({
   }
 
   // --- OFF-SITE / CITATIONS ---
-  items.push({ id: "submit-99acres", category: "off-site", title: "Optimize your 99acres listing", description: "99acres is the #1 source Google and AI models cite for Indian real estate. Paste your optimized listing copy.", actionLabel: "Open 99acres", actionType: "link", actionUrl: "https://www.99acres.com/post-property" });
-  items.push({ id: "submit-magicbricks", category: "off-site", title: "Optimize your MagicBricks listing", description: "MagicBricks drives massive search traffic for Indian property buyers.", actionLabel: "Open MagicBricks", actionType: "link", actionUrl: "https://post.magicbricks.com/" });
-  items.push({ id: "submit-housing", category: "off-site", title: "Optimize your Housing.com listing", description: "Housing.com listings feed Google's knowledge graph.", actionLabel: "Open Housing.com", actionType: "link", actionUrl: "https://www.housing.com/post-property" });
+  // Portal submission items are generated from the live-discovered list
+  // (marketKnowledge.ts \u2192 ChatGPT web search). If discovery is still
+  // loading or failed, fall back to a single generic item that points
+  // users at the Portal Optimizer where they can generate copy.
+  if (portals.length > 0) {
+    for (const p of portals.slice(0, 5)) {
+      items.push({
+        id: `submit-${p.domain.replace(/\./g, "-")}`,
+        category: "off-site",
+        title: `Optimise your ${p.name} listing`,
+        description: `Paste the optimised listing copy into your ${p.name} dashboard.`,
+        actionLabel: p.submitUrl ? `Open ${p.name}` : undefined,
+        actionType: p.submitUrl ? "link" : "manual",
+        actionUrl: p.submitUrl,
+      });
+    }
+  } else {
+    items.push({
+      id: "submit-portals-generic",
+      category: "off-site",
+      title: "Optimise your Indian property portal listings",
+      description: "Generate portal-specific copy in the Portals & Ads tab, then paste into each portal.",
+      actionLabel: "Open Portal Optimizer",
+      actionType: "auto",
+      onAction: () => onRunAction("tab-portals"),
+    });
+  }
   items.push({ id: "claim-gbp", category: "off-site", title: "Claim & optimize Google Business Profile", description: "Most critical listing — shows in Google Maps, AI answers, and local search.", actionLabel: "Open GBP", actionType: "link", actionUrl: "https://business.google.com/" });
 
   // --- GEO ---

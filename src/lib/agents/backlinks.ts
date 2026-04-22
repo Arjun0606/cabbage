@@ -260,21 +260,14 @@ Rules:
  * than fabrication but every result is real and auditable.
  *
  * Why we check these specific domains: every Indian RE buyer discovers
- * developers through the property portals and ~3 news sites. If you're
- * linked from these, you're visible. If not, that's your #1 gap.
+ * developers through the property portals and major news sites. If
+ * you're linked from these, you're visible. If not, that's your #1 gap.
+ *
+ * The list is discovered LIVE (marketKnowledge.ts → ChatGPT web search)
+ * rather than hardcoded — so when a new portal rises or an old one
+ * fades, the check updates automatically.
  */
-const HIGH_VALUE_RE_DOMAINS = [
-  { domain: "99acres.com", authority: 76, type: "portal" },
-  { domain: "magicbricks.com", authority: 74, type: "portal" },
-  { domain: "housing.com", authority: 72, type: "portal" },
-  { domain: "nobroker.in", authority: 68, type: "portal" },
-  { domain: "squareyards.com", authority: 62, type: "portal" },
-  { domain: "proptiger.com", authority: 60, type: "portal" },
-  { domain: "commonfloor.com", authority: 58, type: "portal" },
-  { domain: "economictimes.indiatimes.com", authority: 92, type: "news" },
-  { domain: "livemint.com", authority: 88, type: "news" },
-  { domain: "moneycontrol.com", authority: 90, type: "news" },
-];
+import { getHighAuthorityIndianRealEstateDomains, type HighAuthorityDomain } from "@/lib/marketKnowledge";
 
 export interface VerifiedReferrer {
   domain: string;
@@ -288,16 +281,19 @@ export async function findVerifiedReferrers(url: string): Promise<{
   verified: VerifiedReferrer[];
   checked: number;
   source: "web_search" | "unavailable";
+  highValueDomains: HighAuthorityDomain[];
 }> {
   try {
     const domain = new URL(url).hostname.replace(/^www\./, "");
     const brand = domain.split(".")[0];
 
-    const domainList = HIGH_VALUE_RE_DOMAINS.map((d) => d.domain).join(", ");
-    // Ask the model explicitly for a JSON list with citationUrls — the
-    // previous prose response ("99acres has a listing for X") rarely
-    // included the linking URL, so the URL-regex match nearly always
-    // produced zero verified referrers.
+    // Live list — replaces the old hardcoded HIGH_VALUE_RE_DOMAINS.
+    const highValueDomains = await getHighAuthorityIndianRealEstateDomains();
+    if (highValueDomains.length === 0) {
+      return { verified: [], checked: 0, source: "unavailable", highValueDomains: [] };
+    }
+
+    const domainList = highValueDomains.map((d) => d.domain).join(", ");
     const { text, source } = await queryForVisibility(
       "openai",
       `Search the web to find which of these Indian real estate sites have a page that links to or mentions "${domain}" (brand: ${brand}):
@@ -305,16 +301,15 @@ ${domainList}
 
 For each one you confirm with a real visible URL, return JSON. If you can't confirm any, return an empty array. Respond ONLY with valid JSON, no prose:
 
-{"matches": [{"domain": "99acres.com", "url": "https://99acres.com/..."}]}
+{"matches": [{"domain": "example.com", "url": "https://example.com/..."}]}
 
 Only include domains where you can see an actual linking/mentioning page URL. Never guess.`
     );
 
     if (!text || (source !== "web_search" && source !== "grounded")) {
-      return { verified: [], checked: 0, source: "unavailable" };
+      return { verified: [], checked: highValueDomains.length, source: "unavailable", highValueDomains };
     }
 
-    // First try to parse the JSON contract
     const verified: VerifiedReferrer[] = [];
     const seen = new Set<string>();
     const jsonMatch = text.match(/\{[\s\S]*"matches"[\s\S]*\}/);
@@ -322,7 +317,7 @@ Only include domains where you can see an actual linking/mentioning page URL. Ne
       try {
         const parsed = JSON.parse(jsonMatch[0]);
         for (const m of parsed.matches || []) {
-          const cand = HIGH_VALUE_RE_DOMAINS.find((d) => d.domain === m.domain);
+          const cand = highValueDomains.find((d) => d.domain === m.domain);
           if (!cand || seen.has(cand.domain)) continue;
           if (typeof m.url === "string" && m.url.startsWith("http") && m.url.includes(cand.domain)) {
             verified.push({
@@ -338,9 +333,8 @@ Only include domains where you can see an actual linking/mentioning page URL. Ne
       } catch { /* fall through to regex */ }
     }
 
-    // Regex backstop — catches plain URLs if the model didn't return JSON
     if (verified.length === 0) {
-      for (const cand of HIGH_VALUE_RE_DOMAINS) {
+      for (const cand of highValueDomains) {
         if (seen.has(cand.domain)) continue;
         const mentionRegex = new RegExp(`https?://(?:[\\w-]+\\.)?${cand.domain.replace(/\./g, "\\.")}[^\\s)"']*`, "i");
         const urlMatch = text.match(mentionRegex);
@@ -359,12 +353,13 @@ Only include domains where you can see an actual linking/mentioning page URL. Ne
 
     return {
       verified,
-      checked: HIGH_VALUE_RE_DOMAINS.length,
+      checked: highValueDomains.length,
       source: "web_search",
+      highValueDomains,
     };
   } catch (err) {
     console.error("findVerifiedReferrers failed:", err instanceof Error ? err.message : err);
-    return { verified: [], checked: 0, source: "unavailable" };
+    return { verified: [], checked: 0, source: "unavailable", highValueDomains: [] };
   }
 }
 
@@ -419,7 +414,7 @@ export async function runBacklinkAnalysis(url: string): Promise<BacklinkResult> 
 
   // Which high-value domains we checked but DIDN'T find — these are outreach targets
   const verifiedSet = new Set(verifiedRes.verified.map((v) => v.domain));
-  const unlinked = HIGH_VALUE_RE_DOMAINS.filter((d) => !verifiedSet.has(d.domain));
+  const unlinked = verifiedRes.highValueDomains.filter((d) => !verifiedSet.has(d.domain));
 
   // If we got verified referrers, expose them as topReferrers so the UI
   // shows REAL data instead of an empty list.

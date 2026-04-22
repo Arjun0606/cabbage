@@ -1,22 +1,39 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/db/supabase";
-import { BENCHMARK_DEVELOPERS } from "@/lib/benchmark/developers";
+import {
+  getBenchmarkCities,
+  discoverDevelopersForCity,
+  currentMonthTag,
+  slugFor,
+} from "@/lib/benchmark/discovery";
 
 /**
- * Monthly GEO Benchmark cron.
+ * Monthly GEO Benchmark cron — FULLY DYNAMIC.
  *
- * Runs the free grader (3 queries × ChatGPT + Gemini) on every
- * developer in the curated BENCHMARK_DEVELOPERS list and stores the
- * result keyed by (developer_slug, captured_month). The /benchmark
- * public page reads the latest month's rows.
+ *   1. Cities are pulled live from the companies + projects tables.
+ *      If no users exist yet in a city, that city won't appear on the
+ *      benchmark. The universe grows organically with the user base.
  *
- * Expected load: ~35 developers × 2 platforms × 3 queries = 210
- * queryForVisibility calls per run. At 3s each, ~10 min wall time.
- * Vercel cron timeout is 15 min on Pro — we're under. If we grow the
- * list past ~50, shard across multiple cron slots.
+ *   2. Top developers per city are discovered live via ChatGPT web
+ *      search. No hardcoded list of brands anywhere. Every run asks
+ *      the model fresh, so the leaderboard reflects current market
+ *      reality rather than a snapshot from when someone typed names
+ *      into a file.
+ *
+ *   3. For each discovered developer the grader runs (3 queries x 2
+ *      platforms) and the result is stored keyed by
+ *      (developer_slug, captured_month).
+ *
+ * Idempotent per month: re-running doesn't double-score a row.
+ *
+ * Expected load: grows with the city count. With ~20 cities x ~8
+ * developers x 2 platforms x 3 queries = ~960 queryForVisibility calls
+ * per run. Cap the per-city developer list to 8 and total cities per
+ * run to 25 — spills into the next cron slot otherwise.
  */
 
-const MAX_DEVS_PER_RUN = 40;
+const MAX_CITIES_PER_RUN = 25;
+const MAX_DEVS_PER_CITY = 8;
 
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
@@ -26,63 +43,84 @@ export async function GET(req: NextRequest) {
 
   const origin = req.nextUrl.origin;
   const supabase = getServiceClient();
+  const capturedMonth = currentMonthTag();
 
-  const now = new Date();
-  const capturedMonth = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
+  // 1. Live city universe from customer data
+  const cities = (await getBenchmarkCities()).slice(0, MAX_CITIES_PER_RUN);
+  if (cities.length === 0) {
+    return NextResponse.json({
+      month: capturedMonth,
+      message: "No customer cities yet — benchmark grows as users onboard.",
+      processed: 0,
+    });
+  }
 
-  // Skip developers we already ran this month so a re-trigger is safe.
+  // Existing snapshots this month — so we don't re-run what's already done
   const { data: already } = await supabase
     .from("geo_benchmark_snapshots")
     .select("developer_slug")
     .eq("captured_month", capturedMonth);
   const done = new Set((already || []).map((r) => r.developer_slug));
 
-  const todo = BENCHMARK_DEVELOPERS.filter((d) => !done.has(d.slug)).slice(0, MAX_DEVS_PER_RUN);
+  const results: Array<{ city: string; brand: string; score: number; error?: string }> = [];
 
-  const results: Array<{ slug: string; score: number; error?: string }> = [];
+  for (const city of cities) {
+    // 2. Discover this city's top developers live (per-month fresh).
+    const discovered = (await discoverDevelopersForCity(city)).slice(0, MAX_DEVS_PER_CITY);
+    if (discovered.length === 0) continue;
 
-  for (const dev of todo) {
-    try {
-      const res = await fetch(`${origin}/api/grader`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ brand: dev.brand, city: dev.city }),
-      });
-      if (!res.ok) {
-        results.push({ slug: dev.slug, score: 0, error: `Grader HTTP ${res.status}` });
-        continue;
-      }
-      const data = await res.json();
-      const score = typeof data.score === "number" ? data.score : 0;
-      const mentionedCount = typeof data.mentionedCount === "number" ? data.mentionedCount : 0;
-      const totalQueries = typeof data.totalQueries === "number" ? data.totalQueries : 0;
-      const competitors = Array.isArray(data.competitors) ? data.competitors.slice(0, 10) : [];
+    for (const dev of discovered) {
+      const slug = slugFor(dev.brand, city);
+      if (done.has(slug)) continue;
 
-      await supabase.from("geo_benchmark_snapshots").upsert(
-        {
-          developer_slug: dev.slug,
+      // 3. Grade the discovered brand
+      try {
+        const res = await fetch(`${origin}/api/grader`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ brand: dev.brand, city }),
+        });
+        if (!res.ok) {
+          results.push({ city, brand: dev.brand, score: 0, error: `Grader HTTP ${res.status}` });
+          continue;
+        }
+        const data = await res.json();
+        const score = typeof data.score === "number" ? data.score : 0;
+        const mentionedCount = typeof data.mentionedCount === "number" ? data.mentionedCount : 0;
+        const totalQueries = typeof data.totalQueries === "number" ? data.totalQueries : 0;
+        const competitors = Array.isArray(data.competitors) ? data.competitors.slice(0, 10) : [];
+
+        await supabase.from("geo_benchmark_snapshots").upsert(
+          {
+            developer_slug: slug,
+            brand: dev.brand,
+            city,
+            tier: dev.tier,
+            score,
+            mentioned_count: mentionedCount,
+            total_queries: totalQueries,
+            competitors_seen: competitors,
+            captured_month: capturedMonth,
+          },
+          { onConflict: "developer_slug,captured_month" }
+        );
+
+        results.push({ city, brand: dev.brand, score });
+      } catch (err) {
+        results.push({
+          city,
           brand: dev.brand,
-          city: dev.city,
-          tier: dev.tier,
-          score,
-          mentioned_count: mentionedCount,
-          total_queries: totalQueries,
-          competitors_seen: competitors,
-          captured_month: capturedMonth,
-        },
-        { onConflict: "developer_slug,captured_month" }
-      );
-
-      results.push({ slug: dev.slug, score });
-    } catch (err) {
-      results.push({ slug: dev.slug, score: 0, error: err instanceof Error ? err.message : "unknown" });
+          score: 0,
+          error: err instanceof Error ? err.message : "unknown",
+        });
+      }
     }
   }
 
   return NextResponse.json({
     month: capturedMonth,
-    processed: results.length,
-    remaining: BENCHMARK_DEVELOPERS.length - done.size - results.length,
-    results,
+    citiesProcessed: cities.length,
+    totalGraded: results.length,
+    results: results.slice(0, 50), // cap response size
   });
 }

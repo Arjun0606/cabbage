@@ -1,50 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { aiComplete } from "@/lib/ai";
 import { formatWritingInstructions } from "@/lib/writingInstructions";
+import { getNextIndianFestival } from "@/lib/marketKnowledge";
 
-/* ------------------------------------------------------------------ */
-/*  Indian festival calendar — approximate Gregorian windows.         */
-/*  Lunar festivals shift yearly; these are mid-range dates that      */
-/*  work well enough for "next upcoming" detection.                   */
-/* ------------------------------------------------------------------ */
-interface Festival {
-  name: string;
-  month: number; // 1-indexed
-  day: number;
-}
-
-const FESTIVALS: Festival[] = [
-  { name: "Republic Day",     month: 1,  day: 26 },
-  { name: "Holi",             month: 3,  day: 14 },
-  { name: "Ugadi",            month: 3,  day: 30 },
-  { name: "Gudi Padwa",       month: 3,  day: 30 },
-  { name: "Akshaya Tritiya",  month: 5,  day: 1  },
-  { name: "Independence Day", month: 8,  day: 15 },
-  { name: "Onam",             month: 8,  day: 29 },
-  { name: "Navratri",         month: 10, day: 3  },
-  { name: "Dussehra",         month: 10, day: 12 },
-  { name: "Diwali",           month: 10, day: 31 },
-  { name: "Christmas",        month: 12, day: 25 },
-  { name: "New Year",         month: 1,  day: 1  },
-];
-
-function getNextFestival(): string {
-  const now = new Date();
-  const thisYear = now.getFullYear();
-
-  // Build candidate dates: this year + next year (to wrap around Dec→Jan)
-  const candidates = FESTIVALS.flatMap((f) => [
-    { name: f.name, date: new Date(thisYear, f.month - 1, f.day) },
-    { name: f.name, date: new Date(thisYear + 1, f.month - 1, f.day) },
-  ]);
-
-  // Find the earliest festival that is still in the future
-  const upcoming = candidates
-    .filter((c) => c.date >= now)
-    .sort((a, b) => a.date.getTime() - b.date.getTime());
-
-  return upcoming[0]?.name ?? "Diwali"; // fallback
-}
+// Festival calendar is discovered live via marketKnowledge.ts so lunar
+// shifts (Diwali moves by ~11 days every year) and new observances are
+// picked up automatically. No hardcoded calendar.
 
 export async function POST(req: NextRequest) {
   try {
@@ -67,7 +28,21 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const festival = targetFestival || getNextFestival();
+    let festival: string;
+    if (targetFestival) {
+      festival = targetFestival;
+    } else {
+      const discovered = await getNextIndianFestival();
+      if (!discovered?.name) {
+        return NextResponse.json(
+          {
+            error: "Couldn't determine the next festival. Pass targetFestival explicitly or try again in a minute (web search may be rate-limited).",
+          },
+          { status: 503 }
+        );
+      }
+      festival = discovered.name;
+    }
 
     const systemPrompt = `You are an expert Indian real estate marketing strategist who specialises in festive campaign content. You deeply understand Indian buyer psychology during festive seasons.
 

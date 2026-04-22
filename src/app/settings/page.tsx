@@ -28,7 +28,7 @@ interface Integration {
   name: string;
   description: string;
   icon: string;
-  category: "publishing" | "analytics" | "broadcast";
+  category: "publishing" | "analytics";
   connected: boolean;
   fields: { key: string; label: string; placeholder: string; type: "text" | "password" }[];
 }
@@ -64,25 +64,6 @@ const INTEGRATIONS: Integration[] = [
       { key: "apiToken", label: "API Token", placeholder: "Webflow API token", type: "password" },
       { key: "siteId", label: "Site ID", placeholder: "Your Webflow site ID", type: "text" },
       { key: "collectionId", label: "Blog Collection ID", placeholder: "Collection ID for articles", type: "text" },
-    ],
-  },
-  // Broadcast — WhatsApp Business API providers for broker comms
-  {
-    id: "aisensy", name: "AiSensy", description: "WhatsApp Business broadcasts for broker packs & project updates",
-    icon: "A", category: "broadcast", connected: false,
-    fields: [
-      { key: "apiKey", label: "API Key", placeholder: "AiSensy API key", type: "password" },
-      { key: "campaignName", label: "Campaign Name", placeholder: "Approved campaign name on AiSensy dashboard", type: "text" },
-      { key: "sourceName", label: "Source Name", placeholder: "Optional \u2014 shown on AiSensy", type: "text" },
-    ],
-  },
-  {
-    id: "interakt", name: "Interakt", description: "WhatsApp Business template broadcasts for broker comms",
-    icon: "I", category: "broadcast", connected: false,
-    fields: [
-      { key: "apiKey", label: "API Key", placeholder: "Interakt Basic auth token", type: "password" },
-      { key: "templateName", label: "Template Name", placeholder: "Approved WhatsApp template name", type: "text" },
-      { key: "templateLanguage", label: "Template Language", placeholder: "en", type: "text" },
     ],
   },
 ];
@@ -207,34 +188,6 @@ export default function SettingsPage() {
     const values = integrationValues[integration.id] || {};
     if (integration.fields.length > 0 && Object.keys(values).length === 0) {
       alert("Please fill in the connection details first.");
-      return;
-    }
-
-    // WhatsApp broadcast providers persist to the DB-backed integrations
-    // table (per-company, RLS-scoped) rather than localStorage, because
-    // the API keys are used server-side from /api/broadcast.
-    if (integration.id === "aisensy" || integration.id === "interakt") {
-      setTestingId(integration.id);
-      try {
-        const res = await fetch("/api/integrations/whatsapp", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ provider: integration.id, credentials: values }),
-        });
-        const data = await res.json();
-        if (res.ok) {
-          const newConnected = new Set(connectedIntegrations);
-          newConnected.add(integration.id);
-          setConnectedIntegrations(newConnected);
-          localStorage.setItem("cabbge_integrations", JSON.stringify({ connected: Array.from(newConnected), values: integrationValues }));
-        } else {
-          alert(data.error || "Connection failed");
-        }
-      } catch (err) {
-        alert(err instanceof Error ? err.message : "Connection failed");
-      } finally {
-        setTestingId(null);
-      }
       return;
     }
 
@@ -549,13 +502,6 @@ export default function SettingsPage() {
                 <p className="text-xs text-zinc-600 mb-4">Publish articles directly to your CMS or blog platform</p>
                 <div className="grid grid-cols-2 gap-4">
                   {INTEGRATIONS.filter(i => i.category === "publishing").map(renderIntegrationCard)}
-                </div>
-              </div>
-              <div>
-                <h3 className="text-sm font-medium text-zinc-300 mb-1">WhatsApp Broker Broadcasts</h3>
-                <p className="text-xs text-zinc-600 mb-4">Connect a WhatsApp Business API provider to broadcast generated broker packs in one click. Needs a pre-approved template with one body variable.</p>
-                <div className="grid grid-cols-2 gap-4">
-                  {INTEGRATIONS.filter(i => i.category === "broadcast").map(renderIntegrationCard)}
                 </div>
               </div>
             </TabsContent>

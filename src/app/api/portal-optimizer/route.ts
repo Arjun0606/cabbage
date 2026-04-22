@@ -1,5 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { aiComplete } from "@/lib/ai";
+import { getTopIndianPropertyPortals } from "@/lib/marketKnowledge";
+
+/**
+ * Portal Optimizer — generates portal-specific listing copy for the
+ * top Indian property portals.
+ *
+ * The portal list is discovered LIVE via marketKnowledge (ChatGPT web
+ * search, cached 6h). No hardcoded 99acres / MagicBricks / Housing /
+ * CommonFloor / PropTiger here — when the market shifts, the
+ * generator picks up the new portals automatically.
+ */
+
+function slugifyPortal(domain: string): string {
+  return domain.replace(/\.[a-z.]+$/i, "").replace(/[^a-z0-9]+/gi, "").toLowerCase() || "portal";
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -23,146 +38,116 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const configStr = configurations || "2BHK, 3BHK";
-    const priceStr = priceRange || "On request";
+    const portals = await getTopIndianPropertyPortals();
+    if (portals.length === 0) {
+      return NextResponse.json(
+        {
+          error:
+            "Couldn't discover the current top Indian property portals. Try again in a minute — live web search may be rate-limited.",
+        },
+        { status: 503 }
+      );
+    }
+
+    const configStr = configurations || "";
+    const priceStr = priceRange || "";
     const devStr = developerName || "";
     const reraStr = reraNumber || "";
     const amenStr = amenities || "";
 
     const hasExisting = currentListingTitle || currentListingDescription;
 
-    const system = `You are India's leading property portal listing optimisation expert. You know the exact algorithms, character limits, and ranking factors for 99acres, MagicBricks, Housing.com, CommonFloor, and PropTiger. You write listing content that is keyword-rich, benefit-driven, and formatted for maximum readability on each platform.
+    // Give each portal a stable JSON key derived from its domain, and
+    // ask the model to return an object keyed by that slug.
+    const portalList = portals
+      .map((p) => `- ${p.name} (${p.domain}) — key "${slugifyPortal(p.domain)}"`)
+      .join("\n");
+    const portalKeys = portals.map((p) => slugifyPortal(p.domain));
+
+    const system = `You are an expert Indian property portal listing optimizer. You write listing content that is keyword-rich, benefit-driven, and formatted for maximum readability on each portal.
 
 CRITICAL HONESTY RULES:
 - Do NOT invent specific price-per-sqft figures, rental yield percentages, annual appreciation forecasts, or possession dates. Use only the price range / RERA / configurations / amenities supplied in the data.
 - Do NOT invent named landmarks (specific schools, hospitals, metro station names, IT parks) "near" the location. Use generic neighbourhood framing.
 - Do NOT claim "fast-selling" / "Only X units left" / "Price rising next month" unless the customer has supplied those claims.
-- When a field (e.g. RERA) isn't supplied, write generic copy or omit the claim. Never fabricate "Applied / Awaited" if the customer didn't say so.
+- When a field (e.g. RERA) isn't supplied, write generic copy or omit the claim. Never fabricate.
 
-IMPORTANT: Return ONLY valid JSON with the exact structure specified. No markdown fences, no commentary outside the JSON.`;
+Return ONLY valid JSON with the exact structure specified. No markdown fences, no commentary outside the JSON.`;
 
-    let improvementBlock = "";
-    if (hasExisting) {
-      improvementBlock = `
+    const improvementBlock = hasExisting
+      ? `
 CURRENT LISTING (analyse and suggest improvements):
 - Current Title: ${currentListingTitle || "Not provided"}
 - Current Description: ${currentListingDescription || "Not provided"}
 
-Include an "improvements" array in your response with 5-8 specific, actionable suggestions for improving the current listing (what to change and why).`;
-    }
+Include an "improvements" array in your response with 5-8 specific, actionable suggestions.`
+      : "";
 
-    const prompt = `Generate optimised listing content for ALL major Indian property portals for this project.
+    const prompt = `Generate optimised listing content for each of the Indian property portals below.
 
 PROJECT DETAILS:
 - Project Name: ${projectName}
 - Developer: ${devStr || "N/A"}
 - City: ${city}
 - Location: ${location}
-- Configurations: ${configStr}
-- Price Range: ${priceStr}
-- RERA Number: ${reraStr || "Applied / Awaited"}
-- Amenities: ${amenStr || "Standard amenities"}
+- Configurations: ${configStr || "Not provided"}
+- Price Range: ${priceStr || "Not provided"}
+- RERA Number: ${reraStr || "Not provided"}
+- Amenities: ${amenStr || "Not provided"}
 ${improvementBlock}
 
-Generate portal-specific optimised content and return JSON with this EXACT structure:
+ACTIVE PORTALS (generate a listing for EACH):
+${portalList}
+
+Return JSON with this shape — use the exact key shown in parentheses for each portal:
+
 {
   "portals": {
-    "ninetyNineAcres": {
-      "title": "Optimised title for 99acres (max 70 chars, include location + config + developer name)",
-      "description": "Full optimised description for 99acres (500-700 words). 99acres rewards detailed, structured descriptions. Use bullet points, cover: project overview, configurations, amenities, location advantages, connectivity, investment potential, developer track record, RERA info. Include relevant search keywords naturally.",
-      "tags": ["keyword1", "keyword2", "...10-15 relevant search tags for 99acres"],
-      "imageCaptions": ["Caption for elevation/facade shot", "Caption for floor plan", "Caption for amenity photo", "Caption for location map", "Caption for interior/sample flat"],
-      "highlights": ["Key fields to fill on 99acres portal for better ranking — e.g., 'Possession date', 'Floor number', 'Furnishing status', etc."]
-    },
-    "magicBricks": {
-      "title": "Optimised title for MagicBricks (max 60 chars, MagicBricks prefers concise titles)",
-      "description": "Full optimised description for MagicBricks (400-600 words). MagicBricks favours conversational, benefit-focused descriptions. Write in a warm, engaging style. Highlight lifestyle benefits, neighbourhood advantages, and value proposition. Include price-per-sqft if possible.",
-      "tags": ["keyword1", "keyword2", "...10-15 relevant tags"],
-      "imageCaptions": ["Caption 1", "Caption 2", "Caption 3", "Caption 4", "Caption 5"],
-      "highlights": ["Key MagicBricks-specific fields to fill for ranking"]
-    },
-    "housingCom": {
-      "title": "Optimised title for Housing.com (max 80 chars, Housing.com allows longer titles)",
-      "description": "Full optimised description for Housing.com (400-600 words). Housing.com attracts younger, tech-savvy buyers. Use modern language, emphasise lifestyle and investment angles. Mention walkability, social infrastructure, and work-from-home friendly features.",
-      "tags": ["keyword1", "keyword2", "...10-15 relevant tags"],
-      "imageCaptions": ["Caption 1", "Caption 2", "Caption 3", "Caption 4", "Caption 5"],
-      "highlights": ["Key Housing.com-specific fields to fill for ranking"]
-    },
-    "commonFloor": {
-      "title": "Optimised title for CommonFloor/PropTiger (max 70 chars)",
-      "description": "Optimised description for CommonFloor/PropTiger (300-500 words). Focus on factual details, specifications, and neighbourhood data. These portals attract research-heavy buyers.",
-      "tags": ["keyword1", "keyword2", "...8-10 relevant tags"],
-      "imageCaptions": ["Caption 1", "Caption 2", "Caption 3", "Caption 4", "Caption 5"],
-      "highlights": ["Key fields to fill on CommonFloor/PropTiger"]
-    }
+    ${portalKeys.map((k) => `"${k}": { "title": "...", "description": "...", "tags": ["..."], "imageCaptions": ["..."], "highlights": ["..."] }`).join(",\n    ")}
   },
   "googleBusinessProfile": {
-    "description": "Google Business Profile description (750 chars max). Keyword-rich, location-focused, include configurations and price range. Optimised for local search.",
+    "description": "GBP description (max 750 chars). Keyword-rich, location-focused.",
     "categories": ["Primary GBP category", "Secondary category 1", "Secondary category 2"]
-  },
-  "justDial": {
-    "description": "JustDial listing description (300-400 words). Include contact-driving language, mention all configurations, price range, and location advantages. JustDial users want quick info."
   }${hasExisting ? ',\n  "improvements": ["Specific improvement 1", "Specific improvement 2", "..."]' : ""}
 }
 
 Rules:
-- Each portal description MUST be unique — do not copy-paste between portals. Different portals have different audiences and algorithms.
-- Titles must respect each portal's character limit strictly.
-- Tags should include: location keywords, configuration keywords (2BHK, 3BHK), developer name, project name, nearby landmarks, "new launch" or "ready to move" as relevant.
-- Image captions should be descriptive and keyword-rich (not generic "Image 1").
-- Highlights should be actionable checklist items for the person filling out the portal form.`;
+- Each portal description must be unique — do NOT copy between portals.
+- Respect each portal's typical character limits (60-80 char titles, 400-700 word descriptions).
+- Tags: location + configuration + developer + project name + "new launch" or "ready to move" when the input supports it.
+- Image captions should be descriptive and keyword-rich, not generic "Image 1".
+- Highlights are actionable checklist items for the person filling out the portal form.`;
 
     const raw = await aiComplete(system, prompt, 3500);
 
-    const cleaned = raw
-      .replace(/```json\s*/gi, "")
-      .replace(/```\s*/gi, "")
-      .trim();
+    const cleaned = raw.replace(/```json\s*/gi, "").replace(/```\s*/gi, "").trim();
     const result = JSON.parse(cleaned);
 
-    // Validate expected fields
-    const requiredPortals = [
-      "ninetyNineAcres",
-      "magicBricks",
-      "housingCom",
-      "commonFloor",
-    ];
-    if (!result.portals) {
+    if (!result.portals || typeof result.portals !== "object") {
       return NextResponse.json(
         { error: "Generated content missing portals object" },
         { status: 500 }
       );
     }
-    for (const portal of requiredPortals) {
-      if (!(portal in result.portals)) {
-        return NextResponse.json(
-          { error: `Generated content missing portal: ${portal}` },
-          { status: 500 }
-        );
-      }
-    }
-    if (!result.googleBusinessProfile) {
-      return NextResponse.json(
-        { error: "Generated content missing googleBusinessProfile" },
-        { status: 500 }
-      );
-    }
-    if (!result.justDial) {
-      return NextResponse.json(
-        { error: "Generated content missing justDial" },
-        { status: 500 }
-      );
-    }
 
-    return NextResponse.json(result);
+    // Re-attach portal display metadata so the UI knows which domain /
+    // display name each key maps to. Callers that render the list can
+    // iterate `meta.portals` instead of hardcoding display names.
+    const meta = {
+      portals: portals.map((p) => ({
+        key: slugifyPortal(p.domain),
+        name: p.name,
+        domain: p.domain,
+        submitUrl: p.submitUrl || null,
+      })),
+    };
+
+    return NextResponse.json({ ...result, meta });
   } catch (error) {
     console.error("Portal optimizer error:", error);
     return NextResponse.json(
       {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Portal listing optimization failed",
+        error: error instanceof Error ? error.message : "Portal listing optimization failed",
       },
       { status: 500 }
     );
