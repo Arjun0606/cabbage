@@ -32,10 +32,17 @@ interface Props {
   keywordResearchResult?: any;
   internalLinkingResult?: any;
   contentDecayReport?: any;
+  competitorAlerts?: Array<{
+    id: string;
+    competitor_name: string;
+    competitor_url: string;
+    alert_type: string;
+    title: string;
+    description?: string;
+    created_at: string;
+  }>;
   gscData?: any;
   onNavigateToTab?: (tab: string) => void;
-  // NOTE: previous revisions took competitorResults here too; it was
-  // never rendered in the feed so it's been removed from the contract.
 }
 
 interface FeedItem {
@@ -52,7 +59,7 @@ interface FeedItem {
 export function ActionsFeed({
   auditResult, aiVisResult, backlinkResult, technicalResult,
   geoProgress, siteCrawlResult, keywordResearchResult, internalLinkingResult,
-  contentDecayReport, gscData,
+  contentDecayReport, competitorAlerts, gscData,
   onNavigateToTab,
 }: Props) {
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
@@ -239,6 +246,50 @@ export function ActionsFeed({
       priority: "critical",
       actionTab: "aigeo",
     });
+  }
+
+  // Live competitor site changes (from the daily competitor watch cron).
+  // Fires when a tracked competitor publishes a new launch, updates
+  // pricing, expands their sitemap, or rewrites their homepage hero.
+  if (competitorAlerts && competitorAlerts.length > 0) {
+    const byType: Record<string, typeof competitorAlerts> = {};
+    for (const a of competitorAlerts) {
+      (byType[a.alert_type] = byType[a.alert_type] || []).push(a);
+    }
+    const newLaunches = byType["new_project"] || [];
+    if (newLaunches.length > 0) {
+      feedItems.push({
+        id: "competitor_launch",
+        icon: <Rocket size={16} />,
+        iconBg: "bg-red-500/10 text-red-400",
+        title: `${newLaunches.length} competitor${newLaunches.length === 1 ? "" : "s"} launching a new project`,
+        subtitle: "Review now — generate a comparison article to own the query while they're promoting",
+        priority: "critical",
+        actionTab: "health",
+        items: newLaunches.map((a) => ({
+          title: a.competitor_name,
+          severity: "critical",
+          description: a.description || a.title,
+        })),
+      });
+    }
+    const others = competitorAlerts.filter((a) => a.alert_type !== "new_project");
+    if (others.length > 0) {
+      feedItems.push({
+        id: "competitor_changes",
+        icon: <Eye size={16} />,
+        iconBg: "bg-amber-500/10 text-amber-400",
+        title: `${others.length} competitor site change${others.length === 1 ? "" : "s"}`,
+        subtitle: "Pricing, hero, or new pages changed on tracked competitor sites",
+        priority: "high",
+        actionTab: "health",
+        items: others.slice(0, 10).map((a) => ({
+          title: `${a.competitor_name} — ${a.title}`,
+          severity: "high",
+          description: a.description || "",
+        })),
+      });
+    }
   }
 
   // GSC "almost winning" — positions 4-20 with impressions (easy pushes to top 3)

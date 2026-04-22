@@ -94,6 +94,7 @@ export default function DashboardPage() {
   const [internalLinkingResult, setInternalLinkingResult] = useState<any>(null);
   const [isAnalyzingLinks, setIsAnalyzingLinks] = useState(false);
   const [contentDecayReport, setContentDecayReport] = useState<any>(null);
+  const [competitorAlerts, setCompetitorAlerts] = useState<any[]>([]);
   const [snapshotCount, setSnapshotCount] = useState(0);
   const [billing, setBilling] = useState<{
     plan: string;
@@ -390,6 +391,23 @@ export default function DashboardPage() {
         }
       } catch { /* GSC not connected — silent */ }
     })();
+  }, []);
+
+  // Fetch unread competitor alerts on load and every 5 minutes while
+  // the tab is open. These show in the Actions Feed.
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const res = await fetch("/api/competitor-alerts?unread=1", { cache: "no-store" });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled) setCompetitorAlerts(Array.isArray(data.alerts) ? data.alerts : []);
+      } catch { /* not logged in / offline — ignore */ }
+    };
+    load();
+    const interval = setInterval(load, 5 * 60 * 1000);
+    return () => { cancelled = true; clearInterval(interval); };
   }, []);
 
   // Save company: localStorage immediately + debounced Supabase sync
@@ -1400,6 +1418,7 @@ export default function DashboardPage() {
               keywordResearchResult={keywordResearchResult}
               internalLinkingResult={internalLinkingResult}
               contentDecayReport={contentDecayReport}
+              competitorAlerts={competitorAlerts}
               gscData={gscData}
               onNavigateToTab={setActiveTab}
             />

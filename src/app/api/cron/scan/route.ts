@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/db/supabase";
+import { captureCompetitorSignals, signalsHash, diffSnapshots } from "@/lib/agents/competitorWatch";
 
 /**
  * Automated Cron — runs daily at 02:30 IST (21:00 UTC).
@@ -131,6 +132,66 @@ export async function GET(req: NextRequest) {
         }
       } catch (err) {
         companyResult.errors.push(`AI visibility error: ${err instanceof Error ? err.message : "unknown"}`);
+      }
+
+      // ---- PHASE 3: COMPETITOR WATCH ----
+      // Snapshot each competitor homepage; diff against yesterday's
+      // snapshot; write an alert for each meaningful change (new project
+      // launch, price updates, sitemap growth, hero rewrite, etc.).
+      try {
+        const { data: competitors } = await supabase
+          .from("competitors")
+          .select("name, website")
+          .eq("company_id", company.id);
+
+        for (const comp of competitors || []) {
+          if (!comp.website) continue;
+          const next = await captureCompetitorSignals(comp.website);
+          if (!next) continue;
+          const nextHash = signalsHash(next);
+
+          const { data: prior } = await supabase
+            .from("competitor_snapshots")
+            .select("signals, signals_hash")
+            .eq("company_id", company.id)
+            .eq("competitor_name", comp.name)
+            .order("captured_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (prior?.signals_hash === nextHash) continue; // no change
+
+          const alerts = diffSnapshots(
+            prior ? (prior.signals as any) : null,
+            next,
+            comp.name
+          );
+
+          await supabase.from("competitor_snapshots").insert({
+            company_id: company.id,
+            competitor_name: comp.name,
+            competitor_url: comp.website,
+            signals: next,
+            signals_hash: nextHash,
+          });
+
+          if (alerts.length > 0) {
+            await supabase.from("competitor_alerts").insert(
+              alerts.map((a) => ({
+                company_id: company.id,
+                competitor_name: comp.name,
+                competitor_url: comp.website,
+                alert_type: a.type,
+                title: a.title,
+                description: a.description,
+                details: a.details,
+              }))
+            );
+            companyResult.scans.push(`[${comp.name}] ${alerts.length} new alert${alerts.length === 1 ? "" : "s"}`);
+          }
+        }
+      } catch (err) {
+        companyResult.errors.push(`Competitor watch error: ${err instanceof Error ? err.message : "unknown"}`);
       }
 
       // Content generation removed from cron — it was burning credits silently

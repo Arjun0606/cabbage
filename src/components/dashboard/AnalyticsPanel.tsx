@@ -37,6 +37,7 @@ import { GEOProgressPanel } from "./GEOProgressPanel";
 import { ExecutionChecklist } from "./ExecutionChecklist";
 import { PublishButton } from "./PublishButton";
 import { DeployViaLoader } from "./DeployViaLoader";
+import { BroadcastButton } from "./BroadcastButton";
 import { GSCPanel } from "./GSCPanel";
 import { SiteCrawlPanel } from "./SiteCrawlPanel";
 import { KeywordResearchPanel } from "./KeywordResearchPanel";
@@ -2064,9 +2065,12 @@ export function AnalyticsPanel({
                   {channelPartnerResult.whatsappForward && (
                     <SectionCard>
                       <CardContent className="p-5">
-                        <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
                           <h4 className="text-[13px] font-semibold text-zinc-200">WhatsApp Forward Message</h4>
-                          <CopyBtn text={channelPartnerResult.whatsappForward} field="cp-wa" />
+                          <div className="flex items-center gap-1.5">
+                            <BroadcastButton bodyText={channelPartnerResult.whatsappForward} label="Broadcast to brokers" />
+                            <CopyBtn text={channelPartnerResult.whatsappForward} field="cp-wa" />
+                          </div>
                         </div>
                         <div className="p-3.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30 text-[13px] text-zinc-300 whitespace-pre-wrap leading-relaxed">{channelPartnerResult.whatsappForward}</div>
                       </CardContent>
