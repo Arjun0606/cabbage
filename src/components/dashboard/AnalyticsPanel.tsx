@@ -33,6 +33,7 @@ import { InternalLinkingPanel } from "./InternalLinkingPanel";
 import { ContentQueue } from "./ContentQueue";
 import { LocalityRollup } from "./LocalityRollup";
 import { ProjectRollup } from "./ProjectRollup";
+import { ProjectScorecard } from "./ProjectScorecard";
 import { getCompanyCities, projectMatchesCity } from "@/lib/cities";
 import { parseLocation } from "@/lib/projectParse";
 import { isPortalSubmitted, togglePortalSubmitted, computeCoverage } from "@/lib/portalTracker";
@@ -420,6 +421,20 @@ export function AnalyticsPanel({
         {/* -------- HEALTH TAB (Health + Technical + Checks) -------- */}
         {/* ================================================================ */}
         <TabsContent value="health" className="space-y-4">
+          {/* Per-project focus strip — shown when the user has picked a
+              specific project in the switcher. Collapses the project's
+              four core health dimensions (GEO, SEO, portals, RERA) into
+              one row. All numbers derive from existing state so this
+              surfaces the moment the switcher changes. */}
+          {selectedProject !== null && projects[selectedProject] && (
+            <ProjectScorecard
+              project={projects[selectedProject] as any}
+              aiVisResult={aiVisResult}
+              auditScore={auditResult?.scores?.overall}
+              portalKeys={portalResult ? Object.keys(portalResult.portals || {}) : []}
+            />
+          )}
+
           {/* Sites tree — single coherent view of the customer's web
               footprint (main site + project microsites + additional
               sites) with the latest scores per site. Replaces having to

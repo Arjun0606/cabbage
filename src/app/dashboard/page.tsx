@@ -655,11 +655,14 @@ export default function DashboardPage() {
       // Previous bug: city silently became "the market" between input and request,
       // producing global-brand recommendations instead of city-specific results.
       // Scan scope:
-      //  - city filter narrows to one metro (visibility in Bangalore vs
-      //    Chennai is a different question, can't bundle them).
+      //  - city filter narrows to one metro.
       //  - locality filter narrows further to a single neighbourhood,
       //    which is the dominant Indian buyer query shape ("3 BHK in
-      //    Kukatpally"). When both are null we scan across everything.
+      //    Kukatpally").
+      //  - project selection narrows to a single project — useful for
+      //    a developer running a focused scan on a specific launch,
+      //    generating mostly name + locality queries around it.
+      //  - when all three are null we scan the whole portfolio.
       const { projectMatchesCity } = await import("@/lib/cities");
       const { parseLocation } = await import("@/lib/projectParse");
       const scanCity = selectedCity || company.city;
@@ -673,7 +676,13 @@ export default function DashboardPage() {
           return loc.toLowerCase() === selectedLocality.toLowerCase();
         });
       }
-      const scopeNote = [selectedCity, selectedLocality].filter(Boolean).join(" / ");
+      if (selectedProject !== null && company.projects[selectedProject]) {
+        scopedProjects = [company.projects[selectedProject]];
+      }
+      const projectNote = selectedProject !== null && company.projects[selectedProject]
+        ? company.projects[selectedProject].name
+        : "";
+      const scopeNote = [projectNote, selectedLocality, selectedCity].filter(Boolean).join(" / ");
       addLog(`> Payload: brand="${company.name}" city="${scanCity || "(EMPTY!)"}" projects=${scopedProjects.length}${scopeNote ? ` (scoped to ${scopeNote})` : ""}`);
       const res = await fetch("/api/ai-visibility", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
         websiteUrl: activeSiteUrl || company.website, brand: company.name, city: scanCity, savedQueries: existingQueries,
@@ -1094,11 +1103,17 @@ export default function DashboardPage() {
   };
 
   const runFullScan = async () => {
-    // Multi-site: scan whichever site is currently active in the switcher,
-    // not just the primary corporate site. Falls back to primary if unset.
-    const url = activeSiteUrl || company.website;
+    // Multi-site + per-project: if the user has a specific project
+    // selected AND that project has its own website (microsite), scan
+    // the project's URL. Otherwise fall back to the active site in the
+    // site switcher, then the main company website.
+    const selectedProjectWebsite =
+      selectedProject !== null ? company.projects[selectedProject]?.website : undefined;
+    const url = selectedProjectWebsite || activeSiteUrl || company.website;
     if (!url) { addLog("> Set your website URL first"); return; }
-    const siteLabel = url === company.website
+    const siteLabel = selectedProjectWebsite
+      ? `${company.projects[selectedProject!].name} microsite`
+      : url === company.website
       ? "Main site"
       : (company.sites || []).find((s) => s.url === url)?.label || url;
     addLog(`> Full scan started on ${siteLabel} (${url})...`);
