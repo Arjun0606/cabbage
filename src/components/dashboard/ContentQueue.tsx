@@ -556,19 +556,37 @@ export function ContentQueue({
               : "We find the gaps, you approve the articles. Keywords, GEO blind spots, and decaying pages all land here."}
           </p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onRefreshKeywords}
-          disabled={isResearchingKeywords}
-          className="border-zinc-800 text-zinc-400 hover:text-zinc-100 h-8 text-[12px] rounded-lg"
-        >
-          {isResearchingKeywords ? (
-            <><Loader2 size={12} className="animate-spin mr-1.5" />Rescanning</>
-          ) : (
-            <><RefreshCw size={12} className="mr-1.5" />Rescan</>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          {onRefreshInfraNews && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onRefreshInfraNews}
+              disabled={isFetchingInfraNews}
+              title="Scan for metro / road / IT-park / employer news affecting your localities"
+              className="border-zinc-800 text-zinc-400 hover:text-zinc-100 h-8 text-[12px] rounded-lg"
+            >
+              {isFetchingInfraNews ? (
+                <><Loader2 size={12} className="animate-spin mr-1.5" />Scanning news</>
+              ) : (
+                <><RefreshCw size={12} className="mr-1.5" />Infra news</>
+              )}
+            </Button>
           )}
-        </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onRefreshKeywords}
+            disabled={isResearchingKeywords}
+            className="border-zinc-800 text-zinc-400 hover:text-zinc-100 h-8 text-[12px] rounded-lg"
+          >
+            {isResearchingKeywords ? (
+              <><Loader2 size={12} className="animate-spin mr-1.5" />Rescanning</>
+            ) : (
+              <><RefreshCw size={12} className="mr-1.5" />Rescan</>
+            )}
+          </Button>
+        </div>
       </div>
 
       {/* -------- Inline preview of the article just generated -------- */}
@@ -577,9 +595,14 @@ export function ContentQueue({
           <CardContent className="p-5">
             <div className="flex items-start justify-between mb-3 gap-3">
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2 mb-1">
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
                   <CheckCircle2 size={13} className="text-[#7CB342]" />
                   <span className="text-[11px] uppercase tracking-wide text-[#7CB342] font-semibold">Just generated</span>
+                  {articleResult._deployedSlug && (
+                    <Badge className="text-[10px] bg-[#7CB342]/15 text-[#7CB342] border-0 rounded-md h-5 px-1.5">
+                      live at {articleResult._deployedSlug}
+                    </Badge>
+                  )}
                 </div>
                 <h4 className="text-[15px] font-semibold text-zinc-100">{articleResult.title}</h4>
                 <p className="text-[12px] text-zinc-500 mt-1 line-clamp-2">{articleResult.metaDescription}</p>
