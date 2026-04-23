@@ -58,8 +58,10 @@ export interface SiteCrawlResult {
   };
 }
 
-const DEFAULT_MAX_PAGES = 50;
+const DEFAULT_MAX_PAGES = 200;
 const FETCH_TIMEOUT_MS = 10_000;
+const CRAWL_TIMEOUT_MS = 8 * 60_000; // hard 8-minute cap so a deep site can't hang the request
+const CONCURRENCY = 12;              // tuned so a 2000-page crawl completes in ~5 min
 const USER_AGENT = "Cabbge/1.0 SEO Crawler (+https://cabbge.com)";
 
 function stripHtml(html: string): string {
@@ -124,6 +126,78 @@ async function fetchPage(url: string): Promise<{ html: string; statusCode: numbe
       error: err instanceof Error ? err.message : "fetch failed",
     };
   }
+}
+
+/**
+ * Seed the crawl queue from /sitemap.xml and /robots.txt so a 2000-page
+ * developer site fills the queue in seconds rather than hours of
+ * link-walking. Falls back silently to link-discovery when the sitemap
+ * isn't there or is unparseable — the caller always has the root URL.
+ *
+ * We recursively follow sitemap index files (<sitemapindex>) so sites
+ * that split their sitemap by month / section still get covered.
+ */
+async function seedFromSitemap(origin: string, cap: number): Promise<string[]> {
+  const seen = new Set<string>();
+  const collected: string[] = [];
+
+  // Try robots.txt first — gives us every declared sitemap URL.
+  const sitemapUrls = new Set<string>([`${origin}/sitemap.xml`, `${origin}/sitemap_index.xml`]);
+  try {
+    const robots = await fetch(`${origin}/robots.txt`, {
+      headers: { "User-Agent": USER_AGENT },
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    }).then((r) => (r.ok ? r.text() : ""));
+    for (const line of robots.split(/\r?\n/)) {
+      const m = line.match(/^\s*Sitemap:\s*(\S+)/i);
+      if (m) sitemapUrls.add(m[1].trim());
+    }
+  } catch {
+    /* no robots.txt — fine */
+  }
+
+  const fetchSitemap = async (url: string, depth = 0): Promise<void> => {
+    if (depth > 3 || collected.length >= cap) return;
+    if (seen.has(url)) return;
+    seen.add(url);
+    try {
+      const res = await fetch(url, {
+        headers: { "User-Agent": USER_AGENT },
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      });
+      if (!res.ok) return;
+      const xml = await res.text();
+      // Handle sitemap-index files (nested sitemap lists)
+      const nested = Array.from(xml.matchAll(/<sitemap>[\s\S]*?<loc>([^<]+)<\/loc>[\s\S]*?<\/sitemap>/gi))
+        .map((m) => m[1].trim());
+      for (const n of nested) await fetchSitemap(n, depth + 1);
+      // Leaf sitemap URLs
+      const urls = Array.from(xml.matchAll(/<url>[\s\S]*?<loc>([^<]+)<\/loc>[\s\S]*?<\/url>/gi))
+        .map((m) => m[1].trim());
+      for (const u of urls) {
+        if (collected.length >= cap) break;
+        try {
+          const parsed = new URL(u);
+          if (parsed.origin !== origin) continue;
+          const normalized = normalizeLink(u, u, origin);
+          if (normalized) collected.push(normalized);
+        } catch {
+          /* skip malformed */
+        }
+      }
+    } catch {
+      /* unreadable — keep going */
+    }
+  };
+
+  for (const smUrl of sitemapUrls) {
+    if (collected.length >= cap) break;
+    await fetchSitemap(smUrl);
+  }
+
+  // Dedup preserving order.
+  const uniq = new Set<string>();
+  return collected.filter((u) => (uniq.has(u) ? false : (uniq.add(u), true)));
 }
 
 function auditPage(url: string, html: string, statusCode: number, loadTimeMs: number, origin: string, error?: string): CrawledPage {
@@ -276,30 +350,50 @@ export async function runSiteCrawl(startUrl: string, maxPages: number = DEFAULT_
   const startTime = Date.now();
   const origin = new URL(safeUrl).origin;
   const rootUrl = normalizeLink(safeUrl, safeUrl, origin) || safeUrl;
+  const deadline = startTime + CRAWL_TIMEOUT_MS;
 
   const visited = new Set<string>();
-  const queue: string[] = [rootUrl];
+  const queued = new Set<string>();
+  const queue: string[] = [];
   const pages: CrawledPage[] = [];
-  const concurrency = 4;
 
+  const enqueue = (url: string) => {
+    if (!url || visited.has(url) || queued.has(url)) return;
+    if (pages.length + queue.length >= maxPages) return;
+    queue.push(url);
+    queued.add(url);
+  };
+
+  // Always try the root first.
+  enqueue(rootUrl);
+
+  // Sitemap seeding — for big developer sites (Prestige, Lodha, DLF)
+  // the XML sitemap already lists every project + locality + blog URL
+  // they want indexed. Link-walking alone would take forever on a
+  // 2000-page site; seeding fills the queue in seconds.
+  const seeds = await seedFromSitemap(origin, maxPages);
+  for (const s of seeds) enqueue(s);
+
+  // Main crawl loop — batches of `CONCURRENCY` fetches at a time.
   while (queue.length > 0 && pages.length < maxPages) {
-    const batch = queue.splice(0, concurrency).filter((u) => !visited.has(u));
+    if (Date.now() > deadline) break; // hard cap — never let a crawl run >8 min
+    const batch = queue.splice(0, CONCURRENCY).filter((u) => !visited.has(u));
     batch.forEach((u) => visited.add(u));
 
-    const results = await Promise.all(batch.map(async (url) => {
-      const { html, statusCode, loadTimeMs, error: fetchError } = await fetchPage(url);
-      return auditPage(url, html, statusCode, loadTimeMs, origin, fetchError);
-    }));
+    const results = await Promise.all(
+      batch.map(async (url) => {
+        const { html, statusCode, loadTimeMs, error: fetchError } = await fetchPage(url);
+        return auditPage(url, html, statusCode, loadTimeMs, origin, fetchError);
+      })
+    );
 
     for (const page of results) {
       if (pages.length >= maxPages) break;
       pages.push(page);
-      // Queue newly-found internal links
-      for (const link of page.internalLinks) {
-        if (!visited.has(link) && !queue.includes(link) && pages.length + queue.length < maxPages) {
-          queue.push(link);
-        }
-      }
+      // Discover new URLs from this page's internal links. Sitemap
+      // already seeded most; this fills in any dynamic pages the
+      // sitemap missed.
+      for (const link of page.internalLinks) enqueue(link);
     }
   }
 

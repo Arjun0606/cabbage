@@ -3,13 +3,17 @@ import { runSiteCrawl } from "@/lib/agents/siteCrawler";
 import { enforceCredits } from "@/lib/credits";
 
 /**
- * Full-site crawler endpoint. Crawls a site (default 50 pages, max 200)
- * and returns per-URL SEO audit + site-wide summary.
+ * Full-site crawler endpoint. Crawls a site and returns per-URL SEO
+ * audit + site-wide summary.
  *
- * Used by the dashboard's "Run Site Crawl" button. Results are persisted
- * by the client to localStorage per activeSiteUrl so switching sites
- * loads that site's crawl.
+ * The upper cap is generous on purpose. A Prestige / Lodha / Godrej
+ * portfolio site easily has 2000+ URLs across project microsites,
+ * locality pages, blog archives, and corporate content. Capping at
+ * 200 hid 90% of the surface.
  */
+const DEFAULT_PAGES = 200;
+const MAX_PAGES = 3000;
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -19,10 +23,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "URL is required" }, { status: 400 });
     }
 
-    // Soft credit tracking (upsell model — doesn't block)
     await enforceCredits(companyId, "audit");
 
-    const limit = Math.min(Math.max(Number(maxPages) || 50, 1), 200);
+    const limit = Math.min(Math.max(Number(maxPages) || DEFAULT_PAGES, 1), MAX_PAGES);
     const result = await runSiteCrawl(url, limit);
 
     return NextResponse.json(result);

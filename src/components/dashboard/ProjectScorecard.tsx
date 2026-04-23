@@ -110,21 +110,25 @@ export function ProjectScorecard({ project, aiVisResult, auditScore, portalKeys 
               <Badge className="text-[10px] bg-zinc-800 text-zinc-300 border-0 rounded-md h-5 px-1.5">
                 {stageLabel}
               </Badge>
-              <Badge className={`text-[10px] border-0 rounded-md h-5 px-1.5 ${
-                assetType === "residential"
-                  ? "bg-zinc-800 text-zinc-400"
-                  : assetType === "commercial"
-                  ? "bg-blue-500/15 text-blue-400"
-                  : assetType === "retail"
-                  ? "bg-purple-500/15 text-purple-400"
-                  : assetType === "township"
-                  ? "bg-[#7CB342]/15 text-[#7CB342]"
-                  : assetType === "hospitality"
-                  ? "bg-amber-500/15 text-amber-400"
-                  : "bg-zinc-700 text-zinc-300"
-              }`}>
-                {assetTypeLabel(assetType)}
-              </Badge>
+              {/* Asset-type badge only shows for the unusual cases
+                  (township / commercial / retail / hospitality / mixed).
+                  Cabbge is residential-focused, so the default case
+                  stays clean without a redundant "Residential" chip. */}
+              {assetType !== "residential" && (
+                <Badge className={`text-[10px] border-0 rounded-md h-5 px-1.5 ${
+                  assetType === "commercial"
+                    ? "bg-blue-500/15 text-blue-400"
+                    : assetType === "retail"
+                    ? "bg-purple-500/15 text-purple-400"
+                    : assetType === "township"
+                    ? "bg-[#7CB342]/15 text-[#7CB342]"
+                    : assetType === "hospitality"
+                    ? "bg-amber-500/15 text-amber-400"
+                    : "bg-zinc-700 text-zinc-300"
+                }`}>
+                  {assetTypeLabel(assetType)}
+                </Badge>
+              )}
               {project.locality && (
                 <span className="text-[11px] text-zinc-500">{project.locality}{project.city ? `, ${project.city}` : ""}</span>
               )}
