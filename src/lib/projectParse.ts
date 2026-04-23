@@ -178,6 +178,86 @@ export function formatRupees(rupees: number | null | undefined): string {
 }
 
 // ---------------------------------------------------------------------------
+// State inference (for multi-state RERA tracking)
+// ---------------------------------------------------------------------------
+
+/**
+ * India's state-level RERA authorities make the state of a project a
+ * legally significant dimension — a DLF project in Gurgaon falls under
+ * HARERA, a Bangalore project under K-RERA, Hyderabad under TS-RERA,
+ * etc. This helper infers the state from the city so we can group
+ * RERA coverage per state in the UI without asking the user to type it.
+ *
+ * Conservative on purpose: only cities we're sure of return a state.
+ * Everything else returns undefined (the RERA card just shows the
+ * total without the split).
+ */
+const CITY_TO_STATE: Record<string, string> = {
+  hyderabad: "Telangana",
+  secunderabad: "Telangana",
+  visakhapatnam: "Andhra Pradesh",
+  vijayawada: "Andhra Pradesh",
+  vizag: "Andhra Pradesh",
+  bangalore: "Karnataka",
+  bengaluru: "Karnataka",
+  mysore: "Karnataka",
+  mangalore: "Karnataka",
+  mumbai: "Maharashtra",
+  pune: "Maharashtra",
+  thane: "Maharashtra",
+  navi: "Maharashtra",
+  nagpur: "Maharashtra",
+  nashik: "Maharashtra",
+  chennai: "Tamil Nadu",
+  coimbatore: "Tamil Nadu",
+  kochi: "Kerala",
+  ernakulam: "Kerala",
+  thiruvananthapuram: "Kerala",
+  trivandrum: "Kerala",
+  ahmedabad: "Gujarat",
+  surat: "Gujarat",
+  vadodara: "Gujarat",
+  baroda: "Gujarat",
+  gandhinagar: "Gujarat",
+  jaipur: "Rajasthan",
+  udaipur: "Rajasthan",
+  jodhpur: "Rajasthan",
+  lucknow: "Uttar Pradesh",
+  noida: "Uttar Pradesh",
+  ghaziabad: "Uttar Pradesh",
+  greater: "Uttar Pradesh",
+  gurgaon: "Haryana",
+  gurugram: "Haryana",
+  faridabad: "Haryana",
+  chandigarh: "Chandigarh",
+  delhi: "Delhi NCR",
+  "new delhi": "Delhi NCR",
+  kolkata: "West Bengal",
+  howrah: "West Bengal",
+  bhubaneswar: "Odisha",
+  cuttack: "Odisha",
+  indore: "Madhya Pradesh",
+  bhopal: "Madhya Pradesh",
+  raipur: "Chhattisgarh",
+  ranchi: "Jharkhand",
+  patna: "Bihar",
+  guwahati: "Assam",
+  goa: "Goa",
+  panaji: "Goa",
+  dehradun: "Uttarakhand",
+  shimla: "Himachal Pradesh",
+};
+
+export function inferState(city: string | null | undefined): string | undefined {
+  if (!city) return undefined;
+  const key = city.trim().toLowerCase();
+  if (CITY_TO_STATE[key]) return CITY_TO_STATE[key];
+  // Try the first word (e.g. "new delhi" as a two-word city)
+  const firstWord = key.split(/\s+/)[0];
+  return CITY_TO_STATE[firstWord];
+}
+
+// ---------------------------------------------------------------------------
 // Stage (normalised to snake_case from the display status)
 // ---------------------------------------------------------------------------
 

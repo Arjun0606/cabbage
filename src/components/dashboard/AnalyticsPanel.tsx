@@ -34,8 +34,9 @@ import { ContentQueue } from "./ContentQueue";
 import { LocalityRollup } from "./LocalityRollup";
 import { ProjectRollup } from "./ProjectRollup";
 import { ProjectScorecard } from "./ProjectScorecard";
+import { CompetitiveLandscape } from "./CompetitiveLandscape";
 import { getCompanyCities, projectMatchesCity } from "@/lib/cities";
-import { parseLocation } from "@/lib/projectParse";
+import { parseLocation, inferState } from "@/lib/projectParse";
 import { isPortalSubmitted, togglePortalSubmitted, computeCoverage } from "@/lib/portalTracker";
 
 interface Props {
@@ -1021,6 +1022,17 @@ export function AnalyticsPanel({
             selectedProject={selectedProject}
           />
 
+          {/* Competitive landscape + sentiment alerts — who AI cites
+              alongside the brand per locality, plus urgent flags when
+              AI mentions the brand in a negative tone. Both derived
+              from existing coCitations + sentiment fields. */}
+          <CompetitiveLandscape
+            aiVisResult={aiVisResult}
+            brand={companyName}
+            localities={localitiesInScope}
+            onWriteArticle={onGeoFixQuery}
+          />
+
           {/* City scope banner — reminds the user that "overall score"
               is specific to the selected city. Critical for multi-city
               developers where Bangalore and Chennai visibility are
@@ -1538,6 +1550,22 @@ export function AnalyticsPanel({
           {/* --- Scorecards --- */}
           {(() => {
             const reraProjects = projects.filter((p) => !!(p as any).rera_number || !!(p as any).reraNumber).length;
+            // Multi-state RERA split. Each Indian state has its own
+            // RERA authority (HARERA / K-RERA / TS-RERA etc.), so a
+            // multi-state developer needs to see the count per state.
+            const statesMap = new Map<string, { total: number; rera: number }>();
+            for (const p of projects) {
+              const projectCity = (p as any).city || parseLocation(p.location, city).city || city;
+              const state = inferState(projectCity) || "Other";
+              const existing = statesMap.get(state) || { total: 0, rera: 0 };
+              existing.total++;
+              if ((p as any).rera_number || (p as any).reraNumber) existing.rera++;
+              statesMap.set(state, existing);
+            }
+            const stateBreakdown = Array.from(statesMap.entries())
+              .filter(([, v]) => v.total > 0)
+              .sort((a, b) => b[1].total - a[1].total);
+            const multiState = stateBreakdown.length > 1;
             return (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <SectionCard>
@@ -1579,7 +1607,9 @@ export function AnalyticsPanel({
                 {/* RERA trust signal — critical in Indian RE. AI models
                     (and Google) treat RERA-registered projects as
                     higher-trust citations. Surfacing the gap nudges
-                    developers to fix missing RERA numbers. */}
+                    developers to fix missing RERA numbers. For multi-
+                    state developers we show the split per state since
+                    each state has its own RERA authority. */}
                 <SectionCard>
                   <CardContent className="p-4">
                     <div className="text-[10px] uppercase tracking-wide text-zinc-500 font-semibold mb-1">RERA Verified</div>
@@ -1592,10 +1622,31 @@ export function AnalyticsPanel({
                     <div className="text-[11px] text-zinc-500 mt-0.5">
                       {projects.length === 0
                         ? "Add projects to track"
+                        : multiState
+                        ? `${stateBreakdown.length} state authorities`
                         : reraProjects === projects.length
                         ? "All projects RERA-registered"
                         : `${projects.length - reraProjects} project${projects.length - reraProjects === 1 ? "" : "s"} missing RERA`}
                     </div>
+                    {multiState && (
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {stateBreakdown.slice(0, 4).map(([state, v]) => (
+                          <Badge
+                            key={state}
+                            className={`text-[9px] h-4 px-1.5 rounded border-0 ${
+                              v.rera === v.total
+                                ? "bg-[#7CB342]/15 text-[#7CB342]"
+                                : v.rera > 0
+                                ? "bg-amber-500/15 text-amber-400"
+                                : "bg-zinc-800 text-zinc-500"
+                            }`}
+                            title={`${state}: ${v.rera}/${v.total} RERA-verified`}
+                          >
+                            {state}: {v.rera}/{v.total}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
                   </CardContent>
                 </SectionCard>
               </div>

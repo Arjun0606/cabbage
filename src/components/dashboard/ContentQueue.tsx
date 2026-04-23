@@ -278,6 +278,32 @@ export function ContentQueue({
       });
     }
 
+    // 2.5) Construction-update track — for every under-construction
+    //    project in scope, surface a "quarterly construction update"
+    //    opportunity. AI models love citable progress content (dated
+    //    posts with specifics lift both Google and AI trust), and
+    //    developers under-invest in it because it feels internal. This
+    //    converts the mundane into citable, rankable content.
+    const now = new Date();
+    const quarter = Math.floor(now.getMonth() / 3) + 1;
+    const year = now.getFullYear();
+    for (const p of projects || []) {
+      if ((p.stage || "").toLowerCase() !== "under_construction") continue;
+      if (!p.name) continue;
+      const keyword = `Q${quarter} ${year} construction update — ${p.name}`;
+      const key = keyword.toLowerCase().trim();
+      if (seen.has(key) || dismissed.has(key)) continue;
+      seen.add(key);
+      out.push({
+        keyword,
+        source: "landing-page",
+        reason: `Dated construction progress posts are the strongest citable signal for UC projects. Include floor status, amenity milestones, and expected handover updates.`,
+        volume: null,
+        difficulty: null,
+        priority: "high",
+      });
+    }
+
     // 3) NRI track — a distinct buyer segment with its own content
     //    shape (FEMA, NRE/NRO, repatriation, virtual tours, USD/AED/GBP).
     //    We always surface the top couple of NRI angles unless the
