@@ -235,10 +235,9 @@ export function AnalyticsPanel({
   const [auditUrl, setAuditUrl] = useState(websiteUrl || "");
   useEffect(() => { if (websiteUrl && !auditUrl) setAuditUrl(websiteUrl); }, [websiteUrl]);
 
-  // Article writer form state
-  const [articleTopic, setArticleTopic] = useState("");
+  // Article writer — just the keyword input now (topic + type were
+  // fluff; onGeoFixQuery picks sensible defaults from the keyword).
   const [articleKeyword, setArticleKeyword] = useState("");
-  const [articleType, setArticleType] = useState("locality_guide");
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
   // Content tab collapsible sections
@@ -300,7 +299,6 @@ export function AnalyticsPanel({
           <TabsTrigger value="health" className="text-[13px] rounded-md px-3.5 py-1.5">Overview</TabsTrigger>
           <TabsTrigger value="aigeo" className="text-[13px] rounded-md px-3.5 py-1.5">AI Search</TabsTrigger>
           <TabsTrigger value="content" className="text-[13px] rounded-md px-3.5 py-1.5">Content</TabsTrigger>
-          <TabsTrigger value="ads" className="text-[13px] rounded-md px-3.5 py-1.5">Portals</TabsTrigger>
           <TabsTrigger value="report" className="text-[13px] rounded-md px-3.5 py-1.5">Report</TabsTrigger>
           <div className="w-px h-5 bg-zinc-800/60 mx-1 self-center" aria-hidden />
           <TabsTrigger value="links" className="text-[13px] rounded-md px-3.5 py-1.5 text-zinc-400 data-[state=active]:text-zinc-100">Links</TabsTrigger>
@@ -368,13 +366,6 @@ export function AnalyticsPanel({
             />
           )}
 
-          {/* Content decay — tracks ranking drops from GSC history */}
-          <ContentDecayPanel
-            report={contentDecayReport || null}
-            snapshotCount={snapshotCount}
-            onRefreshPage={onGeoFixQuery ? (url) => onGeoFixQuery(`refresh content for ${url}`) : undefined}
-          />
-
           {/* Execution Checklist — appears only after the user has at
               least one scan. Before that the first-run banner guides the
               first action. */}
@@ -390,7 +381,7 @@ export function AnalyticsPanel({
             onRunAction={(action) => {
               if (action === "tab-health" || action === "tab-overview") onTabChange("health");
               else if (action === "tab-content") onTabChange("content");
-              else if (action === "tab-portals" || action === "tab-ads") onTabChange("ads");
+              else if (action === "tab-portals" || action === "tab-ads" || action === "tab-links") onTabChange("links");
               else if (action === "tab-aigeo" || action === "tab-ai-search") onTabChange("aigeo");
               else if (action === "tab-report") onTabChange("report");
               else if (action === "tab-locality") onTabChange("locality");
@@ -1301,7 +1292,7 @@ export function AnalyticsPanel({
                             if (f.includes("visibility") || f.includes("ai/geo tab")) return { label: "Scan", onClick: onRunAIVisibility };
                             if (f.includes("audit") || f.includes("health")) return { label: "Scan", onClick: () => onRunAudit(websiteUrl) };
                             if (f.includes("article") || f.includes("content tab")) return { label: "Open", onClick: () => onTabChange("content") };
-                            if (f.includes("portal") || f.includes("ads")) return { label: "Open", onClick: () => onRunPortalOptimizer() };
+                            if (f.includes("portal") || f.includes("ads")) return { label: "Open", onClick: () => { onTabChange("links"); onRunPortalOptimizer(); } };
                             if (f.includes("neighborhood") || f.includes("locality")) return { label: "Open", onClick: () => onTabChange("locality") };
                             if (f.includes("report")) return { label: "Generate", onClick: onRunMarketingReport };
                             if (f.includes("progress")) return { label: "Open", onClick: () => onTabChange("content") };
@@ -1395,6 +1386,97 @@ export function AnalyticsPanel({
               <><Link2 size={15} className="mr-2" />Analyze Backlink Profile</>
             )}
           </Button>
+
+          {/* Portal listings live here — portals are the highest-authority
+              inbound links a developer can earn in India (99acres, Magicbricks,
+              Housing, NoBroker, Commonfloor). Folding them into Links keeps
+              the "off-site authority" story in one place. */}
+          <SectionCard>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-[13px] font-semibold flex items-center gap-2">
+                <Building size={14} className="text-zinc-400" />
+                Property Portal Listings
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Button
+                onClick={onRunPortalOptimizer}
+                disabled={isGeneratingPortal}
+                className="w-full bg-zinc-100 text-zinc-900 hover:bg-white h-9 text-[13px] font-medium rounded-lg"
+              >
+                {isGeneratingPortal ? (
+                  <><Loader2 size={15} className="animate-spin mr-2" />Optimizing listings...</>
+                ) : (
+                  <><Building size={15} className="mr-2" />Optimize Portal Listings</>
+                )}
+              </Button>
+
+              {portalResult ? (
+                <div className="space-y-3">
+                  {Object.entries(portalResult.portals || {}).map(([key, portal]: [string, any]) => {
+                    const meta = (portalResult.meta?.portals || []).find((p: any) => p.key === key);
+                    const displayName = meta?.name || key.replace(/([A-Z])/g, ' $1').trim();
+                    return (
+                      <div key={key} className="p-4 rounded-lg bg-zinc-900/40 border border-zinc-800/60">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <h4 className="text-[13px] font-semibold text-zinc-200">{displayName}</h4>
+                            {meta?.domain && (
+                              <span className="text-[10px] text-zinc-500 font-mono">{meta.domain}</span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            {meta?.submitUrl && (
+                              <a
+                                href={meta.submitUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[11px] font-medium px-2 py-0.5 rounded bg-zinc-800 text-zinc-300 hover:bg-zinc-700 border border-zinc-700/50"
+                              >
+                                Open portal ↗
+                              </a>
+                            )}
+                            <CopyBtn text={`${portal.title}\n\n${portal.description}`} field={`portal-${key}`} />
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <div className="p-3 rounded-lg bg-zinc-800/40 border border-zinc-700/30">
+                            <div className="text-[11px] text-zinc-500 mb-1">Title</div>
+                            <div className="text-[13px] text-zinc-200 font-medium">{portal.title}</div>
+                          </div>
+                          <div className="p-3 rounded-lg bg-zinc-800/40 border border-zinc-700/30">
+                            <div className="text-[11px] text-zinc-500 mb-1">Description</div>
+                            <div className="text-[13px] text-zinc-300 leading-relaxed whitespace-pre-wrap">{portal.description}</div>
+                          </div>
+                          {portal.tags?.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5">
+                              {portal.tags.map((tag: string, i: number) => (
+                                <Badge key={i} variant="outline" className="border-zinc-700/50 text-zinc-400 text-[11px] rounded-md">{tag}</Badge>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {portalResult.googleBusinessProfile && (
+                    <div className="p-4 rounded-lg bg-zinc-900/40 border border-zinc-800/60">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="text-[13px] font-semibold text-zinc-200">Google Business Profile</h4>
+                        <CopyBtn text={portalResult.googleBusinessProfile.description} field="gbp" />
+                      </div>
+                      <div className="p-3 rounded-lg bg-zinc-800/40 border border-zinc-700/30 text-[13px] text-zinc-300 leading-relaxed">{portalResult.googleBusinessProfile.description}</div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-[12px] text-zinc-500 text-center py-3">
+                  Generate portal-specific copy for every major Indian property portal, plus your Google Business Profile.
+                </div>
+              )}
+            </CardContent>
+          </SectionCard>
 
           {backlinkResult ? (
             <>
@@ -1550,10 +1632,10 @@ export function AnalyticsPanel({
         {/* ================================================================ */}
         <TabsContent value="content" className="space-y-4">
 
-          {/* Keyword research sits at the top of Content — this is the
-              first step of the content workflow: find what buyers search,
-              then click "Write Article" on any opportunity to generate
-              an article for that keyword. */}
+          {/* Step 1 — Keyword research. The whole content workflow starts
+              here: every article is pegged to a keyword the site should
+              win. Clicking "Write" on any opportunity generates a full
+              article inline (no separate form). */}
           {onRunKeywordResearch && (
             <KeywordResearchPanel
               city={city}
@@ -1564,152 +1646,127 @@ export function AnalyticsPanel({
             />
           )}
 
-          {/* --- Full Articles --- */}
-          <button
-            onClick={() => setContentSection(contentSection === "articles" ? null : "articles")}
-            className="w-full flex items-center justify-between px-4 py-3 rounded-lg bg-zinc-900/60 border border-zinc-800/50 text-left hover:border-zinc-700 transition-all"
-          >
-            <span className="flex items-center gap-2 text-[13px] font-semibold text-zinc-200">
-              <PenTool size={15} className="text-zinc-100" /> Full Articles
-            </span>
-            <ChevronDown size={14} className={`text-zinc-500 transition-transform ${contentSection === "articles" ? "rotate-180" : ""}`} />
-          </button>
-          {contentSection === "articles" && (
-            <div className="space-y-4">
-              <SectionCard>
-                <CardContent className="p-5 space-y-4">
-                  <h4 className="text-[13px] font-semibold text-zinc-200 flex items-center gap-2">
-                    <PenTool size={15} className="text-zinc-100" />
-                    Full Article Writer
-                  </h4>
-                  <div className="grid grid-cols-2 gap-3">
-                    <Input
-                      placeholder="Article topic or title..."
-                      value={articleTopic}
-                      onChange={(e) => setArticleTopic(e.target.value)}
-                      className="bg-zinc-900/80 border-zinc-800 text-[13px] h-10 placeholder:text-zinc-500/80"
-                    />
-                    <Input
-                      placeholder="Target keyword..."
-                      value={articleKeyword}
-                      onChange={(e) => setArticleKeyword(e.target.value)}
-                      className="bg-zinc-900/80 border-zinc-800 text-[13px] h-10 placeholder:text-zinc-500/80"
-                    />
-                  </div>
-                  <div className="flex gap-2 flex-wrap">
-                    {[
-                      { value: "locality_guide", label: "Locality Guide" },
-                      { value: "project_showcase", label: "Project Showcase" },
-                      { value: "market_analysis", label: "Market Analysis" },
-                      { value: "buyer_guide", label: "Buyer Guide" },
-                      { value: "comparison", label: "Comparison" },
-                      { value: "investment", label: "Investment" },
-                      { value: "nri_guide", label: "NRI Guide" },
-                    ].map((t) => (
-                      <button
-                        key={t.value}
-                        onClick={() => setArticleType(t.value)}
-                        className={`text-[12px] px-3 py-1.5 rounded-lg border transition-all ${
-                          articleType === t.value
-                            ? "bg-zinc-800/40 border-zinc-700 text-zinc-100"
-                            : "bg-zinc-900/50 border-zinc-800/50 text-zinc-500 hover:text-zinc-300"
-                        }`}
-                      >
-                        {t.label}
-                      </button>
-                    ))}
-                  </div>
+          {/* Step 2 — Inline article writer. One input, one button. We
+              hand off to onGeoFixQuery which picks a sensible article
+              type and tracks the piece for the publish -> rescan loop. */}
+          {onGeoFixQuery && (
+            <SectionCard>
+              <CardContent className="p-5 space-y-3">
+                <div className="flex items-center gap-2">
+                  <PenTool size={14} className="text-zinc-100" />
+                  <h4 className="text-[13px] font-semibold text-zinc-200">Write an article for any keyword</h4>
+                </div>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder={`e.g. "3BHK flats in ${city || 'your city'}"`}
+                    value={articleKeyword}
+                    onChange={(e) => setArticleKeyword(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && articleKeyword.trim()) onGeoFixQuery(articleKeyword.trim());
+                    }}
+                    className="bg-zinc-900/80 border-zinc-800 text-[13px] h-10 placeholder:text-zinc-500/80 flex-1"
+                  />
                   <Button
-                    onClick={() => onRunArticleWriter(articleTopic, articleKeyword, articleType)}
-                    disabled={isGeneratingArticle || !articleTopic || !articleKeyword}
-                    className="w-full bg-zinc-100 text-zinc-900 hover:bg-white h-10 text-[13px] font-medium rounded-lg"
+                    onClick={() => articleKeyword.trim() && onGeoFixQuery(articleKeyword.trim())}
+                    disabled={isFixingGeo || !articleKeyword.trim()}
+                    className="bg-zinc-100 text-zinc-900 hover:bg-white h-10 px-4 text-[13px] font-medium rounded-lg"
                   >
-                    {isGeneratingArticle ? (
-                      <><Loader2 size={15} className="animate-spin mr-2" />Writing article...</>
+                    {isFixingGeo ? (
+                      <><Loader2 size={14} className="animate-spin mr-2" />Writing...</>
                     ) : (
-                      <><PenTool size={15} className="mr-2" />Generate Full Article</>
+                      <><PenTool size={14} className="mr-2" />Write Article</>
                     )}
                   </Button>
+                </div>
+                <p className="text-[11px] text-zinc-500">
+                  One article, GEO-optimized. Use the &ldquo;Write&rdquo; button on any opportunity above, or type a keyword here.
+                </p>
+              </CardContent>
+            </SectionCard>
+          )}
+
+          {/* Article output */}
+          {articleResult && (
+            <>
+              <SectionCard>
+                <CardContent className="p-5">
+                  <div className="flex items-start justify-between mb-3 gap-3">
+                    <div className="min-w-0">
+                      <h4 className="text-[15px] font-semibold text-zinc-100">{articleResult.title}</h4>
+                      <p className="text-[12px] text-zinc-500 mt-1">{articleResult.metaDescription}</p>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
+                      <Badge className="bg-zinc-800 text-zinc-300 border-0 text-[10px] h-5 rounded-md">{articleResult.wordCount} words</Badge>
+                      <DeployViaLoader
+                        html={articleResult.content}
+                        title={articleResult.title}
+                        metaDescription={articleResult.metaDescription}
+                        defaultSiteUrl={websiteUrl}
+                        contentType="article"
+                      />
+                      <PublishButton
+                        title={articleResult.title}
+                        content={articleResult.content}
+                        excerpt={articleResult.metaDescription}
+                        targetKeyword={articleResult.targetKeyword}
+                        onPublished={(url) => {
+                          if (articleResult._trackedArticleId) {
+                            markArticlePublished(articleResult._trackedArticleId, url);
+                          }
+                        }}
+                      />
+                      <CopyBtn text={articleResult.content} field="article" />
+                    </div>
+                  </div>
+                  <div className="rounded-lg bg-zinc-800/40 border border-zinc-700/30 p-5 max-h-[500px] overflow-y-auto">
+                    <div className="text-[13px] text-zinc-300 leading-relaxed whitespace-pre-wrap">{articleResult.content}</div>
+                  </div>
                 </CardContent>
               </SectionCard>
 
-              {articleResult && (
-                <>
-                  <SectionCard>
-                    <CardContent className="p-5">
-                      <div className="flex items-start justify-between mb-3">
-                        <div>
-                          <h4 className="text-[15px] font-semibold text-zinc-100">{articleResult.title}</h4>
-                          <p className="text-[12px] text-zinc-500 mt-1">{articleResult.metaDescription}</p>
+              {articleResult.faqs?.length > 0 && (
+                <SectionCard>
+                  <CardContent className="p-5">
+                    <h4 className="text-[13px] font-semibold text-zinc-200 mb-3">FAQs (AI/GEO Optimized)</h4>
+                    <div className="space-y-3">
+                      {articleResult.faqs.map((faq: any, i: number) => (
+                        <div key={i} className="p-3.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30">
+                          <div className="text-[13px] font-medium text-zinc-200 mb-1">{faq.question}</div>
+                          <div className="text-[12px] text-zinc-400 leading-relaxed">{faq.answer}</div>
                         </div>
-                        <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
-                          <Badge className="bg-zinc-800 text-zinc-300 border-0 text-[10px] h-5 rounded-md">{articleResult.wordCount} words</Badge>
-                          <DeployViaLoader
-                            html={articleResult.content}
-                            title={articleResult.title}
-                            metaDescription={articleResult.metaDescription}
-                            defaultSiteUrl={websiteUrl}
-                            contentType="article"
-                          />
-                          <PublishButton
-                            title={articleResult.title}
-                            content={articleResult.content}
-                            excerpt={articleResult.metaDescription}
-                            targetKeyword={articleResult.targetKeyword}
-                            onPublished={(url) => {
-                              if (articleResult._trackedArticleId) {
-                                markArticlePublished(articleResult._trackedArticleId, url);
-                              }
-                            }}
-                          />
-                          <CopyBtn text={articleResult.content} field="article" />
-                        </div>
-                      </div>
-                      <div className="rounded-lg bg-zinc-800/40 border border-zinc-700/30 p-5 max-h-[500px] overflow-y-auto">
-                        <div className="text-[13px] text-zinc-300 leading-relaxed whitespace-pre-wrap">{articleResult.content}</div>
-                      </div>
-                    </CardContent>
-                  </SectionCard>
-
-                  {articleResult.faqs?.length > 0 && (
-                    <SectionCard>
-                      <CardContent className="p-5">
-                        <h4 className="text-[13px] font-semibold text-zinc-200 mb-3">FAQs (AI/GEO Optimized)</h4>
-                        <div className="space-y-3">
-                          {articleResult.faqs.map((faq: any, i: number) => (
-                            <div key={i} className="p-3.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30">
-                              <div className="text-[13px] font-medium text-zinc-200 mb-1">{faq.question}</div>
-                              <div className="text-[12px] text-zinc-400 leading-relaxed">{faq.answer}</div>
-                            </div>
-                          ))}
-                        </div>
-                      </CardContent>
-                    </SectionCard>
-                  )}
-
-                  {articleResult.suggestedInternalLinks?.length > 0 && (
-                    <SectionCard>
-                      <CardContent className="p-5">
-                        <h4 className="text-[13px] font-semibold text-zinc-200 mb-3">Suggested Internal Links</h4>
-                        <div className="flex flex-wrap gap-2">
-                          {articleResult.suggestedInternalLinks.map((link: string, i: number) => (
-                            <Badge key={i} variant="outline" className="border-zinc-700/50 text-zinc-400 text-[12px] rounded-lg h-7 px-2.5">{link}</Badge>
-                          ))}
-                        </div>
-                      </CardContent>
-                    </SectionCard>
-                  )}
-                </>
+                      ))}
+                    </div>
+                  </CardContent>
+                </SectionCard>
               )}
 
-              {!articleResult && !isGeneratingArticle && (
-                <EmptyState icon={PenTool} title="Generate full SEO articles" subtitle="Locality guides, market analysis, NRI guides, project showcases, and more" />
+              {articleResult.suggestedInternalLinks?.length > 0 && (
+                <SectionCard>
+                  <CardContent className="p-5">
+                    <h4 className="text-[13px] font-semibold text-zinc-200 mb-3">Suggested Internal Links</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {articleResult.suggestedInternalLinks.map((link: string, i: number) => (
+                        <Badge key={i} variant="outline" className="border-zinc-700/50 text-zinc-400 text-[12px] rounded-lg h-7 px-2.5">{link}</Badge>
+                      ))}
+                    </div>
+                  </CardContent>
+                </SectionCard>
               )}
-            </div>
+            </>
           )}
 
+          {/* Step 3 — Content decay. Lives in the Content tab now because
+              it is fundamentally a content problem: pages that were
+              ranking are falling. The panel shows a health score so the
+              user sees how much decay is pulling down content. */}
+          <ContentDecayPanel
+            report={contentDecayReport || null}
+            snapshotCount={snapshotCount}
+            onRefreshPage={onGeoFixQuery ? (url) => onGeoFixQuery(`refresh content for ${url}`) : undefined}
+          />
 
-          {/* --- Section 7: Property Schema --- */}
+          {/* Step 4 — Schema. Collapsible because most users deploy this
+              once per project and move on. */}
           <button
             onClick={() => setContentSection(contentSection === "schema" ? null : "schema")}
             className="w-full flex items-center justify-between px-4 py-3 rounded-lg bg-zinc-900/60 border border-zinc-800/50 text-left hover:border-zinc-700 transition-all"
@@ -1735,7 +1792,6 @@ export function AnalyticsPanel({
 
               {schemaResult ? (
                 <>
-                  {/* Auto-deploy — saves schema to Cabbge, serves via public endpoint */}
                   <SchemaDeployPanel
                     defaultPageUrl={websiteUrl}
                     schemaJson={(schemaResult.schemas && (schemaResult.schemas.realEstate || schemaResult.schemas.organization || Object.values(schemaResult.schemas)[0])) as Record<string, unknown> || null}
@@ -1954,90 +2010,6 @@ export function AnalyticsPanel({
                 </div>
               </CardContent>
             </SectionCard>
-          )}
-        </TabsContent>
-
-        {/* ================================================================ */}
-        {/* -------- PORTALS TAB (Portal listing optimizer) -------- */}
-        {/* ================================================================ */}
-        <TabsContent value="ads" className="space-y-4">
-          <Button
-            onClick={onRunPortalOptimizer}
-            disabled={isGeneratingPortal}
-            className="w-full bg-zinc-100 text-zinc-900 hover:bg-white h-10 text-[13px] font-medium rounded-lg"
-          >
-            {isGeneratingPortal ? (
-              <><Loader2 size={15} className="animate-spin mr-2" />Optimizing listings...</>
-            ) : (
-              <><Building size={15} className="mr-2" />Optimize Portal Listings</>
-            )}
-          </Button>
-
-          {portalResult ? (
-            <>
-              {Object.entries(portalResult.portals || {}).map(([key, portal]: [string, any]) => {
-                const meta = (portalResult.meta?.portals || []).find((p: any) => p.key === key);
-                const displayName = meta?.name || key.replace(/([A-Z])/g, ' $1').trim();
-                return (
-                <SectionCard key={key}>
-                  <CardContent className="p-5">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <h4 className="text-[13px] font-semibold text-zinc-200">{displayName}</h4>
-                        {meta?.domain && (
-                          <span className="text-[10px] text-zinc-500 font-mono">{meta.domain}</span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        {meta?.submitUrl && (
-                          <a
-                            href={meta.submitUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-[11px] font-medium px-2 py-0.5 rounded bg-zinc-800 text-zinc-300 hover:bg-zinc-700 border border-zinc-700/50"
-                          >
-                            Open portal \u2197
-                          </a>
-                        )}
-                        <CopyBtn text={`${portal.title}\n\n${portal.description}`} field={`portal-${key}`} />
-                      </div>
-                    </div>
-                    <div className="space-y-3">
-                      <div className="p-3 rounded-lg bg-zinc-800/40 border border-zinc-700/30">
-                        <div className="text-[11px] text-zinc-500 mb-1">Title</div>
-                        <div className="text-[13px] text-zinc-200 font-medium">{portal.title}</div>
-                      </div>
-                      <div className="p-3 rounded-lg bg-zinc-800/40 border border-zinc-700/30">
-                        <div className="text-[11px] text-zinc-500 mb-1">Description</div>
-                        <div className="text-[13px] text-zinc-300 leading-relaxed whitespace-pre-wrap">{portal.description}</div>
-                      </div>
-                      {portal.tags?.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5">
-                          {portal.tags.map((tag: string, i: number) => (
-                            <Badge key={i} variant="outline" className="border-zinc-700/50 text-zinc-400 text-[11px] rounded-md">{tag}</Badge>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </SectionCard>
-                );
-              })}
-
-              {portalResult.googleBusinessProfile && (
-                <SectionCard>
-                  <CardContent className="p-5">
-                    <div className="flex items-center justify-between mb-3">
-                      <h4 className="text-[13px] font-semibold text-zinc-200">Google Business Profile</h4>
-                      <CopyBtn text={portalResult.googleBusinessProfile.description} field="gbp" />
-                    </div>
-                    <div className="p-3 rounded-lg bg-zinc-800/40 border border-zinc-700/30 text-[13px] text-zinc-300 leading-relaxed">{portalResult.googleBusinessProfile.description}</div>
-                  </CardContent>
-                </SectionCard>
-              )}
-            </>
-          ) : (
-            <EmptyState icon={Building} title="Optimize your property portal listings" subtitle="Portal-specific copy for every major Indian property portal, plus your Google Business Profile." />
           )}
         </TabsContent>
 

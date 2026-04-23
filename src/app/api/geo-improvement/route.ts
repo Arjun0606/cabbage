@@ -17,7 +17,7 @@ const TAB = {
   overview: "Overview tab",
   aiSearch: "AI Search tab",
   content: "Content tab",
-  portals: "Portals & Ads tab",
+  portals: "Links tab (Portal Optimizer)",
   report: "Report tab",
   locality: "Locality tab",
   technical: "Technical tab",

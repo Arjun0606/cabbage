@@ -73,8 +73,62 @@ export function ContentDecayPanel({ report, snapshotCount, onRefreshPage }: Prop
     );
   }
 
+  // Content Health Score — shows explicitly how decay drags the score
+  // down. Each decaying page penalises the base 100 by severity weight:
+  // critical -12, high -7, medium -3, low -1. Rising pages add back up
+  // to +10 total. Floors at 0, caps at 100. The user sees the decomposed
+  // math so "scores affected by decay" is not a black box.
+  const weights = { critical: 12, high: 7, medium: 3, low: 1 } as const;
+  const decayPenalty = report.decayingPages.reduce(
+    (sum, p) => sum + (weights[p.severity] || 0),
+    0
+  );
+  const risingBoost = Math.min(10, report.risingPages.length * 2);
+  const healthScore = Math.max(0, Math.min(100, 100 - decayPenalty + risingBoost));
+  const healthColor =
+    healthScore >= 80 ? "text-[#7CB342]" :
+    healthScore >= 60 ? "text-amber-400" :
+    "text-red-400";
+  const healthBg =
+    healthScore >= 80 ? "bg-[#7CB342]/[0.04] border-[#7CB342]/20" :
+    healthScore >= 60 ? "bg-amber-500/[0.04] border-amber-500/20" :
+    "bg-red-500/[0.04] border-red-500/20";
+
   return (
     <div className="space-y-4">
+      {/* Content Health Score — visible scoring so users understand
+          exactly how decay and recovery are moving the number. */}
+      <Card className={`${healthBg} rounded-xl`}>
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="flex items-center gap-2 mb-0.5">
+                <span className="text-[11px] uppercase tracking-wide text-zinc-500 font-semibold">Content Health</span>
+                <Badge className="text-[10px] bg-zinc-800 text-zinc-500 border-0 rounded-md h-5 px-1.5">
+                  last {report.comparisonDays}d
+                </Badge>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className={`text-3xl font-bold tabular-nums ${healthColor}`}>{healthScore}</span>
+                <span className="text-[13px] text-zinc-500">/ 100</span>
+              </div>
+            </div>
+            <div className="text-right text-[11px] tabular-nums space-y-0.5">
+              <div className="text-zinc-500">Base <span className="text-zinc-300">100</span></div>
+              {decayPenalty > 0 && (
+                <div className="text-red-400">Decay <span className="tabular-nums">-{decayPenalty}</span></div>
+              )}
+              {risingBoost > 0 && (
+                <div className="text-[#7CB342]">Rising <span className="tabular-nums">+{risingBoost}</span></div>
+              )}
+            </div>
+          </div>
+          <p className="text-[11px] text-zinc-500 mt-3 leading-relaxed">
+            Decaying pages pull this score down ({report.decayingPages.length} page{report.decayingPages.length === 1 ? "" : "s"}); rising pages push it up ({report.risingPages.length}). Refresh declining pages below to lift it.
+          </p>
+        </CardContent>
+      </Card>
+
       {/* Decaying pages */}
       {report.decayingPages.length > 0 && (
         <Card className="bg-red-500/[0.03] border-red-500/20 rounded-xl">

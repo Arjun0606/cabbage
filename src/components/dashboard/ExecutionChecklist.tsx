@@ -137,10 +137,10 @@ export function ExecutionChecklist({
       id: "submit-portals-generic",
       category: "off-site",
       title: "Optimise your Indian property portal listings",
-      description: "Generate portal-specific copy in the Portals & Ads tab, then paste into each portal.",
+      description: "Generate portal-specific copy in the Links tab, then paste into each portal.",
       actionLabel: "Open Portal Optimizer",
       actionType: "auto",
-      onAction: () => onRunAction("tab-portals"),
+      onAction: () => onRunAction("tab-links"),
     });
   }
   items.push({ id: "claim-gbp", category: "off-site", title: "Claim & optimize Google Business Profile", description: "Most critical listing — shows in Google Maps, AI answers, and local search.", actionLabel: "Open GBP", actionType: "link", actionUrl: "https://business.google.com/" });
