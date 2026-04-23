@@ -89,7 +89,8 @@ interface AIMentionAnalysis {
 async function analyzeMention(
   response: string,
   brand: string,
-  projects: string[]
+  projects: string[],
+  disambiguation?: BrandDisambiguation
 ): Promise<LLMResult> {
   if (!response || response.trim().length < 20) {
     return { mentioned: false, position: 0, context: "", sentiment: "absent", coCitations: [], citationSources: [] };
@@ -100,10 +101,21 @@ Return ONLY valid JSON. No markdown fences, no explanation.
 
 You are tolerant to spelling variations, acronyms, and aliases. "My Home", "My Home Constructions", "MHC", "My Home Group" all count as the same brand if the target is "My Home".`;
 
+  // Disambiguation context — widen detection (aliases) and suppress
+  // false positives (exclusions). Critical for multi-brand names like
+  // Godrej (FMCG vs Properties), Prestige (hotel chain vs developer),
+  // Bajaj, Mahindra, etc. — a generic "Godrej" mention in a response
+  // about home appliances must not count for Godrej Properties.
+  const aliases = (disambiguation?.aliases || []).filter(Boolean);
+  const exclusions = (disambiguation?.exclusions || []).filter(Boolean);
+  const disambigBlock = (aliases.length > 0 || exclusions.length > 0)
+    ? `\n\nDISAMBIGUATION:${aliases.length > 0 ? `\n- Count these as the SAME brand: ${aliases.map((a) => `"${a}"`).join(", ")}` : ""}${exclusions.length > 0 ? `\n- Do NOT count mentions that are clearly about these different brands (same name, different company): ${exclusions.map((e) => `"${e}"`).join(", ")}. If the response talks about one of these in a non-real-estate context, treat as absent.` : ""}`
+    : "";
+
   const prompt = `Analyze this AI chatbot response for mentions of a specific brand.
 
 TARGET BRAND: ${brand}
-${projects.length > 0 ? `TARGET PROJECTS: ${projects.join(", ")}` : ""}
+${projects.length > 0 ? `TARGET PROJECTS: ${projects.join(", ")}` : ""}${disambigBlock}
 
 RESPONSE TO ANALYZE:
 """
@@ -403,11 +415,19 @@ async function checkAIReadiness(url: string): Promise<AIReadinessCheck[]> {
 
 // ---------- Main Function ----------
 
+export interface BrandDisambiguation {
+  /** Alternate spellings / acronyms we should still count as the target brand. */
+  aliases?: string[];
+  /** Unrelated brands with name collisions — mentions clearly about these should NOT count. */
+  exclusions?: string[];
+}
+
 export async function runAIVisibility(
   websiteUrl: string,
   brand: string,
   projects: string[],
-  queries: QueryWithMeta[]
+  queries: QueryWithMeta[],
+  disambiguation?: BrandDisambiguation
 ): Promise<AIVisibilityResult> {
   // Run AI readiness checks
   const aiReadiness = await checkAIReadiness(websiteUrl);
@@ -446,8 +466,8 @@ export async function runAIVisibility(
 
     // AI-powered analysis of each response (sentiment + co-citations done by LLM)
     const [chatgptAnalysis, geminiAnalysis] = await Promise.all([
-      analyzeMention(chatgptRes.text, brand, projects),
-      analyzeMention(geminiRes.text, brand, projects),
+      analyzeMention(chatgptRes.text, brand, projects, disambiguation),
+      analyzeMention(geminiRes.text, brand, projects, disambiguation),
     ]);
 
     queryResults.push({

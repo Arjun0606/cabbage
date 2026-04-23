@@ -85,11 +85,22 @@ export async function POST(req: NextRequest) {
       queryGenerationFallback = { used: generated.usedFallback, reason: generated.reason };
     }
 
+    // Parse aliases + exclusions from the brandContext payload. They
+    // arrive as comma-separated strings (what the user typed) and get
+    // normalised to trimmed arrays for the agent.
+    const parseList = (raw: unknown): string[] => {
+      if (!raw || typeof raw !== "string") return [];
+      return raw.split(",").map((s) => s.trim()).filter((s) => s.length >= 2).slice(0, 15);
+    };
+    const aliases = parseList((brandContext as any)?.aliases);
+    const exclusions = parseList((brandContext as any)?.exclusions);
+
     const result = await runAIVisibility(
       websiteUrl || "",
       brand,
       projects || [],
-      queries
+      queries,
+      { aliases, exclusions }
     );
 
     return NextResponse.json({ ...result, queriesUsed: queries, queryGenerationFallback });

@@ -39,7 +39,7 @@ export default function DashboardPage() {
     sites: [] as { url: string; label: string }[],
     projects: [] as { name: string; website: string; location: string; configurations?: string; priceRange?: string; reraNumber?: string; amenities?: string; status?: string }[],
     competitors: [] as { name: string; website: string }[],
-    documents: { productInfo: "", brandVoice: "", competitorAnalysis: "" },
+    documents: { productInfo: "", brandVoice: "", competitorAnalysis: "", brandAliases: "", brandExclusions: "" },
   });
 
   const [auditResult, setAuditResult] = useState<any>(null);
@@ -218,6 +218,11 @@ export default function DashboardPage() {
                   productInfo: dbCompany.product_info || localData.documents?.productInfo || "",
                   brandVoice: dbCompany.brand_voice || localData.documents?.brandVoice || "",
                   competitorAnalysis: dbCompany.competitor_analysis || localData.documents?.competitorAnalysis || "",
+                  // Aliases + exclusions live inside the documents JSONB
+                  // blob (no dedicated columns needed — they're single-
+                  // line comma lists).
+                  brandAliases: dbCompany.documents?.brandAliases || localData.documents?.brandAliases || "",
+                  brandExclusions: dbCompany.documents?.brandExclusions || localData.documents?.brandExclusions || "",
                 },
                 _companyId: dbCompany.id,
               };
@@ -580,7 +585,7 @@ export default function DashboardPage() {
       const res = await fetch("/api/site-crawl", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url, maxPages: 50 }),
+        body: JSON.stringify({ url, maxPages: 500, companyId: (company as any)._companyId }),
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
@@ -714,6 +719,12 @@ export default function DashboardPage() {
         brandContext: {
           usps: company.description || "",
           productInfo: company.documents?.productInfo || "",
+          // Disambiguation lists — widen mention detection (aliases)
+          // + suppress false positives (exclusions). Critical for
+          // multi-brand names like Godrej / Prestige / Bajaj where
+          // the same word maps to unrelated companies.
+          aliases: (company.documents as any)?.brandAliases || "",
+          exclusions: (company.documents as any)?.brandExclusions || "",
         },
       }) });
       const data = await res.json();

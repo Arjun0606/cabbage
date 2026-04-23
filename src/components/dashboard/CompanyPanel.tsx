@@ -31,6 +31,10 @@ interface Company {
     productInfo: string;
     brandVoice: string;
     competitorAnalysis: string;
+    /** Comma-separated alternate spellings (e.g. "Prestige Group, PEPL"). */
+    brandAliases: string;
+    /** Comma-separated unrelated brands to suppress ("Godrej Consumer, Godrej Agrovet"). */
+    brandExclusions: string;
   };
 }
 
@@ -137,6 +141,12 @@ export function CompanyPanel({ company, setCompany }: Props) {
     { key: "productInfo", label: "Product Information", icon: FileText, hint: "What you sell, key features, target buyer, USPs" },
     { key: "brandVoice", label: "Brand Voice & Positioning", icon: Building2, hint: "How your brand speaks + values + vision — all in one" },
     { key: "competitorAnalysis", label: "Competitor Analysis", icon: Users, hint: "Key competitors, their strengths, your differentiation" },
+    // Disambiguation — the important one for multi-brand names like
+    // "Godrej" (FMCG vs Properties) or "Prestige" (hotel chain vs the
+    // Bangalore developer). Aliases widen mention detection; exclusions
+    // tell the scan "these name collisions don't count as us".
+    { key: "brandAliases", label: "Brand aliases", icon: Users, hint: "Comma-separated alternate spellings or acronyms we count as you (e.g. 'Prestige Group, Prestige Estates, PEPL')" },
+    { key: "brandExclusions", label: "Name collisions to exclude", icon: Users, hint: "Comma-separated unrelated brands sharing your name (e.g. for Godrej Properties: 'Godrej Consumer, Godrej Agrovet, Godrej Interio'). We'll ignore mentions that are clearly about these." },
   ];
 
   return (

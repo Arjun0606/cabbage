@@ -158,7 +158,7 @@ export function SiteCrawlPanel({ data, onRunCrawl, isRunning, onFixPage }: Props
           {data.maxPagesReached && (
             <div className="mt-3 p-2.5 rounded-lg bg-amber-500/[0.04] border border-amber-500/20 text-[11px] text-amber-400 flex items-center gap-2">
               <AlertTriangle size={12} />
-              Hit crawl limit of {data.totalPages} pages. For enterprise-size sites, increase the limit to crawl more URLs.
+              Hit crawl limit of {data.totalPages} pages. Cabbge caps at 3000 — rerun with a higher limit if your site has more URLs.
             </div>
           )}
         </CardContent>

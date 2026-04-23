@@ -284,30 +284,70 @@ export function ContentQueue({
       });
     }
 
-    // 2.5) Construction-update track — for every under-construction
-    //    project in scope, surface a "quarterly construction update"
-    //    opportunity. AI models love citable progress content (dated
-    //    posts with specifics lift both Google and AI trust), and
-    //    developers under-invest in it because it feels internal. This
-    //    converts the mundane into citable, rankable content.
+    // 2.5) Stage-aware content tracks.
+    //  - UC projects get a quarterly construction update (dated,
+    //    citable progress content — the strongest signal for AI
+    //    models answering "what's the latest at X").
+    //  - RTM projects get a handover / resale / rental opportunity
+    //    set. Post-possession a project's buyer shifts from "is it
+    //    coming?" to "is it a good place to live / invest in now?" —
+    //    completely different content shape.
     const now = new Date();
     const quarter = Math.floor(now.getMonth() / 3) + 1;
     const year = now.getFullYear();
     for (const p of projects || []) {
-      if ((p.stage || "").toLowerCase() !== "under_construction") continue;
       if (!p.name) continue;
-      const keyword = `Q${quarter} ${year} construction update — ${p.name}`;
-      const key = keyword.toLowerCase().trim();
-      if (seen.has(key) || dismissed.has(key)) continue;
-      seen.add(key);
-      out.push({
-        keyword,
-        source: "landing-page",
-        reason: `Dated construction progress posts are the strongest citable signal for UC projects. Include floor status, amenity milestones, and expected handover updates.`,
-        volume: null,
-        difficulty: null,
-        priority: "high",
-      });
+      const stage = (p.stage || "").toLowerCase();
+      const locality = p.locality || "";
+
+      if (stage === "under_construction") {
+        const keyword = `Q${quarter} ${year} construction update — ${p.name}`;
+        const key = keyword.toLowerCase().trim();
+        if (!seen.has(key) && !dismissed.has(key)) {
+          seen.add(key);
+          out.push({
+            keyword,
+            source: "landing-page",
+            reason: `Dated construction progress posts are the strongest citable signal for UC projects. Include floor status, amenity milestones, and expected handover updates.`,
+            volume: null,
+            difficulty: null,
+            priority: "high",
+          });
+        }
+      }
+
+      if (stage === "ready_to_move" || stage === "sold_out") {
+        // Post-handover content shifts from "will it deliver" to
+        // "what's it like to live here / is it a good rental". We
+        // surface three canonical post-RTM content shapes:
+        const rtmShapes: Array<{ kw: string; reason: string }> = [
+          {
+            kw: `living in ${p.name}${locality ? `, ${locality}` : ""} review`,
+            reason: "Resident-lens review — amenity usage, society health, nearby daily conveniences. Strongest signal for resale buyers.",
+          },
+          {
+            kw: `${p.name} resale price trend`,
+            reason: "Post-handover buyers shortlist resale projects by price trajectory. Publish a data-backed appreciation story.",
+          },
+          {
+            kw: `${p.name} rental yield ${year}`,
+            reason: "Investors evaluating RTM projects need rental-yield content. Include typical rent + rental demand in the locality.",
+          },
+        ];
+        for (const s of rtmShapes) {
+          const key = s.kw.toLowerCase().trim();
+          if (seen.has(key) || dismissed.has(key)) continue;
+          seen.add(key);
+          out.push({
+            keyword: s.kw,
+            source: "landing-page",
+            reason: s.reason,
+            volume: null,
+            difficulty: null,
+            priority: "medium",
+          });
+        }
+      }
     }
 
     // 3) NRI track — a distinct buyer segment with its own content
