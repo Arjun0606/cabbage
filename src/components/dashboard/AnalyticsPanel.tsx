@@ -444,6 +444,8 @@ export function AnalyticsPanel({
               aiVisResult={aiVisResult}
               auditScore={auditResult?.scores?.overall}
               portalKeys={portalResult ? Object.keys(portalResult.portals || {}) : []}
+              onRunScopedScan={onRunAIVisibility}
+              isScanning={isCheckingAI}
             />
           )}
 
@@ -1590,11 +1592,16 @@ export function AnalyticsPanel({
           {(() => {
             const reraProjects = projects.filter((p) => !!(p as any).rera_number || !!(p as any).reraNumber).length;
             // Multi-state RERA split. Each Indian state has its own
-            // RERA authority (HARERA / K-RERA / TS-RERA etc.), so a
-            // multi-state developer needs to see the count per state.
+            // RERA authority (HARERA / K-RERA / TS-RERA etc.). We
+            // parse the project's location FIRST (smart parser knows
+            // "Kukatpally" + primary city Hyderabad means Hyderabad),
+            // then fall back to the stored city column — reverse order
+            // would bucket legacy rows where city was saved as a
+            // locality into "Other".
             const statesMap = new Map<string, { total: number; rera: number }>();
             for (const p of projects) {
-              const projectCity = (p as any).city || parseLocation(p.location, city).city || city;
+              const parsedCity = parseLocation(p.location, city).city;
+              const projectCity = parsedCity || (p as any).city || city;
               const state = inferState(projectCity) || "Other";
               const existing = statesMap.get(state) || { total: 0, rera: 0 };
               existing.total++;

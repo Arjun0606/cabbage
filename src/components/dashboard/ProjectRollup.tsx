@@ -82,13 +82,12 @@ export function ProjectRollup({ aiVisResult, projects, onSelectProject, selected
     let signal: ProjectScore["signal"] = "none";
 
     for (const q of queryResults) {
-      // Primary tag: does the query name the project explicitly?
       const nameHit = wordMatch(q.query, p.name);
-      // Secondary tag: does the query match the project's (locality +
-      // at least one config) signature? Useful when buyers search by
-      // locality + config instead of by project name.
-      const locHit = p.locality && wordMatch(q.query, p.locality) &&
-        (p.config_tags || []).some((c) => wordMatch(q.query, c));
+      // Locality mention alone is enough — Indian buyer queries are
+      // locality-led and a project in Kukatpally wins or loses when
+      // "3 BHK in Kukatpally" is answered, even if the query doesn't
+      // enumerate the config.
+      const locHit = !!(p.locality && wordMatch(q.query, p.locality));
 
       if (!nameHit && !locHit) continue;
       total++;

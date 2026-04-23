@@ -43,6 +43,9 @@ interface Props {
   auditScore?: number | null;
   /** Portal keys present in the current portalResult — for coverage. */
   portalKeys: string[];
+  /** Triggers a project-scoped AI scan when the user clicks "Run scan". */
+  onRunScopedScan?: () => void;
+  isScanning?: boolean;
 }
 
 function scoreColor(score: number): string {
@@ -66,13 +69,22 @@ function computeProjectGeoScore(
   configTags: string[] | null | undefined,
   queryResults: QueryResult[]
 ): { score: number; total: number; mentioned: number } {
+  // Tagging rule: a query counts toward this project when either
+  //   (1) its name appears, or
+  //   (2) its locality appears (Indian buyer queries are locality-led:
+  //       "3 BHK in Kukatpally", "flats in Gachibowli under 2 cr"),
+  //   (3) any of its config tags appears and the project is the only
+  //       one in scope with that config in this locality.
+  // The previous AND rule (locality + config both required) zeroed
+  // out almost every project because many buyer queries name the
+  // locality + price but not the exact config.
   let total = 0;
   let mentioned = 0;
   for (const q of queryResults) {
     const nameHit = wordMatch(q.query, projectName);
-    const locHit = locality && wordMatch(q.query, locality) &&
-      (configTags || []).some((c) => wordMatch(q.query, c));
-    if (!nameHit && !locHit) continue;
+    const locHit = !!(locality && wordMatch(q.query, locality));
+    const configHit = !nameHit && !locHit && (configTags || []).some((c) => wordMatch(q.query, c));
+    if (!nameHit && !locHit && !configHit) continue;
     total++;
     if (q.chatgpt?.mentioned || q.gemini?.mentioned) mentioned++;
   }
@@ -80,7 +92,7 @@ function computeProjectGeoScore(
   return { score, total, mentioned };
 }
 
-export function ProjectScorecard({ project, aiVisResult, auditScore, portalKeys }: Props) {
+export function ProjectScorecard({ project, aiVisResult, auditScore, portalKeys, onRunScopedScan, isScanning }: Props) {
   const geo = computeProjectGeoScore(
     project.name,
     project.locality || null,
@@ -153,8 +165,13 @@ export function ProjectScorecard({ project, aiVisResult, auditScore, portalKeys 
             suffix={geo.total > 0 ? " /100" : ""}
             hint={geo.total > 0
               ? `${geo.mentioned} of ${geo.total} queries cited this project`
-              : "Run the AI scan to measure"}
+              : "No project-scoped queries yet — click Scan"}
             valueClass={geo.total > 0 ? scoreColor(geo.score) : "text-zinc-400"}
+            action={geo.total === 0 && onRunScopedScan ? {
+              label: isScanning ? "Scanning…" : "Scan",
+              onClick: onRunScopedScan,
+              disabled: !!isScanning,
+            } : undefined}
           />
           <Stat
             icon={<Wrench size={12} className="text-zinc-400" />}
@@ -201,6 +218,7 @@ function Stat({
   suffix,
   hint,
   valueClass,
+  action,
 }: {
   icon: React.ReactNode;
   label: string;
@@ -208,12 +226,22 @@ function Stat({
   suffix: string;
   hint: string;
   valueClass: string;
+  action?: { label: string; onClick: () => void; disabled?: boolean };
 }) {
   return (
     <div className="p-2.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30">
       <div className="flex items-center gap-1.5 mb-0.5">
         {icon}
         <span className="text-[10px] uppercase tracking-wide text-zinc-500 font-semibold">{label}</span>
+        {action && (
+          <button
+            onClick={action.onClick}
+            disabled={action.disabled}
+            className="ml-auto text-[10px] font-medium px-1.5 py-0.5 rounded bg-[#7CB342]/15 text-[#7CB342] border border-[#7CB342]/30 hover:bg-[#7CB342]/25 disabled:opacity-50"
+          >
+            {action.label}
+          </button>
+        )}
       </div>
       <div className="flex items-baseline gap-0.5">
         <span className={`text-[20px] font-bold tabular-nums ${valueClass}`}>{value}</span>
