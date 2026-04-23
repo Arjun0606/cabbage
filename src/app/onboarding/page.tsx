@@ -10,6 +10,7 @@ import {
   Globe, ArrowRight, Loader2, Sparkles, CheckCircle2, Plus, X,
   Building2, MapPin, Layers, AlertCircle,
 } from "lucide-react";
+import { CityAutocomplete } from "@/components/CityAutocomplete";
 
 /**
  * Two-step onboarding:
@@ -366,14 +367,14 @@ export default function OnboardingPage() {
                   </Badge>
                 ))}
               </div>
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Add another city (e.g. Bangalore)"
-                  value={newCityInput}
-                  onChange={(e) => setNewCityInput(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && addCity()}
-                  className="bg-zinc-900/80 border-white/[0.06] text-[13px] h-9 flex-1"
-                />
+              <div className="flex gap-2 items-start">
+                <div className="flex-1">
+                  <CityAutocomplete
+                    value={newCityInput}
+                    onChange={(v: string) => setNewCityInput(v)}
+                    placeholder="Add another city — start typing"
+                  />
+                </div>
                 <button
                   onClick={addCity}
                   disabled={!newCityInput.trim()}

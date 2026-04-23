@@ -64,13 +64,7 @@ interface Props {
   allSites: { url: string; label: string }[];
   companyName: string;
   city: string;
-  contentResult: any;
-  onUpdateContent?: (next: any) => void;
-  contentPlanResult: any;
   localityResult: any;
-  isGeneratingContent: boolean;
-  onRunContent: () => void;
-  onRunContentPlan: () => void;
   onRunLocalitySearch: () => void;
   trends: Record<string, any>;
   // New features
@@ -222,8 +216,8 @@ export function AnalyticsPanel({
   isAuditing, isCheckingAI, isCheckingBacklinks, isCheckingTechnical,
   onRunAudit, onRunAIVisibility, onRunBacklinks, onRunTechnical,
   websiteUrl, allSites, companyName, city,
-  contentResult, onUpdateContent, contentPlanResult, localityResult, isGeneratingContent,
-  onRunContent, onRunContentPlan, onRunLocalitySearch, trends,
+  localityResult,
+  onRunLocalitySearch, trends,
   projects, selectedProject, onSelectProject,
   articleResult, isGeneratingArticle, onRunArticleWriter,
   festiveCampaignResult, isGeneratingCampaign, onRunFestiveCampaign,
@@ -1568,169 +1562,6 @@ export function AnalyticsPanel({
         {/* ================================================================ */}
         <TabsContent value="content" className="space-y-4">
 
-          {/* --- Section 1: Content Topics --- */}
-          <button
-            onClick={() => setContentSection(contentSection === "topics" ? null : "topics")}
-            className="w-full flex items-center justify-between px-4 py-3 rounded-lg bg-zinc-900/60 border border-zinc-800/50 text-left hover:border-zinc-700 transition-all"
-          >
-            <span className="flex items-center gap-2 text-[13px] font-semibold text-zinc-200">
-              <FileText size={15} className="text-zinc-100" /> Content Topics
-            </span>
-            <ChevronDown size={14} className={`text-zinc-500 transition-transform ${contentSection === "topics" ? "rotate-180" : ""}`} />
-          </button>
-          {contentSection === "topics" && (
-            <div className="space-y-4">
-              <div className="flex gap-2">
-                <Button onClick={onRunContent} disabled={isGeneratingContent} className="flex-1 bg-zinc-100 text-zinc-900 hover:bg-white h-10 text-[13px] font-medium rounded-lg">
-                  {isGeneratingContent ? <><Loader2 size={15} className="animate-spin mr-2" />Generating...</> : "Generate Content"}
-                </Button>
-                <Button onClick={onRunContentPlan} disabled={isGeneratingContent} variant="outline" className="border-zinc-700 h-10 text-[13px] rounded-lg">
-                  4-Week Plan
-                </Button>
-              </div>
-
-              {contentResult ? (
-                <>
-                  {contentResult.blogTopics?.length > 0 && (
-                    <SectionCard>
-                      <CardContent className="p-5">
-                        <h4 className="text-[13px] font-semibold text-zinc-200 mb-4">Blog Topics ({contentResult.blogTopics.length})</h4>
-                        <div className="space-y-3">
-                          {contentResult.blogTopics.map((topic: any, i: number) => (
-                            <div key={i} className="p-3.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30 space-y-1.5">
-                              <div className="flex items-start justify-between gap-2">
-                                <div>
-                                  <div className="text-[13px] text-zinc-200 font-medium">{topic.title}</div>
-                                  <div className="text-[11px] text-zinc-100 font-medium mt-0.5">Keyword: {topic.targetKeyword}</div>
-                                </div>
-                                <button
-                                  onClick={() => onRunArticleWriter(topic.title, topic.targetKeyword, "blog")}
-                                  disabled={isGeneratingArticle}
-                                  className="text-[11px] font-medium px-2.5 py-1 rounded-md bg-[#7CB342]/10 text-[#7CB342] border border-[#7CB342]/20 hover:bg-[#7CB342]/20 active:scale-[0.97] transition-all flex-shrink-0 disabled:opacity-40"
-                                >
-                                  {isGeneratingArticle ? "Writing..." : "Write Article"}
-                                </button>
-                              </div>
-                              {topic.outline && (
-                                <div className="text-[12px] text-zinc-500 mt-1.5 space-y-0.5">
-                                  {topic.outline.map((s: string, j: number) => <div key={j}>&#8226; {s}</div>)}
-                                </div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </CardContent>
-                    </SectionCard>
-                  )}
-
-                  {contentResult.linkedinPosts?.length > 0 && (
-                    <SectionCard>
-                      <CardContent className="p-5">
-                        <h4 className="text-[13px] font-semibold text-zinc-200 mb-4">LinkedIn Posts ({contentResult.linkedinPosts.length})</h4>
-                        <div className="space-y-2.5">
-                          {contentResult.linkedinPosts.map((post: string, i: number) => (
-                            <EditableBlock
-                              key={i}
-                              text={post}
-                              onSave={(newText) => {
-                                const updated = [...contentResult.linkedinPosts];
-                                updated[i] = newText;
-                                onUpdateContent?.({ ...contentResult, linkedinPosts: updated });
-                              }}
-                              onRegenerate={onRunContent}
-                              isRegenerating={isGeneratingContent}
-                              regenerateCost={cost("content")}
-                            />
-                          ))}
-                        </div>
-                      </CardContent>
-                    </SectionCard>
-                  )}
-
-                  {contentResult.whatsappMessages?.length > 0 && (
-                    <SectionCard>
-                      <CardContent className="p-5">
-                        <h4 className="text-[13px] font-semibold text-zinc-200 mb-4">WhatsApp Broadcasts ({contentResult.whatsappMessages.length})</h4>
-                        <div className="space-y-2.5">
-                          {contentResult.whatsappMessages.map((msg: string, i: number) => (
-                            <EditableBlock
-                              key={i}
-                              text={msg}
-                              onSave={(newText) => {
-                                const updated = [...contentResult.whatsappMessages];
-                                updated[i] = newText;
-                                onUpdateContent?.({ ...contentResult, whatsappMessages: updated });
-                              }}
-                              onRegenerate={onRunContent}
-                              isRegenerating={isGeneratingContent}
-                              regenerateCost={cost("content")}
-                            />
-                          ))}
-                        </div>
-                      </CardContent>
-                    </SectionCard>
-                  )}
-
-                  {contentResult.localityPages?.length > 0 && (
-                    <SectionCard>
-                      <CardContent className="p-5">
-                        <h4 className="text-[13px] font-semibold text-zinc-200 mb-4">SEO Pages ({contentResult.localityPages.length})</h4>
-                        <div className="space-y-2">
-                          {contentResult.localityPages.map((page: any, i: number) => (
-                            <div key={i} className="p-3 rounded-lg bg-zinc-800/40 border border-zinc-700/30">
-                              <div className="text-[13px] text-zinc-200">{page.title}</div>
-                              <div className="text-[11px] text-zinc-100 font-medium mt-0.5">{page.targetKeyword}</div>
-                            </div>
-                          ))}
-                        </div>
-                      </CardContent>
-                    </SectionCard>
-                  )}
-                </>
-              ) : contentPlanResult ? (
-                <>
-                  {contentPlanResult.weeklyPlan?.length > 0 && (
-                    <SectionCard>
-                      <CardContent className="p-5">
-                        <h4 className="text-[13px] font-semibold text-zinc-200 mb-4">4-Week Content Plan</h4>
-                        <div className="space-y-3">
-                          {contentPlanResult.weeklyPlan.map((week: any, i: number) => (
-                            <div key={i} className="p-3.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30 space-y-1.5">
-                              <div className="text-[12px] font-semibold text-zinc-100">Week {week.week}</div>
-                              <div className="text-[13px] text-zinc-300">Blog: {week.blog?.title}</div>
-                              <div className="text-[12px] text-zinc-500">Keyword: {week.blog?.targetKeyword}</div>
-                              <div className="text-[12px] text-zinc-500">{week.socialPosts} social posts planned</div>
-                            </div>
-                          ))}
-                        </div>
-                      </CardContent>
-                    </SectionCard>
-                  )}
-
-                  {contentPlanResult.socialCalendar?.length > 0 && (
-                    <SectionCard>
-                      <CardContent className="p-5">
-                        <h4 className="text-[13px] font-semibold text-zinc-200 mb-4">Social Calendar ({contentPlanResult.socialCalendar.length} posts)</h4>
-                        <div className="space-y-2">
-                          {contentPlanResult.socialCalendar.slice(0, 10).map((post: any, i: number) => (
-                            <div key={i} className="p-3 rounded-lg bg-zinc-800/40 border border-zinc-700/30">
-                              <div className="flex items-center gap-2 mb-1.5">
-                                <Badge variant="outline" className="text-[10px] border-zinc-700/50 rounded-md">{post.platform}</Badge>
-                                <span className="text-zinc-500 text-[12px]">{post.scheduledDay}</span>
-                              </div>
-                              <div className="text-[13px] text-zinc-300">{post.title}</div>
-                            </div>
-                          ))}
-                        </div>
-                      </CardContent>
-                    </SectionCard>
-                  )}
-                </>
-              ) : (
-                <EmptyState icon={FileText} title="Generate blogs, LinkedIn posts, WhatsApp broadcasts" subtitle="Set your company details first, then click Generate Content" />
-              )}
-            </div>
-          )}
 
           {/* --- Section 2: Full Articles --- */}
           <button

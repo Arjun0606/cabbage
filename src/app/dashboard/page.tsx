@@ -51,10 +51,7 @@ export default function DashboardPage() {
   const [backlinkResult, setBacklinkResult] = useState<any>(null);
   const [technicalResult, setTechnicalResult] = useState<any>(null);
   const [competitorResults, setCompetitorResults] = useState<any[]>([]);
-  const [contentResult, setContentResult] = useState<any>(null);
-  const [contentPlanResult, setContentPlanResult] = useState<any>(null);
   const [localityResult, setLocalityResult] = useState<any>(null);
-  const [isGeneratingContent, setIsGeneratingContent] = useState(false);
 
   // New feature states
   const [articleResult, setArticleResult] = useState<any>(null);
@@ -165,7 +162,7 @@ export default function DashboardPage() {
 
   const CREDIT_COSTS: Record<string, number> = {
     audit: 2, technical: 1, ai_visibility: 4, backlinks: 1, competitors: 2,
-    content: 3, content_plan: 3, article: 5, campaign: 3, partner: 3,
+    article: 5, campaign: 3, partner: 3,
     schema: 2, portal: 2, neighborhood: 3,
     report: 5, ads: 3, llms_txt: 2, geo_improvement: 3, crawler: 1,
     brand_presence: 2, citability: 2, locality: 1,
@@ -766,37 +763,6 @@ export default function DashboardPage() {
     finally { setIsCheckingCompetitors(false); }
   };
 
-  const runContent = async () => {
-    if (!company.name) { addLog("> Set company name first"); return; }
-    if (!spendCredits("content")) return;
-    setIsGeneratingContent(true);
-    addLog(`> Generating content...`);
-    try {
-      const ctx = getProjectContext();
-      const res = await fetch("/api/local-content", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(ctx) });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      setContentResult(data);
-      addLog(`> Content: ${data.blogTopics?.length || 0} blogs, ${data.linkedinPosts?.length || 0} LinkedIn, ${data.whatsappMessages?.length || 0} WhatsApp`);
-    } catch (err) { addLog(`> Error: ${err instanceof Error ? err.message : "Failed"}`); }
-    finally { setIsGeneratingContent(false); }
-  };
-
-  const runContentPlan = async () => {
-    if (!company.name) { addLog("> Set company name first"); return; }
-    if (!spendCredits("content_plan")) return;
-    setIsGeneratingContent(true);
-    addLog(`> Generating 4-week plan...`);
-    try {
-      const ctx = getProjectContext();
-      const res = await fetch("/api/content-plan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(ctx) });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      setContentPlanResult(data);
-      addLog(`> Plan: ${data.weeklyPlan?.length || 0} weeks, ${data.socialCalendar?.length || 0} posts`);
-    } catch (err) { addLog(`> Error: ${err instanceof Error ? err.message : "Failed"}`); }
-    finally { setIsGeneratingContent(false); }
-  };
 
   const runLocalitySearch = async () => {
     if (!company.city) { addLog("> Set city first"); return; }
@@ -1352,9 +1318,7 @@ export default function DashboardPage() {
                 ...(company.sites || []),
               ]}
               companyName={company.name} city={company.city}
-              contentResult={contentResult} onUpdateContent={setContentResult} contentPlanResult={contentPlanResult}
-              localityResult={localityResult} isGeneratingContent={isGeneratingContent}
-              onRunContent={runContent} onRunContentPlan={runContentPlan}
+              localityResult={localityResult}
               onRunLocalitySearch={runLocalitySearch} trends={trends}
               // New features
               projects={company.projects}

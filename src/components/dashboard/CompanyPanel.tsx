@@ -18,6 +18,7 @@ import {
   MapPin,
 } from "lucide-react";
 import { useState, useRef } from "react";
+import { CityAutocomplete } from "@/components/CityAutocomplete";
 
 interface Company {
   name: string;
@@ -180,11 +181,10 @@ export function CompanyPanel({ company, setCompany }: Props) {
             onChange={(e) => setCompany({ ...company, website: e.target.value })}
             className="bg-zinc-900/80 border-white/[0.06] text-[13px] h-9 placeholder:text-zinc-500 focus:border-[#7CB342]/40 focus:ring-[#7CB342]/10 transition-colors"
           />
-          <Input
-            placeholder="Primary city"
+          <CityAutocomplete
             value={company.city}
-            onChange={(e) => setCompany({ ...company, city: e.target.value })}
-            className="bg-zinc-900/80 border-white/[0.06] text-[13px] h-9 placeholder:text-zinc-500 focus:border-[#7CB342]/40 focus:ring-[#7CB342]/10 transition-colors"
+            onChange={(city) => setCompany({ ...company, city })}
+            placeholder="Primary city"
           />
           <Textarea
             placeholder="About the company..."
@@ -237,6 +237,17 @@ export function CompanyPanel({ company, setCompany }: Props) {
                 <span className="text-[13px] text-zinc-300 flex-1 truncate">
                   {project.name || `Project ${idx + 1}`}
                 </span>
+                <Badge
+                  variant="outline"
+                  className={`text-[9px] h-4 px-1 rounded border-0 flex-shrink-0 ${
+                    project.website
+                      ? "bg-[#7CB342]/10 text-[#7CB342]"
+                      : "bg-zinc-800 text-zinc-500"
+                  }`}
+                  title={project.website ? `Own site: ${project.website}` : "Scanned as part of the main site"}
+                >
+                  {project.website ? "own site" : "main site"}
+                </Badge>
                 {project.location && (
                   <span className="text-[11px] text-zinc-500 truncate max-w-[80px]">{project.location}</span>
                 )}
@@ -244,12 +255,56 @@ export function CompanyPanel({ company, setCompany }: Props) {
               </button>
 
               {expandedProject === idx && (
-                <div className="px-3 pb-3 space-y-2 border-t border-zinc-800/40 pt-2.5">
+                <div className="px-3 pb-3 space-y-2.5 border-t border-zinc-800/40 pt-2.5">
+                  <Input placeholder="Project name" value={project.name} onChange={(e) => updateProject(idx, "name", e.target.value)}
+                    className="bg-zinc-900/80 border-zinc-800 text-[12px] h-8 placeholder:text-zinc-500" />
+
+                  {/* Site attachment: either on main site or own URL.
+                      Toggle swaps the control; the underlying data is
+                      still project.website = "" (attached) or the URL. */}
+                  <div className="rounded-lg bg-zinc-800/40 border border-zinc-800/60 p-2.5 space-y-2">
+                    <div className="text-[11px] uppercase tracking-wide text-zinc-500 font-medium">Where does this project live on the web?</div>
+                    <div className="flex gap-1">
+                      <button
+                        type="button"
+                        onClick={() => updateProject(idx, "website", "")}
+                        className={`flex-1 text-[11px] px-2.5 py-1.5 rounded-md border transition-colors ${
+                          !project.website
+                            ? "bg-[#7CB342]/10 text-[#7CB342] border-[#7CB342]/30"
+                            : "bg-zinc-900/60 text-zinc-500 border-zinc-800 hover:text-zinc-300"
+                        }`}
+                      >
+                        On main site
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!project.website) updateProject(idx, "website", "https://");
+                        }}
+                        className={`flex-1 text-[11px] px-2.5 py-1.5 rounded-md border transition-colors ${
+                          project.website
+                            ? "bg-[#7CB342]/10 text-[#7CB342] border-[#7CB342]/30"
+                            : "bg-zinc-900/60 text-zinc-500 border-zinc-800 hover:text-zinc-300"
+                        }`}
+                      >
+                        Has own URL
+                      </button>
+                    </div>
+                    {project.website ? (
+                      <Input
+                        placeholder="https://projectmicrosite.com"
+                        value={project.website}
+                        onChange={(e) => updateProject(idx, "website", e.target.value)}
+                        className="bg-zinc-900/80 border-zinc-800 text-[12px] h-8 placeholder:text-zinc-500"
+                      />
+                    ) : (
+                      <div className="text-[11px] text-zinc-500">
+                        Scanned as part of {company.website || "your main site"}.
+                      </div>
+                    )}
+                  </div>
+
                   <div className="grid grid-cols-2 gap-2">
-                    <Input placeholder="Project name" value={project.name} onChange={(e) => updateProject(idx, "name", e.target.value)}
-                      className="bg-zinc-900/80 border-zinc-800 text-[12px] h-8 placeholder:text-zinc-500" />
-                    <Input placeholder="Project website" value={project.website} onChange={(e) => updateProject(idx, "website", e.target.value)}
-                      className="bg-zinc-900/80 border-zinc-800 text-[12px] h-8 placeholder:text-zinc-500" />
                     <Input placeholder="Location / Locality" value={project.location} onChange={(e) => updateProject(idx, "location", e.target.value)}
                       className="bg-zinc-900/80 border-zinc-800 text-[12px] h-8 placeholder:text-zinc-500" />
                     <Input placeholder="Configs (2BHK, 3BHK, Villa)" value={project.configurations || ""} onChange={(e) => updateProject(idx, "configurations", e.target.value)}

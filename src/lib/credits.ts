@@ -17,8 +17,6 @@ const CREDIT_COSTS: Record<string, number> = {
   ai_visibility: 4,
   backlinks: 1,
   competitors: 2,
-  content: 3,
-  content_plan: 3,
   article: 5,
   campaign: 3,
   partner: 3,
