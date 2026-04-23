@@ -79,6 +79,7 @@ interface ProjectContext {
   stage?: string | null;
   price_min?: number | null;
   price_max?: number | null;
+  amenities?: string | null;
 }
 
 interface DecayingPage {
@@ -206,36 +207,44 @@ export function ContentQueue({
     setQueue(getArticleQueue());
   };
 
-  // --- Topic-cluster coverage across the portfolio. AI search engines
-  //     reward topical depth — a locality with 4-5 supporting articles
-  //     gets cited more than a locality with one generic page. We
-  //     surface the "evenness" of coverage so the user can spot the
-  //     locality that's under-served. Derived from published article
-  //     titles + project localities. ---
+  // --- Topic-cluster coverage per (locality × config) pair. Indian
+  //     buyer queries are compound — "3 BHK in Kukatpally" and "2 BHK
+  //     in Kukatpally" are different topical clusters, not the same
+  //     locality cluster. AI search rewards depth on the exact compound
+  //     the buyer types, so we track coverage at that granularity. ---
   const topicClusters = useMemo(() => {
-    if (!projects || projects.length === 0) return [] as Array<{ locality: string; covered: number; label: string }>;
-    const byLocality = new Map<string, number>();
+    if (!projects || projects.length === 0)
+      return [] as Array<{ cluster: string; locality: string; config: string; covered: number; label: string }>;
+    const byKey = new Map<string, { locality: string; config: string; covered: number }>();
     for (const p of projects) {
       const loc = (p.locality || "").trim();
       if (!loc) continue;
-      byLocality.set(loc, 0);
+      const configs = p.config_tags && p.config_tags.length > 0 ? p.config_tags.slice(0, 3) : ["general"];
+      for (const cfg of configs) {
+        const k = `${loc.toLowerCase()}|${cfg.toLowerCase()}`;
+        if (!byKey.has(k)) byKey.set(k, { locality: loc, config: cfg, covered: 0 });
+      }
     }
-    // Walk published articles + current drafts, tag to a locality if
-    // the title or query names it. Simple word-boundary match.
     const countable = [...queue.published, ...queue.drafts];
     for (const a of countable) {
       const text = `${a.title || ""} ${a.query || ""}`.toLowerCase();
-      for (const loc of byLocality.keys()) {
-        if (text.includes(loc.toLowerCase())) {
-          byLocality.set(loc, (byLocality.get(loc) || 0) + 1);
+      for (const [k, v] of byKey) {
+        const locHit = text.includes(v.locality.toLowerCase());
+        const cfgHit = v.config === "general" || text.includes(v.config.toLowerCase());
+        if (locHit && cfgHit) {
+          v.covered += 1;
+          byKey.set(k, v);
         }
       }
     }
-    return Array.from(byLocality.entries())
-      .map(([locality, covered]) => ({
-        locality,
-        covered,
-        label: covered === 0 ? "no coverage" : covered < 3 ? "thin" : covered < 6 ? "growing" : "deep",
+    return Array.from(byKey.entries())
+      .map(([, v]) => ({
+        cluster: v.config === "general" ? v.locality : `${v.config} · ${v.locality}`,
+        locality: v.locality,
+        config: v.config,
+        covered: v.covered,
+        label:
+          v.covered === 0 ? "no coverage" : v.covered < 2 ? "thin" : v.covered < 4 ? "growing" : "deep",
       }))
       .sort((a, b) => a.covered - b.covered);
   }, [projects, queue.published, queue.drafts]);
@@ -244,6 +253,42 @@ export function ContentQueue({
   const opportunities = useMemo<Opportunity[]>(() => {
     const seen = new Set<string>();
     const out: Opportunity[] = [];
+
+    const currentYear = new Date().getFullYear();
+
+    // Small helper — parse an amenities free-text field into a compact
+    // list of buyer-visible amenity tokens ("gym", "pool", "clubhouse"
+    // etc). Skips the noise most projects list (24×7 security,
+    // rainwater harvesting, etc) that don't drive standalone buyer
+    // queries.
+    const extractAmenities = (raw: string | null | undefined): string[] => {
+      if (!raw) return [];
+      const text = raw.toLowerCase();
+      const HIT = [
+        { m: /\b(swimming pool|pool)\b/, tag: "pool" },
+        { m: /\b(gymnasium|gym)\b/, tag: "gym" },
+        { m: /\b(clubhouse|club house)\b/, tag: "clubhouse" },
+        { m: /\b(tennis)\b/, tag: "tennis court" },
+        { m: /\b(squash)\b/, tag: "squash court" },
+        { m: /\b(badminton)\b/, tag: "badminton court" },
+        { m: /\b(basketball)\b/, tag: "basketball court" },
+        { m: /\b(cricket|pitch)\b/, tag: "cricket practice pitch" },
+        { m: /\b(yoga|meditation)\b/, tag: "yoga deck" },
+        { m: /\b(sauna|steam)\b/, tag: "sauna" },
+        { m: /\b(kids|children)[^.]*\b(play|area|zone)\b/, tag: "kids play area" },
+        { m: /\b(pet)\b/, tag: "pet-friendly amenities" },
+        { m: /\b(senior|elder)\b/, tag: "senior-friendly amenities" },
+        { m: /\b(co[- ]?working|business centre|business center)\b/, tag: "co-working space" },
+        { m: /\b(home theatre|mini theatre|cinema)\b/, tag: "home theatre" },
+        { m: /\b(amphitheatre|amphitheater)\b/, tag: "amphitheatre" },
+        { m: /\b(jogging|walking|cycling)[^.]*track\b/, tag: "jogging track" },
+        { m: /\b(bbq|barbecue)\b/, tag: "BBQ zone" },
+        { m: /\b(rooftop|sky lounge|sky deck)\b/, tag: "rooftop deck" },
+      ];
+      const tags = new Set<string>();
+      for (const h of HIT) if (h.m.test(text)) tags.add(h.tag);
+      return Array.from(tags).slice(0, 4);
+    };
 
     // 0) Locality × config landing-page recommendations. This is what
     //    Indian SEO agencies charge retainers for: for every locality a
@@ -257,19 +302,139 @@ export function ContentQueue({
       const configs = p.config_tags && p.config_tags.length > 0 ? p.config_tags : [];
       if (!loc || configs.length === 0) continue;
       for (const cfg of configs.slice(0, 3)) {
+        // Plain locality + config — the core buyer query.
         const keyword = `${cfg} flats in ${loc}`;
         const key = keyword.toLowerCase().trim();
-        if (seen.has(key) || dismissed.has(key)) continue;
-        seen.add(key);
-        const slug = `/${(p.city || city || "").toLowerCase().replace(/\s+/g, "-")}/${loc.toLowerCase().replace(/\s+/g, "-")}/${cfg.toLowerCase()}`;
+        if (!seen.has(key) && !dismissed.has(key)) {
+          seen.add(key);
+          const slug = `/${(p.city || city || "").toLowerCase().replace(/\s+/g, "-")}/${loc.toLowerCase().replace(/\s+/g, "-")}/${cfg.toLowerCase()}`;
+          out.push({
+            keyword,
+            source: "landing-page",
+            reason: `Build a landing page at ${slug} — ${cfg} buyers in ${loc} search this shape every week`,
+            volume: null,
+            difficulty: null,
+            priority: "high",
+            suggestedSlug: slug,
+          });
+        }
+
+        // Year-tagged variant. AI search rewards dated phrasing for
+        // evergreen content; "3 BHK in Kukatpally 2026" outperforms
+        // untagged "3 BHK in Kukatpally" in both ChatGPT and Google AI
+        // Overview citations.
+        const yearKw = `${cfg} flats in ${loc} ${currentYear}`;
+        const yearKey = yearKw.toLowerCase().trim();
+        if (!seen.has(yearKey) && !dismissed.has(yearKey)) {
+          seen.add(yearKey);
+          out.push({
+            keyword: yearKw,
+            source: "landing-page",
+            reason: `Year-tagged landing page — AI engines rank dated evergreen content higher`,
+            volume: null,
+            difficulty: null,
+            priority: "medium",
+          });
+        }
+
+        // Stage + config + locality compound (RTM / under-construction
+        // / pre-launch) — this is the exact phrasing Indian buyers
+        // type. Only surface for stages the project is actually in.
+        const stage = (p.stage || "").toLowerCase();
+        if (stage === "ready_to_move") {
+          const stageKw = `ready to move ${cfg} in ${loc}`;
+          const sKey = stageKw.toLowerCase().trim();
+          if (!seen.has(sKey) && !dismissed.has(sKey)) {
+            seen.add(sKey);
+            out.push({
+              keyword: stageKw,
+              source: "landing-page",
+              reason: `RTM buyers convert fastest. High-intent query "ready to move ${cfg} in ${loc}" should land on a page that exists.`,
+              volume: null,
+              difficulty: null,
+              priority: "high",
+            });
+          }
+        } else if (stage === "under_construction") {
+          const stageKw = `under construction ${cfg} in ${loc} possession ${currentYear + 1}`;
+          const sKey = stageKw.toLowerCase().trim();
+          if (!seen.has(sKey) && !dismissed.has(sKey)) {
+            seen.add(sKey);
+            out.push({
+              keyword: stageKw,
+              source: "landing-page",
+              reason: `UC buyers search by expected possession year. Dated page becomes the canonical citation when AI answers "possession 2027 Kukatpally".`,
+              volume: null,
+              difficulty: null,
+              priority: "high",
+            });
+          }
+        }
+      }
+
+      // Amenity-specific landing pages — "3 BHK with pool in
+      // Gachibowli" is a distinct high-intent query that AI engines
+      // will quote verbatim if the page exists. Only emit when the
+      // project actually has the amenity (parsed from the amenities
+      // text). No fabrication.
+      const amenities = extractAmenities(p.amenities);
+      const topConfig = (p.config_tags || [])[0];
+      if (topConfig && amenities.length > 0) {
+        for (const a of amenities.slice(0, 3)) {
+          const kw = `${topConfig} with ${a} in ${loc}`;
+          const key = kw.toLowerCase().trim();
+          if (seen.has(key) || dismissed.has(key)) continue;
+          seen.add(key);
+          out.push({
+            keyword: kw,
+            source: "landing-page",
+            reason: `Amenity-specific long-tail — ${p.name || "this project"} already has the ${a}, so the page can be truthful and highly specific.`,
+            volume: null,
+            difficulty: null,
+            priority: "medium",
+          });
+        }
+      }
+    }
+
+    // 0.5) Journey-stage coverage. Every locality the developer serves
+    //      should have at least one awareness + one decision-stage
+    //      article because buyers move through these stages over
+    //      weeks of research. A missing stage shows up as a gap in
+    //      AI answers at that stage.
+    const servedLocalities = new Map<string, string>();
+    for (const p of projects || []) {
+      const loc = (p.locality || "").trim();
+      const cityName = (p.city || city || "").trim();
+      if (loc && !servedLocalities.has(loc.toLowerCase())) {
+        servedLocalities.set(loc.toLowerCase(), `${loc}${cityName && cityName.toLowerCase() !== loc.toLowerCase() ? `, ${cityName}` : ""}`);
+      }
+    }
+    for (const label of servedLocalities.values()) {
+      const awarenessKw = `is ${label} a good area to buy property in ${currentYear}`;
+      const aKey = awarenessKw.toLowerCase().trim();
+      if (!seen.has(aKey) && !dismissed.has(aKey)) {
+        seen.add(aKey);
         out.push({
-          keyword,
+          keyword: awarenessKw,
           source: "landing-page",
-          reason: `Build a landing page at ${slug} — ${cfg} buyers in ${loc} search this shape every week`,
+          reason: `Awareness-stage buyers ask this before shortlisting. Own it or competitors will.`,
           volume: null,
           difficulty: null,
-          priority: "high",
-          suggestedSlug: slug,
+          priority: "medium",
+        });
+      }
+      const investKw = `${label} property investment guide ${currentYear}`;
+      const iKey = investKw.toLowerCase().trim();
+      if (!seen.has(iKey) && !dismissed.has(iKey)) {
+        seen.add(iKey);
+        out.push({
+          keyword: investKw,
+          source: "landing-page",
+          reason: `Investment-intent buyers search "${label} investment guide" — compound decision-stage query AI answers verbatim.`,
+          volume: null,
+          difficulty: null,
+          priority: "medium",
         });
       }
     }
@@ -733,16 +898,17 @@ export function ContentQueue({
             <div className="flex flex-wrap gap-1.5">
               {topicClusters.map((c) => (
                 <div
-                  key={c.locality}
+                  key={c.cluster}
                   className={`px-2 py-1 rounded-md border text-[11px] flex items-center gap-1.5 ${
                     c.covered === 0
                       ? "bg-red-500/[0.04] border-red-500/25 text-red-400"
-                      : c.covered < 3
+                      : c.covered < 2
                       ? "bg-amber-500/[0.04] border-amber-500/25 text-amber-400"
                       : "bg-[#7CB342]/[0.04] border-[#7CB342]/25 text-[#7CB342]"
                   }`}
+                  title={`${c.covered} article${c.covered === 1 ? "" : "s"} cover ${c.cluster}`}
                 >
-                  <span className="font-medium">{c.locality}</span>
+                  <span className="font-medium">{c.cluster}</span>
                   <span className="tabular-nums">{c.covered}</span>
                   <span className="text-[10px] opacity-70">{c.label}</span>
                 </div>

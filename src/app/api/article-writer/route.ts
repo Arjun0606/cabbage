@@ -148,6 +148,24 @@ GEO CITATION RULES — follow every one:
 
 12. NO FILLER. Skip "In today's fast-paced world", "Let's dive in", "Looking for your dream home?", "Nestled in the heart of". Every sentence carries a fact.
 
+INDIAN-RE HYPERLOCAL RULES — buyer queries here are compound and specific:
+
+13. COMPOUND-QUERY TARGETING. Indian buyers type compound queries like "3 BHK in Kukatpally under 3 cr ready by 2027" as a single natural-language search, not five filters. Structure sections around compound answers: one H2 combines config + locality + price, another combines stage + locality + year, another combines amenity + config + locality. Don't split what Indians search for as one idea.
+
+14. YEAR-TAGGED PHRASING. Evergreen content underperforms year-tagged content in AI search. Use "launched in ${new Date().getFullYear()}", "possession expected 2027", "new launches in ${location} this year" liberally when the data supports a year. ${status === "Ready to Move" ? `For this ready-to-move project, include "ready to move in ${new Date().getFullYear()}" phrasing.` : ""}${status === "Under Construction" ? `This project is under construction — reference the expected possession year if available.` : ""}
+
+15. RERA + STATE-PORTAL AUTHORITY. ${reraNumber ? `This project's RERA number is ${reraNumber}. Mention the RERA number TWICE — once in the body near the project overview, once in the FAQs. Frame as "RERA No. ${reraNumber}, filed with the state RERA authority." This pulls state-portal authority without fabricating a URL.` : `If RERA is not supplied, reference "RERA-registered with the state authority" generically — do not invent a number. Never cite a state RERA portal URL directly unless you know it's correct.`}
+
+16. LANDMARK-PROXIMITY BANDS. Where the data supplies named landmarks or amenities near the project, structure proximity as bands: "0–2 km (walking distance)" · "2–5 km (10–15 minute drive)" · "5+ km". NEVER invent landmarks or distances. If no landmark data is supplied, use the locality's reputation in generic terms ("established residential pocket in ${location}").
+
+17. SUB-LOCALITY DISAMBIGUATION. Indian localities often have multiple micro-markets ("Gachibowli near Wipro Circle" vs "Gachibowli near Financial District"). If the project's locality is commonly ambiguous, include a one-phrase disambiguation alongside the locality name in the opening paragraph and one FAQ — only if the data clearly supports which micro-market the project sits in.
+
+18. PRICE-PER-SQFT BANDS (only if price_range is supplied). Convert the supplied price_range into a per-sq-ft band IF — and only if — the data also includes carpet area ranges. Otherwise skip. Never fabricate a ₹/sqft figure.
+
+19. COMPARISON HOOKS. Every article should carry one H2 that answers "how does ${projectName} compare to other ${configurations || "projects"} in ${location}?" — AI loves comparison content, and it's where the developer's project gets differentiated. Stay generic about competitors (no fabricated competitor project names) unless supplied in the data.
+
+20. LOCAL-INTENT CTAs. Close each major section with a micro-CTA tied to the query intent: "Schedule a site visit to see the ${configurations || "apartments"} at ${projectName}", "Request the current price sheet for ${location} inventory", "Speak to an NRI specialist about buying in ${city}". CTAs are AI-friendly action extraction points.
+
 Return valid JSON (no markdown fences):
 {
   "title": "Question-format title including target keyword (50-60 chars)",
