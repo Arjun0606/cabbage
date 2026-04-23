@@ -38,6 +38,7 @@ import {
 import {
   getArticleQueue,
   deleteTrackedArticle,
+  markArticlePublished,
   type TrackedArticle,
 } from "@/lib/geoHistory";
 import { DeployViaLoader } from "./DeployViaLoader";
@@ -150,7 +151,7 @@ export function ContentQueue({
   }, [articleResult?._trackedArticleId, articleResult?.title]);
 
   const handleDismiss = (id: string) => {
-    deleteTrackedArticle(id);
+    deleteTrackedArticle(id, articleResult?._companyId);
     setQueue(getArticleQueue());
   };
 
@@ -298,7 +299,16 @@ export function ContentQueue({
                   content={articleResult.content}
                   excerpt={articleResult.metaDescription}
                   targetKeyword={articleResult.targetKeyword}
-                  onPublished={() => setQueue(getArticleQueue())}
+                  onPublished={(url) => {
+                    if (articleResult._trackedArticleId) {
+                      markArticlePublished(
+                        articleResult._trackedArticleId,
+                        url,
+                        articleResult._companyId
+                      );
+                    }
+                    setQueue(getArticleQueue());
+                  }}
                 />
               </div>
             </div>

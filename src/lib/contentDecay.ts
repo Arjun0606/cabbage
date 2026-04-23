@@ -65,8 +65,17 @@ function saveAllSnapshots(snapshots: Record<string, GSCSnapshot[]>): void {
 /**
  * Save a GSC snapshot for a site. Automatically prunes to last 90 snapshots
  * per site and deduplicates same-day captures (keeps newest).
+ *
+ * When `companyId` is passed, the snapshot is mirrored to the
+ * `gsc_snapshots` table in Supabase so decay history survives across
+ * devices and browsers. The local cache remains authoritative for UX
+ * speed — Supabase sync is background and non-blocking.
  */
-export function recordGSCSnapshot(siteUrl: string, topPages: GSCPageSnapshot[]): void {
+export function recordGSCSnapshot(
+  siteUrl: string,
+  topPages: GSCPageSnapshot[],
+  companyId?: string
+): void {
   if (typeof window === "undefined") return;
   if (!siteUrl || !Array.isArray(topPages) || topPages.length === 0) return;
 
@@ -74,9 +83,7 @@ export function recordGSCSnapshot(siteUrl: string, topPages: GSCPageSnapshot[]):
   const siteKey = siteUrl.toLowerCase();
   const todayKey = new Date().toISOString().slice(0, 10);
 
-  // Remove any existing snapshot from today
-  const existing = (snapshots[siteKey] || []).filter((s) => !s.capturedAt.startsWith(todayKey));
-  existing.push({
+  const snapshot: GSCSnapshot = {
     siteUrl,
     capturedAt: new Date().toISOString(),
     pages: topPages.map((p) => ({
@@ -86,12 +93,84 @@ export function recordGSCSnapshot(siteUrl: string, topPages: GSCPageSnapshot[]):
       ctr: p.ctr,
       position: p.position,
     })),
-  });
+  };
+
+  // Remove any existing snapshot from today, then append this one.
+  const existing = (snapshots[siteKey] || []).filter((s) => !s.capturedAt.startsWith(todayKey));
+  existing.push(snapshot);
 
   // Keep last N snapshots, chronologically
   existing.sort((a, b) => new Date(a.capturedAt).getTime() - new Date(b.capturedAt).getTime());
   snapshots[siteKey] = existing.slice(-MAX_SNAPSHOTS_PER_SITE);
   saveAllSnapshots(snapshots);
+
+  // Mirror to Supabase (fire-and-forget).
+  if (companyId) pushSnapshotToSupabase(companyId, snapshot);
+}
+
+// ---------------------------------------------------------------------------
+// Supabase sync for gsc_snapshots. Local-first; DB is a durable mirror.
+// ---------------------------------------------------------------------------
+
+async function supabaseClient() {
+  try {
+    const mod = await import("@/lib/db/supabase-browser");
+    return mod.getBrowserSupabase();
+  } catch { return null; }
+}
+
+function pushSnapshotToSupabase(companyId: string, snapshot: GSCSnapshot) {
+  void (async () => {
+    const sb = await supabaseClient();
+    if (!sb) return;
+    try {
+      await sb.from("gsc_snapshots").insert({
+        company_id: companyId,
+        site_url: snapshot.siteUrl,
+        captured_at: snapshot.capturedAt,
+        pages: snapshot.pages,
+      });
+    } catch { /* swallow */ }
+  })();
+}
+
+/**
+ * Pull this company's GSC snapshots from Supabase into localStorage on
+ * dashboard mount, so content decay detection has history even on a
+ * fresh browser. Keeps the existing local cache merged in so anything
+ * captured offline doesn't get lost.
+ */
+export async function hydrateGSCSnapshots(companyId: string): Promise<void> {
+  if (!companyId || typeof window === "undefined") return;
+  const sb = await supabaseClient();
+  if (!sb) return;
+  try {
+    const { data, error } = await sb
+      .from("gsc_snapshots")
+      .select("site_url, captured_at, pages")
+      .eq("company_id", companyId)
+      .order("captured_at", { ascending: true })
+      .limit(500);
+    if (error || !data) return;
+
+    const all = getAllSnapshots();
+    for (const row of data) {
+      const siteKey = (row.site_url || "").toLowerCase();
+      if (!siteKey) continue;
+      const existing = all[siteKey] || [];
+      const already = new Set(existing.map((s) => s.capturedAt));
+      if (!already.has(row.captured_at)) {
+        existing.push({
+          siteUrl: row.site_url,
+          capturedAt: row.captured_at,
+          pages: (row.pages as GSCPageSnapshot[]) || [],
+        });
+      }
+      existing.sort((a, b) => new Date(a.capturedAt).getTime() - new Date(b.capturedAt).getTime());
+      all[siteKey] = existing.slice(-MAX_SNAPSHOTS_PER_SITE);
+    }
+    saveAllSnapshots(all);
+  } catch { /* swallow */ }
 }
 
 function severityOf(positionDrop: number, clickDrop: number, previousPosition: number): DecayingPage["severity"] {

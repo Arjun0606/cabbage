@@ -682,17 +682,131 @@ function saveTrackedArticles(articles: TrackedArticle[]) {
 }
 
 /**
+ * Generate a stable article id. Uses native UUIDs when available so the
+ * same id works for Supabase (uuid column) and for the legacy localStorage
+ * cache path. Falls back to a timestamp+random string when crypto.randomUUID
+ * isn't available (older browsers).
+ */
+function newArticleId(): string {
+  try {
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+      return crypto.randomUUID();
+    }
+  } catch { /* ignore */ }
+  return `art-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+}
+
+// ---------------------------------------------------------------------------
+// Supabase sync (optional)
+//
+// When the dashboard knows the signed-in user's `company_id` it can pull
+// tracked articles from Supabase into localStorage on mount and push
+// every local mutation back so the queue follows the user across
+// devices. Without companyId (demo mode or unauthenticated) everything
+// stays in localStorage unchanged.
+// ---------------------------------------------------------------------------
+
+async function supabaseClient() {
+  try {
+    const mod = await import("@/lib/db/supabase-browser");
+    return mod.getBrowserSupabase();
+  } catch {
+    return null;
+  }
+}
+
+function rowToArticle(row: Record<string, any>): TrackedArticle {
+  return {
+    id: row.id,
+    query: row.query || "",
+    title: row.title || "",
+    generatedAt: row.generated_at || new Date().toISOString(),
+    status: row.status === "published" ? "published" : "draft",
+    publishedAt: row.published_at || undefined,
+    publishUrl: row.publish_url || undefined,
+    preScore: row.pre_score || undefined,
+    postScore: row.post_score || undefined,
+  };
+}
+
+/**
+ * Pull the authoritative list of tracked articles for this company from
+ * Supabase and merge it into localStorage. Call once on dashboard mount
+ * after the company has been resolved. Returns the merged list, or null
+ * if Supabase isn't reachable (the local cache stays authoritative).
+ */
+export async function hydrateArticleQueue(companyId: string): Promise<TrackedArticle[] | null> {
+  if (!companyId) return null;
+  const sb = await supabaseClient();
+  if (!sb) return null;
+  try {
+    const { data, error } = await sb
+      .from("tracked_articles")
+      .select("id, query, title, status, publish_url, generated_at, published_at, pre_score, post_score")
+      .eq("company_id", companyId)
+      .order("generated_at", { ascending: true });
+    if (error || !data) return null;
+    const remote = data.map(rowToArticle);
+
+    // Merge: prefer remote (server is source of truth once synced) but
+    // keep any purely-local drafts the user created before authenticating.
+    const local = getTrackedArticles();
+    const seen = new Set(remote.map((a) => a.id));
+    const merged = [...remote, ...local.filter((a) => !seen.has(a.id))];
+    saveTrackedArticles(merged);
+    return merged;
+  } catch {
+    return null;
+  }
+}
+
+function pushArticleToSupabase(companyId: string | undefined, article: TrackedArticle) {
+  if (!companyId) return;
+  void (async () => {
+    const sb = await supabaseClient();
+    if (!sb) return;
+    try {
+      await sb.from("tracked_articles").upsert({
+        id: article.id,
+        company_id: companyId,
+        query: article.query,
+        title: article.title,
+        status: article.status,
+        publish_url: article.publishUrl || null,
+        generated_at: article.generatedAt,
+        published_at: article.publishedAt || null,
+        pre_score: article.preScore || null,
+        post_score: article.postScore || null,
+      });
+    } catch { /* swallow — local cache is still correct */ }
+  })();
+}
+
+function deleteArticleInSupabase(companyId: string | undefined, id: string) {
+  if (!companyId) return;
+  void (async () => {
+    const sb = await supabaseClient();
+    if (!sb) return;
+    try {
+      await sb.from("tracked_articles").delete().eq("id", id).eq("company_id", companyId);
+    } catch { /* swallow */ }
+  })();
+}
+
+/**
  * Record that an article was generated for a specific blind-spot query.
  * Call this right after the article-writer API returns successfully.
+ * `companyId` is optional — passing it mirrors the article to Supabase.
  */
 export function trackArticleGenerated(
   query: string,
   title: string,
-  preScore?: TrackedArticle["preScore"]
+  preScore?: TrackedArticle["preScore"],
+  companyId?: string
 ): TrackedArticle {
   const articles = getTrackedArticles();
   const article: TrackedArticle = {
-    id: `art-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    id: newArticleId(),
     query,
     title,
     generatedAt: new Date().toISOString(),
@@ -701,13 +815,14 @@ export function trackArticleGenerated(
   };
   articles.push(article);
   saveTrackedArticles(articles);
+  pushArticleToSupabase(companyId, article);
   return article;
 }
 
 /**
  * Mark an article as published. Called by the PublishButton's onPublished callback.
  */
-export function markArticlePublished(articleId: string, publishUrl?: string): void {
+export function markArticlePublished(articleId: string, publishUrl?: string, companyId?: string): void {
   const articles = getTrackedArticles();
   const article = articles.find((a) => a.id === articleId);
   if (article) {
@@ -715,6 +830,7 @@ export function markArticlePublished(articleId: string, publishUrl?: string): vo
     article.publishedAt = new Date().toISOString();
     article.publishUrl = publishUrl;
     saveTrackedArticles(articles);
+    pushArticleToSupabase(companyId, article);
   }
 }
 
@@ -724,7 +840,8 @@ export function markArticlePublished(articleId: string, publishUrl?: string): vo
 export function recordArticleRescan(
   articleId: string,
   chatgptMentioned: boolean,
-  geminiMentioned: boolean
+  geminiMentioned: boolean,
+  companyId?: string
 ): void {
   const articles = getTrackedArticles();
   const article = articles.find((a) => a.id === articleId);
@@ -735,6 +852,7 @@ export function recordArticleRescan(
       rescannedAt: new Date().toISOString(),
     };
     saveTrackedArticles(articles);
+    pushArticleToSupabase(companyId, article);
   }
 }
 
@@ -743,10 +861,13 @@ export function recordArticleRescan(
  * Publishing an article via PublishButton marks it as published — this is
  * for drafts that the user dismisses instead.
  */
-export function deleteTrackedArticle(articleId: string): void {
+export function deleteTrackedArticle(articleId: string, companyId?: string): void {
   const articles = getTrackedArticles();
   const next = articles.filter((a) => a.id !== articleId);
-  if (next.length !== articles.length) saveTrackedArticles(next);
+  if (next.length !== articles.length) {
+    saveTrackedArticles(next);
+    deleteArticleInSupabase(companyId, articleId);
+  }
 }
 
 /**

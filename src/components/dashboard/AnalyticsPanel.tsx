@@ -1463,7 +1463,12 @@ export function AnalyticsPanel({
                     Get listed on the top property portals
                   </CardTitle>
                   <p className="text-[11px] text-zinc-500 mt-1">
-                    The highest-authority backlinks a developer can earn in India. One listing per portal.
+                    The highest-authority backlinks a developer can earn in India.{" "}
+                    {selectedProject !== null && projects[selectedProject]
+                      ? <>Listing copy will be tailored for <strong className="text-zinc-300">{projects[selectedProject].name}</strong>.</>
+                      : projects.length > 1
+                        ? <>Each project needs its own listing — <strong className="text-zinc-300">pick a project above</strong> to generate project-specific copy.</>
+                        : "One listing per portal."}
                   </p>
                 </div>
                 <Button

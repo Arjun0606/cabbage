@@ -11,7 +11,7 @@ import { SiteSwitcher } from "@/components/dashboard/SiteSwitcher";
 import { PaywallOverlay } from "@/components/dashboard/PaywallOverlay";
 import { DemoBanner } from "@/components/dashboard/DemoBanner";
 import { recordScan, getAllTrends, type TrendData } from "@/lib/scanHistory";
-import { recordGEOScan, getGEOProgress, getSavedQueries, getSavedQueriesFingerprint, saveQueries, trackArticleGenerated, type GEOProgress } from "@/lib/geoHistory";
+import { recordGEOScan, getGEOProgress, getSavedQueries, getSavedQueriesFingerprint, saveQueries, trackArticleGenerated, hydrateArticleQueue, type GEOProgress } from "@/lib/geoHistory";
 
 /**
  * Stable hash of company.projects — used to detect when the project list
@@ -213,6 +213,12 @@ export default function DashboardPage() {
               setCompany(merged);
               localStorage.setItem("cabbge_company", JSON.stringify(merged));
               addLog(`> Synced from cloud: ${merged.name}`);
+
+              // Pull the tracked-articles queue from Supabase so drafts
+              // and published pieces follow the user across devices.
+              // Fire-and-forget — the local cache stays authoritative
+              // when the network blips.
+              hydrateArticleQueue(dbCompany.id).catch(() => {});
             }
           } catch {
             // Supabase not configured — that's fine, use localStorage
@@ -357,9 +363,13 @@ export default function DashboardPage() {
           addLog(`> GSC: ${data.totalClicks?.toLocaleString()} clicks, ${data.totalImpressions?.toLocaleString()} impressions (last 30d)`);
           // Record snapshot for content decay detection and run analysis
           try {
-            const { recordGSCSnapshot, detectContentDecay, getSnapshotCount } = await import("@/lib/contentDecay");
+            const { recordGSCSnapshot, detectContentDecay, getSnapshotCount, hydrateGSCSnapshots } = await import("@/lib/contentDecay");
             if (data.topPages?.length) {
-              recordGSCSnapshot(websiteUrl, data.topPages);
+              const companyId = (company as any)._companyId as string | undefined;
+              // Pull any older snapshots from Supabase before running
+              // decay detection so multi-device users see full history.
+              if (companyId) await hydrateGSCSnapshots(companyId);
+              recordGSCSnapshot(websiteUrl, data.topPages, companyId);
               const report = detectContentDecay(websiteUrl);
               setContentDecayReport(report);
               setSnapshotCount(getSnapshotCount(websiteUrl));
@@ -1000,10 +1010,12 @@ export default function DashboardPage() {
         chatgptMentioned: currentQueryResult.chatgpt.mentioned,
         geminiMentioned: currentQueryResult.gemini.mentioned,
       } : undefined;
-      const tracked = trackArticleGenerated(query, data.title, preScore);
-      // Attach the tracked article ID to the result so the PublishButton can
-      // call markArticlePublished with the right ID.
+      const companyId = (company as any)._companyId as string | undefined;
+      const tracked = trackArticleGenerated(query, data.title, preScore, companyId);
+      // Attach the tracked article ID + company ID to the result so the
+      // PublishButton can call markArticlePublished(id, url, companyId).
       data._trackedArticleId = tracked.id;
+      data._companyId = companyId;
 
       setArticleResult(data);
       addLog(`> Article: "${data.title}" — ${data.wordCount} words, optimized for "${query}"`);
