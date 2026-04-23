@@ -36,6 +36,7 @@ import { ProjectRollup } from "./ProjectRollup";
 import { ProjectScorecard } from "./ProjectScorecard";
 import { CompetitiveLandscape } from "./CompetitiveLandscape";
 import { OwnPagesAICites } from "./OwnPagesAICites";
+import { ThirdPartyAuthority } from "./ThirdPartyAuthority";
 import { ProjectCompare } from "./ProjectCompare";
 import { DelayRiskPanel } from "./DelayRiskPanel";
 import { ReviewMonitor } from "./ReviewMonitor";
@@ -1072,6 +1073,16 @@ export function AnalyticsPanel({
               card. Shows the top own-domain URLs AI pulled from during
               this scan so the developer can double down on what ranks. */}
           <OwnPagesAICites
+            aiVisResult={aiVisResult}
+            websiteUrl={websiteUrl}
+          />
+
+          {/* Third-party authority breakdown — 85% of AI citations come
+              from third-party platforms. This is where the real GEO
+              lift lives. Shows share per platform vs industry norms
+              with platform-specific strategy hints when gaps are
+              detected. */}
+          <ThirdPartyAuthority
             aiVisResult={aiVisResult}
             websiteUrl={websiteUrl}
           />

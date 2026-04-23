@@ -397,6 +397,32 @@ export function ContentQueue({
       }
     }
 
+    // 0.3) Refresh-scheduler. Per Foundation Inc's research: 70% of
+    //      AI-cited pages are updated within 12 months, 50% within 6.
+    //      Unrefreshed pages fall out of citation rotation ~3x faster.
+    //      Every published article older than 90 days surfaces as a
+    //      high-priority refresh opportunity so the developer keeps
+    //      its canonical pages warm.
+    const NINETY_DAYS_MS = 90 * 24 * 60 * 60 * 1000;
+    for (const published of queue.published) {
+      if (!published.publishedAt) continue;
+      const age = Date.now() - new Date(published.publishedAt).getTime();
+      if (age < NINETY_DAYS_MS) continue;
+      const keyword = `refresh: ${published.title}`;
+      const key = keyword.toLowerCase().trim();
+      if (seen.has(key) || dismissed.has(key)) continue;
+      seen.add(key);
+      const ageDays = Math.floor(age / (24 * 60 * 60 * 1000));
+      out.push({
+        keyword,
+        source: "landing-page",
+        reason: `Published ${ageDays} days ago. AI engines deprecate stale pages — refresh with current stats, prices, and a new "Last updated" date.`,
+        volume: null,
+        difficulty: null,
+        priority: "high",
+      });
+    }
+
     // 0.5) Journey-stage coverage. Every locality the developer serves
     //      should have at least one awareness + one decision-stage
     //      article because buyers move through these stages over

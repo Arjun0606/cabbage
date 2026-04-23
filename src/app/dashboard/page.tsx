@@ -1182,6 +1182,17 @@ export default function DashboardPage() {
       articleType = "construction_update";
     } else if (/\bnri\b|non[\s-]?resident|fema|nre|nro/.test(qLower)) {
       articleType = "nri_guide";
+    } else if (/\balternatives?\s+to\b|\bsimilar\s+to\b/.test(qLower)) {
+      // "alternatives to {competitor}" is the explicit query-fanout
+      // shape AI search engines generate internally.
+      articleType = "alternatives_to";
+    } else if (/\b(top|best)\s+(\d+|[a-z]+)\s+\S+\s+(in|for|near)\b/.test(qLower) || /\bbest\b.*\bin\b/.test(qLower)) {
+      // "Top 7 3 BHK apartments in Gachibowli" / "Best builders in Kokapet"
+      // — listicle queries account for 32.5% of all LLM citations so we
+      // route them to the explicit list-format type.
+      articleType = "best_of_list";
+    } else if (/\b(move|moving|upgrade|upgrading|from\s+\S+\s+to)\b.*\b(buying|owning|home|apartment|flat)\b/.test(qLower) || /\bshift(ing)?\s+(from|to)\b/.test(qLower)) {
+      articleType = "migration_guide";
     } else if (/\bvs\b|compare|versus/.test(qLower)) {
       articleType = "comparison";
     } else if (/investment|roi|rental yield/.test(qLower)) {

@@ -13,7 +13,10 @@ type ArticleType =
   | "investment"
   | "nri_guide"
   | "landing_page"
-  | "construction_update";
+  | "construction_update"
+  | "best_of_list"
+  | "alternatives_to"
+  | "migration_guide";
 
 const ARTICLE_TYPE_INSTRUCTIONS: Record<ArticleType, string> = {
   locality_guide:
@@ -34,6 +37,12 @@ const ARTICLE_TYPE_INSTRUCTIONS: Record<ArticleType, string> = {
     "Write a conversion-optimised locality-config landing page (not a blog article). Structure: (1) H1 with exact locality + config + city (e.g. '3 BHK Flats in Gachibowli, Hyderabad'), (2) a short 2-sentence hook, (3) a 'Project at a glance' block with bullets — configurations, carpet area range, price range, possession, RERA, (4) 'Why {locality}' section with connectivity, social infrastructure, micro-market momentum (no fabricated landmarks), (5) 'Who this suits' block (first-time buyer / investor / NRI / IT-professional — whichever matches the data), (6) Floor plans / typical units description, (7) Frequently asked buyer questions (5-7), (8) Clear final CTA block with 'Book a site visit' and 'Get price sheet' language. Use structured subheadings (H2/H3). Page-length, not blog-length: aim ~800-1200 words, scannable, buyer-decision oriented.",
   construction_update:
     "Write a dated construction-progress update. Open with quarter + year + project name + locality. Cover: (1) structural progress — floors poured, slab casting, block-wise status, (2) amenity progress — clubhouse, landscaping, pool, gym, (3) handover milestone remaining vs completed, (4) key photos/visuals described textually, (5) regulatory updates (RERA extensions, approvals), (6) next-quarter outlook. Dated, specific, factual — no marketing puffery. This becomes the canonical citation source AI models will quote when buyers ask 'what's the latest at {project}'.",
+  best_of_list:
+    "Write a ranked listicle-style guide (e.g. 'Top 7 3 BHK apartments in Gachibowli, 2026'). Comparative listicles account for ~32.5% of all LLM citations, so this format punches far above its weight. Open with the methodology / what made the list (RERA-registered, delivered on time, etc.). Present 5-10 entries, each with: a one-line positioning, 2-3 feature bullets, price band, stage/possession, RERA number if available, and a one-line pros/cons. Every entry uses the exact project name, not pronouns. Close with a 'how to choose' FAQ. Stay honest — only include projects actually in the supplied data. Do not fabricate unsupplied competitor projects.",
+  alternatives_to:
+    "Write an 'alternatives to {competitor}' or 'X similar to Y' comparison post. AI search routinely generates these queries for buyers exploring alternatives. Cover: (1) what makes the original interesting, (2) 4-6 alternative options (only projects/brands you have data for — no fabrication), (3) a feature-by-feature comparison table (config, price, locality, stage, RERA, amenities), (4) 'which to choose if...' scenarios, (5) FAQ. Balanced editorial tone, not promotional.",
+  migration_guide:
+    "Write a 'moving from X to Y' or 'upgrading from X to Y' guide — useful when a buyer is shifting from renting to owning, from one locality to another, or from a smaller config to a larger one. Cover: (1) why buyers make this move, (2) what to expect at each stage (loan, RERA check, site visit, allotment, registration), (3) cost comparison, (4) timeline, (5) checklist. Draws the reader who is mid-journey — higher intent, higher conversion.",
 };
 
 export async function POST(req: NextRequest) {
@@ -165,6 +174,18 @@ INDIAN-RE HYPERLOCAL RULES — buyer queries here are compound and specific:
 19. COMPARISON HOOKS. Every article should carry one H2 that answers "how does ${projectName} compare to other ${configurations || "projects"} in ${location}?" — AI loves comparison content, and it's where the developer's project gets differentiated. Stay generic about competitors (no fabricated competitor project names) unless supplied in the data.
 
 20. LOCAL-INTENT CTAs. Close each major section with a micro-CTA tied to the query intent: "Schedule a site visit to see the ${configurations || "apartments"} at ${projectName}", "Request the current price sheet for ${location} inventory", "Speak to an NRI specialist about buying in ${city}". CTAs are AI-friendly action extraction points.
+
+21. THREE-LAYER ANSWER ARCHITECTURE (per Foundation Inc research on ChatGPT citation patterns). Every major H2 answer follows this exact shape:
+    Layer 1 — DIRECT ANSWER (first 50 words): a self-contained paragraph that answers the question with a concrete fact. This is what AI quotes.
+    Layer 2 — WHY IT MATTERS (next 100-150 words): context, implications, one quotable comparison or number.
+    Layer 3 — DEEP ANALYSIS (1000+ words across the article): the rest of the article that proves you actually know the topic and earns the citation in the first place.
+    Don't start with background. Don't bury the answer. AI cites Layer 1, humans scroll through Layer 3.
+
+22. SINGLE H1 ONLY. 87% of AI-cited pages use exactly one H1. The markdown output must have exactly one top-level "# " heading (the title). All other section headings are H2 ("## ") or lower. Do not emit "# " multiple times.
+
+23. FAQ-SCHEMA READY. The FAQs section you return must be safe to serialize as FAQPage schema: each question is a standalone, short natural-language question; each answer is self-contained and does not reference sections ("as mentioned above") that wouldn't make sense in a stripped-out schema context. FAQ schema appears in 10.5% of cited pages — high-leverage signal.
+
+24. COMPARATIVE LISTICLE BIAS. Comparative / alternative / best-of formats account for ~32.5% of all LLM citations. Where the article type is best_of_list, alternatives_to, or comparison: include ≥5 clearly-numbered entries, a comparison table, and an "how do I choose?" section. Where the article type is locality_guide / project_showcase / landing_page: include at least one comparative block ("How does ${projectName} compare to other ${configurations || "projects"} in ${location}?") so the article still participates in comparative-query retrieval.
 
 Return valid JSON (no markdown fences):
 {
