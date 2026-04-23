@@ -1,25 +1,48 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/db/supabase-server";
 import { getServiceClient } from "@/lib/db/supabase";
-import { createCustomer, createSubscription, getBasePlanId } from "@/lib/razorpay";
+import { createDodoCheckoutSession } from "@/lib/dodo";
 import { isDemoRequest } from "@/lib/demo";
+import { TIERS, tierDodoProductId, isPaidTier, type PlanBilled } from "@/lib/tiers";
 
 /**
  * POST /api/billing/checkout
  *
- * Creates the Cabbge Base subscription (single plan) for the authenticated
- * user. Credit top-ups are handled separately via /api/billing/topup.
+ * Body: { plan: "starter" | "pro" | "enterprise", billed: "monthly" | "annual" }
+ *
+ * Picks the Dodo Payments product id for (tier, billed), creates a
+ * hosted checkout session, and returns the URL the frontend should
+ * redirect the customer to. Dodo's webhook (see /api/billing/webhook)
+ * flips the subscription row to active once payment completes.
+ *
+ * Dodo env vars required:
+ *   DODO_API_KEY
+ *   DODO_PRODUCT_{STARTER|PRO|ENTERPRISE}_{MONTHLY|ANNUAL}
  */
 export async function POST(req: NextRequest) {
   try {
-    // Demo mode: simulate success without real charge
+    const body = await req.json().catch(() => ({}));
+    const planInput: string = typeof body?.plan === "string" ? body.plan.toLowerCase() : "pro";
+    const billedInput: string = body?.billed === "annual" ? "annual" : "monthly";
+
+    if (!isPaidTier(planInput)) {
+      return NextResponse.json(
+        { error: `Unknown plan "${planInput}". Use starter, pro, or enterprise.` },
+        { status: 400 }
+      );
+    }
+    const tier = TIERS[planInput];
+    const billed = billedInput as PlanBilled;
+
+    // Demo mode: simulate a successful checkout without charging.
     if (isDemoRequest(req)) {
       return NextResponse.json({
         demoMode: true,
-        subscriptionId: `demo_sub_${Date.now()}`,
-        keyId: process.env.RAZORPAY_KEY_ID || "demo_key",
-        email: "demo@cabbge.com",
-        message: "Demo mode — no charge will happen. In a real session, Razorpay Checkout would open here.",
+        checkoutUrl: "/dashboard?upgraded=demo",
+        sessionId: `demo_sess_${Date.now()}`,
+        plan: tier.key,
+        billed,
+        message: `Demo mode — in a real session Dodo Payments Checkout would open for Cabbge ${tier.label} (${billed}).`,
       });
     }
 
@@ -27,61 +50,55 @@ export async function POST(req: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
-    const planId = getBasePlanId();
+    const productId = tierDodoProductId(tier, billed);
 
     const service = getServiceClient();
     const { data: existingSub } = await service
       .from("subscriptions")
-      .select("razorpay_customer_id, razorpay_subscription_id, status")
+      .select("status, plan")
       .eq("user_id", user.id)
       .maybeSingle();
 
-    // If a pending subscription already exists for this user, re-use it
-    // rather than creating a second Razorpay subscription. Without this,
-    // a user who re-clicks "Subscribe" gets a second pending sub and can
-    // end up double-charged when they complete both.
-    if (existingSub?.razorpay_subscription_id && existingSub.status === "pending") {
-      return NextResponse.json({
-        subscriptionId: existingSub.razorpay_subscription_id,
-        keyId: process.env.RAZORPAY_KEY_ID,
-        email: user.email,
-        reused: true,
-      });
+    if (existingSub?.status === "active" && existingSub.plan === tier.key) {
+      return NextResponse.json(
+        { error: "You already have an active subscription on this plan" },
+        { status: 409 }
+      );
     }
 
-    // If an active subscription already exists, checkout is a no-op.
-    if (existingSub?.status === "active") {
-      return NextResponse.json({ error: "You already have an active subscription" }, { status: 409 });
-    }
+    const origin = req.nextUrl.origin;
 
-    let customerId = existingSub?.razorpay_customer_id;
-    if (!customerId) {
-      const customer = await createCustomer(user.email!, user.user_metadata?.full_name);
-      customerId = customer.id;
-    }
-
-    const subscription = await createSubscription({
-      planId,
-      customerId,
-      totalCount: 12,
-      notes: { user_id: user.id, plan: "base" },
+    const { sessionId, checkoutUrl } = await createDodoCheckoutSession({
+      productId,
+      email: user.email!,
+      fullName: user.user_metadata?.full_name,
+      returnUrl: `${origin}/dashboard?upgraded=true`,
+      cancelUrl: `${origin}/pricing?cancelled=1`,
+      metadata: {
+        user_id: user.id,
+        plan: tier.key,
+        billed,
+      },
     });
 
+    // Stash the pending intent so we can reconcile when the webhook
+    // arrives. We use the Dodo session_id as a placeholder in
+    // razorpay_subscription_id for now — the column is a generic
+    // provider-subscription-id bucket.
     await service.from("subscriptions").upsert({
       user_id: user.id,
-      plan: "base",
+      plan: tier.key,
       status: "pending",
-      razorpay_subscription_id: subscription.id,
-      razorpay_customer_id: customerId,
-      razorpay_plan_id: planId,
+      razorpay_subscription_id: sessionId,
+      razorpay_plan_id: productId,
       updated_at: new Date().toISOString(),
     }, { onConflict: "user_id" });
 
     return NextResponse.json({
-      subscriptionId: subscription.id,
-      keyId: process.env.RAZORPAY_KEY_ID,
-      email: user.email,
-      shortUrl: subscription.short_url,
+      checkoutUrl,
+      sessionId,
+      plan: tier.key,
+      billed,
     });
   } catch (error) {
     console.error("Checkout error:", error);

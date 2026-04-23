@@ -187,13 +187,15 @@ Rules:
   }
 }
 
-// Process-local 24h cache. Reviews don't churn intraday.
+// Process-local cache. Reviews don't churn intraday; the TTL is also
+// the tier-level cadence gate — "weekly" cadence effectively means
+// "the cache returns for 7 days, rescans only after".
 interface CacheEntry {
   value: ReviewMonitorResult;
   expiresAt: number;
 }
 const cache = new Map<string, CacheEntry>();
-const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const DAY = 24 * 60 * 60 * 1000;
 
 function cacheKey(brand: string, projects: ProjectInput[]): string {
   return [
@@ -204,8 +206,11 @@ function cacheKey(brand: string, projects: ProjectInput[]): string {
 
 export async function runReviewMonitor(
   brand: string,
-  projects: ProjectInput[]
+  projects: ProjectInput[],
+  options?: { cadence?: "daily" | "weekly" }
 ): Promise<ReviewMonitorResult> {
+  const cadence = options?.cadence || "daily";
+  const ttl = cadence === "weekly" ? 7 * DAY : DAY;
   const k = cacheKey(brand, projects);
   const hit = cache.get(k);
   if (hit && hit.expiresAt > Date.now()) return hit.value;
@@ -266,6 +271,6 @@ export async function runReviewMonitor(
     failedProjects: failed,
   };
 
-  cache.set(k, { value: out, expiresAt: Date.now() + CACHE_TTL_MS });
+  cache.set(k, { value: out, expiresAt: Date.now() + ttl });
   return out;
 }

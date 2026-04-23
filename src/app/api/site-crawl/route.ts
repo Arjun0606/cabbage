@@ -1,21 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runSiteCrawl } from "@/lib/agents/siteCrawler";
 import { enforceCredits } from "@/lib/credits";
+import { requireActiveSubscription } from "@/lib/db/supabase-server";
 
 /**
- * Full-site crawler endpoint. Crawls a site and returns per-URL SEO
- * audit + site-wide summary.
- *
- * The upper cap is generous on purpose. A Prestige / Lodha / Godrej
- * portfolio site easily has 2000+ URLs across project microsites,
- * locality pages, blog archives, and corporate content. Capping at
- * 200 hid 90% of the surface.
+ * Full-site crawler endpoint. The per-scan page cap is tier-gated so
+ * Starter customers can't crawl more than 500 pages per scan — that's
+ * the lever Starter vs Pro vs Enterprise actually buys. Enterprise
+ * caps at 3000 (the agent's hard ceiling).
  */
 const DEFAULT_PAGES = 200;
-const MAX_PAGES = 3000;
 
 export async function POST(req: NextRequest) {
   try {
+    const gate = await requireActiveSubscription(req);
+    if (!gate.ok) return gate.response;
+    const tierCap = gate.limits.maxPagesPerCrawl;
+
     const body = await req.json();
     const { url, maxPages, companyId } = body;
 
@@ -25,10 +26,19 @@ export async function POST(req: NextRequest) {
 
     await enforceCredits(companyId, "audit");
 
-    const limit = Math.min(Math.max(Number(maxPages) || DEFAULT_PAGES, 1), MAX_PAGES);
+    const requested = Math.max(Number(maxPages) || DEFAULT_PAGES, 1);
+    const limit = Math.min(requested, tierCap);
     const result = await runSiteCrawl(url, limit);
 
-    return NextResponse.json(result);
+    // Annotate the response with tier-cap context so the client can
+    // render an upgrade nudge when the user asked for more than their
+    // plan permits.
+    return NextResponse.json({
+      ...result,
+      tierCap,
+      requestedPages: requested,
+      cappedByPlan: requested > tierCap,
+    });
   } catch (error) {
     console.error("Site crawl error:", error);
     return NextResponse.json(

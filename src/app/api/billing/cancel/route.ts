@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/db/supabase-server";
 import { getServiceClient } from "@/lib/db/supabase";
-import { cancelSubscription } from "@/lib/razorpay";
+import { cancelDodoSubscription } from "@/lib/dodo";
 import { isDemoRequest } from "@/lib/demo";
 
 /**
- * POST /api/billing/cancel — cancels at the end of the current cycle.
- * User keeps access until current_period_end, then subscription ends.
+ * POST /api/billing/cancel — cancels the active Dodo subscription.
+ * Dodo doesn't expose a "cancel at period end" flag on the
+ * Subscription object itself, so we cancel immediately but leave the
+ * user with access until current_period_end (flagged client-side via
+ * cancel_at_period_end) until the subscription.cancelled webhook
+ * flips status to canceled.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -21,7 +25,7 @@ export async function POST(req: NextRequest) {
     const service = getServiceClient();
     const { data: sub } = await service
       .from("subscriptions")
-      .select("razorpay_subscription_id")
+      .select("razorpay_subscription_id, status")
       .eq("user_id", user.id)
       .maybeSingle();
 
@@ -29,7 +33,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No active subscription" }, { status: 400 });
     }
 
-    await cancelSubscription(sub.razorpay_subscription_id, true);
+    // Only cancel in Dodo if it's not just a pending checkout session.
+    // The razorpay_subscription_id column holds the checkout session id
+    // until Dodo's subscription.active webhook swaps in the real
+    // subscription id. If status is still pending there's nothing in
+    // Dodo to cancel yet.
+    if (sub.status === "active" || sub.status === "past_due" || sub.status === "paused") {
+      try {
+        await cancelDodoSubscription(sub.razorpay_subscription_id);
+      } catch (err) {
+        console.error("Dodo cancel failed, marking local:", err);
+      }
+    }
 
     await service
       .from("subscriptions")

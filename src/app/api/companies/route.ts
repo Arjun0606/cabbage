@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/db/supabase";
-import { getCurrentUser } from "@/lib/db/supabase-server";
+import { getCurrentUser, requireActiveSubscription } from "@/lib/db/supabase-server";
 import { sanitizeUrl } from "@/lib/security";
 import { extractCityFromLocation } from "@/lib/cities";
 import { parseProject } from "@/lib/projectParse";
@@ -52,9 +52,22 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    // Tier-aware gate. Paid subscribers get their tier's limits.
+    const gate = await requireActiveSubscription(req);
+    if (!gate.ok) return gate.response;
+
+    // Demo mode doesn't persist to DB (demo company data lives in
+    // localStorage on the client); only signed-in users can write here.
     const user = await getCurrentUser();
     if (!user) {
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+      return NextResponse.json(
+        {
+          error: gate.plan === "demo"
+            ? "Demo mode doesn't persist companies to the cloud — use localStorage."
+            : "Authentication required",
+        },
+        { status: 401 }
+      );
     }
 
     const db = getServiceClient();
@@ -64,6 +77,55 @@ export async function POST(req: NextRequest) {
 
     if (!name || !website) {
       return NextResponse.json({ error: "name and website are required" }, { status: 400 });
+    }
+
+    // Enforce per-tier project + city + competitor caps. -1 means
+    // unlimited (Enterprise). These caps are what make Starter vs Pro
+    // vs Enterprise sell — fail with a clean upgrade hint when hit.
+    const limits = gate.limits;
+    if (Array.isArray(projects)) {
+      if (limits.maxProjects >= 0 && projects.length > limits.maxProjects) {
+        return NextResponse.json(
+          {
+            error: `Your plan allows up to ${limits.maxProjects} projects. Upgrade to track more.`,
+            needsUpgrade: true,
+            limit: limits.maxProjects,
+            attempted: projects.length,
+          },
+          { status: 402 }
+        );
+      }
+      if (limits.maxCities >= 0) {
+        const cityKeys = new Set<string>();
+        for (const p of projects) {
+          const parsed = parseProject({ location: p.location }, city || "");
+          const c = (parsed.city || city || "").trim().toLowerCase();
+          if (c) cityKeys.add(c);
+        }
+        if (city && city.trim()) cityKeys.add(city.trim().toLowerCase());
+        if (cityKeys.size > limits.maxCities) {
+          return NextResponse.json(
+            {
+              error: `Your plan covers up to ${limits.maxCities} cit${limits.maxCities === 1 ? "y" : "ies"}. Upgrade to serve more metros.`,
+              needsUpgrade: true,
+              limit: limits.maxCities,
+              attempted: cityKeys.size,
+            },
+            { status: 402 }
+          );
+        }
+      }
+    }
+    if (Array.isArray(competitors) && limits.maxCompetitors >= 0 && competitors.length > limits.maxCompetitors) {
+      return NextResponse.json(
+        {
+          error: `Your plan tracks up to ${limits.maxCompetitors} competitors. Upgrade to track more.`,
+          needsUpgrade: true,
+          limit: limits.maxCompetitors,
+          attempted: competitors.length,
+        },
+        { status: 402 }
+      );
     }
 
     // SSRF guard — the website + any additional sites get fetched by the

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/db/supabase-server";
 import { getServiceClient } from "@/lib/db/supabase";
+import { TIERS, DEMO_LIMITS, isPaidTier } from "@/lib/tiers";
 
 /**
  * GET /api/billing/status
@@ -23,6 +24,7 @@ export async function GET(req: NextRequest) {
         status: "demo",
         canAccess: true,
         needsUpgrade: false,
+        limits: DEMO_LIMITS,
       });
     }
 
@@ -45,6 +47,16 @@ export async function GET(req: NextRequest) {
     const canAccess = isActive;
     const needsUpgrade = !canAccess;
 
+    // Map plan → tier limits so the frontend can surface per-tier
+    // nudges ("3 / 10 projects on Starter — upgrade to Pro for 40").
+    // Legacy "base" customers get Pro caps (they paid the old flat
+    // price that maps closest to Pro).
+    const limits = isPaidTier(sub?.plan || "")
+      ? TIERS[sub!.plan as keyof typeof TIERS].limits
+      : sub?.plan === "base"
+        ? TIERS.pro.limits
+        : null;
+
     return NextResponse.json({
       authenticated: true,
       email: user.email,
@@ -54,6 +66,7 @@ export async function GET(req: NextRequest) {
       cancelAtPeriodEnd: sub?.cancel_at_period_end || false,
       canAccess,
       needsUpgrade,
+      limits,
     });
   } catch (error) {
     console.error("Billing status error:", error);

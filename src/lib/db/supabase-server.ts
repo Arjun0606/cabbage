@@ -44,21 +44,38 @@ export async function getCurrentUser() {
  * directly. Demo-cookie sessions are granted access so the sales team
  * can still pitch prospects live.
  *
- * Returns { ok: true } when access is granted, or a ready-to-return
- * NextResponse (401 / 402) when it isn't. Callers spread the response
- * back to the client unchanged so error codes are consistent across
- * the API surface.
+ * On success returns { ok: true, userId, plan, limits } so downstream
+ * enforcement (per-tier page caps, article quotas, etc.) can be done
+ * without a second DB hit.
+ *
+ * On failure returns a ready-to-return NextResponse (401 / 402). Callers
+ * spread the response back to the client unchanged so error codes are
+ * consistent across the API surface.
  */
 import { NextResponse, type NextRequest } from "next/server";
 import { getServiceClient } from "@/lib/db/supabase";
+import { TIERS, DEMO_LIMITS, isPaidTier, type PlanTier, type TierLimits } from "@/lib/tiers";
+
+export type SubscriptionGateOk = {
+  ok: true;
+  userId: string;
+  plan: PlanTier | "demo";
+  limits: TierLimits;
+};
+
+export type SubscriptionGateFail = {
+  ok: false;
+  response: NextResponse;
+};
 
 export async function requireActiveSubscription(
   req?: NextRequest
-): Promise<{ ok: true; userId: string } | { ok: false; response: NextResponse }> {
+): Promise<SubscriptionGateOk | SubscriptionGateFail> {
   // Demo cookie — sales pitches don't have a real Supabase session but
-  // still need the full product surface working.
+  // still need the full product surface working. We mirror Enterprise
+  // caps so demo prospects see everything unlocked.
   const demo = req?.cookies.get("cabbge_demo")?.value === "1";
-  if (demo) return { ok: true, userId: "demo" };
+  if (demo) return { ok: true, userId: "demo", plan: "demo", limits: DEMO_LIMITS };
 
   const user = await getCurrentUser();
   if (!user) {
@@ -75,10 +92,28 @@ export async function requireActiveSubscription(
     const svc = getServiceClient();
     const { data: sub } = await svc
       .from("subscriptions")
-      .select("status")
+      .select("status, plan")
       .eq("user_id", user.id)
       .maybeSingle();
-    if (sub?.status === "active") return { ok: true, userId: user.id };
+    if (sub?.status === "active" && isPaidTier(sub.plan)) {
+      return {
+        ok: true,
+        userId: user.id,
+        plan: sub.plan,
+        limits: TIERS[sub.plan].limits,
+      };
+    }
+    // Legacy single-plan customers (plan === "base") before the tier
+    // split — treat them as Pro so they don't suddenly lose surface
+    // they were paying for.
+    if (sub?.status === "active" && sub.plan === "base") {
+      return {
+        ok: true,
+        userId: user.id,
+        plan: "pro",
+        limits: TIERS.pro.limits,
+      };
+    }
   } catch {
     // Supabase unreachable — fail closed for paid actions.
   }

@@ -103,12 +103,6 @@ const AGENCY_COMPARE = [
   { label: "Price (multi-city developer)", agency: "₹3-10 L/mo", cabbge: "₹99k/mo" },
 ];
 
-declare global {
-  interface Window {
-    Razorpay: new (options: Record<string, unknown>) => { open: () => void; on: (event: string, handler: (response: unknown) => void) => void };
-  }
-}
-
 export default function PricingPage() {
   const router = useRouter();
   const [subscribing, setSubscribing] = useState<string | null>(null);
@@ -117,11 +111,6 @@ export default function PricingPage() {
   const [billed, setBilled] = useState<"monthly" | "annual">("annual");
 
   useEffect(() => {
-    const s = document.createElement("script");
-    s.src = "https://checkout.razorpay.com/v1/checkout.js";
-    s.async = true;
-    document.body.appendChild(s);
-
     fetch("/api/billing/status")
       .then((r) => r.json())
       .then((d) => { setAuthed(!!d.authenticated); setInDemoMode(!!d.demoMode); })
@@ -144,22 +133,20 @@ export default function PricingPage() {
       if (data.error) throw new Error(data.error);
 
       if (data.demoMode) {
-        alert(`Demo mode — in a real session, Razorpay Checkout would open here for the ${tierKey} plan.`);
+        alert(`Demo mode — in a real session Dodo Payments Checkout would open for the ${tierKey} plan.`);
         router.push("/dashboard?upgraded=demo");
         return;
       }
 
-      const rzp = new window.Razorpay({
-        key: data.keyId,
-        subscription_id: data.subscriptionId,
-        name: "Cabbge",
-        description: `Cabbge ${tierKey.charAt(0).toUpperCase() + tierKey.slice(1)}`,
-        prefill: { email: data.email },
-        theme: { color: "#7CB342" },
-        handler: () => router.push("/dashboard?upgraded=true"),
-        modal: { ondismiss: () => setSubscribing(null) },
-      });
-      rzp.open();
+      // Dodo returns a hosted checkout URL. Full-page redirect — the
+      // Dodo page handles card / upi / wallet / international methods
+      // end-to-end and sends the customer back to /dashboard on success.
+      if (data.checkoutUrl) {
+        window.location.href = data.checkoutUrl;
+        return;
+      }
+
+      throw new Error("Checkout endpoint didn't return a URL");
     } catch (err) {
       alert(err instanceof Error ? err.message : "Checkout failed");
       setSubscribing(null);

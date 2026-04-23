@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { aiComplete } from "@/lib/ai";
 import { enforceCredits } from "@/lib/credits";
 import { requireActiveSubscription } from "@/lib/db/supabase-server";
+import { getServiceClient } from "@/lib/db/supabase";
 
 type ArticleType =
   | "locality_guide"
@@ -49,6 +50,7 @@ export async function POST(req: NextRequest) {
       allProjects, competitors,
       // Per-channel writing instructions from Settings → Personalization
       writingInstructions,
+      companyId,
     } = body;
 
     if (!projectName || !location || !city) {
@@ -56,6 +58,39 @@ export async function POST(req: NextRequest) {
         { error: "projectName, location, and city are required" },
         { status: 400 }
       );
+    }
+
+    // Tier-gated monthly article cap. Starter 20, Pro 60, Enterprise 200.
+    // We count by calendar month of generated_at on tracked_articles so
+    // the counter resets the first of each month without cron work.
+    if (companyId && gate.plan !== "demo") {
+      const start = new Date();
+      start.setDate(1);
+      start.setHours(0, 0, 0, 0);
+      try {
+        const svc = getServiceClient();
+        const { count } = await svc
+          .from("tracked_articles")
+          .select("id", { count: "exact", head: true })
+          .eq("company_id", companyId)
+          .gte("generated_at", start.toISOString());
+        if ((count ?? 0) >= gate.limits.articlesPerMonth) {
+          return NextResponse.json(
+            {
+              error: `You've used all ${gate.limits.articlesPerMonth} articles included in your ${gate.plan} plan this month.`,
+              hint: "Upgrade your plan for more monthly articles, or wait until the counter resets on the 1st.",
+              needsUpgrade: true,
+              limit: gate.limits.articlesPerMonth,
+              used: count ?? 0,
+            },
+            { status: 402 }
+          );
+        }
+      } catch (err) {
+        // Fail open rather than blocking legitimate writes on infra
+        // flake — logs will catch it if this becomes a pattern.
+        console.error("article cap check failed:", err);
+      }
     }
 
     // Track credit usage (always allows — upsell model)

@@ -44,7 +44,8 @@ export async function POST(req: NextRequest) {
         locality: typeof p.locality === "string" ? p.locality : null,
         city: typeof p.city === "string" ? p.city : null,
         website: typeof p.website === "string" ? p.website : null,
-      })).filter((p: any) => p.name)
+      })).filter((p: any) => p.name),
+      { cadence: gate.limits.reviewMonitorFrequency }
     );
 
     return NextResponse.json(result);
