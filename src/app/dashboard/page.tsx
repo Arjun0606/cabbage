@@ -235,6 +235,11 @@ export default function DashboardPage() {
               // Fire-and-forget — the local cache stays authoritative
               // when the network blips.
               hydrateArticleQueue(dbCompany.id).catch(() => {});
+              // Also pull portal-submission state so the coverage
+              // matrix doesn't reset when you switch browsers.
+              import("@/lib/portalTracker")
+                .then((m) => m.hydratePortalSubmissions(dbCompany.id))
+                .catch(() => {});
             }
           } catch {
             // Supabase not configured — that's fine, use localStorage
@@ -1107,7 +1112,50 @@ export default function DashboardPage() {
 
       setArticleResult(data);
       addLog(`> Article: "${data.title}" — ${data.wordCount} words, optimized for "${query}"`);
-      addLog(`> Publish it to your site, then re-scan to measure impact`);
+
+      // Auto-deploy landing pages. The whole point of a landing-page
+      // opportunity is to live at a real URL — so the moment the
+      // writer returns we push it to the customer's site via the
+      // loader endpoint. Blog-shape articles (locality_guide,
+      // construction_update etc.) still require the user to click
+      // Publish because those need editorial review.
+      if (articleType === "landing_page" && company.website) {
+        try {
+          const slugSource = data.title || query;
+          const slug = "/" + slugSource
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/^-+|-+$/g, "")
+            .slice(0, 80);
+          const deployRes = await fetch("/api/content-deploy", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              siteUrl: activeSiteUrl || company.website,
+              slot: slug,
+              html: data.content,
+              meta: {
+                title: data.title,
+                metaDescription: data.metaDescription,
+                targetKeyword: data.targetKeyword || query,
+              },
+              contentType: "locality_page",
+            }),
+          });
+          if (deployRes.ok) {
+            addLog(`> Landing page live at ${slug} via Cabbge loader`);
+            data._deployedSlug = slug;
+            setArticleResult({ ...data });
+          } else {
+            const j = await deployRes.json().catch(() => ({}));
+            addLog(`> Auto-deploy skipped: ${j.error || "deploy endpoint declined"}. Click Deploy to publish manually.`);
+          }
+        } catch (err) {
+          addLog(`> Auto-deploy skipped: ${err instanceof Error ? err.message : "unknown"}. Click Deploy to publish manually.`);
+        }
+      } else {
+        addLog(`> Publish it to your site, then re-scan to measure impact`);
+      }
       setActiveTab("content");
     } catch (err) { addLog(`> Error: ${err instanceof Error ? err.message : "Failed"}`); }
     finally { setIsFixingGeo(false); }
@@ -1309,7 +1357,7 @@ export default function DashboardPage() {
                 ...(company.sites || []),
               ]}
               onSwitchSite={switchSite}
-              companyName={company.name} city={company.city}
+              companyName={company.name} companyId={(company as any)._companyId} city={company.city}
               trends={trends}
               // New features
               projects={company.projects}

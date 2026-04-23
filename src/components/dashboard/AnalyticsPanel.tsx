@@ -36,6 +36,7 @@ import { ProjectRollup } from "./ProjectRollup";
 import { ProjectScorecard } from "./ProjectScorecard";
 import { CompetitiveLandscape } from "./CompetitiveLandscape";
 import { OwnPagesAICites } from "./OwnPagesAICites";
+import { ProjectCompare } from "./ProjectCompare";
 import { getCompanyCities, projectMatchesCity } from "@/lib/cities";
 import { parseLocation, inferState } from "@/lib/projectParse";
 import { isPortalSubmitted, togglePortalSubmitted, computeCoverage } from "@/lib/portalTracker";
@@ -59,6 +60,8 @@ interface Props {
   allSites: { url: string; label: string }[];
   onSwitchSite?: (url: string) => void;
   companyName: string;
+  /** Supabase company_id — enables cross-device persistence of portal tracker. */
+  companyId?: string;
   city: string;
   trends: Record<string, any>;
   // New features
@@ -217,7 +220,7 @@ export function AnalyticsPanel({
   auditResult, aiVisResult, backlinkResult, technicalResult,
   isAuditing, isCheckingAI, isCheckingBacklinks, isCheckingTechnical,
   onRunAudit, onRunAIVisibility, onRunBacklinks, onRunTechnical,
-  websiteUrl, allSites, onSwitchSite, companyName, city,
+  websiteUrl, allSites, onSwitchSite, companyName, companyId, city,
   trends,
   projects, selectedProject, onSelectProject,
   selectedCity, onSelectCity,
@@ -1042,6 +1045,16 @@ export function AnalyticsPanel({
             websiteUrl={websiteUrl}
           />
 
+          {/* Project comparison — answers the "X vs Y" buyer query
+              shape Indian buyers search constantly. Side-by-side
+              dimensions with an inline "Write the vs article" CTA. */}
+          <ProjectCompare
+            projects={visibleProjects as any}
+            aiVisResult={aiVisResult}
+            portalKeys={portalResult ? Object.keys(portalResult.portals || {}) : []}
+            onWriteArticle={onGeoFixQuery}
+          />
+
           {/* City scope banner — reminds the user that "overall score"
               is specific to the selected city. Critical for multi-city
               developers where Bangalore and Chennai visibility are
@@ -1789,7 +1802,7 @@ export function AnalyticsPanel({
                               onClick={(e) => {
                                 e.stopPropagation();
                                 e.preventDefault();
-                                togglePortalSubmitted(activeProjectName, key);
+                                togglePortalSubmitted(activeProjectName, key, companyId);
                                 setPortalTick((t) => t + 1);
                               }}
                               className={`text-[11px] font-medium px-2 py-1 rounded border flex items-center gap-1 ${

@@ -8,9 +8,12 @@
  * show a real coverage matrix ("4 of 15 listings submitted") instead
  * of leaving that status invisible.
  *
- * Persistence: localStorage first for instant UX. Mirrored to the
- * `integrations` table (or a dedicated table) later once Supabase is
- * fully wired — a TODO left for the next pass.
+ * Persistence is local-first + Supabase mirror when the signed-in user
+ * has a company_id. Toggles update localStorage synchronously for UX
+ * speed, then fire-and-forget to the `portal_submissions` table so the
+ * state survives across devices. On dashboard mount we call
+ * hydratePortalSubmissions(companyId) to pull remote state into the
+ * local cache.
  */
 
 const STORAGE_KEY = "cabbge_portal_submissions";
@@ -56,7 +59,8 @@ export function isPortalSubmitted(
 
 export function togglePortalSubmitted(
   projectName: string | null | undefined,
-  portalKey: string
+  portalKey: string,
+  companyId?: string
 ): boolean {
   const all = read();
   const key = projectName || PROJECT_FALLBACK;
@@ -73,11 +77,106 @@ export function togglePortalSubmitted(
       next[key] = rest;
       write(next);
     }
+    deleteInSupabase(companyId, key, portalKey);
     return false;
   }
-  next[key] = { ...row, [portalKey]: new Date().toISOString() };
+  const ts = new Date().toISOString();
+  next[key] = { ...row, [portalKey]: ts };
   write(next);
+  pushToSupabase(companyId, key, portalKey, ts);
   return true;
+}
+
+// ---------------------------------------------------------------------------
+// Supabase sync — optional, fire-and-forget. Local cache stays the
+// authoritative UX source; remote is the durable mirror.
+// ---------------------------------------------------------------------------
+
+async function supabaseClient() {
+  try {
+    const mod = await import("@/lib/db/supabase-browser");
+    return mod.getBrowserSupabase();
+  } catch {
+    return null;
+  }
+}
+
+function pushToSupabase(
+  companyId: string | undefined,
+  projectName: string,
+  portalKey: string,
+  ts: string
+) {
+  if (!companyId) return;
+  void (async () => {
+    const sb = await supabaseClient();
+    if (!sb) return;
+    try {
+      await sb.from("portal_submissions").upsert(
+        {
+          company_id: companyId,
+          project_name: projectName === PROJECT_FALLBACK ? "" : projectName,
+          portal_key: portalKey,
+          submitted_at: ts,
+        },
+        { onConflict: "company_id,project_name,portal_key" }
+      );
+    } catch {
+      /* swallow — local cache is still correct */
+    }
+  })();
+}
+
+function deleteInSupabase(
+  companyId: string | undefined,
+  projectName: string,
+  portalKey: string
+) {
+  if (!companyId) return;
+  void (async () => {
+    const sb = await supabaseClient();
+    if (!sb) return;
+    try {
+      await sb.from("portal_submissions")
+        .delete()
+        .eq("company_id", companyId)
+        .eq("project_name", projectName === PROJECT_FALLBACK ? "" : projectName)
+        .eq("portal_key", portalKey);
+    } catch {
+      /* swallow */
+    }
+  })();
+}
+
+/**
+ * Pull the company's portal submissions from Supabase and merge them
+ * into localStorage. Call on dashboard mount so state follows the
+ * user across devices. Purely-local toggles made before sign-in
+ * survive the merge.
+ */
+export async function hydratePortalSubmissions(companyId: string): Promise<void> {
+  if (!companyId || typeof window === "undefined") return;
+  const sb = await supabaseClient();
+  if (!sb) return;
+  try {
+    const { data, error } = await sb
+      .from("portal_submissions")
+      .select("project_name, portal_key, submitted_at")
+      .eq("company_id", companyId);
+    if (error || !data) return;
+    const local = read();
+    for (const row of data) {
+      const key = row.project_name || PROJECT_FALLBACK;
+      local[key] = local[key] || {};
+      // Local wins on conflict (user just toggled); remote fills gaps.
+      if (!local[key][row.portal_key]) {
+        local[key][row.portal_key] = row.submitted_at;
+      }
+    }
+    write(local);
+  } catch {
+    /* swallow — local cache stands */
+  }
 }
 
 /**
