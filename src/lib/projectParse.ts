@@ -178,6 +178,71 @@ export function formatRupees(rupees: number | null | undefined): string {
 }
 
 // ---------------------------------------------------------------------------
+// Asset type (residential / commercial / retail / township / hospitality)
+// ---------------------------------------------------------------------------
+//
+// Large developers run mixed portfolios: Prestige Group has Forum Malls
+// (retail), Prestige Office (commercial), Prestige Hospitality, and
+// residential. Lodha and Hiranandani operate townships (Palava,
+// Hiranandani Estate) that function like their own cities. Each format
+// has completely different buyer queries:
+//
+//   residential   -> "3 BHK flats in X"
+//   commercial    -> "office space for lease in X"
+//   retail        -> "showroom / mall space in X"
+//   township      -> "gated township near X", "self-contained community"
+//   hospitality   -> "serviced apartments in X", "hotel near X"
+//
+// Tagging projects with the right type lets the scan/query generator
+// pick the right buyer-query shape per project.
+
+export type ProjectAssetType =
+  | "residential"
+  | "commercial"
+  | "retail"
+  | "township"
+  | "hospitality"
+  | "mixed_use";
+
+const ASSET_TYPE_PATTERNS: Array<{ match: RegExp; type: ProjectAssetType }> = [
+  { match: /\b(mall|retail|showroom|high[\s-]?street)\b/i, type: "retail" },
+  { match: /\b(office|tower|it\s?park|work\s?space|commercial)\b/i, type: "commercial" },
+  { match: /\b(hotel|resort|serviced apartment|hospitality)\b/i, type: "hospitality" },
+  { match: /\b(township|smart city|integrated city|mini[\s-]?city|palava)\b/i, type: "township" },
+  { match: /\b(mixed[\s-]?use|mixed[\s-]?development)\b/i, type: "mixed_use" },
+];
+
+/**
+ * Infer the project's asset type from name + configurations + amenities.
+ * Conservative: defaults to "residential" when nothing else fits, since
+ * that's what 90% of Indian developer projects are.
+ */
+export function inferAssetType(input: {
+  name?: string | null;
+  configurations?: string | null;
+  amenities?: string | null;
+  configTags?: string[] | null;
+}): ProjectAssetType {
+  const haystack = [input.name, input.configurations, input.amenities, ...(input.configTags || [])]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  if (!haystack) return "residential";
+  for (const { match, type } of ASSET_TYPE_PATTERNS) {
+    if (match.test(haystack)) return type;
+  }
+  // Commercial-only config signal (no BHK, only "sqft" or "retail unit")
+  if (/\bsq\.?\s?ft\b/.test(haystack) && !/bhk|villa|plot|apartment|flat/.test(haystack)) {
+    return "commercial";
+  }
+  return "residential";
+}
+
+export function assetTypeLabel(type: ProjectAssetType): string {
+  return type === "mixed_use" ? "Mixed-use" : type.charAt(0).toUpperCase() + type.slice(1);
+}
+
+// ---------------------------------------------------------------------------
 // State inference (for multi-state RERA tracking)
 // ---------------------------------------------------------------------------
 

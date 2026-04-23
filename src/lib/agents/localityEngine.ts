@@ -288,6 +288,8 @@ export async function generateSearchQueries(
     priceMin?: number | null;
     priceMax?: number | null;
     stage?: string;
+    /** residential | commercial | retail | township | hospitality | mixed_use */
+    assetType?: string;
   }>,
   brandContext?: { usps?: string; productInfo?: string }
 ): Promise<GeneratedQueries> {
@@ -411,6 +413,21 @@ export async function generateSearchQueries(
     ? `\n\nPROJECT STAGES IN THIS PORTFOLIO: ${stages.join(", ")}\n- For pre_launch, generate queries like "upcoming projects in {locality}", "new launch {config} {locality}", "pre-launch offers {locality}".\n- For ready_to_move, generate queries like "ready to move {config} in {locality}", "occupancy ready {locality}", "immediate possession {locality}".\n- For under_construction, generate queries like "{config} under construction {locality}", "new project {locality} 2026", "upcoming delivery {locality}".`
     : "";
 
+  // Asset-type mix. Large developers run mixed portfolios (residential,
+  // commercial, retail, hospitality, township). Each format has its own
+  // buyer-query shape — generating generic residential queries for a
+  // commercial tower misses the real demand.
+  const assetTypes = Array.from(new Set((projectDetails || []).map(p => p.assetType).filter(Boolean))) as string[];
+  const assetHint = assetTypes.length > 0
+    ? `\n\nPROJECT ASSET TYPES: ${assetTypes.join(", ")}
+- commercial -> "office space for lease in {locality}", "Grade A office {locality}", "coworking near {landmark}".
+- retail     -> "showroom for lease {locality}", "mall space {locality}", "high street retail {city}".
+- township   -> "gated township near {city}", "self-contained community {locality}", "integrated city {city}".
+- hospitality -> "serviced apartments {city}", "long stay rentals {locality}", "hotel near {landmark}".
+- mixed_use  -> mix of residential + commercial + retail queries tagged to the same address.
+Generate queries matching each asset type a project has, not just residential by default.`
+    : "";
+
   const prompt = `Generate search queries that ${industryContext} These customers DO NOT know any specific company — they are searching by need, location, and requirements. The brand being tested is "${brand}" but DO NOT include it in any query.
 
 INDUSTRY: ${ind.replace(/_/g, " ")}
@@ -420,7 +437,7 @@ ${multiCity
 COUNTRY: ${country}
 ${uniqueLocations.length > 0 ? `LOCALITIES/MICRO-MARKETS: ${uniqueLocations.join(", ")}` : ""}
 ${uniqueConfigs.length > 0 ? `CONFIGURATIONS OFFERED: ${uniqueConfigs.join(", ")}` : ""}
-${priceRanges.length > 0 ? `PRICE BANDS (generate "under X cr" / "X-Y cr" queries matching each): ${priceRanges.join(" | ")}` : ""}${stageHint}${projectsBlock}${audienceBlock}${uspsBlock}
+${priceRanges.length > 0 ? `PRICE BANDS (generate "under X cr" / "X-Y cr" queries matching each): ${priceRanges.join(" | ")}` : ""}${stageHint}${assetHint}${projectsBlock}${audienceBlock}${uspsBlock}
 
 CRITICAL RULES:
 - ALL queries in ENGLISH only

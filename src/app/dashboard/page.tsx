@@ -690,16 +690,25 @@ export default function DashboardPage() {
         // Full structured project details so the query generator can
         // produce the buyer-query matrix (config + locality + price +
         // stage) instead of vague generic queries.
-        projectDetails: scopedProjects.map(p => ({
-          name: p.name,
-          location: p.location,
-          locality: (p as any).locality,
-          configurations: p.configurations,
-          configTags: (p as any).config_tags,
-          priceRange: p.priceRange,
-          priceMin: (p as any).price_min,
-          priceMax: (p as any).price_max,
-          stage: (p as any).stage,
+        projectDetails: await Promise.all(scopedProjects.map(async (p) => {
+          const { inferAssetType } = await import("@/lib/projectParse");
+          return {
+            name: p.name,
+            location: p.location,
+            locality: (p as any).locality,
+            configurations: p.configurations,
+            configTags: (p as any).config_tags,
+            priceRange: p.priceRange,
+            priceMin: (p as any).price_min,
+            priceMax: (p as any).price_max,
+            stage: (p as any).stage,
+            assetType: inferAssetType({
+              name: p.name,
+              configurations: p.configurations,
+              amenities: (p as any).amenities,
+              configTags: (p as any).config_tags,
+            }),
+          };
         })),
         industry: (company as any).industry,
         brandContext: {

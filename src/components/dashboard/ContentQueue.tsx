@@ -48,13 +48,15 @@ import { SchemaDeployPanel } from "./SchemaDeployPanel";
 interface Opportunity {
   keyword: string;
   /** Where we surfaced this opportunity from. */
-  source: "gap-ai" | "gap-keyword" | "gsc" | "landing-page" | "nri";
+  source: "gap-ai" | "gap-keyword" | "gsc" | "landing-page" | "nri" | "brand-defense";
   reason: string;
   volume: number | null;
   difficulty: number | null;
   priority: "high" | "medium" | "low";
   /** Suggested URL slug for landing-page opportunities. */
   suggestedSlug?: string;
+  /** For per-country NRI opps — the target country ISO code. */
+  country?: "ae" | "uk" | "us" | "sg" | "au" | "ca";
 }
 
 interface ProjectContext {
@@ -168,6 +170,10 @@ export function ContentQueue({
   const [queue, setQueue] = useState<{ drafts: TrackedArticle[]; published: TrackedArticle[] }>({ drafts: [], published: [] });
   const [schemaOpen, setSchemaOpen] = useState(false);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+  // Bulk-generate state for the "Generate all N landing pages" button.
+  // Runs writes sequentially so the AI writer doesn't get hammered
+  // with 50 parallel LLM calls.
+  const [bulkRunning, setBulkRunning] = useState(false);
 
   // Re-read the draft queue from localStorage whenever the caller tells
   // us a new article was generated (articleResult.title changes) or
@@ -306,49 +312,102 @@ export function ContentQueue({
 
     // 3) NRI track — a distinct buyer segment with its own content
     //    shape (FEMA, NRE/NRO, repatriation, virtual tours, USD/AED/GBP).
-    //    We always surface the top couple of NRI angles unless the
-    //    customer dismisses them, because NRIs are a huge share of
-    //    Indian luxury demand and developers routinely under-invest
-    //    in NRI-specific content.
+    //    For premium developers with significant NRI share (Prestige,
+    //    Lodha, Hiranandani), we split by country because UAE / UK /
+    //    US / Singapore buyers face different tax rules, FEMA
+    //    treatment, and currency conversion dynamics.
     const primaryCity = selectedCity || city || "";
     const primaryLocality = selectedLocality || "";
     if (primaryCity) {
       const base = primaryLocality ? `${primaryLocality}, ${primaryCity}` : primaryCity;
-      const nriSeeds: Array<{ keyword: string; reason: string }> = [
-        {
-          keyword: `NRI-friendly projects in ${base}`,
-          reason: "NRI buyers search for developers with repatriation + virtual-tour support. Very few have this content.",
-        },
-        {
-          keyword: `how NRIs buy property in ${primaryCity}`,
-          reason: "FEMA, NRE/NRO, POA — the educational query NRIs type before shortlisting.",
-        },
+      const nriCountries: Array<{
+        code: Opportunity["country"];
+        name: string;
+        hint: string;
+      }> = [
+        { code: "ae", name: "UAE", hint: "AED-INR conversion, Dubai/Abu Dhabi buyer specifics, DTAA treaty benefits" },
+        { code: "us", name: "US", hint: "USD buyer, FIRPTA implications, US tax filings + FEMA alignment" },
+        { code: "uk", name: "UK", hint: "GBP buyer, UK stamp-duty implications, repatriation routes via HSBC/Barclays" },
+        { code: "sg", name: "Singapore", hint: "SGD buyer, DTAA provisions, CPF implications if relevant" },
       ];
-      for (const s of nriSeeds) {
-        const key = s.keyword.toLowerCase().trim();
-        if (seen.has(key) || dismissed.has(key)) continue;
-        seen.add(key);
+      // Generic NRI overview (all-country)
+      const genericKey = `NRI-friendly projects in ${base}`.toLowerCase().trim();
+      if (!seen.has(genericKey) && !dismissed.has(genericKey)) {
+        seen.add(genericKey);
         out.push({
-          keyword: s.keyword,
+          keyword: `NRI-friendly projects in ${base}`,
           source: "nri",
-          reason: s.reason,
+          reason: "Generic NRI overview — virtual tours + repatriation support + FEMA compliance.",
           volume: null,
           difficulty: null,
           priority: "medium",
         });
       }
+      // Per-country NRI — scoped angles for the biggest Indian NRI
+      // diasporas. Large developers have NRI sales desks per region.
+      for (const c of nriCountries) {
+        const kw = `buying property in ${primaryCity} from ${c.name}`;
+        const key = kw.toLowerCase().trim();
+        if (seen.has(key) || dismissed.has(key)) continue;
+        seen.add(key);
+        out.push({
+          keyword: kw,
+          source: "nri",
+          reason: c.hint,
+          volume: null,
+          difficulty: null,
+          priority: "medium",
+          country: c.code,
+        });
+      }
     }
 
-    // Sort priority:
-    //   1. Landing-page recommendations — deterministic, execution-ready
-    //   2. GEO blind spots — AI-visibility-critical
-    //   3. Everything else by volume
+    // 3.5) Brand protection queries — "[brand] complaints", "[brand]
+    //    delay", "[brand] scam", "[brand] review" — existential for
+    //    large developers whose brand pulls buyer attention. An
+    //    unanswered negative query on page 1 of Google or cited by
+    //    ChatGPT poisons every other touchpoint. We auto-surface the
+    //    canonical defensive queries so the developer can publish
+    //    counter-narrative content and own the SERP.
+    const brandName = (geoProgress?.brand || "").trim()
+      || (keywordResearchResult?.brand || "").trim();
+    // We also accept the company name via the stage hint prop — if the
+    // queue is project-scoped, defend the project name too.
+    const defenseTargets: string[] = [];
+    if (brandName) defenseTargets.push(brandName);
+    if (projectName) defenseTargets.push(projectName);
+    for (const target of defenseTargets) {
+      const shapes = [
+        { suffix: "reviews", hint: "Own the narrative before third-party aggregators do. Publish an honest review hub that surfaces your verified testimonials + project highlights." },
+        { suffix: "complaints", hint: "Publish a resolution-focused page describing how complaints are handled, RERA escalation paths, and your grievance process." },
+        { suffix: "delay", hint: "Counter delay narratives with a dated project-progress page covering RERA possession dates vs actuals and transparent milestone tracking." },
+      ];
+      for (const s of shapes) {
+        const kw = `${target} ${s.suffix}`;
+        const key = kw.toLowerCase().trim();
+        if (seen.has(key) || dismissed.has(key)) continue;
+        seen.add(key);
+        out.push({
+          keyword: kw,
+          source: "brand-defense",
+          reason: s.hint,
+          volume: null,
+          difficulty: null,
+          priority: "high",
+        });
+      }
+    }
+
+    // Sort priority: defense first (negative narratives metastasise),
+    // then landing pages (deterministic execution), then AI gaps,
+    // then NRI, then keyword-research opportunities.
     const sourceRank: Record<Opportunity["source"], number> = {
-      "landing-page": 0,
-      "gap-ai": 1,
-      nri: 2,
-      "gap-keyword": 3,
-      gsc: 4,
+      "brand-defense": 0,
+      "landing-page": 1,
+      "gap-ai": 2,
+      nri: 3,
+      "gap-keyword": 4,
+      gsc: 5,
     };
     return out.sort((a, b) => {
       const ra = sourceRank[a.source] ?? 9;
@@ -356,7 +415,7 @@ export function ContentQueue({
       if (ra !== rb) return ra - rb;
       return (b.volume || 0) - (a.volume || 0);
     });
-  }, [geoProgress, keywordResearchResult, projects, city, dismissed]);
+  }, [geoProgress, keywordResearchResult, projects, city, dismissed, selectedCity, selectedLocality, projectName]);
 
   const decaying = (contentDecayReport?.decayingPages || []).slice(0, 8);
   const rising = contentDecayReport?.risingPages || [];
@@ -490,16 +549,51 @@ export function ContentQueue({
       {/* -------- Opportunities -------- */}
       <Card className="bg-zinc-900/60 border-white/[0.06] rounded-xl">
         <CardContent className="p-5">
-          <div className="flex items-center gap-2 mb-3">
+          <div className="flex items-center gap-2 mb-3 flex-wrap">
             <Target size={14} className="text-zinc-300" />
             <h3 className="text-[13px] font-semibold text-zinc-200">Opportunities</h3>
             <Badge className="text-[10px] bg-zinc-800 text-zinc-400 border-0 rounded-md h-5 px-1.5">
               {opportunities.length}
             </Badge>
+            {(() => {
+              const landingCount = opportunities.filter((o) => o.source === "landing-page").length;
+              if (landingCount < 3 || !onWriteArticle) return null;
+              // Bulk generate: for a Prestige-scale developer with 50+
+              // landing-page recs, clicking Write 50 times is absurd.
+              // One button kicks them off sequentially so the writer
+              // doesn't pile up parallel LLM calls.
+              return (
+                <button
+                  onClick={async () => {
+                    if (bulkRunning) return;
+                    setBulkRunning(true);
+                    try {
+                      const landings = opportunities
+                        .filter((o) => o.source === "landing-page")
+                        .slice(0, Math.min(landingCount, 20));
+                      for (const opp of landings) {
+                        if (dismissed.has(opp.keyword.toLowerCase().trim())) continue;
+                        await onWriteArticle(opp.keyword);
+                      }
+                    } finally {
+                      setBulkRunning(false);
+                    }
+                  }}
+                  disabled={bulkRunning || isFixingGeo}
+                  className="text-[11px] font-medium px-2.5 py-1 rounded-md bg-[#7CB342]/15 text-[#7CB342] border border-[#7CB342]/30 hover:bg-[#7CB342]/25 disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {bulkRunning ? (
+                    <><Loader2 size={11} className="animate-spin" />Generating…</>
+                  ) : (
+                    <><PenTool size={11} />Generate all {Math.min(landingCount, 20)} landing pages</>
+                  )}
+                </button>
+              );
+            })()}
             <span className="text-[11px] text-zinc-500 ml-auto">
               {opportunities.length === 0 && !isResearchingKeywords
                 ? "Nothing obvious — rescan after your next GEO scan"
-                : "Ranked by AI-gap first, then volume"}
+                : "Defense first, then landing pages, then AI gaps"}
             </span>
           </div>
 
@@ -526,18 +620,29 @@ export function ContentQueue({
                   <Badge className={`text-[9px] h-4 px-1.5 rounded border flex-shrink-0 ${priorityBadge(opp.priority)}`}>
                     {opp.priority}
                   </Badge>
-                  {(opp.source === "landing-page" || opp.source === "gap-ai" || opp.source === "nri") && (
+                  {(opp.source === "landing-page" ||
+                    opp.source === "gap-ai" ||
+                    opp.source === "nri" ||
+                    opp.source === "brand-defense") && (
                     <Badge
                       variant="outline"
                       className={`text-[9px] h-4 px-1.5 rounded border-0 flex-shrink-0 ${
-                        opp.source === "landing-page"
+                        opp.source === "brand-defense"
+                          ? "bg-red-500/15 text-red-400"
+                          : opp.source === "landing-page"
                           ? "bg-[#7CB342]/10 text-[#7CB342]"
                           : opp.source === "nri"
                           ? "bg-blue-500/10 text-blue-400"
                           : "bg-amber-500/10 text-amber-400"
                       }`}
                     >
-                      {opp.source === "landing-page" ? "landing page" : opp.source === "nri" ? "NRI" : "AI gap"}
+                      {opp.source === "brand-defense"
+                        ? "defend"
+                        : opp.source === "landing-page"
+                        ? "landing page"
+                        : opp.source === "nri"
+                        ? opp.country ? `NRI · ${opp.country.toUpperCase()}` : "NRI"
+                        : "AI gap"}
                     </Badge>
                   )}
                   <div className="flex-1 min-w-0">

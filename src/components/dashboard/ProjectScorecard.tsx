@@ -16,6 +16,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Building2, Target, Wrench, Building, ShieldCheck } from "lucide-react";
 import { computeCoverage } from "@/lib/portalTracker";
+import { inferAssetType, assetTypeLabel } from "@/lib/projectParse";
 
 interface QueryResult {
   query: string;
@@ -32,6 +33,8 @@ interface Props {
     rera_number?: string | null;
     reraNumber?: string;
     config_tags?: string[] | null;
+    configurations?: string | null;
+    amenities?: string | null;
     stage?: string | null;
   };
   /** Company AI visibility scan result — we derive the project score from it. */
@@ -87,6 +90,12 @@ export function ProjectScorecard({ project, aiVisResult, auditScore, portalKeys 
   const coverage = computeCoverage([project.name], portalKeys);
   const reraNumber = (project.rera_number || project.reraNumber || "").trim();
   const stageLabel = (project.stage || "active").replace(/_/g, " ");
+  const assetType = inferAssetType({
+    name: project.name,
+    configurations: project.configurations,
+    amenities: project.amenities,
+    configTags: project.config_tags,
+  });
 
   return (
     <Card className="bg-zinc-900/60 border-white/[0.06] rounded-xl">
@@ -96,10 +105,25 @@ export function ProjectScorecard({ project, aiVisResult, auditScore, portalKeys 
             <Building2 size={14} className="text-zinc-300" />
           </div>
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="text-[14px] font-semibold text-zinc-100 truncate">{project.name}</span>
               <Badge className="text-[10px] bg-zinc-800 text-zinc-300 border-0 rounded-md h-5 px-1.5">
                 {stageLabel}
+              </Badge>
+              <Badge className={`text-[10px] border-0 rounded-md h-5 px-1.5 ${
+                assetType === "residential"
+                  ? "bg-zinc-800 text-zinc-400"
+                  : assetType === "commercial"
+                  ? "bg-blue-500/15 text-blue-400"
+                  : assetType === "retail"
+                  ? "bg-purple-500/15 text-purple-400"
+                  : assetType === "township"
+                  ? "bg-[#7CB342]/15 text-[#7CB342]"
+                  : assetType === "hospitality"
+                  ? "bg-amber-500/15 text-amber-400"
+                  : "bg-zinc-700 text-zinc-300"
+              }`}>
+                {assetTypeLabel(assetType)}
               </Badge>
               {project.locality && (
                 <span className="text-[11px] text-zinc-500">{project.locality}{project.city ? `, ${project.city}` : ""}</span>
