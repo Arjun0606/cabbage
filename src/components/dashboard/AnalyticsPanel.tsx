@@ -356,17 +356,6 @@ export function AnalyticsPanel({
             <SiteCrawlPanel data={null} onRunCrawl={onRunSiteCrawl} />
           ) : null}
 
-          {/* Keyword research — expand seed into volume-aware opportunities */}
-          {onRunKeywordResearch && (
-            <KeywordResearchPanel
-              city={city}
-              data={keywordResearchResult}
-              isLoading={isResearchingKeywords}
-              onSearch={onRunKeywordResearch}
-              onFixKeyword={onGeoFixQuery}
-            />
-          )}
-
           {/* Internal linking graph — uses the crawl to find link opportunities */}
           {onRunInternalLinking && (
             <InternalLinkingPanel
@@ -1557,12 +1546,25 @@ export function AnalyticsPanel({
         </TabsContent>
 
         {/* ================================================================ */}
-        {/* -------- CONTENT TAB (Topics + Articles + Campaigns + Partners + Progress + Schema) -------- */}
+        {/* -------- CONTENT TAB (Keywords \u2192 Articles \u2192 Schema) -------- */}
         {/* ================================================================ */}
         <TabsContent value="content" className="space-y-4">
 
+          {/* Keyword research sits at the top of Content — this is the
+              first step of the content workflow: find what buyers search,
+              then click "Write Article" on any opportunity to generate
+              an article for that keyword. */}
+          {onRunKeywordResearch && (
+            <KeywordResearchPanel
+              city={city}
+              data={keywordResearchResult}
+              isLoading={isResearchingKeywords}
+              onSearch={onRunKeywordResearch}
+              onFixKeyword={onGeoFixQuery}
+            />
+          )}
 
-          {/* --- Section 2: Full Articles --- */}
+          {/* --- Full Articles --- */}
           <button
             onClick={() => setContentSection(contentSection === "articles" ? null : "articles")}
             className="w-full flex items-center justify-between px-4 py-3 rounded-lg bg-zinc-900/60 border border-zinc-800/50 text-left hover:border-zinc-700 transition-all"
