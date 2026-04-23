@@ -47,11 +47,25 @@ import { SchemaDeployPanel } from "./SchemaDeployPanel";
 
 interface Opportunity {
   keyword: string;
-  source: "gap-ai" | "gap-keyword" | "gsc";
+  /** Where we surfaced this opportunity from. */
+  source: "gap-ai" | "gap-keyword" | "gsc" | "landing-page" | "nri";
   reason: string;
   volume: number | null;
   difficulty: number | null;
   priority: "high" | "medium" | "low";
+  /** Suggested URL slug for landing-page opportunities. */
+  suggestedSlug?: string;
+}
+
+interface ProjectContext {
+  name?: string;
+  locality?: string | null;
+  city?: string | null;
+  config_tags?: string[] | null;
+  configurations?: string | null;
+  stage?: string | null;
+  price_min?: number | null;
+  price_max?: number | null;
 }
 
 interface DecayingPage {
@@ -74,6 +88,8 @@ interface Props {
   projectStage?: string | null;
   /** Project name for the stage hint context. */
   projectName?: string | null;
+  /** Project portfolio — used to surface (locality × config) landing-page opportunities. */
+  projects?: ProjectContext[];
   websiteUrl: string;
   keywordResearchResult: any;
   isResearchingKeywords?: boolean;
@@ -130,6 +146,7 @@ export function ContentQueue({
   selectedLocality,
   projectStage,
   projectName,
+  projects,
   websiteUrl,
   keywordResearchResult,
   isResearchingKeywords,
@@ -164,10 +181,39 @@ export function ContentQueue({
     setQueue(getArticleQueue());
   };
 
-  // --- Build opportunities list: GEO blind spots + keyword research gaps ---
+  // --- Build opportunities list: GEO blind spots + keyword research gaps + landing-page recs ---
   const opportunities = useMemo<Opportunity[]>(() => {
     const seen = new Set<string>();
     const out: Opportunity[] = [];
+
+    // 0) Locality × config landing-page recommendations. This is what
+    //    Indian SEO agencies charge retainers for: for every locality a
+    //    developer has projects in, there should be a dedicated
+    //    /{city}/{locality}/{config} landing page. We surface the gap
+    //    deterministically from the brand's own portfolio — no API call.
+    //    High priority because these pages convert buyer-intent queries
+    //    like "3 BHK flats in Gachibowli under 3 cr" directly.
+    for (const p of projects || []) {
+      const loc = p.locality || "";
+      const configs = p.config_tags && p.config_tags.length > 0 ? p.config_tags : [];
+      if (!loc || configs.length === 0) continue;
+      for (const cfg of configs.slice(0, 3)) {
+        const keyword = `${cfg} flats in ${loc}`;
+        const key = keyword.toLowerCase().trim();
+        if (seen.has(key) || dismissed.has(key)) continue;
+        seen.add(key);
+        const slug = `/${(p.city || city || "").toLowerCase().replace(/\s+/g, "-")}/${loc.toLowerCase().replace(/\s+/g, "-")}/${cfg.toLowerCase()}`;
+        out.push({
+          keyword,
+          source: "landing-page",
+          reason: `Build a landing page at ${slug} — ${cfg} buyers in ${loc} search this shape every week`,
+          volume: null,
+          difficulty: null,
+          priority: "high",
+          suggestedSlug: slug,
+        });
+      }
+    }
 
     // 1) GEO blind spots — queries where ChatGPT + Gemini don't mention
     //    the brand. Highest priority because they represent lost demand
@@ -232,14 +278,59 @@ export function ContentQueue({
       });
     }
 
-    // Sort so AI gaps surface first (they're execution-critical for GEO),
-    // then by volume.
+    // 3) NRI track — a distinct buyer segment with its own content
+    //    shape (FEMA, NRE/NRO, repatriation, virtual tours, USD/AED/GBP).
+    //    We always surface the top couple of NRI angles unless the
+    //    customer dismisses them, because NRIs are a huge share of
+    //    Indian luxury demand and developers routinely under-invest
+    //    in NRI-specific content.
+    const primaryCity = selectedCity || city || "";
+    const primaryLocality = selectedLocality || "";
+    if (primaryCity) {
+      const base = primaryLocality ? `${primaryLocality}, ${primaryCity}` : primaryCity;
+      const nriSeeds: Array<{ keyword: string; reason: string }> = [
+        {
+          keyword: `NRI-friendly projects in ${base}`,
+          reason: "NRI buyers search for developers with repatriation + virtual-tour support. Very few have this content.",
+        },
+        {
+          keyword: `how NRIs buy property in ${primaryCity}`,
+          reason: "FEMA, NRE/NRO, POA — the educational query NRIs type before shortlisting.",
+        },
+      ];
+      for (const s of nriSeeds) {
+        const key = s.keyword.toLowerCase().trim();
+        if (seen.has(key) || dismissed.has(key)) continue;
+        seen.add(key);
+        out.push({
+          keyword: s.keyword,
+          source: "nri",
+          reason: s.reason,
+          volume: null,
+          difficulty: null,
+          priority: "medium",
+        });
+      }
+    }
+
+    // Sort priority:
+    //   1. Landing-page recommendations — deterministic, execution-ready
+    //   2. GEO blind spots — AI-visibility-critical
+    //   3. Everything else by volume
+    const sourceRank: Record<Opportunity["source"], number> = {
+      "landing-page": 0,
+      "gap-ai": 1,
+      nri: 2,
+      "gap-keyword": 3,
+      gsc: 4,
+    };
     return out.sort((a, b) => {
-      if (a.source === "gap-ai" && b.source !== "gap-ai") return -1;
-      if (b.source === "gap-ai" && a.source !== "gap-ai") return 1;
+      const ra = sourceRank[a.source] ?? 9;
+      const rb = sourceRank[b.source] ?? 9;
+      if (ra !== rb) return ra - rb;
       return (b.volume || 0) - (a.volume || 0);
     });
-  }, [geoProgress, keywordResearchResult, dismissed]);
+  }, [geoProgress, keywordResearchResult, projects, city, dismissed]);
 
   const decaying = (contentDecayReport?.decayingPages || []).slice(0, 8);
   const rising = contentDecayReport?.risingPages || [];
@@ -409,6 +500,20 @@ export function ContentQueue({
                   <Badge className={`text-[9px] h-4 px-1.5 rounded border flex-shrink-0 ${priorityBadge(opp.priority)}`}>
                     {opp.priority}
                   </Badge>
+                  {(opp.source === "landing-page" || opp.source === "gap-ai" || opp.source === "nri") && (
+                    <Badge
+                      variant="outline"
+                      className={`text-[9px] h-4 px-1.5 rounded border-0 flex-shrink-0 ${
+                        opp.source === "landing-page"
+                          ? "bg-[#7CB342]/10 text-[#7CB342]"
+                          : opp.source === "nri"
+                          ? "bg-blue-500/10 text-blue-400"
+                          : "bg-amber-500/10 text-amber-400"
+                      }`}
+                    >
+                      {opp.source === "landing-page" ? "landing page" : opp.source === "nri" ? "NRI" : "AI gap"}
+                    </Badge>
+                  )}
                   <div className="flex-1 min-w-0">
                     <div className="text-[13px] text-zinc-200 truncate">{opp.keyword}</div>
                     <div className="text-[11px] text-zinc-500 truncate">{opp.reason}</div>

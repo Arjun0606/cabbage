@@ -31,8 +31,10 @@ import { GSCPanel } from "./GSCPanel";
 import { SiteCrawlPanel } from "./SiteCrawlPanel";
 import { InternalLinkingPanel } from "./InternalLinkingPanel";
 import { ContentQueue } from "./ContentQueue";
+import { LocalityRollup } from "./LocalityRollup";
 import { getCompanyCities, projectMatchesCity } from "@/lib/cities";
 import { parseLocation } from "@/lib/projectParse";
+import { isPortalSubmitted, togglePortalSubmitted, computeCoverage } from "@/lib/portalTracker";
 
 interface Props {
   activeTab: string;
@@ -243,6 +245,9 @@ export function AnalyticsPanel({
 
   // Copy-to-clipboard feedback for the various CopyBtn instances below.
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  // Nonce that bumps whenever the user marks a portal as submitted —
+  // forces the matrix coverage + per-row badge to re-read localStorage.
+  const [portalTick, setPortalTick] = useState(0);
 
   const copyToClipboard = (text: string, field: string) => {
     navigator.clipboard.writeText(text);
@@ -977,6 +982,18 @@ export function AnalyticsPanel({
         {/* ================================================================ */}
         <TabsContent value="aigeo" className="space-y-4">
 
+          {/* Per-locality rollup — turns one opaque overall score into
+              a heatmap across the localities the brand serves. Only
+              shown when we have 2+ localities with scan data, so
+              single-locality developers don't see a redundant card. */}
+          <LocalityRollup
+            aiVisResult={aiVisResult}
+            localities={localitiesInScope}
+            city={selectedCity || city}
+            onSelectLocality={onSelectLocality}
+            selectedLocality={selectedLocality}
+          />
+
           {/* City scope banner — reminds the user that "overall score"
               is specific to the selected city. Critical for multi-city
               developers where Bangalore and Chennai visibility are
@@ -1492,44 +1509,71 @@ export function AnalyticsPanel({
         {/* ================================================================ */}
         <TabsContent value="links" className="space-y-4">
           {/* --- Scorecards --- */}
-          <div className="grid grid-cols-3 gap-3">
-            <SectionCard>
-              <CardContent className="p-4">
-                <div className="text-[10px] uppercase tracking-wide text-zinc-500 font-semibold mb-1">Domain Authority</div>
-                <div className="text-2xl font-bold text-zinc-100 tabular-nums">
-                  {backlinkResult?.domainAuthority ?? "—"}
-                </div>
-                <div className="text-[11px] text-zinc-500 mt-0.5">
-                  {backlinkResult?.dataSource === "moz_api" ? "Moz verified" : backlinkResult ? "AI estimated" : "Run scan to measure"}
-                </div>
-              </CardContent>
-            </SectionCard>
-            <SectionCard>
-              <CardContent className="p-4">
-                <div className="text-[10px] uppercase tracking-wide text-zinc-500 font-semibold mb-1">Portal Listings</div>
-                <div className="text-2xl font-bold text-zinc-100 tabular-nums">
-                  {portalResult ? Object.keys(portalResult.portals || {}).length : 0}
-                  <span className="text-[13px] text-zinc-500 font-normal">
-                    {" / "}{portalResult?.meta?.portals?.length || 5}
-                  </span>
-                </div>
-                <div className="text-[11px] text-zinc-500 mt-0.5">
-                  {portalResult ? "Copy generated — submit next" : "Not generated yet"}
-                </div>
-              </CardContent>
-            </SectionCard>
-            <SectionCard>
-              <CardContent className="p-4">
-                <div className="text-[10px] uppercase tracking-wide text-zinc-500 font-semibold mb-1">Referring Domains</div>
-                <div className="text-2xl font-bold text-zinc-100 tabular-nums">
-                  {backlinkResult?.referringDomains?.toLocaleString() ?? "—"}
-                </div>
-                <div className="text-[11px] text-zinc-500 mt-0.5">
-                  {backlinkResult ? `${backlinkResult.totalBacklinks?.toLocaleString() || 0} total backlinks` : "Unknown"}
-                </div>
-              </CardContent>
-            </SectionCard>
-          </div>
+          {(() => {
+            const reraProjects = projects.filter((p) => !!(p as any).rera_number || !!(p as any).reraNumber).length;
+            return (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <SectionCard>
+                  <CardContent className="p-4">
+                    <div className="text-[10px] uppercase tracking-wide text-zinc-500 font-semibold mb-1">Domain Authority</div>
+                    <div className="text-2xl font-bold text-zinc-100 tabular-nums">
+                      {backlinkResult?.domainAuthority ?? "—"}
+                    </div>
+                    <div className="text-[11px] text-zinc-500 mt-0.5">
+                      {backlinkResult?.dataSource === "moz_api" ? "Moz verified" : backlinkResult ? "AI estimated" : "Run scan to measure"}
+                    </div>
+                  </CardContent>
+                </SectionCard>
+                <SectionCard>
+                  <CardContent className="p-4">
+                    <div className="text-[10px] uppercase tracking-wide text-zinc-500 font-semibold mb-1">Portal Listings</div>
+                    <div className="text-2xl font-bold text-zinc-100 tabular-nums">
+                      {portalResult ? Object.keys(portalResult.portals || {}).length : 0}
+                      <span className="text-[13px] text-zinc-500 font-normal">
+                        {" / "}{portalResult?.meta?.portals?.length || 5}
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-zinc-500 mt-0.5">
+                      {portalResult ? "Copy generated — submit next" : "Not generated yet"}
+                    </div>
+                  </CardContent>
+                </SectionCard>
+                <SectionCard>
+                  <CardContent className="p-4">
+                    <div className="text-[10px] uppercase tracking-wide text-zinc-500 font-semibold mb-1">Referring Domains</div>
+                    <div className="text-2xl font-bold text-zinc-100 tabular-nums">
+                      {backlinkResult?.referringDomains?.toLocaleString() ?? "—"}
+                    </div>
+                    <div className="text-[11px] text-zinc-500 mt-0.5">
+                      {backlinkResult ? `${backlinkResult.totalBacklinks?.toLocaleString() || 0} total backlinks` : "Unknown"}
+                    </div>
+                  </CardContent>
+                </SectionCard>
+                {/* RERA trust signal — critical in Indian RE. AI models
+                    (and Google) treat RERA-registered projects as
+                    higher-trust citations. Surfacing the gap nudges
+                    developers to fix missing RERA numbers. */}
+                <SectionCard>
+                  <CardContent className="p-4">
+                    <div className="text-[10px] uppercase tracking-wide text-zinc-500 font-semibold mb-1">RERA Verified</div>
+                    <div className="text-2xl font-bold text-zinc-100 tabular-nums">
+                      {reraProjects}
+                      <span className="text-[13px] text-zinc-500 font-normal">
+                        {" / "}{projects.length || 0}
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-zinc-500 mt-0.5">
+                      {projects.length === 0
+                        ? "Add projects to track"
+                        : reraProjects === projects.length
+                        ? "All projects RERA-registered"
+                        : `${projects.length - reraProjects} project${projects.length - reraProjects === 1 ? "" : "s"} missing RERA`}
+                    </div>
+                  </CardContent>
+                </SectionCard>
+              </div>
+            );
+          })()}
 
           {/* --- Portal listings (execution-first) --- */}
           <SectionCard>
@@ -1568,11 +1612,62 @@ export function AnalyticsPanel({
             <CardContent className="space-y-1.5">
               {portalResult ? (
                 <>
+                  {/* Coverage ribbon — totals self-reported submissions
+                      across every project × every portal combo. Turns
+                      "did I submit this yet?" into a visible checklist
+                      instead of something the developer has to remember. */}
+                  {(() => {
+                    const portalKeys = Object.keys(portalResult.portals || {});
+                    const names = projects.length > 0 ? projects.map((p) => p.name || null) : [null];
+                    const cov = computeCoverage(names, portalKeys);
+                    // portalTick is referenced so the coverage re-reads
+                    // localStorage whenever the user toggles a portal.
+                    void portalTick;
+                    return cov.total > 0 ? (
+                      <div className="mb-2 p-3 rounded-lg bg-zinc-900/40 border border-zinc-800/60">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <div className="text-[11px] uppercase tracking-wide text-zinc-500 font-semibold mb-0.5">Portal coverage</div>
+                            <div className="text-[13px] text-zinc-200">
+                              <span className="font-bold tabular-nums">{cov.submitted}</span>
+                              <span className="text-zinc-500"> of </span>
+                              <span className="font-bold tabular-nums">{cov.total}</span>
+                              <span className="text-zinc-500"> listings submitted</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1.5 flex-wrap justify-end max-w-[60%]">
+                            {cov.perProject.slice(0, 4).map((pp) => (
+                              <Badge
+                                key={pp.project}
+                                className={`text-[10px] rounded-md h-5 px-1.5 border-0 ${
+                                  pp.submitted === portalKeys.length
+                                    ? "bg-[#7CB342]/15 text-[#7CB342]"
+                                    : pp.submitted > 0
+                                    ? "bg-amber-500/15 text-amber-400"
+                                    : "bg-zinc-800 text-zinc-500"
+                                }`}
+                              >
+                                {pp.project}: {pp.submitted}/{portalKeys.length}
+                              </Badge>
+                            ))}
+                            {cov.perProject.length > 4 && (
+                              <Badge className="text-[10px] bg-zinc-800 text-zinc-500 border-0 rounded-md h-5 px-1.5">
+                                +{cov.perProject.length - 4} more
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ) : null;
+                  })()}
                   {Object.entries(portalResult.portals || {}).map(([key, portal]: [string, any]) => {
                     const meta = (portalResult.meta?.portals || []).find((p: any) => p.key === key);
                     const displayName = meta?.name || key;
+                    const activeProjectName = selectedProject !== null ? (projects[selectedProject]?.name || null) : null;
+                    void portalTick; // re-render when submission state changes
+                    const submitted = isPortalSubmitted(activeProjectName, key);
                     return (
-                      <details key={key} className="group rounded-lg bg-zinc-900/40 border border-zinc-800/60 hover:border-zinc-700/80">
+                      <details key={key} className={`group rounded-lg border hover:border-zinc-700/80 ${submitted ? "bg-[#7CB342]/[0.03] border-[#7CB342]/20" : "bg-zinc-900/40 border-zinc-800/60"}`}>
                         <summary className="cursor-pointer list-none flex items-center gap-3 p-3">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
@@ -1580,8 +1675,12 @@ export function AnalyticsPanel({
                               {meta?.domain && (
                                 <span className="text-[10px] text-zinc-500 font-mono">{meta.domain}</span>
                               )}
-                              <Badge className="text-[9px] bg-[#7CB342]/10 text-[#7CB342] border-0 rounded-md h-4 px-1.5 ml-auto">
-                                copy ready
+                              <Badge className={`text-[9px] border-0 rounded-md h-4 px-1.5 ml-auto ${
+                                submitted
+                                  ? "bg-[#7CB342]/15 text-[#7CB342]"
+                                  : "bg-[#7CB342]/10 text-[#7CB342]"
+                              }`}>
+                                {submitted ? `submitted${activeProjectName ? ` · ${activeProjectName}` : ""}` : "copy ready"}
                               </Badge>
                             </div>
                             <div className="text-[11px] text-zinc-500 truncate mt-0.5">{portal.title}</div>
@@ -1596,9 +1695,25 @@ export function AnalyticsPanel({
                                 onClick={(e) => e.stopPropagation()}
                                 className="text-[11px] font-medium px-2 py-1 rounded bg-zinc-800 text-zinc-300 hover:bg-zinc-700 border border-zinc-700/50 flex items-center gap-1"
                               >
-                                Submit
+                                Open
                               </a>
                             )}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                e.preventDefault();
+                                togglePortalSubmitted(activeProjectName, key);
+                                setPortalTick((t) => t + 1);
+                              }}
+                              className={`text-[11px] font-medium px-2 py-1 rounded border flex items-center gap-1 ${
+                                submitted
+                                  ? "bg-[#7CB342]/15 text-[#7CB342] border-[#7CB342]/30 hover:bg-[#7CB342]/25"
+                                  : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700 border-zinc-700/50"
+                              }`}
+                              title={submitted ? "Unmark submission" : "Mark as submitted"}
+                            >
+                              {submitted ? "✓ Submitted" : "Mark submitted"}
+                            </button>
                           </div>
                         </summary>
                         <div className="px-3 pb-3 space-y-2 border-t border-zinc-800/60 pt-2">
@@ -1801,6 +1916,7 @@ export function AnalyticsPanel({
             selectedLocality={selectedLocality}
             projectStage={selectedProject !== null ? (projects[selectedProject] as any)?.stage : null}
             projectName={selectedProject !== null ? projects[selectedProject]?.name : null}
+            projects={visibleProjects}
             websiteUrl={websiteUrl}
             keywordResearchResult={keywordResearchResult}
             isResearchingKeywords={isResearchingKeywords}
