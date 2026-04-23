@@ -156,9 +156,20 @@ export function SiteCrawlPanel({ data, onRunCrawl, isRunning, onFixPage }: Props
             ))}
           </div>
           {data.maxPagesReached && (
-            <div className="mt-3 p-2.5 rounded-lg bg-amber-500/[0.04] border border-amber-500/20 text-[11px] text-amber-400 flex items-center gap-2">
-              <AlertTriangle size={12} />
-              Hit crawl limit of {data.totalPages} pages. Cabbge caps at 3000 — rerun with a higher limit if your site has more URLs.
+            <div className="mt-3 p-3 rounded-lg bg-amber-500/[0.04] border border-amber-500/20 flex items-center justify-between gap-3">
+              <div className="flex items-start gap-2 min-w-0">
+                <AlertTriangle size={12} className="text-amber-400 flex-shrink-0 mt-0.5" />
+                <div className="text-[12px] text-amber-400 leading-relaxed">
+                  Hit the crawl cap of {data.totalPages.toLocaleString()} pages.
+                  <span className="text-zinc-400"> Your site has more URLs — Starter crawls 500, Pro 1,500, Enterprise 3,000 per scan.</span>
+                </div>
+              </div>
+              <a
+                href="/pricing"
+                className="text-[11px] font-medium px-3 py-1.5 rounded-md bg-[#7CB342]/15 text-[#7CB342] border border-[#7CB342]/30 hover:bg-[#7CB342]/25 flex-shrink-0 whitespace-nowrap"
+              >
+                Upgrade plan
+              </a>
             </div>
           )}
         </CardContent>
