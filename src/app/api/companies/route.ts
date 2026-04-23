@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/db/supabase";
 import { getCurrentUser } from "@/lib/db/supabase-server";
 import { sanitizeUrl } from "@/lib/security";
+import { extractCityFromLocation } from "@/lib/cities";
 
 /**
  * GET /api/companies?id=xxx — fetch company by ID (scoped to current user)
@@ -137,6 +138,10 @@ export async function POST(req: NextRequest) {
     if (projects && Array.isArray(projects)) {
       await db.from("projects").delete().eq("company_id", companyId);
 
+      // Each project's city is derived from its location ("Gachibowli,
+      // Hyderabad" -> "Hyderabad") so multi-city developers get the
+      // right per-project city saved. Falls back to the company's
+      // primary city when the project address is incomplete.
       const projectRows = projects
         .filter((p: any) => p.name)
         .map((p: any) => ({
@@ -144,7 +149,7 @@ export async function POST(req: NextRequest) {
           name: p.name,
           website: p.website || null,
           location: p.location || null,
-          city: city || null,
+          city: extractCityFromLocation(p.location, city || "") || city || null,
           configurations: p.configurations || null,
           price_range: p.priceRange || null,
           rera_number: p.reraNumber || null,

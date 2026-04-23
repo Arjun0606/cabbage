@@ -31,6 +31,7 @@ import { GSCPanel } from "./GSCPanel";
 import { SiteCrawlPanel } from "./SiteCrawlPanel";
 import { InternalLinkingPanel } from "./InternalLinkingPanel";
 import { ContentQueue } from "./ContentQueue";
+import { getCompanyCities, projectMatchesCity } from "@/lib/cities";
 
 interface Props {
   activeTab: string;
@@ -57,6 +58,10 @@ interface Props {
   projects: { name: string; website: string; location: string }[];
   selectedProject: number | null;
   onSelectProject: (idx: number | null) => void;
+  // Multi-city: the city filter controls which projects the switcher
+  // shows and scopes scans + the content queue. null = all cities.
+  selectedCity: string | null;
+  onSelectCity: (city: string | null) => void;
   articleResult: any;
   schemaResult: any;
   isGeneratingSchema: boolean;
@@ -190,6 +195,7 @@ export function AnalyticsPanel({
   websiteUrl, allSites, onSwitchSite, companyName, city,
   trends,
   projects, selectedProject, onSelectProject,
+  selectedCity, onSelectCity,
   articleResult,
   schemaResult, isGeneratingSchema, onRunSchemaGenerator,
   portalResult, isGeneratingPortal, onRunPortalOptimizer,
@@ -234,10 +240,51 @@ export function AnalyticsPanel({
     </button>
   );
 
+  // Cities this company actually serves. Multi-city developers (DLF,
+  // Prestige, Brigade) get a city filter so scans, content queue, and
+  // the project switcher can be scoped to one metro at a time.
+  const companyCities = getCompanyCities(projects, city);
+  const visibleProjects = selectedCity
+    ? projects.filter((p) => projectMatchesCity(p, selectedCity, city))
+    : projects;
+
   return (
     <div className="p-5">
-      {/* Project selector — pick which project context to use */}
-      {projects.length > 0 && (
+      {/* City filter — only shown for multi-city developers. Single-city
+          customers never see it, so the UI stays simple for Makuta-
+          scale clients while scaling up to Prestige / DLF. */}
+      {companyCities.length > 1 && (
+        <div className="flex items-center gap-2 flex-wrap mb-2">
+          <span className="text-[12px] text-zinc-500 font-medium">City:</span>
+          <button
+            onClick={() => { onSelectCity(null); onSelectProject(null); }}
+            className={`text-[12px] px-2.5 py-1 rounded-lg border transition-all ${
+              selectedCity === null
+                ? "bg-zinc-800/40 border-zinc-700 text-zinc-100"
+                : "bg-zinc-900/50 border-zinc-800/50 text-zinc-500 hover:text-zinc-300"
+            }`}
+          >
+            All cities
+          </button>
+          {companyCities.map((c) => (
+            <button
+              key={c}
+              onClick={() => { onSelectCity(c); onSelectProject(null); }}
+              className={`text-[12px] px-2.5 py-1 rounded-lg border transition-all ${
+                selectedCity?.toLowerCase() === c.toLowerCase()
+                  ? "bg-zinc-800/40 border-zinc-700 text-zinc-100"
+                  : "bg-zinc-900/50 border-zinc-800/50 text-zinc-500 hover:text-zinc-300"
+              }`}
+            >
+              {c}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Project selector — pick which project context to use.
+          When a city is selected the list narrows to that city. */}
+      {visibleProjects.length > 0 && (
         <div className="flex items-center gap-2 flex-wrap mb-3">
           <span className="text-[12px] text-zinc-500 font-medium">Project:</span>
           <button
@@ -248,21 +295,24 @@ export function AnalyticsPanel({
                 : "bg-zinc-900/50 border-zinc-800/50 text-zinc-500 hover:text-zinc-300"
             }`}
           >
-            All / Company
+            {selectedCity ? `All in ${selectedCity}` : "All / Company"}
           </button>
-          {projects.map((p, i) => (
-            <button
-              key={i}
-              onClick={() => onSelectProject(i)}
-              className={`text-[12px] px-2.5 py-1 rounded-lg border transition-all ${
-                selectedProject === i
-                  ? "bg-zinc-800/40 border-zinc-700 text-zinc-100"
-                  : "bg-zinc-900/50 border-zinc-800/50 text-zinc-500 hover:text-zinc-300"
-              }`}
-            >
-              {p.name || `Project ${i + 1}`}
-            </button>
-          ))}
+          {visibleProjects.map((p) => {
+            const originalIdx = projects.indexOf(p);
+            return (
+              <button
+                key={originalIdx}
+                onClick={() => onSelectProject(originalIdx)}
+                className={`text-[12px] px-2.5 py-1 rounded-lg border transition-all ${
+                  selectedProject === originalIdx
+                    ? "bg-zinc-800/40 border-zinc-700 text-zinc-100"
+                    : "bg-zinc-900/50 border-zinc-800/50 text-zinc-500 hover:text-zinc-300"
+                }`}
+              >
+                {p.name || `Project ${originalIdx + 1}`}
+              </button>
+            );
+          })}
         </div>
       )}
 
@@ -848,6 +898,18 @@ export function AnalyticsPanel({
         {/* -------- AI/GEO TAB -------- */}
         {/* ================================================================ */}
         <TabsContent value="aigeo" className="space-y-4">
+
+          {/* City scope banner — reminds the user that "overall score"
+              is specific to the selected city. Critical for multi-city
+              developers where Bangalore and Chennai visibility are
+              different stories. */}
+          {selectedCity && companyCities.length > 1 && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-zinc-900/60 border border-zinc-800/50">
+              <span className="text-[10px] uppercase tracking-wide text-zinc-500 font-semibold">Scope</span>
+              <Badge className="text-[10px] bg-[#7CB342]/15 text-[#7CB342] border-0 rounded-md h-5 px-1.5">{selectedCity}</Badge>
+              <span className="text-[11px] text-zinc-500">Scans and queries are scoped to this city. Switch in the header.</span>
+            </div>
+          )}
 
           {/* GEO Progress Tracker — the core $600/month value prop */}
           {geoProgress?.currentScan && (
@@ -1652,6 +1714,7 @@ export function AnalyticsPanel({
         <TabsContent value="content" className="space-y-4">
           <ContentQueue
             city={city}
+            selectedCity={selectedCity}
             websiteUrl={websiteUrl}
             keywordResearchResult={keywordResearchResult}
             isResearchingKeywords={isResearchingKeywords}

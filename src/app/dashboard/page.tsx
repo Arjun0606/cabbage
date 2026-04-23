@@ -53,6 +53,10 @@ export default function DashboardPage() {
   const [schemaResult, setSchemaResult] = useState<any>(null);
   const [isGeneratingSchema, setIsGeneratingSchema] = useState(false);
   const [selectedProject, setSelectedProject] = useState<number | null>(null);
+  // Multi-city: scoping filter. null = "all cities", a non-empty
+  // string = that city only. Affects project switcher + AI scans +
+  // Content queue context.
+  const [selectedCity, setSelectedCity] = useState<string | null>(null);
 
   // New feature states (round 2)
   const [portalResult, setPortalResult] = useState<any>(null);
@@ -629,11 +633,20 @@ export default function DashboardPage() {
       // One-line payload echo so the user can see exactly what we're sending.
       // Previous bug: city silently became "the market" between input and request,
       // producing global-brand recommendations instead of city-specific results.
-      addLog(`> Payload: brand="${company.name}" city="${company.city || "(EMPTY!)"}" projects=${company.projects.length}`);
+      // Multi-city: when the user has picked a city filter, narrow the
+      // scan to that city (brand visibility in Bangalore vs Chennai is
+      // a different question, and bundling both into one score hides
+      // per-metro performance). When null we scan across all cities.
+      const { projectMatchesCity } = await import("@/lib/cities");
+      const scanCity = selectedCity || company.city;
+      const scopedProjects = selectedCity
+        ? company.projects.filter((p) => projectMatchesCity(p, selectedCity, company.city || ""))
+        : company.projects;
+      addLog(`> Payload: brand="${company.name}" city="${scanCity || "(EMPTY!)"}" projects=${scopedProjects.length}${selectedCity ? ` (scoped to ${selectedCity})` : ""}`);
       const res = await fetch("/api/ai-visibility", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
-        websiteUrl: activeSiteUrl || company.website, brand: company.name, city: company.city, savedQueries: existingQueries,
-        projects: company.projects.map(p => p.name),
-        projectDetails: company.projects.map(p => ({ name: p.name, location: p.location, configurations: p.configurations, priceRange: p.priceRange })),
+        websiteUrl: activeSiteUrl || company.website, brand: company.name, city: scanCity, savedQueries: existingQueries,
+        projects: scopedProjects.map(p => p.name),
+        projectDetails: scopedProjects.map(p => ({ name: p.name, location: p.location, configurations: p.configurations, priceRange: p.priceRange })),
         industry: (company as any).industry,
         brandContext: {
           usps: company.description || "",
@@ -1195,6 +1208,7 @@ export default function DashboardPage() {
               // New features
               projects={company.projects}
               selectedProject={selectedProject} onSelectProject={setSelectedProject}
+              selectedCity={selectedCity} onSelectCity={setSelectedCity}
               articleResult={articleResult}
               schemaResult={schemaResult} isGeneratingSchema={isGeneratingSchema}
               onRunSchemaGenerator={runSchemaGenerator}

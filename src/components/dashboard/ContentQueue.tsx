@@ -65,6 +65,8 @@ interface DecayingPage {
 
 interface Props {
   city: string;
+  /** Multi-city scoping. When set the queue shows "Scoped to {city}". */
+  selectedCity?: string | null;
   websiteUrl: string;
   keywordResearchResult: any;
   isResearchingKeywords?: boolean;
@@ -117,6 +119,7 @@ function pathOf(url: string): string {
 
 export function ContentQueue({
   city,
+  selectedCity,
   websiteUrl,
   keywordResearchResult,
   isResearchingKeywords,
@@ -239,9 +242,16 @@ export function ContentQueue({
           <div className="flex items-center gap-2 mb-0.5">
             <Sparkles size={14} className="text-[#7CB342]" />
             <h2 className="text-[14px] font-semibold text-zinc-100">Content queue</h2>
+            {selectedCity && (
+              <Badge className="text-[10px] bg-zinc-800 text-zinc-300 border-0 rounded-md h-5 px-1.5">
+                {selectedCity} only
+              </Badge>
+            )}
           </div>
           <p className="text-[12px] text-zinc-500">
-            We find the gaps, you approve the articles. Keywords, GEO blind spots, and decaying pages all land here.
+            {selectedCity
+              ? `Opportunities, drafts, and decay scoped to ${selectedCity}. Switch to "All cities" in the header to see everything.`
+              : "We find the gaps, you approve the articles. Keywords, GEO blind spots, and decaying pages all land here."}
           </p>
         </div>
         <Button
