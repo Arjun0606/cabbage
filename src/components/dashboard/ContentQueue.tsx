@@ -68,6 +68,12 @@ interface Props {
   city: string;
   /** Multi-city scoping. When set the queue shows "Scoped to {city}". */
   selectedCity?: string | null;
+  /** Locality scope — shown as a badge in the queue header when set. */
+  selectedLocality?: string | null;
+  /** Stage of the currently-scoped project (pre_launch | ready_to_move | ...). Drives the content-strategy hint. */
+  projectStage?: string | null;
+  /** Project name for the stage hint context. */
+  projectName?: string | null;
   websiteUrl: string;
   keywordResearchResult: any;
   isResearchingKeywords?: boolean;
@@ -121,6 +127,9 @@ function pathOf(url: string): string {
 export function ContentQueue({
   city,
   selectedCity,
+  selectedLocality,
+  projectStage,
+  projectName,
   websiteUrl,
   keywordResearchResult,
   isResearchingKeywords,
@@ -237,21 +246,55 @@ export function ContentQueue({
 
   return (
     <div className="space-y-4">
+      {/* Stage-aware content-strategy hint. Shown only when a specific
+          project is in scope (we know its stage); empty otherwise so
+          the queue doesn't look busy at the company level. */}
+      {projectStage && projectName && (
+        <Card className="bg-zinc-900/40 border-white/[0.06] rounded-xl">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-[10px] uppercase tracking-wide text-zinc-500 font-semibold">Stage strategy</span>
+              <Badge className="text-[10px] bg-zinc-800 text-zinc-300 border-0 rounded-md h-5 px-1.5">
+                {projectStage.replace(/_/g, " ")}
+              </Badge>
+              <span className="text-[11px] text-zinc-500">— {projectName}</span>
+            </div>
+            <p className="text-[12px] text-zinc-300 leading-relaxed">
+              {projectStage === "pre_launch"
+                ? "Buyers are researching, not deciding. Prioritise teasers, launch-date anticipation, and early-bird pricing expectations. Price-tier + locality queries matter more than specs."
+                : projectStage === "under_construction"
+                ? "Buyers want proof of delivery. Prioritise construction-progress posts, quarterly updates, walk-through content. Add expected-possession queries to the content mix."
+                : projectStage === "ready_to_move"
+                ? "Urgency + comparison. Prioritise offers, occupancy-ready messaging, and comparison vs under-construction alternatives. RTM-intent queries ('ready to move 3 BHK in …') are your highest-converting surface."
+                : projectStage === "sold_out"
+                ? "Keep the brand warm. Resale content, price-trajectory posts, and 'next launch signups' capture audiences for future projects."
+                : "Active inventory — run the standard locality + config + price-tier content mix."}
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       {/* -------- Queue header -------- */}
       <div className="flex items-center justify-between">
         <div>
           <div className="flex items-center gap-2 mb-0.5">
             <Sparkles size={14} className="text-[#7CB342]" />
             <h2 className="text-[14px] font-semibold text-zinc-100">Content queue</h2>
-            {selectedCity && (
+            {selectedLocality ? (
+              <Badge className="text-[10px] bg-zinc-800 text-zinc-300 border-0 rounded-md h-5 px-1.5">
+                {selectedLocality} only
+              </Badge>
+            ) : selectedCity ? (
               <Badge className="text-[10px] bg-zinc-800 text-zinc-300 border-0 rounded-md h-5 px-1.5">
                 {selectedCity} only
               </Badge>
-            )}
+            ) : null}
           </div>
           <p className="text-[12px] text-zinc-500">
-            {selectedCity
-              ? `Opportunities, drafts, and decay scoped to ${selectedCity}. Switch to "All cities" in the header to see everything.`
+            {selectedLocality
+              ? `Opportunities scoped to ${selectedLocality}. Most Indian buyer queries happen at this locality level.`
+              : selectedCity
+              ? `Opportunities, drafts, and decay scoped to ${selectedCity}. Pick a locality for hyper-local buyer queries.`
               : "We find the gaps, you approve the articles. Keywords, GEO blind spots, and decaying pages all land here."}
           </p>
         </div>

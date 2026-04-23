@@ -278,7 +278,17 @@ export async function generateSearchQueries(
   _projects: string[],
   locality?: string,
   industry?: string,
-  projectDetails?: Array<{ name?: string; location?: string; configurations?: string; priceRange?: string }>,
+  projectDetails?: Array<{
+    name?: string;
+    location?: string;
+    locality?: string;
+    configurations?: string;
+    configTags?: string[];
+    priceRange?: string;
+    priceMin?: number | null;
+    priceMax?: number | null;
+    stage?: string;
+  }>,
   brandContext?: { usps?: string; productInfo?: string }
 ): Promise<GeneratedQueries> {
   // NOTE: We do NOT include the brand name in queries.
@@ -355,8 +365,51 @@ export async function generateSearchQueries(
 
   const uniqueCities = Array.from(projectsByCity.keys()).filter(Boolean);
   const uniqueLocations = Array.from(new Set((projectDetails || []).map(p => p.location).filter(Boolean)));
-  const uniqueConfigs = Array.from(new Set((projectDetails || []).flatMap(p => (p.configurations || "").split(",").map(c => c.trim())).filter(Boolean)));
-  const priceRanges = Array.from(new Set((projectDetails || []).map(p => p.priceRange).filter(Boolean)));
+
+  // Structured configs — preferred. Fall back to splitting the free-text
+  // `configurations` field when the caller hasn't supplied configTags.
+  const uniqueConfigs = (() => {
+    const fromStructured = (projectDetails || []).flatMap(p => p.configTags || []);
+    if (fromStructured.length > 0) return Array.from(new Set(fromStructured));
+    return Array.from(new Set((projectDetails || [])
+      .flatMap(p => (p.configurations || "").split(",").map(c => c.trim()))
+      .filter(Boolean)));
+  })();
+
+  // Price bands — derive crore-denominated buckets from priceMin/priceMax
+  // when available so the model can generate "under 3 cr", "2-3 cr",
+  // "above 5 cr" style queries that match real buyer phrasing.
+  const priceBands = (() => {
+    const CRORE = 10_000_000;
+    const bands = new Set<string>();
+    for (const p of projectDetails || []) {
+      if (typeof p.priceMin === "number" && typeof p.priceMax === "number") {
+        bands.add(`₹${(p.priceMin / CRORE).toFixed(1)}–${(p.priceMax / CRORE).toFixed(1)} Cr`);
+      } else if (typeof p.priceMin === "number") {
+        bands.add(`above ₹${(p.priceMin / CRORE).toFixed(1)} Cr`);
+      } else if (typeof p.priceMax === "number") {
+        bands.add(`under ₹${(p.priceMax / CRORE).toFixed(1)} Cr`);
+      }
+    }
+    if (bands.size === 0) {
+      // Fall back to free-text ranges so the prompt always has something
+      // to anchor price queries to.
+      for (const p of projectDetails || []) {
+        if (p.priceRange) bands.add(p.priceRange);
+      }
+    }
+    return Array.from(bands);
+  })();
+
+  const priceRanges = priceBands;
+
+  // Stage mix — if any project has a stage, tell the model to generate
+  // stage-aware queries (pre-launch buyers search for teasers; RTM
+  // buyers search for urgency/offers; UC for construction updates).
+  const stages = Array.from(new Set((projectDetails || []).map(p => p.stage).filter(Boolean))) as string[];
+  const stageHint = stages.length > 0
+    ? `\n\nPROJECT STAGES IN THIS PORTFOLIO: ${stages.join(", ")}\n- For pre_launch, generate queries like "upcoming projects in {locality}", "new launch {config} {locality}", "pre-launch offers {locality}".\n- For ready_to_move, generate queries like "ready to move {config} in {locality}", "occupancy ready {locality}", "immediate possession {locality}".\n- For under_construction, generate queries like "{config} under construction {locality}", "new project {locality} 2026", "upcoming delivery {locality}".`
+    : "";
 
   const prompt = `Generate search queries that ${industryContext} These customers DO NOT know any specific company — they are searching by need, location, and requirements. The brand being tested is "${brand}" but DO NOT include it in any query.
 
@@ -367,7 +420,7 @@ ${multiCity
 COUNTRY: ${country}
 ${uniqueLocations.length > 0 ? `LOCALITIES/MICRO-MARKETS: ${uniqueLocations.join(", ")}` : ""}
 ${uniqueConfigs.length > 0 ? `CONFIGURATIONS OFFERED: ${uniqueConfigs.join(", ")}` : ""}
-${priceRanges.length > 0 ? `PRICE SEGMENTS (generate queries for EACH): ${priceRanges.join(" | ")}` : ""}${projectsBlock}${audienceBlock}${uspsBlock}
+${priceRanges.length > 0 ? `PRICE BANDS (generate "under X cr" / "X-Y cr" queries matching each): ${priceRanges.join(" | ")}` : ""}${stageHint}${projectsBlock}${audienceBlock}${uspsBlock}
 
 CRITICAL RULES:
 - ALL queries in ENGLISH only
@@ -384,10 +437,23 @@ Generate queries at THREE levels — as many as this brand needs:
 
 LOCALITY LEVEL — hyper-local queries for EVERY locality the brand operates in${uniqueLocations.length > 0 ? `:\n  Localities: ${uniqueLocations.join(", ")}` : ""}
 ${multiCity ? "  Since this brand operates in multiple cities, generate locality queries for micro-markets across ALL cities — don't just focus on one." : ""}
+
+${ind === "real_estate" ? `INDIAN BUYER QUERY MATRIX (cover every combination that applies):
+  config + locality:                "3 BHK flats in Kukatpally"
+  config + locality + price:        "3 BHK in Kukatpally under 3 cr"
+  locality + price:                 "flats in Gachibowli under 1 cr"
+  stage + config + locality:        "ready to move 3 BHK in HSR Layout"
+  config + amenity + locality:      "3 BHK with gym in Bandra"
+  locality + landmark proximity:    "flats near Hitech City", "apartments near metro Gurgaon"
+  audience + locality:              "NRI-friendly flats in Bangalore", "first-time buyer projects in Noida"
+  investment intent:                "is Whitefield a good investment 2026", "rental yield in Powai"
+  decision / comparison:            "best builders in Hyderabad", "Prestige vs Sobha Bangalore"
+  trust signals:                    "RERA approved projects in {locality}"
+Generate many variants of each pattern that applies to this brand's portfolio.` : `
 - Service/product + location combos
 - Landmark-based queries (IT parks, metro stations, schools specific to each locality)
 - Decision queries ("best/top [service] in [specific locality]")
-- Comparison queries ("[locality] vs [nearby area in same city]")
+- Comparison queries ("[locality] vs [nearby area in same city]")`}
 - Generate more queries for bigger, more active markets; fewer for smaller ones
 
 CITY LEVEL — city-wide intent for EVERY city the brand operates in${multiCity ? ` (${uniqueCities.join(", ")})` : ` (${city})`}:

@@ -57,6 +57,10 @@ export default function DashboardPage() {
   // string = that city only. Affects project switcher + AI scans +
   // Content queue context.
   const [selectedCity, setSelectedCity] = useState<string | null>(null);
+  // Locality scoping — the layer below city. Indian buyers search by
+  // locality more than by city, so this is where most real filtering
+  // happens once the user is in a given metro.
+  const [selectedLocality, setSelectedLocality] = useState<string | null>(null);
 
   // New feature states (round 2)
   const [portalResult, setPortalResult] = useState<any>(null);
@@ -199,6 +203,13 @@ export default function DashboardPage() {
                   name: p.name, website: p.website, location: p.location,
                   configurations: p.configurations, priceRange: p.price_range,
                   reraNumber: p.rera_number, amenities: p.amenities, status: p.status,
+                  // Structured fields — derived by the API on save. The
+                  // dashboard + scan pipeline use these for filtering
+                  // and matrix-aware query generation.
+                  locality: p.locality, city: p.city,
+                  config_tags: p.config_tags,
+                  price_min: p.price_min, price_max: p.price_max,
+                  stage: p.stage,
                 })) || localData.projects,
                 competitors: dbCompany.competitors?.map((c: any) => ({
                   name: c.name, website: c.website,
@@ -643,20 +654,44 @@ export default function DashboardPage() {
       // One-line payload echo so the user can see exactly what we're sending.
       // Previous bug: city silently became "the market" between input and request,
       // producing global-brand recommendations instead of city-specific results.
-      // Multi-city: when the user has picked a city filter, narrow the
-      // scan to that city (brand visibility in Bangalore vs Chennai is
-      // a different question, and bundling both into one score hides
-      // per-metro performance). When null we scan across all cities.
+      // Scan scope:
+      //  - city filter narrows to one metro (visibility in Bangalore vs
+      //    Chennai is a different question, can't bundle them).
+      //  - locality filter narrows further to a single neighbourhood,
+      //    which is the dominant Indian buyer query shape ("3 BHK in
+      //    Kukatpally"). When both are null we scan across everything.
       const { projectMatchesCity } = await import("@/lib/cities");
+      const { parseLocation } = await import("@/lib/projectParse");
       const scanCity = selectedCity || company.city;
-      const scopedProjects = selectedCity
-        ? company.projects.filter((p) => projectMatchesCity(p, selectedCity, company.city || ""))
-        : company.projects;
-      addLog(`> Payload: brand="${company.name}" city="${scanCity || "(EMPTY!)"}" projects=${scopedProjects.length}${selectedCity ? ` (scoped to ${selectedCity})` : ""}`);
+      let scopedProjects = company.projects;
+      if (selectedCity) {
+        scopedProjects = scopedProjects.filter((p) => projectMatchesCity(p, selectedCity, company.city || ""));
+      }
+      if (selectedLocality) {
+        scopedProjects = scopedProjects.filter((p) => {
+          const loc = (p as any).locality || parseLocation(p.location, company.city || "").locality || "";
+          return loc.toLowerCase() === selectedLocality.toLowerCase();
+        });
+      }
+      const scopeNote = [selectedCity, selectedLocality].filter(Boolean).join(" / ");
+      addLog(`> Payload: brand="${company.name}" city="${scanCity || "(EMPTY!)"}" projects=${scopedProjects.length}${scopeNote ? ` (scoped to ${scopeNote})` : ""}`);
       const res = await fetch("/api/ai-visibility", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
         websiteUrl: activeSiteUrl || company.website, brand: company.name, city: scanCity, savedQueries: existingQueries,
         projects: scopedProjects.map(p => p.name),
-        projectDetails: scopedProjects.map(p => ({ name: p.name, location: p.location, configurations: p.configurations, priceRange: p.priceRange })),
+        // Full structured project details so the query generator can
+        // produce the buyer-query matrix (config + locality + price +
+        // stage) instead of vague generic queries.
+        projectDetails: scopedProjects.map(p => ({
+          name: p.name,
+          location: p.location,
+          locality: (p as any).locality,
+          configurations: p.configurations,
+          configTags: (p as any).config_tags,
+          priceRange: p.priceRange,
+          priceMin: (p as any).price_min,
+          priceMax: (p as any).price_max,
+          stage: (p as any).stage,
+        })),
         industry: (company as any).industry,
         brandContext: {
           usps: company.description || "",
@@ -1221,6 +1256,7 @@ export default function DashboardPage() {
               projects={company.projects}
               selectedProject={selectedProject} onSelectProject={setSelectedProject}
               selectedCity={selectedCity} onSelectCity={setSelectedCity}
+              selectedLocality={selectedLocality} onSelectLocality={setSelectedLocality}
               articleResult={articleResult}
               schemaResult={schemaResult} isGeneratingSchema={isGeneratingSchema}
               onRunSchemaGenerator={runSchemaGenerator}

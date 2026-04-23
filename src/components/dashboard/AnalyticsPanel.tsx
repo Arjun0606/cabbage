@@ -32,6 +32,7 @@ import { SiteCrawlPanel } from "./SiteCrawlPanel";
 import { InternalLinkingPanel } from "./InternalLinkingPanel";
 import { ContentQueue } from "./ContentQueue";
 import { getCompanyCities, projectMatchesCity } from "@/lib/cities";
+import { parseLocation } from "@/lib/projectParse";
 
 interface Props {
   activeTab: string;
@@ -55,13 +56,31 @@ interface Props {
   city: string;
   trends: Record<string, any>;
   // New features
-  projects: { name: string; website: string; location: string }[];
+  projects: Array<{
+    name: string;
+    website: string;
+    location: string;
+    locality?: string;
+    city?: string;
+    configurations?: string;
+    config_tags?: string[];
+    priceRange?: string;
+    price_min?: number | null;
+    price_max?: number | null;
+    status?: string;
+    stage?: string;
+  }>;
   selectedProject: number | null;
   onSelectProject: (idx: number | null) => void;
   // Multi-city: the city filter controls which projects the switcher
   // shows and scopes scans + the content queue. null = all cities.
   selectedCity: string | null;
   onSelectCity: (city: string | null) => void;
+  // Locality (the layer below city). Indian buyers search by locality
+  // more than by city: "3 BHK in Kukatpally" is far more common than
+  // "3 BHK in Hyderabad". null = all localities in the selected scope.
+  selectedLocality: string | null;
+  onSelectLocality: (locality: string | null) => void;
   articleResult: any;
   schemaResult: any;
   isGeneratingSchema: boolean;
@@ -196,6 +215,7 @@ export function AnalyticsPanel({
   trends,
   projects, selectedProject, onSelectProject,
   selectedCity, onSelectCity,
+  selectedLocality, onSelectLocality,
   articleResult,
   schemaResult, isGeneratingSchema, onRunSchemaGenerator,
   portalResult, isGeneratingPortal, onRunPortalOptimizer,
@@ -244,9 +264,31 @@ export function AnalyticsPanel({
   // Prestige, Brigade) get a city filter so scans, content queue, and
   // the project switcher can be scoped to one metro at a time.
   const companyCities = getCompanyCities(projects, city);
-  const visibleProjects = selectedCity
+  const cityScoped = selectedCity
     ? projects.filter((p) => projectMatchesCity(p, selectedCity, city))
     : projects;
+
+  // Localities inside the current city scope. "Gachibowli, Hyderabad"
+  // -> "Gachibowli". Shown as a chip filter whenever a city actually
+  // has 2+ localities because Indian buyers search by locality far more
+  // than by city ("3 BHK in Kukatpally" >> "3 BHK in Hyderabad").
+  const localitiesInScope: string[] = (() => {
+    const seen = new Map<string, string>();
+    for (const p of cityScoped) {
+      const loc = p.locality || parseLocation(p.location, city).locality;
+      if (!loc) continue;
+      const key = loc.toLowerCase();
+      if (!seen.has(key)) seen.set(key, loc);
+    }
+    return Array.from(seen.values());
+  })();
+
+  const visibleProjects = selectedLocality
+    ? cityScoped.filter((p) => {
+        const loc = p.locality || parseLocation(p.location, city).locality || "";
+        return loc.toLowerCase() === selectedLocality.toLowerCase();
+      })
+    : cityScoped;
 
   return (
     <div className="p-5">
@@ -257,7 +299,7 @@ export function AnalyticsPanel({
         <div className="flex items-center gap-2 flex-wrap mb-2">
           <span className="text-[12px] text-zinc-500 font-medium">City:</span>
           <button
-            onClick={() => { onSelectCity(null); onSelectProject(null); }}
+            onClick={() => { onSelectCity(null); onSelectLocality(null); onSelectProject(null); }}
             className={`text-[12px] px-2.5 py-1 rounded-lg border transition-all ${
               selectedCity === null
                 ? "bg-zinc-800/40 border-zinc-700 text-zinc-100"
@@ -269,7 +311,7 @@ export function AnalyticsPanel({
           {companyCities.map((c) => (
             <button
               key={c}
-              onClick={() => { onSelectCity(c); onSelectProject(null); }}
+              onClick={() => { onSelectCity(c); onSelectLocality(null); onSelectProject(null); }}
               className={`text-[12px] px-2.5 py-1 rounded-lg border transition-all ${
                 selectedCity?.toLowerCase() === c.toLowerCase()
                   ? "bg-zinc-800/40 border-zinc-700 text-zinc-100"
@@ -282,8 +324,40 @@ export function AnalyticsPanel({
         </div>
       )}
 
+      {/* Locality filter — shown when the current city scope has more
+          than one locality. Indian buyers search by locality more than
+          by city, so giving developers this slice is high-value. */}
+      {localitiesInScope.length > 1 && (
+        <div className="flex items-center gap-2 flex-wrap mb-2">
+          <span className="text-[12px] text-zinc-500 font-medium">Locality:</span>
+          <button
+            onClick={() => { onSelectLocality(null); onSelectProject(null); }}
+            className={`text-[12px] px-2.5 py-1 rounded-lg border transition-all ${
+              selectedLocality === null
+                ? "bg-zinc-800/40 border-zinc-700 text-zinc-100"
+                : "bg-zinc-900/50 border-zinc-800/50 text-zinc-500 hover:text-zinc-300"
+            }`}
+          >
+            {selectedCity ? `All in ${selectedCity}` : "All localities"}
+          </button>
+          {localitiesInScope.map((loc) => (
+            <button
+              key={loc}
+              onClick={() => { onSelectLocality(loc); onSelectProject(null); }}
+              className={`text-[12px] px-2.5 py-1 rounded-lg border transition-all ${
+                selectedLocality?.toLowerCase() === loc.toLowerCase()
+                  ? "bg-zinc-800/40 border-zinc-700 text-zinc-100"
+                  : "bg-zinc-900/50 border-zinc-800/50 text-zinc-500 hover:text-zinc-300"
+              }`}
+            >
+              {loc}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Project selector — pick which project context to use.
-          When a city is selected the list narrows to that city. */}
+          When a city/locality is selected the list narrows accordingly. */}
       {visibleProjects.length > 0 && (
         <div className="flex items-center gap-2 flex-wrap mb-3">
           <span className="text-[12px] text-zinc-500 font-medium">Project:</span>
@@ -295,7 +369,11 @@ export function AnalyticsPanel({
                 : "bg-zinc-900/50 border-zinc-800/50 text-zinc-500 hover:text-zinc-300"
             }`}
           >
-            {selectedCity ? `All in ${selectedCity}` : "All / Company"}
+            {selectedLocality
+              ? `All in ${selectedLocality}`
+              : selectedCity
+              ? `All in ${selectedCity}`
+              : "All / Company"}
           </button>
           {visibleProjects.map((p) => {
             const originalIdx = projects.indexOf(p);
@@ -1720,6 +1798,9 @@ export function AnalyticsPanel({
           <ContentQueue
             city={city}
             selectedCity={selectedCity}
+            selectedLocality={selectedLocality}
+            projectStage={selectedProject !== null ? (projects[selectedProject] as any)?.stage : null}
+            projectName={selectedProject !== null ? projects[selectedProject]?.name : null}
             websiteUrl={websiteUrl}
             keywordResearchResult={keywordResearchResult}
             isResearchingKeywords={isResearchingKeywords}

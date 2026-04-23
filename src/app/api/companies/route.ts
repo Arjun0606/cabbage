@@ -3,6 +3,7 @@ import { getServiceClient } from "@/lib/db/supabase";
 import { getCurrentUser } from "@/lib/db/supabase-server";
 import { sanitizeUrl } from "@/lib/security";
 import { extractCityFromLocation } from "@/lib/cities";
+import { parseProject } from "@/lib/projectParse";
 
 /**
  * GET /api/companies?id=xxx — fetch company by ID (scoped to current user)
@@ -138,25 +139,38 @@ export async function POST(req: NextRequest) {
     if (projects && Array.isArray(projects)) {
       await db.from("projects").delete().eq("company_id", companyId);
 
-      // Each project's city is derived from its location ("Gachibowli,
-      // Hyderabad" -> "Hyderabad") so multi-city developers get the
-      // right per-project city saved. Falls back to the company's
-      // primary city when the project address is incomplete.
+      // Derive structured fields from the user's free-text inputs so
+      // the app can roll up by locality, match "under 3 cr" queries,
+      // and generate stage-aware content. The free-text columns are
+      // still saved alongside for display.
       const projectRows = projects
         .filter((p: any) => p.name)
-        .map((p: any) => ({
-          company_id: companyId,
-          name: p.name,
-          website: p.website || null,
-          location: p.location || null,
-          city: extractCityFromLocation(p.location, city || "") || city || null,
-          configurations: p.configurations || null,
-          price_range: p.priceRange || null,
-          rera_number: p.reraNumber || null,
-          amenities: p.amenities || null,
-          status: p.status || "Active",
-          usps: p.usps || null,
-        }));
+        .map((p: any) => {
+          const parsed = parseProject({
+            location: p.location,
+            configurations: p.configurations,
+            priceRange: p.priceRange,
+            status: p.status,
+          }, city || "");
+          return {
+            company_id: companyId,
+            name: p.name,
+            website: p.website || null,
+            location: p.location || null,
+            city: parsed.city || extractCityFromLocation(p.location, city || "") || city || null,
+            locality: parsed.locality || null,
+            configurations: p.configurations || null,
+            config_tags: parsed.configTags.length > 0 ? parsed.configTags : null,
+            price_range: p.priceRange || null,
+            price_min: parsed.priceMin ?? null,
+            price_max: parsed.priceMax ?? null,
+            rera_number: p.reraNumber || null,
+            amenities: p.amenities || null,
+            status: p.status || "Active",
+            stage: parsed.stage,
+            usps: p.usps || null,
+          };
+        });
 
       if (projectRows.length > 0) {
         const { error } = await db.from("projects").insert(projectRows);
