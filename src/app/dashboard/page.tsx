@@ -428,6 +428,34 @@ export default function DashboardPage() {
 
   const refreshTrends = () => setTrends(getAllTrends(company.website));
 
+  // Site switcher — used by both the header SiteSwitcher and the Overview
+  // tab's SitesTreePanel. Resets per-site in-memory scan state so the
+  // newly selected site starts fresh; persistent history per site is
+  // preserved in localStorage.
+  const switchSite = (url: string) => {
+    setActiveSiteUrl(url);
+    setAuditResult(null);
+    setAiVisResult(null);
+    setTechnicalResult(null);
+    setBacklinkResult(null);
+    setCitabilityResult(null);
+    setCrawlerAccessResult(null);
+    setInternalLinkingResult(null);
+    setGeoProgress(getGEOProgress(company.name, url));
+    setTrends(getAllTrends(url));
+    try {
+      const savedCrawl = localStorage.getItem(`cabbge_crawl_${url}`);
+      setSiteCrawlResult(savedCrawl ? JSON.parse(savedCrawl) : null);
+    } catch { setSiteCrawlResult(null); }
+    const label =
+      url === company.website
+        ? "Main site"
+        : (company.sites || []).find((s) => s.url === url)?.label
+          || (company.projects || []).find((p) => p.website === url)?.name
+          || url;
+    addLog(`> Switched to ${label} (${url})`);
+  };
+
   // ---- Agent runners ----
 
   // Helper: compare current score to previous and log the change
@@ -1252,29 +1280,7 @@ export default function DashboardPage() {
               primarySite={company.website ? { url: company.website, label: "Main site" } : undefined}
               additionalSites={company.sites || []}
               activeSiteUrl={activeSiteUrl || company.website}
-              onSwitch={(url) => {
-                setActiveSiteUrl(url);
-                // Clear in-memory scan state so the new site starts fresh.
-                // Persistent history per site is preserved in localStorage.
-                setAuditResult(null);
-                setAiVisResult(null);
-                setTechnicalResult(null);
-                setBacklinkResult(null);
-                // These are tied to a specific site URL — clear so users don't
-                // see stale results from the previous site after switching.
-                setCitabilityResult(null);
-                setCrawlerAccessResult(null);
-                setInternalLinkingResult(null);
-                setGeoProgress(getGEOProgress(company.name, url));
-                setTrends(getAllTrends(url));
-                // Load this site's site-crawl from localStorage if we have one
-                try {
-                  const savedCrawl = localStorage.getItem(`cabbge_crawl_${url}`);
-                  setSiteCrawlResult(savedCrawl ? JSON.parse(savedCrawl) : null);
-                } catch { setSiteCrawlResult(null); }
-                const label = url === company.website ? "Main site" : (company.sites || []).find((s) => s.url === url)?.label || url;
-                addLog(`> Switched to ${label} (${url})`);
-              }}
+              onSwitch={switchSite}
             />
           }
         />
@@ -1317,6 +1323,7 @@ export default function DashboardPage() {
                 ...(company.website ? [{ url: company.website, label: company.website.replace(/^https?:\/\//, "").replace(/\/$/, "") }] : []),
                 ...(company.sites || []),
               ]}
+              onSwitchSite={switchSite}
               companyName={company.name} city={company.city}
               localityResult={localityResult}
               onRunLocalitySearch={runLocalitySearch} trends={trends}

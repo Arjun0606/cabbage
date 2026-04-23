@@ -35,6 +35,7 @@ import { TrendsPanel } from "./TrendsPanel";
 import { EditableBlock } from "./EditableBlock";
 import { GEOProgressPanel } from "./GEOProgressPanel";
 import { ExecutionChecklist } from "./ExecutionChecklist";
+import { SitesTreePanel } from "./SitesTreePanel";
 import { PublishButton } from "./PublishButton";
 import { DeployViaLoader } from "./DeployViaLoader";
 import { GSCPanel } from "./GSCPanel";
@@ -62,6 +63,7 @@ interface Props {
   onRunTechnical: (url: string) => void;
   websiteUrl: string;
   allSites: { url: string; label: string }[];
+  onSwitchSite?: (url: string) => void;
   companyName: string;
   city: string;
   localityResult: any;
@@ -215,7 +217,7 @@ export function AnalyticsPanel({
   auditResult, aiVisResult, backlinkResult, technicalResult,
   isAuditing, isCheckingAI, isCheckingBacklinks, isCheckingTechnical,
   onRunAudit, onRunAIVisibility, onRunBacklinks, onRunTechnical,
-  websiteUrl, allSites, companyName, city,
+  websiteUrl, allSites, onSwitchSite, companyName, city,
   localityResult,
   onRunLocalitySearch, trends,
   projects, selectedProject, onSelectProject,
@@ -327,10 +329,24 @@ export function AnalyticsPanel({
         {/* -------- HEALTH TAB (Health + Technical + Checks) -------- */}
         {/* ================================================================ */}
         <TabsContent value="health" className="space-y-4">
+          {/* Sites tree — single coherent view of the customer's web
+              footprint (main site + project microsites + additional
+              sites) with the latest scores per site. Replaces having to
+              flip via the header switcher to understand status across
+              the whole portfolio. */}
+          {onSwitchSite && (
+            <SitesTreePanel
+              mainWebsite={websiteUrl}
+              additionalSites={allSites.filter((s) => s.url !== websiteUrl)}
+              projects={projects}
+              activeSiteUrl={websiteUrl}
+              onSwitch={onSwitchSite}
+            />
+          )}
+
           {/* First-run banner — shown ONLY when user has nothing scanned
               yet. After any scan completes, the ExecutionChecklist takes
-              over as the "what should I do next" surface. Previously both
-              rendered at the same time, competing for attention. */}
+              over as the "what should I do next" surface. */}
           {!auditResult && !aiVisResult && !technicalResult && !backlinkResult && !siteCrawlResult && !isAuditing && !isCheckingAI && !isCheckingBacklinks && !isCheckingTechnical && !isCrawling && (
             <div className="rounded-xl border border-[#7CB342]/25 bg-[#7CB342]/[0.04] p-5">
               <h3 className="text-[14px] font-semibold text-zinc-100 mb-1">
