@@ -37,7 +37,7 @@ export default function DashboardPage() {
     website: "",
     city: "",
     sites: [] as { url: string; label: string }[],
-    projects: [] as { name: string; website: string; location: string; configurations?: string; priceRange?: string; reraNumber?: string; amenities?: string; status?: string }[],
+    projects: [] as { name: string; website: string; location: string; configurations?: string; priceRange?: string; reraNumber?: string; amenities?: string; status?: string; phase?: string; possessionDate?: string }[],
     competitors: [] as { name: string; website: string }[],
     documents: { productInfo: "", brandVoice: "", competitorAnalysis: "", brandAliases: "", brandExclusions: "" },
   });
@@ -67,6 +67,8 @@ export default function DashboardPage() {
   const [reportResult, setReportResult] = useState<any>(null);
   const [isGeneratingPortal, setIsGeneratingPortal] = useState(false);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+  const [cmoDigestResult, setCmoDigestResult] = useState<any>(null);
+  const [isGeneratingCmoDigest, setIsGeneratingCmoDigest] = useState(false);
   const [llmsTxtResult, setLlmsTxtResult] = useState<any>(null);
   const [geoImprovementResult, setGeoImprovementResult] = useState<any>(null);
   const [isGeneratingLlmsTxt, setIsGeneratingLlmsTxt] = useState(false);
@@ -203,6 +205,8 @@ export default function DashboardPage() {
                   name: p.name, website: p.website, location: p.location,
                   configurations: p.configurations, priceRange: p.price_range,
                   reraNumber: p.rera_number, amenities: p.amenities, status: p.status,
+                  phase: p.phase || "",
+                  possessionDate: p.possession_date || "",
                   // Structured fields — derived by the API on save. The
                   // dashboard + scan pipeline use these for filtering
                   // and matrix-aware query generation.
@@ -210,6 +214,7 @@ export default function DashboardPage() {
                   config_tags: p.config_tags,
                   price_min: p.price_min, price_max: p.price_max,
                   stage: p.stage,
+                  possession_target_date: p.possession_target_date || null,
                 })) || localData.projects,
                 competitors: dbCompany.competitors?.map((c: any) => ({
                   name: c.name, website: c.website,
@@ -954,6 +959,33 @@ export default function DashboardPage() {
     finally { setIsGeneratingReport(false); }
   };
 
+  const runCmoDigest = async () => {
+    if (!spendCredits("report")) return;
+    setIsGeneratingCmoDigest(true);
+    addLog(`> Writing your CEO-ready monthly digest...`);
+    try {
+      const res = await fetch("/api/cmo-digest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          companyId: (company as any)._companyId,
+          companyName: company.name,
+          city: company.city,
+          brand: company.name,
+        }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setCmoDigestResult(data);
+      addLog(`> Digest ready — copy and forward to the CEO`);
+      setActiveTab("report");
+    } catch (err) {
+      addLog(`> Error: ${err instanceof Error ? err.message : "Digest failed"}`);
+    } finally {
+      setIsGeneratingCmoDigest(false);
+    }
+  };
+
   // ---- GEO deep analysis runners ----
 
   const runCrawlerAccess = async () => {
@@ -1372,6 +1404,8 @@ export default function DashboardPage() {
               onRunPortalOptimizer={runPortalOptimizer}
               reportResult={reportResult} isGeneratingReport={isGeneratingReport}
               onRunMarketingReport={runMarketingReport}
+              cmoDigestResult={cmoDigestResult} isGeneratingCmoDigest={isGeneratingCmoDigest}
+              onRunCmoDigest={runCmoDigest}
               llmsTxtResult={llmsTxtResult} isGeneratingLlmsTxt={isGeneratingLlmsTxt}
               onRunLlmsTxt={runLlmsTxt}
               geoImprovementResult={geoImprovementResult} isGeneratingGeoImprovement={isGeneratingGeoImprovement}

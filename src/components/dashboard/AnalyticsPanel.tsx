@@ -37,6 +37,7 @@ import { ProjectScorecard } from "./ProjectScorecard";
 import { CompetitiveLandscape } from "./CompetitiveLandscape";
 import { OwnPagesAICites } from "./OwnPagesAICites";
 import { ProjectCompare } from "./ProjectCompare";
+import { DelayRiskPanel } from "./DelayRiskPanel";
 import { getCompanyCities, projectMatchesCity } from "@/lib/cities";
 import { parseLocation, inferState } from "@/lib/projectParse";
 import { isPortalSubmitted, togglePortalSubmitted, computeCoverage } from "@/lib/portalTracker";
@@ -101,6 +102,11 @@ interface Props {
   reportResult: any;
   isGeneratingReport: boolean;
   onRunMarketingReport: () => void;
+  // CMO digest (CEO-ready monthly summary). Optional so older mounts
+  // without the handler still render the tab cleanly.
+  cmoDigestResult?: { digest?: string } | null;
+  isGeneratingCmoDigest?: boolean;
+  onRunCmoDigest?: () => void;
   // GEO improvement
   llmsTxtResult: any;
   isGeneratingLlmsTxt: boolean;
@@ -229,6 +235,7 @@ export function AnalyticsPanel({
   schemaResult, isGeneratingSchema, onRunSchemaGenerator,
   portalResult, isGeneratingPortal, onRunPortalOptimizer,
   reportResult, isGeneratingReport, onRunMarketingReport,
+  cmoDigestResult, isGeneratingCmoDigest, onRunCmoDigest,
   llmsTxtResult, isGeneratingLlmsTxt, onRunLlmsTxt,
   geoImprovementResult, isGeneratingGeoImprovement, onRunGeoImprovement,
   crawlerAccessResult, isCheckingCrawlers, onRunCrawlerAccess,
@@ -439,6 +446,16 @@ export function AnalyticsPanel({
               portalKeys={portalResult ? Object.keys(portalResult.portals || {}) : []}
             />
           )}
+
+          {/* Delay risk + possession tracking — legal teeth in India
+              (RERA binding dates, NCDRC liability). Pulled to the top
+              of Overview so the CMO can't miss a project crossing its
+              declared possession date. Hides entirely when no project
+              has a date set. */}
+          <DelayRiskPanel
+            projects={visibleProjects as any}
+            onWriteArticle={onGeoFixQuery}
+          />
 
           {/* Sites tree — single coherent view of the customer's web
               footprint (main site + project microsites + additional
@@ -2041,17 +2058,54 @@ export function AnalyticsPanel({
         {/* -------- REPORT TAB -------- */}
         {/* ================================================================ */}
         <TabsContent value="report" className="space-y-4">
-          <Button
-            onClick={onRunMarketingReport}
-            disabled={isGeneratingReport}
-            className="w-full bg-zinc-700 hover:bg-zinc-600 h-10 text-[13px] font-medium rounded-lg"
-          >
-            {isGeneratingReport ? (
-              <><Loader2 size={15} className="animate-spin mr-2" />Generating report...</>
-            ) : (
-              <><BarChart3 size={15} className="mr-2" />Generate Monthly Marketing Report</>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <Button
+              onClick={onRunMarketingReport}
+              disabled={isGeneratingReport}
+              className="w-full bg-zinc-700 hover:bg-zinc-600 h-10 text-[13px] font-medium rounded-lg"
+            >
+              {isGeneratingReport ? (
+                <><Loader2 size={15} className="animate-spin mr-2" />Generating report...</>
+              ) : (
+                <><BarChart3 size={15} className="mr-2" />Generate Monthly Marketing Report</>
+              )}
+            </Button>
+            {onRunCmoDigest && (
+              <Button
+                onClick={onRunCmoDigest}
+                disabled={isGeneratingCmoDigest}
+                variant="outline"
+                className="w-full border-zinc-700 text-zinc-200 hover:bg-zinc-800 h-10 text-[13px] font-medium rounded-lg"
+              >
+                {isGeneratingCmoDigest ? (
+                  <><Loader2 size={15} className="animate-spin mr-2" />Writing digest…</>
+                ) : (
+                  <><FileText size={15} className="mr-2" />CEO-ready monthly digest</>
+                )}
+              </Button>
             )}
-          </Button>
+          </div>
+
+          {cmoDigestResult?.digest && (
+            <SectionCard>
+              <CardContent className="p-5">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-[13px] font-semibold text-zinc-200">Monthly CEO digest</h4>
+                  <button
+                    onClick={() => navigator.clipboard.writeText(cmoDigestResult.digest || "")}
+                    className="text-[11px] font-medium px-2 py-1 rounded-md bg-zinc-800 text-zinc-300 border border-zinc-700/50 hover:bg-zinc-700"
+                  >
+                    Copy
+                  </button>
+                </div>
+                <div className="rounded-lg bg-zinc-800/40 border border-zinc-700/30 p-4 max-h-[500px] overflow-y-auto">
+                  <pre className="text-[12px] text-zinc-300 leading-relaxed whitespace-pre-wrap font-sans">
+                    {cmoDigestResult.digest}
+                  </pre>
+                </div>
+              </CardContent>
+            </SectionCard>
+          )}
 
           {reportResult ? (
             <>

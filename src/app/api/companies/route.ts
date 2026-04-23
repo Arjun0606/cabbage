@@ -152,6 +152,40 @@ export async function POST(req: NextRequest) {
             priceRange: p.priceRange,
             status: p.status,
           }, city || "");
+          // Parse possession date. Users type things like "Dec 2026",
+          // "Q3 2026", "2026-12-31". We store the free-text under
+          // possession_date (already a text column) and try to extract
+          // a concrete date into possession_target_date for delay-risk
+          // arithmetic. If we can't parse, we leave it null — nothing
+          // breaks, the delay view just reports 'n/a'.
+          const parsePossession = (raw: unknown): string | null => {
+            if (typeof raw !== "string" || !raw.trim()) return null;
+            const t = raw.trim();
+            const iso = Date.parse(t);
+            if (!Number.isNaN(iso)) return new Date(iso).toISOString().slice(0, 10);
+            // "Q3 2026" / "Q1 2025" → end of quarter
+            const qm = t.match(/q([1-4])[\s\-\/]*([12]\d{3})/i);
+            if (qm) {
+              const q = Number(qm[1]);
+              const y = Number(qm[2]);
+              const month = [3, 6, 9, 12][q - 1]; // quarter-end month (1-indexed)
+              const day = [31, 30, 30, 31][q - 1];
+              return `${y}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+            }
+            // "Dec 2026" / "December 2026" → last day of that month
+            const mm = t.match(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\s+([12]\d{3})/i);
+            if (mm) {
+              const monthIdx = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"]
+                .indexOf(mm[1].slice(0, 3).toLowerCase());
+              if (monthIdx >= 0) {
+                const y = Number(mm[2]);
+                const lastDay = new Date(y, monthIdx + 1, 0).getDate();
+                return `${y}-${String(monthIdx + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+              }
+            }
+            return null;
+          };
+
           return {
             company_id: companyId,
             name: p.name,
@@ -169,6 +203,9 @@ export async function POST(req: NextRequest) {
             status: p.status || "Active",
             stage: parsed.stage,
             usps: p.usps || null,
+            phase: p.phase || null,
+            possession_date: p.possessionDate || null,
+            possession_target_date: parsePossession(p.possessionDate),
           };
         });
 

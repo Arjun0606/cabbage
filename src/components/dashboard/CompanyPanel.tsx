@@ -25,7 +25,7 @@ interface Company {
   website: string;
   city: string;
   sites: { url: string; label: string }[];
-  projects: { name: string; website: string; location: string; configurations?: string; priceRange?: string; reraNumber?: string; amenities?: string; status?: string }[];
+  projects: { name: string; website: string; location: string; configurations?: string; priceRange?: string; reraNumber?: string; amenities?: string; status?: string; phase?: string; possessionDate?: string }[];
   competitors: { name: string; website: string }[];
   documents: {
     productInfo: string;
@@ -80,7 +80,7 @@ export function CompanyPanel({ company, setCompany }: Props) {
   const addProject = () => {
     setCompany({
       ...company,
-      projects: [...(company.projects || []), { name: "", website: "", location: "", configurations: "", priceRange: "", reraNumber: "", amenities: "", status: "Active" }],
+      projects: [...(company.projects || []), { name: "", website: "", location: "", configurations: "", priceRange: "", reraNumber: "", amenities: "", status: "Active", phase: "", possessionDate: "" }],
     });
     setExpandedProject((company.projects || []).length);
   };
@@ -290,6 +290,10 @@ export function CompanyPanel({ company, setCompany }: Props) {
                     <Input placeholder="Price range" value={project.priceRange || ""} onChange={(e) => updateProject(idx, "priceRange", e.target.value)}
                       className="bg-zinc-900/80 border-zinc-800 text-[12px] h-8 placeholder:text-zinc-500" />
                     <Input placeholder="RERA number" value={project.reraNumber || ""} onChange={(e) => updateProject(idx, "reraNumber", e.target.value)}
+                      className="bg-zinc-900/80 border-zinc-800 text-[12px] h-8 placeholder:text-zinc-500" />
+                    <Input placeholder="Phase (e.g. Phase 2)" value={project.phase || ""} onChange={(e) => updateProject(idx, "phase", e.target.value)}
+                      className="bg-zinc-900/80 border-zinc-800 text-[12px] h-8 placeholder:text-zinc-500" />
+                    <Input placeholder="Possession (Q3 2026 / Dec 2026 / 2026-12-31)" value={project.possessionDate || ""} onChange={(e) => updateProject(idx, "possessionDate", e.target.value)}
                       className="bg-zinc-900/80 border-zinc-800 text-[12px] h-8 placeholder:text-zinc-500" />
                   </div>
                   <Textarea placeholder="Key amenities (pool, gym, clubhouse, etc.)" value={project.amenities || ""} onChange={(e) => updateProject(idx, "amenities", e.target.value)}
