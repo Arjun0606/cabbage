@@ -71,11 +71,8 @@ Generate this JSON:
   "city": "Primary city they operate in (inferred from content, addresses, project locations)",
 
   "documents": {
-    "productInfo": "200-word summary of their products/services. What do they build? What configurations? What price segments? Any signature features?",
-    "brandVoice": "150-word description of their brand voice and tone. Are they luxury? Affordable? Family-focused? Tech-forward? Formal or casual? What language patterns do they use?",
-    "brandValues": "150-word summary of their core values, mission, vision. What do they stand for? Quality? Innovation? Trust? Heritage?",
-    "targetAudience": "150-word description of who their buyers are. First-time buyers? Investors? NRIs? Families? IT professionals? What age/income bracket?",
-    "marketingStrategy": "150-word analysis of their current marketing approach. Do they have a blog? Social media? Portal listings? What channels are they active on? What's working/missing?",
+    "productInfo": "200-word summary: what they build (configurations, price segments, signature features) + target buyer (first-time / investor / NRI / families / IT / age / income bracket). Combine product + buyer in one block.",
+    "brandVoice": "200-word combined block: brand voice and tone (luxury / affordable / family-focused / tech-forward / formal / casual) + values, mission, vision (what they stand for \u2014 quality / innovation / trust / heritage).",
     "competitorAnalysis": "150-word analysis of their competitive landscape. Who are their likely competitors in their city/segment? How are they positioned relative to competition?"
   },
 

@@ -167,7 +167,7 @@ export default function SettingsPage() {
     const companyData = {
       name: name.charAt(0).toUpperCase() + name.slice(1),
       description: "", website: url, city: "", sites: [], projects: [], competitors: [],
-      documents: { productInfo: "", competitorAnalysis: "", brandVoice: "", marketingStrategy: "" },
+      documents: { productInfo: "", competitorAnalysis: "", brandVoice: "" },
     };
     localStorage.setItem("cabbge_company", JSON.stringify(companyData));
     setCompanyName(companyData.name);

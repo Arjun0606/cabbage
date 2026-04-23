@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
     const {
       projectName, developerName, location, city,
       configurations, priceRange, amenities, website,
-      brandVoice, targetAudience, writingInstructions,
+      brandVoice, productInfo, writingInstructions,
     } = await req.json();
 
     if (!developerName || !city) {
@@ -50,7 +50,7 @@ Each post must:
 **Amenities:** ${amenities || "Not specified"}
 **Website:** ${website || "Not specified"}
 **Brand Voice:** ${brandVoice || "Professional and trustworthy"}
-**Target Audience:** ${targetAudience || "Home buyers aged 28-50"}
+${productInfo ? `**Product Info:** ${productInfo.substring(0, 400)}` : ""}
 
 Generate this JSON structure:
 {

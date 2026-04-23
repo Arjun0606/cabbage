@@ -25,20 +25,13 @@ interface Company {
   description: string;
   website: string;
   city: string;
-  yearEstablished: string;
-  projectsCompleted: string;
-  awards: string;
   sites: { url: string; label: string }[];
   projects: { name: string; website: string; location: string; configurations?: string; priceRange?: string; reraNumber?: string; amenities?: string; status?: string }[];
   competitors: { name: string; website: string }[];
   documents: {
     productInfo: string;
-    competitorAnalysis: string;
     brandVoice: string;
-    marketingStrategy: string;
-    brandValues: string;
-    brandVision: string;
-    targetAudience: string;
+    competitorAnalysis: string;
   };
 }
 
@@ -142,12 +135,8 @@ export function CompanyPanel({ company, setCompany }: Props) {
   };
 
   const documents = [
-    { key: "productInfo", label: "Product Information", icon: FileText, hint: "What you sell, key features, pricing strategy" },
-    { key: "brandVoice", label: "Brand Voice & Tone", icon: Building2, hint: "How your brand speaks — formal, friendly, luxurious?" },
-    { key: "brandValues", label: "Brand Values", icon: Globe, hint: "Core values and brand promise" },
-    { key: "brandVision", label: "Brand Vision", icon: Globe, hint: "Long-term vision and mission statement" },
-    { key: "targetAudience", label: "Target Audience", icon: Users, hint: "Who are your buyers? Demographics, preferences" },
-    { key: "marketingStrategy", label: "Marketing Strategy", icon: Globe, hint: "Current strategy, channels, campaigns, budget" },
+    { key: "productInfo", label: "Product Information", icon: FileText, hint: "What you sell, key features, target buyer, USPs" },
+    { key: "brandVoice", label: "Brand Voice & Positioning", icon: Building2, hint: "How your brand speaks + values + vision — all in one" },
     { key: "competitorAnalysis", label: "Competitor Analysis", icon: Users, hint: "Key competitors, their strengths, your differentiation" },
   ];
 
@@ -192,26 +181,6 @@ export function CompanyPanel({ company, setCompany }: Props) {
             onChange={(e) => setCompany({ ...company, description: e.target.value })}
             className="bg-zinc-900/80 border-white/[0.06] text-[13px] min-h-[72px] placeholder:text-zinc-500 leading-relaxed focus:border-[#7CB342]/40 focus:ring-[#7CB342]/10 transition-colors"
           />
-          <div className="grid grid-cols-3 gap-2">
-            <Input
-              placeholder="Year established"
-              value={company.yearEstablished}
-              onChange={(e) => setCompany({ ...company, yearEstablished: e.target.value })}
-              className="bg-zinc-900/80 border-white/[0.06] text-[13px] h-9 placeholder:text-zinc-500 focus:border-[#7CB342]/40 focus:ring-[#7CB342]/10 transition-colors"
-            />
-            <Input
-              placeholder="Projects completed"
-              value={company.projectsCompleted}
-              onChange={(e) => setCompany({ ...company, projectsCompleted: e.target.value })}
-              className="bg-zinc-900/80 border-white/[0.06] text-[13px] h-9 placeholder:text-zinc-500 focus:border-[#7CB342]/40 focus:ring-[#7CB342]/10 transition-colors"
-            />
-            <Input
-              placeholder="Awards / recognition"
-              value={company.awards}
-              onChange={(e) => setCompany({ ...company, awards: e.target.value })}
-              className="bg-zinc-900/80 border-white/[0.06] text-[13px] h-9 placeholder:text-zinc-500 focus:border-[#7CB342]/40 focus:ring-[#7CB342]/10 transition-colors"
-            />
-          </div>
         </div>
       </section>
 

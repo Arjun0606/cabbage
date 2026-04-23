@@ -40,10 +40,7 @@ export default function DashboardPage() {
     sites: [] as { url: string; label: string }[],
     projects: [] as { name: string; website: string; location: string; configurations?: string; priceRange?: string; reraNumber?: string; amenities?: string; status?: string }[],
     competitors: [] as { name: string; website: string }[],
-    yearEstablished: "",
-    projectsCompleted: "",
-    awards: "",
-    documents: { productInfo: "", competitorAnalysis: "", brandVoice: "", marketingStrategy: "", brandValues: "", brandVision: "", targetAudience: "" },
+    documents: { productInfo: "", brandVoice: "", competitorAnalysis: "" },
   });
 
   const [auditResult, setAuditResult] = useState<any>(null);
@@ -210,10 +207,6 @@ export default function DashboardPage() {
                 documents: {
                   productInfo: dbCompany.product_info || localData.documents?.productInfo || "",
                   brandVoice: dbCompany.brand_voice || localData.documents?.brandVoice || "",
-                  brandValues: dbCompany.brand_values || localData.documents?.brandValues || "",
-                  brandVision: dbCompany.brand_vision || localData.documents?.brandVision || "",
-                  targetAudience: dbCompany.target_audience || localData.documents?.targetAudience || "",
-                  marketingStrategy: dbCompany.marketing_strategy || localData.documents?.marketingStrategy || "",
                   competitorAnalysis: dbCompany.competitor_analysis || localData.documents?.competitorAnalysis || "",
                 },
                 _companyId: dbCompany.id,
@@ -251,9 +244,6 @@ export default function DashboardPage() {
                     ...localData.documents,
                     productInfo: localData.documents?.productInfo || discovered.documents.productInfo || "",
                     brandVoice: localData.documents?.brandVoice || discovered.documents.brandVoice || "",
-                    brandValues: localData.documents?.brandValues || discovered.documents.brandValues || "",
-                    targetAudience: localData.documents?.targetAudience || discovered.documents.targetAudience || "",
-                    marketingStrategy: localData.documents?.marketingStrategy || discovered.documents.marketingStrategy || "",
                     competitorAnalysis: localData.documents?.competitorAnalysis || discovered.documents.competitorAnalysis || "",
                   },
                 };
@@ -288,7 +278,7 @@ export default function DashboardPage() {
                 await new Promise(r => setTimeout(r, 200));
                 addLog(`> Agent 2: Product intelligence — ${enriched.projects?.length || 0} real projects detected`);
                 await new Promise(r => setTimeout(r, 200));
-                addLog(`> Agent 3: Target audience identified — ${discovered.documents.targetAudience?.split(".")[0]?.slice(0, 50) || "home buyers"}`);
+                addLog(`> Agent 3: Brand voice captured from site copy`);
                 await new Promise(r => setTimeout(r, 200));
                 addLog(`> Agent 4: Competitor landscape mapped — ${enriched.competitors?.length || 0} competitors tracked`);
                 await new Promise(r => setTimeout(r, 200));
@@ -651,9 +641,8 @@ export default function DashboardPage() {
         projectDetails: company.projects.map(p => ({ name: p.name, location: p.location, configurations: p.configurations, priceRange: p.priceRange })),
         industry: (company as any).industry,
         brandContext: {
-          targetAudience: company.documents?.targetAudience || "",
           usps: company.description || "",
-          projectsCompleted: (company as any).projectsCompleted || "",
+          productInfo: company.documents?.productInfo || "",
         },
       }) });
       const data = await res.json();
@@ -813,20 +802,13 @@ export default function DashboardPage() {
       status: (p as any)?.status || "",
       // Brand context — this is what makes content genuinely relevant
       brandVoice: company.documents?.brandVoice || "",
-      brandValues: company.documents?.brandValues || "",
-      brandVision: company.documents?.brandVision || "",
-      targetAudience: company.documents?.targetAudience || "",
       productInfo: company.documents?.productInfo || "",
-      marketingStrategy: company.documents?.marketingStrategy || "",
       // All projects summary for cross-referencing
       allProjects: (company.projects || []).map((proj: any) => ({
         name: proj.name, location: proj.location, configurations: proj.configurations,
         priceRange: proj.priceRange, status: proj.status,
       })),
       competitors: (company.competitors || []).map((c: any) => c.name),
-      yearEstablished: company.yearEstablished || "",
-      projectsCompleted: company.projectsCompleted || "",
-      awards: company.awards || "",
       // Per-channel writing instructions from Settings → Personalization
       writingInstructions,
     };

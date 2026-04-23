@@ -101,9 +101,6 @@ export default function DemoPage() {
         website: normalized,
         city: discovered.city || "",
         industry: "real_estate",
-        yearEstablished: "",
-        projectsCompleted: "",
-        awards: "",
         sites: [] as { url: string; label: string }[],
         projects: validProjects.map((p: any) => ({
           name: p.name || "",
@@ -118,9 +115,10 @@ export default function DemoPage() {
         competitors: (discovered.inferredCompetitors || [])
           .filter((c: string) => c && c.trim().length >= 3 && !placeholders.test(c))
           .map((c: string) => ({ name: c, website: "" })),
-        documents: discovered.documents || {
-          productInfo: "", competitorAnalysis: "", brandVoice: "",
-          marketingStrategy: "", brandValues: "", brandVision: "", targetAudience: "",
+        documents: {
+          productInfo: discovered.documents?.productInfo || "",
+          brandVoice: discovered.documents?.brandVoice || "",
+          competitorAnalysis: discovered.documents?.competitorAnalysis || "",
         },
       };
 

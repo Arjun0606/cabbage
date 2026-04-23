@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
     // via the ascending order (oldest first, newest last).
     const { data: companies, error } = await supabase
       .from("companies")
-      .select("id, name, website, sites, city, description, product_info, brand_voice, brand_values, target_audience, marketing_strategy")
+      .select("id, name, website, sites, city, description, product_info, brand_voice")
       .order("created_at", { ascending: true })
       .limit(50);
 
@@ -117,8 +117,8 @@ export async function GET(req: NextRequest) {
             })),
             industry: "real_estate",
             brandContext: {
-              targetAudience: company.target_audience || "",
               usps: company.description || "",
+              productInfo: (company as any).product_info || "",
             },
           });
 

@@ -153,16 +153,16 @@ export default function OnboardingPage() {
       website,
       city: primaryCity,
       industry,
-      yearEstablished: "",
-      projectsCompleted: "",
-      awards: "",
       sites: extraSites.map((s) => ({ url: s.url, label: s.label, type: s.type || "other" })),
       projects: projects.length > 0 ? projects : [],
       competitors: competitors.map((c) => ({ name: c, website: "" })),
-      documents: discovered?.documents || {
-        productInfo: "", competitorAnalysis: "", brandVoice: "",
-        marketingStrategy: "", brandValues: "", brandVision: "", targetAudience: "",
-      },
+      documents: discovered?.documents
+        ? {
+            productInfo: discovered.documents.productInfo || "",
+            brandVoice: discovered.documents.brandVoice || "",
+            competitorAnalysis: discovered.documents.competitorAnalysis || "",
+          }
+        : { productInfo: "", brandVoice: "", competitorAnalysis: "" },
     };
     localStorage.setItem("cabbge_company", JSON.stringify(data));
 

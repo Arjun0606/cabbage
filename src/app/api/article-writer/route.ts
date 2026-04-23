@@ -35,8 +35,7 @@ export async function POST(req: NextRequest) {
       projectName, developerName, location, city,
       configurations, priceRange, usps, topic, targetKeyword, articleType,
       // Brand context
-      brandVoice, brandValues, brandVision, targetAudience,
-      productInfo, amenities, reraNumber, status,
+      brandVoice, productInfo, amenities, reraNumber, status,
       allProjects, competitors,
       // Per-channel writing instructions from Settings → Personalization
       writingInstructions,
@@ -120,12 +119,9 @@ ${reraNumber ? `- RERA: ${reraNumber}` : ""}
 ${amenities ? `- Amenities: ${amenities}` : ""}
 ${status ? `- Status: ${status}` : ""}
 
-${brandVoice || brandValues || targetAudience || productInfo ? `**Brand Context (write in this brand's voice):**
-${brandVoice ? `- Voice & Tone: ${brandVoice.substring(0, 400)}` : ""}
-${brandValues ? `- Values: ${brandValues.substring(0, 400)}` : ""}
-${brandVision ? `- Vision: ${brandVision.substring(0, 300)}` : ""}
-${targetAudience ? `- Target Buyers: ${targetAudience.substring(0, 400)}` : ""}
-${productInfo ? `- Product Info: ${productInfo.substring(0, 400)}` : ""}` : ""}
+${brandVoice || productInfo ? `**Brand Context (write in this brand's voice):**
+${brandVoice ? `- Voice & Positioning: ${brandVoice.substring(0, 600)}` : ""}
+${productInfo ? `- Product Info: ${productInfo.substring(0, 600)}` : ""}` : ""}
 ${allProjects?.length > 1 ? `\n**Other projects by ${developerName}:** ${allProjects.filter((p: any) => p.name !== projectName).map((p: any) => `${p.name} (${p.location})`).join(", ")}` : ""}
 ${competitors?.length ? `**Competitors:** ${competitors.join(", ")}` : ""}
 
