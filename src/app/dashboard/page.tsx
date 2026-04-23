@@ -51,16 +51,11 @@ export default function DashboardPage() {
   const [backlinkResult, setBacklinkResult] = useState<any>(null);
   const [technicalResult, setTechnicalResult] = useState<any>(null);
   const [competitorResults, setCompetitorResults] = useState<any[]>([]);
-  const [localityResult, setLocalityResult] = useState<any>(null);
 
   // New feature states
   const [articleResult, setArticleResult] = useState<any>(null);
-  const [festiveCampaignResult, setFestiveCampaignResult] = useState<any>(null);
-  const [channelPartnerResult, setChannelPartnerResult] = useState<any>(null);
   const [schemaResult, setSchemaResult] = useState<any>(null);
   const [isGeneratingArticle, setIsGeneratingArticle] = useState(false);
-  const [isGeneratingCampaign, setIsGeneratingCampaign] = useState(false);
-  const [isGeneratingPartner, setIsGeneratingPartner] = useState(false);
   const [isGeneratingSchema, setIsGeneratingSchema] = useState(false);
   const [selectedProject, setSelectedProject] = useState<number | null>(null);
 
@@ -68,11 +63,9 @@ export default function DashboardPage() {
   const [portalResult, setPortalResult] = useState<any>(null);
   const [neighborhoodResult, setNeighborhoodResult] = useState<any>(null);
   const [reportResult, setReportResult] = useState<any>(null);
-  const [adsResult, setAdsResult] = useState<any>(null);
   const [isGeneratingPortal, setIsGeneratingPortal] = useState(false);
   const [isGeneratingNeighborhood, setIsGeneratingNeighborhood] = useState(false);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
-  const [isGeneratingAds, setIsGeneratingAds] = useState(false);
   const [llmsTxtResult, setLlmsTxtResult] = useState<any>(null);
   const [geoImprovementResult, setGeoImprovementResult] = useState<any>(null);
   const [isGeneratingLlmsTxt, setIsGeneratingLlmsTxt] = useState(false);
@@ -162,10 +155,10 @@ export default function DashboardPage() {
 
   const CREDIT_COSTS: Record<string, number> = {
     audit: 2, technical: 1, ai_visibility: 4, backlinks: 1, competitors: 2,
-    article: 5, campaign: 3, partner: 3,
+    article: 5,
     schema: 2, portal: 2, neighborhood: 3,
-    report: 5, ads: 3, llms_txt: 2, geo_improvement: 3, crawler: 1,
-    brand_presence: 2, citability: 2, locality: 1,
+    report: 5, llms_txt: 2, geo_improvement: 3, crawler: 1,
+    brand_presence: 2, citability: 2,
     gbp_posts: 3, prompt_volumes: 3,
   };
 
@@ -792,19 +785,6 @@ export default function DashboardPage() {
   };
 
 
-  const runLocalitySearch = async () => {
-    if (!company.city) { addLog("> Set city first"); return; }
-    if (!spendCredits("locality")) return;
-    addLog(`> Discovering localities in ${company.city}...`);
-    try {
-      const res = await fetch("/api/locality/search", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ city: company.city, locality: company.city }) });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      setLocalityResult(data);
-      addLog(`> Found ${data.nearbyAreas?.length || 0} areas, ${data.suggestedKeywords?.length || 0} keywords`);
-    } catch (err) { addLog(`> Error: ${err instanceof Error ? err.message : "Failed"}`); }
-  };
-
   // ---- New feature runners ----
 
   // Rich context builder — feeds ALL brand knowledge into every content generator
@@ -868,42 +848,6 @@ export default function DashboardPage() {
       addLog(`> Article: "${data.title}" — ${data.wordCount} words`);
     } catch (err) { addLog(`> Error: ${err instanceof Error ? err.message : "Article failed"}`); }
     finally { setIsGeneratingArticle(false); }
-  };
-
-  const runFestiveCampaign = async (targetFestival?: string) => {
-    if (!spendCredits("campaign")) return;
-    setIsGeneratingCampaign(true);
-    addLog(`> Generating festive campaign${targetFestival ? ` for ${targetFestival}` : ""}...`);
-    try {
-      const ctx = getProjectContext();
-      const res = await fetch("/api/festive-campaigns", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...ctx, targetFestival }),
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      setFestiveCampaignResult(data);
-      addLog(`> Campaign: ${data.festival} — "${data.tagline}"`);
-    } catch (err) { addLog(`> Error: ${err instanceof Error ? err.message : "Campaign failed"}`); }
-    finally { setIsGeneratingCampaign(false); }
-  };
-
-  const runChannelPartner = async () => {
-    if (!spendCredits("partner")) return;
-    setIsGeneratingPartner(true);
-    addLog(`> Generating channel partner pack...`);
-    try {
-      const ctx = getProjectContext();
-      const res = await fetch("/api/channel-partner", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(ctx),
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      setChannelPartnerResult(data);
-      addLog(`> Channel partner pack ready`);
-    } catch (err) { addLog(`> Error: ${err instanceof Error ? err.message : "Failed"}`); }
-    finally { setIsGeneratingPartner(false); }
   };
 
   const runSchemaGenerator = async () => {
@@ -972,21 +916,6 @@ export default function DashboardPage() {
       addLog(`> Marketing report ready`);
     } catch (err) { addLog(`> Error: ${err instanceof Error ? err.message : "Failed"}`); }
     finally { setIsGeneratingReport(false); }
-  };
-
-  const runAdsGenerator = async (adPlatform: string) => {
-    if (!spendCredits("ads")) return;
-    setIsGeneratingAds(true);
-    addLog(`> Generating ${adPlatform} ad copy...`);
-    try {
-      const ctx = getProjectContext();
-      const res = await fetch("/api/ads-generator", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...ctx, adPlatform }) });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      setAdsResult(data);
-      addLog(`> Ad copy ready (${adPlatform})`);
-    } catch (err) { addLog(`> Error: ${err instanceof Error ? err.message : "Failed"}`); }
-    finally { setIsGeneratingAds(false); }
   };
 
   // ---- GEO deep analysis runners ----
@@ -1325,17 +1254,12 @@ export default function DashboardPage() {
               ]}
               onSwitchSite={switchSite}
               companyName={company.name} city={company.city}
-              localityResult={localityResult}
-              onRunLocalitySearch={runLocalitySearch} trends={trends}
+              trends={trends}
               // New features
               projects={company.projects}
               selectedProject={selectedProject} onSelectProject={setSelectedProject}
               articleResult={articleResult} isGeneratingArticle={isGeneratingArticle}
               onRunArticleWriter={runArticleWriter}
-              festiveCampaignResult={festiveCampaignResult} isGeneratingCampaign={isGeneratingCampaign}
-              onRunFestiveCampaign={runFestiveCampaign}
-              channelPartnerResult={channelPartnerResult} isGeneratingPartner={isGeneratingPartner}
-              onRunChannelPartner={runChannelPartner}
               schemaResult={schemaResult} isGeneratingSchema={isGeneratingSchema}
               onRunSchemaGenerator={runSchemaGenerator}
               // Round 2 features
@@ -1345,8 +1269,6 @@ export default function DashboardPage() {
               onRunNeighborhood={runNeighborhood}
               reportResult={reportResult} isGeneratingReport={isGeneratingReport}
               onRunMarketingReport={runMarketingReport}
-              adsResult={adsResult} isGeneratingAds={isGeneratingAds}
-              onRunAdsGenerator={runAdsGenerator}
               llmsTxtResult={llmsTxtResult} isGeneratingLlmsTxt={isGeneratingLlmsTxt}
               onRunLlmsTxt={runLlmsTxt}
               geoImprovementResult={geoImprovementResult} isGeneratingGeoImprovement={isGeneratingGeoImprovement}
