@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { aiComplete } from "@/lib/ai";
 import { formatWritingInstructions } from "@/lib/writingInstructions";
+import { requireActiveSubscription } from "@/lib/db/supabase-server";
 
 /**
  * Google Business Profile Post Generator
@@ -14,6 +15,9 @@ import { formatWritingInstructions } from "@/lib/writingInstructions";
 
 export async function POST(req: NextRequest) {
   try {
+    const gate = await requireActiveSubscription(req);
+    if (!gate.ok) return gate.response;
+
     const {
       projectName, developerName, location, city,
       configurations, priceRange, amenities, website,

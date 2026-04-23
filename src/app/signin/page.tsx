@@ -148,7 +148,7 @@ function SignInInner() {
         <p className="text-center mt-6 text-[13px] text-zinc-500">
           New to Cabbge?{" "}
           <Link href="/signup" className="text-[#7CB342] hover:text-[#8BC34A] font-medium">
-            Start your 14-day trial
+            Create your workspace
           </Link>
         </p>
       </div>

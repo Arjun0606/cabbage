@@ -5,17 +5,17 @@ import { Sparkles, Lock, ArrowRight, CheckCircle2 } from "lucide-react";
 
 interface Props {
   email?: string;
-  reason: "trial_expired" | "canceled" | "past_due";
+  reason: "needs_payment" | "canceled" | "past_due";
 }
 
 export function PaywallOverlay({ email, reason }: Props) {
   const headline =
-    reason === "trial_expired" ? "Your 14-day trial has ended"
+    reason === "needs_payment" ? "Activate your Cabbge access"
     : reason === "past_due" ? "Your last payment didn't go through"
     : "Your subscription was canceled";
 
   const sub =
-    reason === "trial_expired" ? "All your scan data, articles, and GEO progress are safe. Pick a plan to keep your momentum going."
+    reason === "needs_payment" ? "Cabbge is a paid product. Pick a plan to start running scans, generating content, and tracking AI visibility."
     : reason === "past_due" ? "We'll retry automatically, or you can update your card and reactivate now."
     : "You still have access to your data. Reactivate any time to resume daily scans and content generation.";
 

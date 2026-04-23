@@ -4,13 +4,16 @@ import { getServiceClient } from "@/lib/db/supabase";
 
 /**
  * GET /api/billing/status
- * Returns the authenticated user's subscription state:
- *   { plan, status, trialEndsAt, daysLeftInTrial, canAccess, needsUpgrade }
- * Called by the dashboard client on load to show/hide paywall.
+ *
+ * Returns the authenticated user's subscription state. Cabbge is a paid
+ * product — there is no free trial. A signed-in user with no active
+ * subscription sees the paywall until they pay.
+ *
+ * Demo cookie remains an escape hatch for the sales team pitching
+ * prospects. It does NOT give free access to real users.
  */
 export async function GET(req: NextRequest) {
   try {
-    // Demo mode unlocks full access without auth or subscription
     const inDemoMode = req.cookies.get("cabbge_demo")?.value === "1";
     if (inDemoMode) {
       return NextResponse.json({
@@ -30,52 +33,23 @@ export async function GET(req: NextRequest) {
     }
 
     const service = getServiceClient();
-    let { data: sub } = await service
+    const { data: sub } = await service
       .from("subscriptions")
-      .select("plan, status, trial_ends_at, current_period_end, cancel_at_period_end")
+      .select("plan, status, current_period_end, cancel_at_period_end")
       .eq("user_id", user.id)
       .maybeSingle();
 
-    // Fallback trial: when the signup trigger didn't fire (or the user
-    // pre-dates the trigger), lazily create a 14-day trial row instead of
-    // instantly paywalling a brand-new signup.
-    if (!sub) {
-      const trialEnd = new Date(Date.now() + 14 * 86400_000).toISOString();
-      await service.from("subscriptions").upsert(
-        {
-          user_id: user.id,
-          plan: "trial",
-          status: "trialing",
-          trial_ends_at: trialEnd,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "user_id" }
-      );
-      sub = {
-        plan: "trial",
-        status: "trialing",
-        trial_ends_at: trialEnd,
-        current_period_end: null,
-        cancel_at_period_end: false,
-      };
-    }
-
-    const now = Date.now();
-    const trialEndsAt = sub?.trial_ends_at ? new Date(sub.trial_ends_at).getTime() : now;
-    const daysLeftInTrial = Math.max(0, Math.ceil((trialEndsAt - now) / 86400_000));
-
-    const isTrialing = sub?.status === "trialing" && trialEndsAt > now;
+    // Access is strictly tied to an active subscription. New signups land
+    // on /pricing to pick a plan before they get anywhere useful.
     const isActive = sub?.status === "active";
-    const canAccess = isTrialing || isActive;
+    const canAccess = isActive;
     const needsUpgrade = !canAccess;
 
     return NextResponse.json({
       authenticated: true,
       email: user.email,
-      plan: sub?.plan || "trial",
-      status: sub?.status || "trialing",
-      trialEndsAt: sub?.trial_ends_at,
-      daysLeftInTrial,
+      plan: sub?.plan || "none",
+      status: sub?.status || "inactive",
       currentPeriodEnd: sub?.current_period_end,
       cancelAtPeriodEnd: sub?.cancel_at_period_end || false,
       canAccess,

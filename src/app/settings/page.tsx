@@ -89,8 +89,6 @@ export default function SettingsPage() {
   const [billing, setBilling] = useState<{
     plan: string;
     status: string;
-    daysLeftInTrial?: number;
-    trialEndsAt?: string | null;
     currentPeriodEnd?: string | null;
     cancelAtPeriodEnd?: boolean;
     demoMode?: boolean;
@@ -394,21 +392,23 @@ export default function SettingsPage() {
                           <p className="text-xs text-zinc-500">
                             {billing.demoMode
                               ? "Demo session — no real billing."
-                              : billing.status === "trialing"
-                              ? `Trial — ${billing.daysLeftInTrial} day${billing.daysLeftInTrial === 1 ? "" : "s"} left`
                               : billing.status === "active"
                               ? billing.cancelAtPeriodEnd
                                 ? `Cancels at end of cycle${billing.currentPeriodEnd ? ` (${new Date(billing.currentPeriodEnd).toLocaleDateString()})` : ""}`
                                 : "Active — renews automatically"
-                              : billing.status}
+                              : billing.status === "past_due"
+                              ? "Payment failed — update your card to reactivate"
+                              : billing.status === "canceled"
+                              ? "Canceled — reactivate any time"
+                              : "No active subscription"}
                           </p>
                         </div>
                         <Badge
                           className={
                             billing.status === "active"
                               ? "bg-[#7CB342]/15 text-[#7CB342] border-0"
-                              : billing.status === "trialing"
-                              ? "bg-amber-500/15 text-amber-400 border-0"
+                              : billing.status === "past_due"
+                              ? "bg-red-500/15 text-red-400 border-0"
                               : "bg-zinc-800 text-zinc-400 border-0"
                           }
                         >

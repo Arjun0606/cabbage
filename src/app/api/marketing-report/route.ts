@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { aiComplete } from "@/lib/ai";
+import { requireActiveSubscription } from "@/lib/db/supabase-server";
 
 export async function POST(req: NextRequest) {
   try {
+    const gate = await requireActiveSubscription(req);
+    if (!gate.ok) return gate.response;
+
     const {
       companyName,
       projects,

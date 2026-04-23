@@ -8,7 +8,6 @@ import { ActionsFeed } from "@/components/dashboard/ActionsFeed";
 import { TerminalHeader } from "@/components/dashboard/TerminalHeader";
 import { AgentStatusBar } from "@/components/dashboard/AgentStatusBar";
 import { SiteSwitcher } from "@/components/dashboard/SiteSwitcher";
-import { TrialBanner } from "@/components/dashboard/TrialBanner";
 import { PaywallOverlay } from "@/components/dashboard/PaywallOverlay";
 import { DemoBanner } from "@/components/dashboard/DemoBanner";
 import { recordScan, getAllTrends, type TrendData } from "@/lib/scanHistory";
@@ -83,7 +82,6 @@ export default function DashboardPage() {
   const [billing, setBilling] = useState<{
     plan: string;
     status: string;
-    daysLeftInTrial: number;
     canAccess: boolean;
     email?: string;
   } | null>(null);
@@ -1114,15 +1112,17 @@ export default function DashboardPage() {
   // Demo mode: never paywall, always show demo banner at the top.
   const isDemoMode = billing?.plan === "demo" || (typeof window !== "undefined" && localStorage.getItem("cabbge_demo_mode") === "true");
 
-  // Paywall: show overlay when trial expired OR subscription canceled/past-due
-  // (but never in demo mode)
-  const paywallReason: "trial_expired" | "canceled" | "past_due" | null =
+  // Paywall: signed-in users without an active subscription see the
+  // overlay. We distinguish payment-state-ended flows (canceled /
+  // past_due) from the initial no-subscription state ("inactive") so
+  // the PaywallOverlay can show the right copy.
+  const paywallReason: "needs_payment" | "canceled" | "past_due" | null =
     !isDemoMode && billing && !billing.canAccess
       ? billing.status === "canceled" || billing.status === "expired"
         ? "canceled"
         : billing.status === "past_due"
           ? "past_due"
-          : "trial_expired"
+          : "needs_payment"
       : null;
 
   return (
@@ -1131,18 +1131,9 @@ export default function DashboardPage() {
       <Sidebar companyName={company.name} />
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Demo mode banner — sits above trial banner, always visible in demo */}
+        {/* Demo mode banner — visible in demo only */}
         {isDemoMode && (
           <DemoBanner prospectName={company.name} prospectUrl={company.website} />
-        )}
-        {/* Trial reminder banner (during trial only, hidden in demo) */}
-        {!isDemoMode && billing && (
-          <TrialBanner
-            plan={billing.plan}
-            status={billing.status}
-            daysLeftInTrial={billing.daysLeftInTrial}
-            canAccess={billing.canAccess}
-          />
         )}
         {/* Terminal + Agent bar */}
         <TerminalHeader

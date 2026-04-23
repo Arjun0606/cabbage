@@ -75,7 +75,7 @@ export default async function BenchmarkPage() {
             href="/signup"
             className="text-[13px] text-zinc-400 hover:text-zinc-100 transition-colors"
           >
-            Start 14-day trial <ArrowRight size={12} className="inline ml-1" />
+            Get started <ArrowRight size={12} className="inline ml-1" />
           </Link>
         </div>
       </div>
@@ -108,8 +108,8 @@ export default async function BenchmarkPage() {
                 grade your own brand
               </Link>{" "}
               or{" "}
-              <Link href="/signup" className="text-[#7CB342] hover:underline">
-                start a trial
+              <Link href="/pricing" className="text-[#7CB342] hover:underline">
+                subscribe to run your own
               </Link>
               .
             </p>
@@ -172,10 +172,10 @@ export default async function BenchmarkPage() {
           </p>
           <div className="flex items-center gap-2">
             <Link
-              href="/signup"
+              href="/pricing"
               className="h-10 px-5 rounded-lg bg-[#7CB342] text-zinc-950 text-[13px] font-semibold hover:bg-[#8BC34A] flex items-center gap-1.5"
             >
-              Start 14-day trial <ArrowRight size={13} />
+              Get started <ArrowRight size={13} />
             </Link>
             <Link
               href="/"

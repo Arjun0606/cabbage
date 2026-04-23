@@ -59,8 +59,8 @@ export default function SignUpPage() {
             </div>
             <span className="text-2xl font-bold tracking-tight">Cabbge</span>
           </Link>
-          <h1 className="text-2xl font-bold mb-1">Start your 14-day trial</h1>
-          <p className="text-[13px] text-zinc-500">No credit card. Full access. Cancel anytime.</p>
+          <h1 className="text-2xl font-bold mb-1">Create your workspace</h1>
+          <p className="text-[13px] text-zinc-500">After signup you&apos;ll be taken to pricing to activate access.</p>
         </div>
 
         {success ? (
@@ -127,11 +127,11 @@ export default function SignUpPage() {
               disabled={loading || !email.trim() || password.length < 8}
               className="w-full bg-[#7CB342] hover:bg-[#8BC34A] text-zinc-950 h-10 font-semibold"
             >
-              {loading ? <><Loader2 size={14} className="animate-spin mr-2" /> Creating account...</> : "Start Free Trial"}
+              {loading ? <><Loader2 size={14} className="animate-spin mr-2" /> Creating account...</> : "Create account"}
             </Button>
 
             <p className="text-[11px] text-zinc-500 text-center">
-              By signing up you agree to our terms. 14-day trial, full features, no card required.
+              By signing up you agree to our terms. Cabbge is a paid product — you&apos;ll pick a plan next.
             </p>
           </div>
         )}

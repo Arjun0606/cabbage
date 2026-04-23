@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { runAIVisibility } from "@/lib/agents/aiVisibility";
 import { generateSearchQueries, type QueryWithMeta } from "@/lib/agents/localityEngine";
 import { enforceCredits } from "@/lib/credits";
+import { requireActiveSubscription } from "@/lib/db/supabase-server";
 
 /**
  * Normalize whatever the client sent for `savedQueries` into QueryWithMeta[].
@@ -34,6 +35,12 @@ function normalizeSavedQueries(input: unknown, defaultCity: string): QueryWithMe
 
 export async function POST(req: NextRequest) {
   try {
+    // Paid-only: the AI visibility scan is the most expensive thing in
+    // the product and the single biggest reason someone subscribes. Gate
+    // it at the API so nobody can skip the paywall.
+    const gate = await requireActiveSubscription(req);
+    if (!gate.ok) return gate.response;
+
     const { websiteUrl, brand, projects, city, savedQueries, projectDetails, industry, brandContext, companyId } = await req.json();
 
     if (!brand) {

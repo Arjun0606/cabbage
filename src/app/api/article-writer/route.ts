@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { aiComplete } from "@/lib/ai";
 import { enforceCredits } from "@/lib/credits";
+import { requireActiveSubscription } from "@/lib/db/supabase-server";
 
 type ArticleType =
   | "locality_guide"
@@ -30,6 +31,9 @@ const ARTICLE_TYPE_INSTRUCTIONS: Record<ArticleType, string> = {
 
 export async function POST(req: NextRequest) {
   try {
+    const gate = await requireActiveSubscription(req);
+    if (!gate.ok) return gate.response;
+
     const body = await req.json();
     const {
       projectName, developerName, location, city,

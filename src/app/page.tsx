@@ -65,16 +65,16 @@ export default function Home() {
         </p>
         <div className="flex items-center gap-2 mt-2">
           <Link
-            href="/signup"
+            href="/pricing"
             className="h-9 px-4 rounded-lg bg-[#7CB342] text-zinc-950 text-[13px] font-semibold hover:bg-[#8BC34A] active:scale-[0.97] flex items-center gap-1.5"
           >
-            Start 14-day trial <ArrowRight size={13} />
+            Get started <ArrowRight size={13} />
           </Link>
           <Link
-            href="/pricing"
+            href="/signin"
             className="h-9 px-4 rounded-lg text-[13px] text-zinc-300 hover:text-zinc-100 hover:bg-zinc-900 flex items-center gap-1.5"
           >
-            See pricing
+            Sign in
           </Link>
         </div>
       </div>
@@ -195,19 +195,19 @@ export default function Home() {
               </p>
               <div className="flex items-center justify-center gap-2">
                 <Link
-                  href="/signup"
+                  href="/pricing"
                   className="h-10 px-5 rounded-lg bg-[#7CB342] text-zinc-950 text-[13px] font-semibold hover:bg-[#8BC34A] active:scale-[0.97] flex items-center gap-1.5"
                 >
-                  <Zap size={13} /> Start 14-day trial
+                  <Zap size={13} /> Get started
                 </Link>
                 <Link
-                  href="/pricing"
+                  href="/signin"
                   className="h-10 px-4 rounded-lg text-[13px] text-zinc-400 hover:text-zinc-200 flex items-center gap-1.5"
                 >
-                  See pricing
+                  Sign in
                 </Link>
               </div>
-              <p className="text-[10px] text-zinc-500">14 days free. No credit card required.</p>
+              <p className="text-[10px] text-zinc-500">Monthly subscription. Cancel anytime.</p>
             </CardContent>
           </Card>
         </div>

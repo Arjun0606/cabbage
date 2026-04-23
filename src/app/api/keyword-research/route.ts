@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runKeywordResearch, runKeywordPortfolio } from "@/lib/agents/keywordResearch";
 import { enforceCredits } from "@/lib/credits";
+import { requireActiveSubscription } from "@/lib/db/supabase-server";
 
 /**
  * POST body shapes:
@@ -9,6 +10,9 @@ import { enforceCredits } from "@/lib/credits";
  */
 export async function POST(req: NextRequest) {
   try {
+    const gate = await requireActiveSubscription(req);
+    if (!gate.ok) return gate.response;
+
     const body = await req.json();
     const { seed, city, gscData, companyId, projects, mode } = body;
 
