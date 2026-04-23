@@ -206,6 +206,40 @@ export function ContentQueue({
     setQueue(getArticleQueue());
   };
 
+  // --- Topic-cluster coverage across the portfolio. AI search engines
+  //     reward topical depth — a locality with 4-5 supporting articles
+  //     gets cited more than a locality with one generic page. We
+  //     surface the "evenness" of coverage so the user can spot the
+  //     locality that's under-served. Derived from published article
+  //     titles + project localities. ---
+  const topicClusters = useMemo(() => {
+    if (!projects || projects.length === 0) return [] as Array<{ locality: string; covered: number; label: string }>;
+    const byLocality = new Map<string, number>();
+    for (const p of projects) {
+      const loc = (p.locality || "").trim();
+      if (!loc) continue;
+      byLocality.set(loc, 0);
+    }
+    // Walk published articles + current drafts, tag to a locality if
+    // the title or query names it. Simple word-boundary match.
+    const countable = [...queue.published, ...queue.drafts];
+    for (const a of countable) {
+      const text = `${a.title || ""} ${a.query || ""}`.toLowerCase();
+      for (const loc of byLocality.keys()) {
+        if (text.includes(loc.toLowerCase())) {
+          byLocality.set(loc, (byLocality.get(loc) || 0) + 1);
+        }
+      }
+    }
+    return Array.from(byLocality.entries())
+      .map(([locality, covered]) => ({
+        locality,
+        covered,
+        label: covered === 0 ? "no coverage" : covered < 3 ? "thin" : covered < 6 ? "growing" : "deep",
+      }))
+      .sort((a, b) => a.covered - b.covered);
+  }, [projects, queue.published, queue.drafts]);
+
   // --- Build opportunities list: GEO blind spots + keyword research gaps + landing-page recs ---
   const opportunities = useMemo<Opportunity[]>(() => {
     const seen = new Set<string>();
@@ -598,6 +632,17 @@ export function ContentQueue({
                 <div className="flex items-center gap-2 mb-1 flex-wrap">
                   <CheckCircle2 size={13} className="text-[#7CB342]" />
                   <span className="text-[11px] uppercase tracking-wide text-[#7CB342] font-semibold">Just generated</span>
+                  {typeof articleResult.geoScore === "number" && (
+                    <Badge className={`text-[10px] border-0 rounded-md h-5 px-1.5 ${
+                      articleResult.geoScore >= 80
+                        ? "bg-[#7CB342]/15 text-[#7CB342]"
+                        : articleResult.geoScore >= 60
+                        ? "bg-amber-500/15 text-amber-400"
+                        : "bg-red-500/15 text-red-400"
+                    }`}>
+                      GEO {articleResult.geoScore}/100
+                    </Badge>
+                  )}
                   {articleResult._deployedSlug && (
                     <Badge className="text-[10px] bg-[#7CB342]/15 text-[#7CB342] border-0 rounded-md h-5 px-1.5">
                       live at {articleResult._deployedSlug}
@@ -606,6 +651,26 @@ export function ContentQueue({
                 </div>
                 <h4 className="text-[15px] font-semibold text-zinc-100">{articleResult.title}</h4>
                 <p className="text-[12px] text-zinc-500 mt-1 line-clamp-2">{articleResult.metaDescription}</p>
+                {Array.isArray(articleResult.missingGeoSignals) && articleResult.missingGeoSignals.length > 0 && (
+                  <p className="text-[11px] text-amber-400 mt-1.5">
+                    Missing: {articleResult.missingGeoSignals.slice(0, 3).join(" · ")}
+                  </p>
+                )}
+                {Array.isArray(articleResult.quotableStatements) && articleResult.quotableStatements.length > 0 && (
+                  <details className="mt-2 group">
+                    <summary className="text-[11px] text-zinc-500 cursor-pointer hover:text-zinc-300 flex items-center gap-1">
+                      <ChevronDown size={11} className="transition-transform group-open:rotate-180" />
+                      {articleResult.quotableStatements.length} citable statements
+                    </summary>
+                    <ul className="mt-1.5 space-y-1 pl-3">
+                      {articleResult.quotableStatements.slice(0, 3).map((q: string, i: number) => (
+                        <li key={i} className="text-[11px] text-zinc-400 italic border-l-2 border-zinc-700 pl-2 leading-relaxed">
+                          &ldquo;{q}&rdquo;
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                )}
               </div>
               <div className="flex items-center gap-1.5 flex-shrink-0 flex-wrap">
                 <Badge className="bg-zinc-800 text-zinc-300 border-0 text-[10px] h-5 rounded-md">
@@ -647,6 +712,42 @@ export function ContentQueue({
                 </div>
               </div>
             </details>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* -------- Topic cluster coverage --------
+          AI search engines reward topical depth — 4-5 supporting
+          articles around a locality produces more citations than one
+          generic page. This strip shows which localities have deep
+          coverage and which are thin, so the user knows where to
+          invest the next round of content. */}
+      {topicClusters.length > 1 && (
+        <Card className="bg-zinc-900/60 border-white/[0.06] rounded-xl">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
+              <Target size={13} className="text-zinc-400" />
+              <span className="text-[11px] uppercase tracking-wide text-zinc-500 font-semibold">Topic clusters</span>
+              <span className="text-[11px] text-zinc-500">— AI prefers topical depth over one-off pages</span>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {topicClusters.map((c) => (
+                <div
+                  key={c.locality}
+                  className={`px-2 py-1 rounded-md border text-[11px] flex items-center gap-1.5 ${
+                    c.covered === 0
+                      ? "bg-red-500/[0.04] border-red-500/25 text-red-400"
+                      : c.covered < 3
+                      ? "bg-amber-500/[0.04] border-amber-500/25 text-amber-400"
+                      : "bg-[#7CB342]/[0.04] border-[#7CB342]/25 text-[#7CB342]"
+                  }`}
+                >
+                  <span className="font-medium">{c.locality}</span>
+                  <span className="tabular-nums">{c.covered}</span>
+                  <span className="text-[10px] opacity-70">{c.label}</span>
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
       )}

@@ -114,7 +114,7 @@ export async function POST(req: NextRequest) {
 
     const typeInstruction = ARTICLE_TYPE_INSTRUCTIONS[articleType as ArticleType];
 
-    const systemPrompt = `You are an expert real estate content writer who writes articles optimised to be cited by AI search engines (ChatGPT, Google AI Overview, Gemini). You understand Generative Engine Optimization (GEO).
+    const systemPrompt = `You are an expert real estate content writer whose only job is to produce content that AI search engines (ChatGPT, Google AI Overview, Gemini, Perplexity) will CITE. You understand Generative Engine Optimization (GEO) at an expert level.
 
 CRITICAL HONESTY RULES — these override every other instruction:
 - NEVER invent specific prices, distances, areas, percentages, RERA numbers, phone numbers, years, or named entities (schools, hospitals, metro stations, landmarks) unless they appear in the DATA section below. If the data doesn't support it, don't write it.
@@ -122,29 +122,48 @@ CRITICAL HONESTY RULES — these override every other instruction:
 - Only name real places if they are extremely well-known regional landmarks in the supplied location/city (e.g., "${location}" itself, the city name). Do not invent specific school names, hospital brand names, or metro station names.
 - If you need to reference infrastructure, use generic language tied to the locality ("schools in ${location}", "metro connectivity in ${city}") rather than named entities.
 
-AI CITABILITY RULES (Princeton/Georgia Tech research):
+GEO CITATION RULES — follow every one:
 
-1. QUESTION-BASED HEADINGS: Every H2 must be a question a home buyer would ask.
+1. ANSWER-FIRST PARAGRAPHS. Every section opens with the direct answer in the first sentence. AI models extract the opening sentence as the citation.
 
-2. ANSWER TARGET PATTERN: Immediately after every question H2, write a 40-60 word direct answer paragraph. Start with a fact or definition from the data provided — not filler.
+2. QUESTION-BASED H2 HEADINGS. Every H2 is a natural-language question a buyer would type into ChatGPT, not a noun phrase. "What is the price of ${configurations || "homes"} in ${location}?" not "Pricing".
 
-3. PASSAGE LENGTH: Key paragraphs 134-167 words, self-contained.
+3. 40-60 WORD ANSWER TARGETS. Immediately after every H2, a self-contained 40-60 word paragraph that answers the question with a fact. AI models preferentially cite these passage lengths.
 
-4. LOW PRONOUN DENSITY: Use "${projectName}", "${developerName}", "${location}" by name — not "it"/"they"/"this project".
+4. QUOTABLE STATEMENTS. Produce 2-3 standalone sentences (inside the body) that work as quoteable citations. Each must contain a specific number from the data (configuration count, price range, RERA number, possession date). Example: "${projectName} offers ${configurations || "2-3 BHK"} homes priced ${priceRange || "in the mid-to-premium segment"} in ${location}."
 
-5. GROUND EVERY SPECIFIC CLAIM IN THE DATA. If the data has "${priceRange || "no price"}", use exactly that phrasing. Don't convert ranges to fake per-sqft figures.
+5. LOW PRONOUN DENSITY. Use "${projectName}", "${developerName}", "${location}" by name. Never "it", "they", "this project". Pronouns break citation clarity — AI can't cite a sentence whose subject is "it".
 
-6. FAQ SECTION: 5-8 FAQs. Every answer grounded in the data block.
+6. FREQUENT NAMED ENTITIES. Repeat the project name + developer name + locality 8-12 times across the article. AI citation matches on entity frequency.
 
-Return valid JSON:
+7. FIRST-PARTY DATA FRAMING. Where the data permits, attribute claims with first-party language: "${developerName || "The developer"} has published...", "Based on ${projectName}'s configuration data...", "${developerName || "The developer"}'s RERA-registered inventory includes...". Attributed claims get cited more than unattributed ones.
+
+8. FAQ SECTION — 5-8 FAQs. Every answer 40-60 words, grounded in the data, with at least one specific number.
+
+9. IMAGE SUGGESTIONS — propose 3-5 images the editorial team should include. Each with a descriptive alt string that AI visual crawlers can parse ("facade view of ${projectName} ${configurations || "apartments"} in ${location}" > "building photo").
+
+10. E-E-A-T CLOSING BLOCK — include an "About ${developerName || projectName}" paragraph at the very end with years of experience, number of projects, state/city presence, quality signals. AI models use this to decide if the source is authoritative.
+
+11. FRESHNESS LINE — end the article with "Last updated: ${new Date().toISOString().slice(0, 10)}". AI prefers timestamped content.
+
+12. NO FILLER. Skip "In today's fast-paced world", "Let's dive in", "Looking for your dream home?", "Nestled in the heart of". Every sentence carries a fact.
+
+Return valid JSON (no markdown fences):
 {
   "title": "Question-format title including target keyword (50-60 chars)",
-  "metaDescription": "Direct answer to the title question (150-160 chars, includes keyword + specific number)",
-  "content": "Full article in markdown. 1500-2000 words. Every H2 is a question. Every first paragraph after H2 is a 40-60 word direct answer.",
+  "metaDescription": "Direct answer to the title question (150-160 chars, starts with a fact)",
+  "content": "Full article in markdown. 1500-2000 words. Opens with the answer. Every H2 is a question. Every H2 is followed by a 40-60 word direct answer. Ends with an E-E-A-T block then the Last updated line.",
   "faqs": [
     { "question": "Specific buyer question", "answer": "40-60 word direct answer starting with a fact, including a number" }
   ],
-  "suggestedInternalLinks": ["related topics"]
+  "quotableStatements": [
+    "A 1-2 sentence standalone quote with a number, citable by AI without context"
+  ],
+  "imageSuggestions": [
+    { "alt": "descriptive alt text AI can parse", "placement": "where in the article this image slots (e.g. 'under the What is ... H2')" }
+  ],
+  "eeatBlock": "One paragraph about the developer — experience, project count, state presence, trust signals. Goes at the end of the article.",
+  "suggestedInternalLinks": ["related topics the site should also cover"]
 }`;
 
     const userPrompt = `Write a full SEO-optimized article using ONLY the data below. Do not invent facts not present here.
@@ -209,20 +228,86 @@ Return ONLY valid JSON. No markdown code blocks around the JSON.`;
       );
     }
 
-    // Count words in the content
-    const wordCount = (parsed.content || "")
+    const content: string = parsed.content || "";
+    const wordCount = content
       .replace(/[#*_\[\]()]/g, "")
       .split(/\s+/)
       .filter((w: string) => w.length > 0).length;
+
+    // -----------------------------------------------------------------
+    // GEO readiness score — measures how citable this article is to
+    // AI search engines on the signals Foundation / Princeton / Georgia
+    // Tech research consistently identify as high-impact.
+    //
+    //   Q&A structure           20pts  (3+ question H2s)
+    //   Answer-first paragraphs 15pts  (first sentence after H2 has a number)
+    //   FAQ section             15pts  (5+ FAQs)
+    //   Quotable statements     10pts  (2+ quotables returned)
+    //   E-E-A-T block            10pts  (developer authority paragraph)
+    //   Freshness timestamp     10pts  (Last updated line in content)
+    //   Image suggestions       10pts  (3+ with alt text)
+    //   Entity density          10pts  (project name cited 8+ times)
+    // -----------------------------------------------------------------
+    const h2Questions = (content.match(/^##\s+.+\?$/gm) || []).length;
+    // Look for the pattern "## Question?\n\n<text with a digit>" —
+    // no `s` flag because older TS targets reject it; we fake dotall
+    // with [\s\S].
+    const firstAnswersLookLikeFacts = /^##\s+.+\?\s*\n+[\s\S]*?\d+/m.test(content);
+    const faqCount = Array.isArray(parsed.faqs) ? parsed.faqs.length : 0;
+    const quotableCount = Array.isArray(parsed.quotableStatements) ? parsed.quotableStatements.length : 0;
+    const imageCount = Array.isArray(parsed.imageSuggestions) ? parsed.imageSuggestions.length : 0;
+    const hasEeat = typeof parsed.eeatBlock === "string" && parsed.eeatBlock.trim().length > 60;
+    const hasFreshness = /last updated[:\s]+20\d{2}/i.test(content) || /updated[:\s]+20\d{2}/i.test(content);
+    const nameCount = projectName
+      ? (content.match(new RegExp(projectName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi")) || []).length
+      : 0;
+
+    const geoScore = Math.min(
+      100,
+      (h2Questions >= 3 ? 20 : h2Questions >= 1 ? 10 : 0) +
+        (firstAnswersLookLikeFacts ? 15 : 0) +
+        (faqCount >= 5 ? 15 : faqCount >= 3 ? 8 : 0) +
+        (quotableCount >= 2 ? 10 : quotableCount >= 1 ? 5 : 0) +
+        (hasEeat ? 10 : 0) +
+        (hasFreshness ? 10 : 0) +
+        (imageCount >= 3 ? 10 : imageCount >= 1 ? 5 : 0) +
+        (nameCount >= 8 ? 10 : nameCount >= 4 ? 5 : 0)
+    );
+
+    // Short-form "what's missing" hints the UI can show alongside the score.
+    const missingGeoSignals: string[] = [];
+    if (h2Questions < 3) missingGeoSignals.push("question-format H2 headings");
+    if (faqCount < 5) missingGeoSignals.push("5+ FAQs");
+    if (quotableCount < 2) missingGeoSignals.push("2+ quotable statements");
+    if (!hasEeat) missingGeoSignals.push("E-E-A-T / About block");
+    if (!hasFreshness) missingGeoSignals.push("Last-updated timestamp");
+    if (imageCount < 3) missingGeoSignals.push("3+ image suggestions");
+    if (nameCount < 8) missingGeoSignals.push("higher project-name density");
+
+    // If the model forgot to write the closing E-E-A-T + timestamp into
+    // `content`, append them deterministically so every published piece
+    // carries the GEO-critical signals even when the LLM slips.
+    let finalContent = content;
+    if (!hasEeat && parsed.eeatBlock) {
+      finalContent += `\n\n## About ${developerName || projectName}\n\n${parsed.eeatBlock}`;
+    }
+    if (!hasFreshness) {
+      finalContent += `\n\n---\n*Last updated: ${new Date().toISOString().slice(0, 10)}*`;
+    }
 
     return NextResponse.json({
       title: parsed.title || "",
       metaDescription: parsed.metaDescription || "",
       targetKeyword,
-      content: parsed.content || "",
+      content: finalContent,
       wordCount,
       faqs: parsed.faqs || [],
+      quotableStatements: parsed.quotableStatements || [],
+      imageSuggestions: parsed.imageSuggestions || [],
+      eeatBlock: parsed.eeatBlock || "",
       suggestedInternalLinks: parsed.suggestedInternalLinks || [],
+      geoScore,
+      missingGeoSignals,
     });
   } catch (error) {
     console.error("Article writer error:", error);
