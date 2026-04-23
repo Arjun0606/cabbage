@@ -38,6 +38,7 @@ import { CompetitiveLandscape } from "./CompetitiveLandscape";
 import { OwnPagesAICites } from "./OwnPagesAICites";
 import { ProjectCompare } from "./ProjectCompare";
 import { DelayRiskPanel } from "./DelayRiskPanel";
+import { ReviewMonitor } from "./ReviewMonitor";
 import { getCompanyCities, projectMatchesCity } from "@/lib/cities";
 import { parseLocation, inferState } from "@/lib/projectParse";
 import { isPortalSubmitted, togglePortalSubmitted, computeCoverage } from "@/lib/portalTracker";
@@ -107,6 +108,14 @@ interface Props {
   cmoDigestResult?: { digest?: string } | null;
   isGeneratingCmoDigest?: boolean;
   onRunCmoDigest?: () => void;
+  // Review monitor — Housing / 99acres / MagicBricks / Google / Reddit / Quora
+  reviewMonitorResult?: any;
+  isRunningReviewMonitor?: boolean;
+  onRunReviewMonitor?: () => void;
+  // Infra / metro / employer news surfaced per locality
+  infraNews?: any[] | null;
+  isFetchingInfraNews?: boolean;
+  onRunInfraNews?: () => void;
   // GEO improvement
   llmsTxtResult: any;
   isGeneratingLlmsTxt: boolean;
@@ -236,6 +245,8 @@ export function AnalyticsPanel({
   portalResult, isGeneratingPortal, onRunPortalOptimizer,
   reportResult, isGeneratingReport, onRunMarketingReport,
   cmoDigestResult, isGeneratingCmoDigest, onRunCmoDigest,
+  reviewMonitorResult, isRunningReviewMonitor, onRunReviewMonitor,
+  infraNews, isFetchingInfraNews, onRunInfraNews,
   llmsTxtResult, isGeneratingLlmsTxt, onRunLlmsTxt,
   geoImprovementResult, isGeneratingGeoImprovement, onRunGeoImprovement,
   crawlerAccessResult, isCheckingCrawlers, onRunCrawlerAccess,
@@ -421,6 +432,7 @@ export function AnalyticsPanel({
           <TabsTrigger value="health" className="text-[13px] rounded-md px-3.5 py-1.5">Overview</TabsTrigger>
           <TabsTrigger value="aigeo" className="text-[13px] rounded-md px-3.5 py-1.5">AI Search</TabsTrigger>
           <TabsTrigger value="content" className="text-[13px] rounded-md px-3.5 py-1.5">Content</TabsTrigger>
+          <TabsTrigger value="reviews" className="text-[13px] rounded-md px-3.5 py-1.5">Reviews</TabsTrigger>
           <TabsTrigger value="report" className="text-[13px] rounded-md px-3.5 py-1.5">Report</TabsTrigger>
           <div className="w-px h-5 bg-zinc-800/60 mx-1 self-center" aria-hidden />
           <TabsTrigger value="links" className="text-[13px] rounded-md px-3.5 py-1.5 text-zinc-400 data-[state=active]:text-zinc-100">Authority</TabsTrigger>
@@ -2041,6 +2053,9 @@ export function AnalyticsPanel({
             projectStage={selectedProject !== null ? (projects[selectedProject] as any)?.stage : null}
             projectName={selectedProject !== null ? projects[selectedProject]?.name : null}
             projects={visibleProjects}
+            infraNews={infraNews || undefined}
+            onRefreshInfraNews={onRunInfraNews}
+            isFetchingInfraNews={isFetchingInfraNews}
             websiteUrl={websiteUrl}
             keywordResearchResult={keywordResearchResult}
             isResearchingKeywords={isResearchingKeywords}
@@ -2058,6 +2073,27 @@ export function AnalyticsPanel({
             onRunSchemaGenerator={onRunSchemaGenerator}
             schemaResult={schemaResult}
             isGeneratingSchema={isGeneratingSchema}
+          />
+        </TabsContent>
+
+        {/* ================================================================ */}
+        {/* -------- REVIEWS TAB -------- */}
+        {/*                                                                  */}
+        {/* Review ORM. Surfaces what buyers are saying about each project  */}
+        {/* on Housing / 99acres / MagicBricks / Google / Reddit / Quora,   */}
+        {/* grouped + prioritised. One-click response drafts route into the */}
+        {/* article-writer via the comparison article type.                  */}
+        {/* ================================================================ */}
+        <TabsContent value="reviews" className="space-y-4">
+          <ReviewMonitor
+            result={reviewMonitorResult}
+            isRunning={isRunningReviewMonitor}
+            onRun={onRunReviewMonitor || (() => {})}
+            onDraftResponse={(m) => {
+              if (!onGeoFixQuery) return;
+              const query = `respond to ${m.platform} ${m.sentiment} review of ${m.projectName}${m.excerpt ? `: ${m.excerpt.slice(0, 120)}` : ""}`;
+              onGeoFixQuery(query);
+            }}
           />
         </TabsContent>
 

@@ -48,7 +48,7 @@ import { SchemaDeployPanel } from "./SchemaDeployPanel";
 interface Opportunity {
   keyword: string;
   /** Where we surfaced this opportunity from. */
-  source: "gap-ai" | "gap-keyword" | "gsc" | "landing-page" | "nri" | "brand-defense";
+  source: "gap-ai" | "gap-keyword" | "gsc" | "landing-page" | "nri" | "brand-defense" | "infra";
   reason: string;
   volume: number | null;
   difficulty: number | null;
@@ -57,6 +57,17 @@ interface Opportunity {
   suggestedSlug?: string;
   /** For per-country NRI opps — the target country ISO code. */
   country?: "ae" | "uk" | "us" | "sg" | "au" | "ca";
+}
+
+interface InfraItem {
+  headline: string;
+  summary: string;
+  impact: string;
+  category: string;
+  locality: string;
+  suggestedArticle: string;
+  url?: string;
+  date?: string;
 }
 
 interface ProjectContext {
@@ -92,6 +103,11 @@ interface Props {
   projectName?: string | null;
   /** Project portfolio — used to surface (locality × config) landing-page opportunities. */
   projects?: ProjectContext[];
+  /** Infrastructure news items per locality, surfaced as content opportunities. */
+  infraNews?: InfraItem[];
+  /** Trigger button for the infra news refresh. */
+  onRefreshInfraNews?: () => void;
+  isFetchingInfraNews?: boolean;
   websiteUrl: string;
   keywordResearchResult: any;
   isResearchingKeywords?: boolean;
@@ -149,6 +165,9 @@ export function ContentQueue({
   projectStage,
   projectName,
   projects,
+  infraNews,
+  onRefreshInfraNews,
+  isFetchingInfraNews,
   websiteUrl,
   keywordResearchResult,
   isResearchingKeywords,
@@ -350,6 +369,28 @@ export function ContentQueue({
       }
     }
 
+    // 2.8) Infrastructure news → content opportunities. Surfaces recent
+    //      metro / road / airport / IT-park / employer announcements
+    //      affecting the brand's localities. Timing these within a week
+    //      of the news is how content teams beat quarterly-update SEO
+    //      agencies.
+    for (const item of infraNews || []) {
+      const keyword = item.suggestedArticle;
+      const key = keyword.toLowerCase().trim();
+      if (seen.has(key) || dismissed.has(key)) continue;
+      seen.add(key);
+      out.push({
+        keyword,
+        source: "infra",
+        reason: item.impact
+          ? `${item.headline} — ${item.impact}`
+          : item.headline,
+        volume: null,
+        difficulty: null,
+        priority: "high",
+      });
+    }
+
     // 3) NRI track — a distinct buyer segment with its own content
     //    shape (FEMA, NRE/NRO, repatriation, virtual tours, USD/AED/GBP).
     //    For premium developers with significant NRI share (Prestige,
@@ -443,11 +484,12 @@ export function ContentQueue({
     // then NRI, then keyword-research opportunities.
     const sourceRank: Record<Opportunity["source"], number> = {
       "brand-defense": 0,
-      "landing-page": 1,
-      "gap-ai": 2,
-      nri: 3,
-      "gap-keyword": 4,
-      gsc: 5,
+      infra: 1,           // time-sensitive, beats agencies on timing
+      "landing-page": 2,
+      "gap-ai": 3,
+      nri: 4,
+      "gap-keyword": 5,
+      gsc: 6,
     };
     return out.sort((a, b) => {
       const ra = sourceRank[a.source] ?? 9;
@@ -455,7 +497,7 @@ export function ContentQueue({
       if (ra !== rb) return ra - rb;
       return (b.volume || 0) - (a.volume || 0);
     });
-  }, [geoProgress, keywordResearchResult, projects, city, dismissed, selectedCity, selectedLocality, projectName]);
+  }, [geoProgress, keywordResearchResult, projects, city, dismissed, selectedCity, selectedLocality, projectName, infraNews]);
 
   const decaying = (contentDecayReport?.decayingPages || []).slice(0, 8);
   const rising = contentDecayReport?.risingPages || [];
@@ -663,12 +705,15 @@ export function ContentQueue({
                   {(opp.source === "landing-page" ||
                     opp.source === "gap-ai" ||
                     opp.source === "nri" ||
-                    opp.source === "brand-defense") && (
+                    opp.source === "brand-defense" ||
+                    opp.source === "infra") && (
                     <Badge
                       variant="outline"
                       className={`text-[9px] h-4 px-1.5 rounded border-0 flex-shrink-0 ${
                         opp.source === "brand-defense"
                           ? "bg-red-500/15 text-red-400"
+                          : opp.source === "infra"
+                          ? "bg-sky-500/15 text-sky-400"
                           : opp.source === "landing-page"
                           ? "bg-[#7CB342]/10 text-[#7CB342]"
                           : opp.source === "nri"
@@ -678,6 +723,8 @@ export function ContentQueue({
                     >
                       {opp.source === "brand-defense"
                         ? "defend"
+                        : opp.source === "infra"
+                        ? "infra news"
                         : opp.source === "landing-page"
                         ? "landing page"
                         : opp.source === "nri"

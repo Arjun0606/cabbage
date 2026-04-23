@@ -69,6 +69,10 @@ export default function DashboardPage() {
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [cmoDigestResult, setCmoDigestResult] = useState<any>(null);
   const [isGeneratingCmoDigest, setIsGeneratingCmoDigest] = useState(false);
+  const [reviewMonitorResult, setReviewMonitorResult] = useState<any>(null);
+  const [isRunningReviewMonitor, setIsRunningReviewMonitor] = useState(false);
+  const [infraNewsResult, setInfraNewsResult] = useState<any[] | null>(null);
+  const [isFetchingInfraNews, setIsFetchingInfraNews] = useState(false);
   const [llmsTxtResult, setLlmsTxtResult] = useState<any>(null);
   const [geoImprovementResult, setGeoImprovementResult] = useState<any>(null);
   const [isGeneratingLlmsTxt, setIsGeneratingLlmsTxt] = useState(false);
@@ -959,6 +963,79 @@ export default function DashboardPage() {
     finally { setIsGeneratingReport(false); }
   };
 
+  const runInfraNews = async () => {
+    if (!spendCredits("brand_presence")) return;
+    setIsFetchingInfraNews(true);
+    try {
+      const { parseLocation } = await import("@/lib/projectParse");
+      // Dedupe (city, locality) pairs across the portfolio.
+      const pairs = new Map<string, { city: string; locality: string }>();
+      for (const p of company.projects) {
+        const loc = (p as any).locality || parseLocation(p.location, company.city || "").locality;
+        const cityName = (p as any).city || parseLocation(p.location, company.city || "").city || company.city || "";
+        if (!loc || !cityName) continue;
+        const key = `${cityName.toLowerCase()}::${loc.toLowerCase()}`;
+        if (!pairs.has(key)) pairs.set(key, { city: cityName, locality: loc });
+      }
+      if (pairs.size === 0) {
+        addLog(`> No localities to check — add project locations first`);
+        return;
+      }
+      addLog(`> Scanning infrastructure news for ${pairs.size} localit${pairs.size === 1 ? "y" : "ies"}...`);
+      const res = await fetch("/api/infra-news", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          localities: Array.from(pairs.values()),
+          companyId: (company as any)._companyId,
+        }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setInfraNewsResult(data.items || []);
+      addLog(`> Infra news: ${(data.items || []).length} item${(data.items || []).length === 1 ? "" : "s"} surfaced`);
+    } catch (err) {
+      addLog(`> Error: ${err instanceof Error ? err.message : "Infra news fetch failed"}`);
+    } finally {
+      setIsFetchingInfraNews(false);
+    }
+  };
+
+  const runReviewMonitor = async () => {
+    if (!spendCredits("ai_visibility")) return;
+    setIsRunningReviewMonitor(true);
+    addLog(`> Scanning Housing / 99acres / Google / Reddit for ${company.name} mentions...`);
+    try {
+      const scopedProjects = selectedProject !== null
+        ? [company.projects[selectedProject]]
+        : company.projects;
+      const res = await fetch("/api/review-monitor", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          brand: company.name,
+          projects: scopedProjects.map((p) => ({
+            name: p.name,
+            locality: (p as any).locality || null,
+            city: (p as any).city || company.city || null,
+            website: p.website || null,
+          })),
+          companyId: (company as any)._companyId,
+        }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setReviewMonitorResult(data);
+      const urgent = data?.counts?.byPriority?.high || 0;
+      addLog(`> Review scan: ${data.totalMentions} mention${data.totalMentions === 1 ? "" : "s"}${urgent > 0 ? ` (${urgent} urgent)` : ""}`);
+      setActiveTab("reviews");
+    } catch (err) {
+      addLog(`> Error: ${err instanceof Error ? err.message : "Review scan failed"}`);
+    } finally {
+      setIsRunningReviewMonitor(false);
+    }
+  };
+
   const runCmoDigest = async () => {
     if (!spendCredits("report")) return;
     setIsGeneratingCmoDigest(true);
@@ -1406,6 +1483,12 @@ export default function DashboardPage() {
               onRunMarketingReport={runMarketingReport}
               cmoDigestResult={cmoDigestResult} isGeneratingCmoDigest={isGeneratingCmoDigest}
               onRunCmoDigest={runCmoDigest}
+              reviewMonitorResult={reviewMonitorResult}
+              isRunningReviewMonitor={isRunningReviewMonitor}
+              onRunReviewMonitor={runReviewMonitor}
+              infraNews={infraNewsResult}
+              isFetchingInfraNews={isFetchingInfraNews}
+              onRunInfraNews={runInfraNews}
               llmsTxtResult={llmsTxtResult} isGeneratingLlmsTxt={isGeneratingLlmsTxt}
               onRunLlmsTxt={runLlmsTxt}
               geoImprovementResult={geoImprovementResult} isGeneratingGeoImprovement={isGeneratingGeoImprovement}

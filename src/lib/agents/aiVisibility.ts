@@ -129,12 +129,23 @@ Return this JSON:
   "context": "<the specific sentence or phrase where the brand appears, max 300 chars. Empty string if not mentioned>",
   "sentiment": "positive" | "neutral" | "negative" | "absent",
   "coCitations": ["<other brands/companies mentioned in the response, excluding the target>"],
-  "citationSources": [{"url": "<source URL if visible in the response>", "type": "own_site|competitor|portal|ugc|news|government|unknown"}]
+  "citationSources": [{"url": "<source URL if visible in the response>", "type": "own_site|competitor|portal|ugc|youtube|news|government|unknown"}]
 }
 
 RULES FOR citationSources:
 - Extract any URLs or source references mentioned in the AI response
-- Classify each: 99acres/MagicBricks/Housing.com = "portal", Reddit/Quora = "ugc", news sites = "news", rera.gov.in = "government", the target brand's site = "own_site", other builder sites = "competitor"
+- Classify each by host:
+    99acres / MagicBricks / Housing.com / NoBroker / CommonFloor / PropTiger → "portal"
+    youtube.com / youtu.be (resident walkthroughs, channel reviews) → "youtube"
+    Reddit / Quora / forum threads / blog comments → "ugc"
+    Times of India / Economic Times / Hindu / Mint / news wires → "news"
+    rera.gov.in / haryana-rera / k-rera / tn-rera / any state-RERA → "government"
+    the target brand's own domain → "own_site"
+    another developer's site → "competitor"
+    anything else → "unknown"
+- YouTube reviews (especially Indian real-estate channels) carry
+  heavy AI citation weight — always classify yt links as "youtube",
+  never "ugc" or "unknown".
 - If no URLs are visible, return empty array
 - Max 10 sources
 
