@@ -57,10 +57,8 @@ export default function DashboardPage() {
 
   // New feature states (round 2)
   const [portalResult, setPortalResult] = useState<any>(null);
-  const [neighborhoodResult, setNeighborhoodResult] = useState<any>(null);
   const [reportResult, setReportResult] = useState<any>(null);
   const [isGeneratingPortal, setIsGeneratingPortal] = useState(false);
-  const [isGeneratingNeighborhood, setIsGeneratingNeighborhood] = useState(false);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [llmsTxtResult, setLlmsTxtResult] = useState<any>(null);
   const [geoImprovementResult, setGeoImprovementResult] = useState<any>(null);
@@ -848,21 +846,6 @@ export default function DashboardPage() {
     finally { setIsGeneratingPortal(false); }
   };
 
-  const runNeighborhood = async () => {
-    if (!spendCredits("neighborhood")) return;
-    setIsGeneratingNeighborhood(true);
-    const ctx = getProjectContext();
-    addLog(`> Analyzing neighborhood: ${ctx.location}, ${ctx.city}...`);
-    try {
-      const res = await fetch("/api/neighborhood", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ city: ctx.city, location: ctx.location, projectName: ctx.projectName, developerName: ctx.developerName, configurations: ctx.configurations, priceRange: ctx.priceRange, amenities: ctx.amenities }) });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      setNeighborhoodResult(data);
-      addLog(`> Neighborhood: Walk ${data.walkScore}/100, Connectivity ${data.connectivityScore}/100`);
-    } catch (err) { addLog(`> Error: ${err instanceof Error ? err.message : "Failed"}`); }
-    finally { setIsGeneratingNeighborhood(false); }
-  };
-
   const runMarketingReport = async () => {
     if (!spendCredits("report")) return;
     setIsGeneratingReport(true);
@@ -1227,8 +1210,6 @@ export default function DashboardPage() {
               // Round 2 features
               portalResult={portalResult} isGeneratingPortal={isGeneratingPortal}
               onRunPortalOptimizer={runPortalOptimizer}
-              neighborhoodResult={neighborhoodResult} isGeneratingNeighborhood={isGeneratingNeighborhood}
-              onRunNeighborhood={runNeighborhood}
               reportResult={reportResult} isGeneratingReport={isGeneratingReport}
               onRunMarketingReport={runMarketingReport}
               llmsTxtResult={llmsTxtResult} isGeneratingLlmsTxt={isGeneratingLlmsTxt}

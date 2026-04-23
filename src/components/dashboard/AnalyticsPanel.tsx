@@ -16,14 +16,10 @@ import {
   Link2,
   Wrench,
   FileText,
-  PenTool,
-  Code,
   Copy,
   Check,
   Building,
-  Navigation,
   BarChart3,
-  ChevronDown,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { PromptVolumes } from "./PromptVolumes";
@@ -31,15 +27,10 @@ import { TrendsPanel } from "./TrendsPanel";
 import { GEOProgressPanel } from "./GEOProgressPanel";
 import { ExecutionChecklist } from "./ExecutionChecklist";
 import { SitesTreePanel } from "./SitesTreePanel";
-import { PublishButton } from "./PublishButton";
-import { DeployViaLoader } from "./DeployViaLoader";
 import { GSCPanel } from "./GSCPanel";
 import { SiteCrawlPanel } from "./SiteCrawlPanel";
-import { KeywordResearchPanel } from "./KeywordResearchPanel";
 import { InternalLinkingPanel } from "./InternalLinkingPanel";
-import { ContentDecayPanel } from "./ContentDecayPanel";
-import { SchemaDeployPanel } from "./SchemaDeployPanel";
-import { markArticlePublished } from "@/lib/geoHistory";
+import { ContentQueue } from "./ContentQueue";
 
 interface Props {
   activeTab: string;
@@ -74,9 +65,6 @@ interface Props {
   portalResult: any;
   isGeneratingPortal: boolean;
   onRunPortalOptimizer: () => void;
-  neighborhoodResult: any;
-  isGeneratingNeighborhood: boolean;
-  onRunNeighborhood: () => void;
   reportResult: any;
   isGeneratingReport: boolean;
   onRunMarketingReport: () => void;
@@ -205,7 +193,6 @@ export function AnalyticsPanel({
   articleResult,
   schemaResult, isGeneratingSchema, onRunSchemaGenerator,
   portalResult, isGeneratingPortal, onRunPortalOptimizer,
-  neighborhoodResult, isGeneratingNeighborhood, onRunNeighborhood,
   reportResult, isGeneratingReport, onRunMarketingReport,
   llmsTxtResult, isGeneratingLlmsTxt, onRunLlmsTxt,
   geoImprovementResult, isGeneratingGeoImprovement, onRunGeoImprovement,
@@ -228,13 +215,8 @@ export function AnalyticsPanel({
   const [auditUrl, setAuditUrl] = useState(websiteUrl || "");
   useEffect(() => { if (websiteUrl && !auditUrl) setAuditUrl(websiteUrl); }, [websiteUrl]);
 
-  // Article writer — just the keyword input now (topic + type were
-  // fluff; onGeoFixQuery picks sensible defaults from the keyword).
-  const [articleKeyword, setArticleKeyword] = useState("");
+  // Copy-to-clipboard feedback for the various CopyBtn instances below.
   const [copiedField, setCopiedField] = useState<string | null>(null);
-
-  // Content tab collapsible sections
-  const [contentSection, setContentSection] = useState<string | null>("topics");
 
   const copyToClipboard = (text: string, field: string) => {
     navigator.clipboard.writeText(text);
@@ -294,10 +276,9 @@ export function AnalyticsPanel({
           <TabsTrigger value="content" className="text-[13px] rounded-md px-3.5 py-1.5">Content</TabsTrigger>
           <TabsTrigger value="report" className="text-[13px] rounded-md px-3.5 py-1.5">Report</TabsTrigger>
           <div className="w-px h-5 bg-zinc-800/60 mx-1 self-center" aria-hidden />
-          <TabsTrigger value="links" className="text-[13px] rounded-md px-3.5 py-1.5 text-zinc-400 data-[state=active]:text-zinc-100">Links</TabsTrigger>
+          <TabsTrigger value="links" className="text-[13px] rounded-md px-3.5 py-1.5 text-zinc-400 data-[state=active]:text-zinc-100">Authority</TabsTrigger>
           <TabsTrigger value="technical" className="text-[13px] rounded-md px-3.5 py-1.5 text-zinc-400 data-[state=active]:text-zinc-100">Technical</TabsTrigger>
           <TabsTrigger value="checks" className="text-[13px] rounded-md px-3.5 py-1.5 text-zinc-400 data-[state=active]:text-zinc-100">Checks</TabsTrigger>
-          <TabsTrigger value="locality" className="text-[13px] rounded-md px-3.5 py-1.5 text-zinc-400 data-[state=active]:text-zinc-100">Locality</TabsTrigger>
           {gscData && <TabsTrigger value="search" className="text-[13px] rounded-md px-3.5 py-1.5 text-zinc-400 data-[state=active]:text-zinc-100">Search</TabsTrigger>}
         </TabsList>
 
@@ -377,7 +358,6 @@ export function AnalyticsPanel({
               else if (action === "tab-portals" || action === "tab-ads" || action === "tab-links") onTabChange("links");
               else if (action === "tab-aigeo" || action === "tab-ai-search") onTabChange("aigeo");
               else if (action === "tab-report") onTabChange("report");
-              else if (action === "tab-locality") onTabChange("locality");
               else if (action === "audit") onRunAudit(websiteUrl);
               else if (action === "ai_visibility") onRunAIVisibility();
               else if (action === "schema") onRunSchemaGenerator();
@@ -594,7 +574,6 @@ export function AnalyticsPanel({
                       const l = (check.label || "").toLowerCase();
                       if (l.includes("schema")) return { label: "Generate Schema", onClick: onRunSchemaGenerator };
                       if (l.includes("llms.txt") || l.includes("llms")) return { label: "Generate llms.txt", onClick: onRunLlmsTxt };
-                      if (l.includes("neighborhood") || l.includes("locality") || l.includes("location map")) return { label: "Generate Guide", onClick: onRunNeighborhood };
                       if (l.includes("floor plan") || l.includes("gallery") || l.includes("virtual tour") || l.includes("amenities") || l.includes("walkthrough")) return { label: "Generate Content", onClick: () => onTabChange("content") };
                       if (l.includes("whatsapp") || l.includes("enquiry") || l.includes("cta")) return { label: "Get Code", onClick: () => onTabChange("content") };
                       if (l.includes("portal")) return { label: "Optimize Listing", onClick: onRunPortalOptimizer };
@@ -1286,7 +1265,6 @@ export function AnalyticsPanel({
                             if (f.includes("audit") || f.includes("health")) return { label: "Scan", onClick: () => onRunAudit(websiteUrl) };
                             if (f.includes("article") || f.includes("content tab")) return { label: "Open", onClick: () => onTabChange("content") };
                             if (f.includes("portal") || f.includes("ads")) return { label: "Open", onClick: () => { onTabChange("links"); onRunPortalOptimizer(); } };
-                            if (f.includes("neighborhood") || f.includes("locality")) return { label: "Open", onClick: () => onTabChange("locality") };
                             if (f.includes("report")) return { label: "Generate", onClick: onRunMarketingReport };
                             if (f.includes("progress")) return { label: "Open", onClick: () => onTabChange("content") };
                             return null;
@@ -1365,207 +1343,253 @@ export function AnalyticsPanel({
         </TabsContent>
 
         {/* ================================================================ */}
-        {/* -------- LINKS TAB -------- */}
+        {/* -------- AUTHORITY TAB -------- */}
+        {/*                                                                  */}
+        {/* One cohesive off-site story: where AI & search engines see the  */}
+        {/* brand cited across the web. Three scorecards at the top, then   */}
+        {/* portal submissions (highest-impact backlinks a developer can    */}
+        {/* earn in India), then backlink detail + outreach opportunities.  */}
         {/* ================================================================ */}
         <TabsContent value="links" className="space-y-4">
-          <Button
-            onClick={() => onRunBacklinks(auditUrl || websiteUrl)}
-            disabled={isCheckingBacklinks || (!auditUrl && !websiteUrl)}
-            className="w-full bg-zinc-100 text-zinc-900 hover:bg-white h-10 text-[13px] font-medium rounded-lg"
-          >
-            {isCheckingBacklinks ? (
-              <><Loader2 size={15} className="animate-spin mr-2" />Analyzing backlinks...</>
-            ) : (
-              <><Link2 size={15} className="mr-2" />Analyze Backlink Profile</>
-            )}
-          </Button>
+          {/* --- Scorecards --- */}
+          <div className="grid grid-cols-3 gap-3">
+            <SectionCard>
+              <CardContent className="p-4">
+                <div className="text-[10px] uppercase tracking-wide text-zinc-500 font-semibold mb-1">Domain Authority</div>
+                <div className="text-2xl font-bold text-zinc-100 tabular-nums">
+                  {backlinkResult?.domainAuthority ?? "—"}
+                </div>
+                <div className="text-[11px] text-zinc-500 mt-0.5">
+                  {backlinkResult?.dataSource === "moz_api" ? "Moz verified" : backlinkResult ? "AI estimated" : "Run scan to measure"}
+                </div>
+              </CardContent>
+            </SectionCard>
+            <SectionCard>
+              <CardContent className="p-4">
+                <div className="text-[10px] uppercase tracking-wide text-zinc-500 font-semibold mb-1">Portal Listings</div>
+                <div className="text-2xl font-bold text-zinc-100 tabular-nums">
+                  {portalResult ? Object.keys(portalResult.portals || {}).length : 0}
+                  <span className="text-[13px] text-zinc-500 font-normal">
+                    {" / "}{portalResult?.meta?.portals?.length || 5}
+                  </span>
+                </div>
+                <div className="text-[11px] text-zinc-500 mt-0.5">
+                  {portalResult ? "Copy generated — submit next" : "Not generated yet"}
+                </div>
+              </CardContent>
+            </SectionCard>
+            <SectionCard>
+              <CardContent className="p-4">
+                <div className="text-[10px] uppercase tracking-wide text-zinc-500 font-semibold mb-1">Referring Domains</div>
+                <div className="text-2xl font-bold text-zinc-100 tabular-nums">
+                  {backlinkResult?.referringDomains?.toLocaleString() ?? "—"}
+                </div>
+                <div className="text-[11px] text-zinc-500 mt-0.5">
+                  {backlinkResult ? `${backlinkResult.totalBacklinks?.toLocaleString() || 0} total backlinks` : "Unknown"}
+                </div>
+              </CardContent>
+            </SectionCard>
+          </div>
 
-          {/* Portal listings live here — portals are the highest-authority
-              inbound links a developer can earn in India (99acres, Magicbricks,
-              Housing, NoBroker, Commonfloor). Folding them into Links keeps
-              the "off-site authority" story in one place. */}
+          {/* --- Portal listings (execution-first) --- */}
           <SectionCard>
             <CardHeader className="pb-3">
-              <CardTitle className="text-[13px] font-semibold flex items-center gap-2">
-                <Building size={14} className="text-zinc-400" />
-                Property Portal Listings
-              </CardTitle>
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <CardTitle className="text-[13px] font-semibold flex items-center gap-2">
+                    <Building size={14} className="text-zinc-400" />
+                    Get listed on the top property portals
+                  </CardTitle>
+                  <p className="text-[11px] text-zinc-500 mt-1">
+                    The highest-authority backlinks a developer can earn in India. One listing per portal.
+                  </p>
+                </div>
+                <Button
+                  onClick={onRunPortalOptimizer}
+                  disabled={isGeneratingPortal}
+                  size="sm"
+                  className="bg-zinc-100 text-zinc-900 hover:bg-white h-8 text-[12px] rounded-lg flex-shrink-0"
+                >
+                  {isGeneratingPortal ? (
+                    <><Loader2 size={12} className="animate-spin mr-1.5" />Generating</>
+                  ) : portalResult ? (
+                    <>Regenerate</>
+                  ) : (
+                    <>Generate listings</>
+                  )}
+                </Button>
+              </div>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <Button
-                onClick={onRunPortalOptimizer}
-                disabled={isGeneratingPortal}
-                className="w-full bg-zinc-100 text-zinc-900 hover:bg-white h-9 text-[13px] font-medium rounded-lg"
-              >
-                {isGeneratingPortal ? (
-                  <><Loader2 size={15} className="animate-spin mr-2" />Optimizing listings...</>
-                ) : (
-                  <><Building size={15} className="mr-2" />Optimize Portal Listings</>
-                )}
-              </Button>
-
+            <CardContent className="space-y-1.5">
               {portalResult ? (
-                <div className="space-y-3">
+                <>
                   {Object.entries(portalResult.portals || {}).map(([key, portal]: [string, any]) => {
                     const meta = (portalResult.meta?.portals || []).find((p: any) => p.key === key);
-                    const displayName = meta?.name || key.replace(/([A-Z])/g, ' $1').trim();
+                    const displayName = meta?.name || key;
                     return (
-                      <div key={key} className="p-4 rounded-lg bg-zinc-900/40 border border-zinc-800/60">
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center gap-2">
-                            <h4 className="text-[13px] font-semibold text-zinc-200">{displayName}</h4>
-                            {meta?.domain && (
-                              <span className="text-[10px] text-zinc-500 font-mono">{meta.domain}</span>
-                            )}
+                      <details key={key} className="group rounded-lg bg-zinc-900/40 border border-zinc-800/60 hover:border-zinc-700/80">
+                        <summary className="cursor-pointer list-none flex items-center gap-3 p-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[13px] text-zinc-200 font-medium">{displayName}</span>
+                              {meta?.domain && (
+                                <span className="text-[10px] text-zinc-500 font-mono">{meta.domain}</span>
+                              )}
+                              <Badge className="text-[9px] bg-[#7CB342]/10 text-[#7CB342] border-0 rounded-md h-4 px-1.5 ml-auto">
+                                copy ready
+                              </Badge>
+                            </div>
+                            <div className="text-[11px] text-zinc-500 truncate mt-0.5">{portal.title}</div>
                           </div>
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            <CopyBtn text={`${portal.title}\n\n${portal.description}`} field={`portal-${key}`} />
                             {meta?.submitUrl && (
                               <a
                                 href={meta.submitUrl}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="text-[11px] font-medium px-2 py-0.5 rounded bg-zinc-800 text-zinc-300 hover:bg-zinc-700 border border-zinc-700/50"
+                                onClick={(e) => e.stopPropagation()}
+                                className="text-[11px] font-medium px-2 py-1 rounded bg-zinc-800 text-zinc-300 hover:bg-zinc-700 border border-zinc-700/50 flex items-center gap-1"
                               >
-                                Open portal ↗
+                                Submit
                               </a>
                             )}
-                            <CopyBtn text={`${portal.title}\n\n${portal.description}`} field={`portal-${key}`} />
                           </div>
-                        </div>
-                        <div className="space-y-2">
-                          <div className="p-3 rounded-lg bg-zinc-800/40 border border-zinc-700/30">
-                            <div className="text-[11px] text-zinc-500 mb-1">Title</div>
-                            <div className="text-[13px] text-zinc-200 font-medium">{portal.title}</div>
+                        </summary>
+                        <div className="px-3 pb-3 space-y-2 border-t border-zinc-800/60 pt-2">
+                          <div className="p-2.5 rounded-md bg-zinc-800/40 border border-zinc-700/30">
+                            <div className="text-[10px] uppercase tracking-wide text-zinc-500 mb-0.5">Title</div>
+                            <div className="text-[12px] text-zinc-200">{portal.title}</div>
                           </div>
-                          <div className="p-3 rounded-lg bg-zinc-800/40 border border-zinc-700/30">
-                            <div className="text-[11px] text-zinc-500 mb-1">Description</div>
-                            <div className="text-[13px] text-zinc-300 leading-relaxed whitespace-pre-wrap">{portal.description}</div>
+                          <div className="p-2.5 rounded-md bg-zinc-800/40 border border-zinc-700/30">
+                            <div className="text-[10px] uppercase tracking-wide text-zinc-500 mb-0.5">Description</div>
+                            <div className="text-[12px] text-zinc-300 leading-relaxed whitespace-pre-wrap">{portal.description}</div>
                           </div>
                           {portal.tags?.length > 0 && (
-                            <div className="flex flex-wrap gap-1.5">
-                              {portal.tags.map((tag: string, i: number) => (
-                                <Badge key={i} variant="outline" className="border-zinc-700/50 text-zinc-400 text-[11px] rounded-md">{tag}</Badge>
+                            <div className="flex flex-wrap gap-1">
+                              {portal.tags.slice(0, 8).map((tag: string, i: number) => (
+                                <Badge key={i} variant="outline" className="border-zinc-700/50 text-zinc-400 text-[10px] rounded-md h-4 px-1.5">{tag}</Badge>
                               ))}
                             </div>
                           )}
                         </div>
-                      </div>
+                      </details>
                     );
                   })}
 
                   {portalResult.googleBusinessProfile && (
-                    <div className="p-4 rounded-lg bg-zinc-900/40 border border-zinc-800/60">
-                      <div className="flex items-center justify-between mb-3">
-                        <h4 className="text-[13px] font-semibold text-zinc-200">Google Business Profile</h4>
-                        <CopyBtn text={portalResult.googleBusinessProfile.description} field="gbp" />
+                    <details className="group rounded-lg bg-zinc-900/40 border border-zinc-800/60 hover:border-zinc-700/80">
+                      <summary className="cursor-pointer list-none flex items-center gap-3 p-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[13px] text-zinc-200 font-medium">Google Business Profile</span>
+                            <Badge className="text-[9px] bg-[#7CB342]/10 text-[#7CB342] border-0 rounded-md h-4 px-1.5 ml-auto">
+                              copy ready
+                            </Badge>
+                          </div>
+                          <div className="text-[11px] text-zinc-500 truncate mt-0.5">
+                            {portalResult.googleBusinessProfile.description?.slice(0, 90)}...
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                          <CopyBtn text={portalResult.googleBusinessProfile.description} field="gbp" />
+                          <a
+                            href="https://business.google.com/"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-[11px] font-medium px-2 py-1 rounded bg-zinc-800 text-zinc-300 hover:bg-zinc-700 border border-zinc-700/50"
+                          >
+                            Submit
+                          </a>
+                        </div>
+                      </summary>
+                      <div className="px-3 pb-3 space-y-2 border-t border-zinc-800/60 pt-2">
+                        <div className="p-2.5 rounded-md bg-zinc-800/40 border border-zinc-700/30 text-[12px] text-zinc-300 leading-relaxed">
+                          {portalResult.googleBusinessProfile.description}
+                        </div>
+                        {portalResult.googleBusinessProfile.categories?.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {portalResult.googleBusinessProfile.categories.map((c: string, i: number) => (
+                              <Badge key={i} variant="outline" className="border-zinc-700/50 text-zinc-400 text-[10px] rounded-md h-4 px-1.5">{c}</Badge>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                      <div className="p-3 rounded-lg bg-zinc-800/40 border border-zinc-700/30 text-[13px] text-zinc-300 leading-relaxed">{portalResult.googleBusinessProfile.description}</div>
-                    </div>
+                    </details>
                   )}
-                </div>
+                </>
               ) : (
-                <div className="text-[12px] text-zinc-500 text-center py-3">
-                  Generate portal-specific copy for every major Indian property portal, plus your Google Business Profile.
+                <div className="text-[12px] text-zinc-500 text-center py-4">
+                  Click <strong className="text-zinc-300">Generate listings</strong> to produce portal-specific copy for every top Indian property portal plus your Google Business Profile.
                 </div>
               )}
             </CardContent>
           </SectionCard>
 
-          {backlinkResult ? (
+          {/* --- Backlink scan + detail --- */}
+          <div className="pt-1">
+            <Button
+              onClick={() => onRunBacklinks(auditUrl || websiteUrl)}
+              disabled={isCheckingBacklinks || (!auditUrl && !websiteUrl)}
+              variant="outline"
+              className="w-full border-zinc-800 text-zinc-300 hover:text-zinc-100 h-9 text-[12px] font-medium rounded-lg"
+            >
+              {isCheckingBacklinks ? (
+                <><Loader2 size={13} className="animate-spin mr-2" />Analysing backlinks…</>
+              ) : (
+                <><Link2 size={13} className="mr-2" />{backlinkResult ? "Re-analyse backlinks" : "Analyse backlink profile"}</>
+              )}
+            </Button>
+          </div>
+
+          {backlinkResult && (
             <>
-              <SectionCard>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-[13px] font-semibold flex items-center gap-2">
-                    Backlink Overview
-                    <Badge variant="secondary" className={`text-[10px] rounded-md h-5 px-1.5 border-0 ${
-                      backlinkResult.dataSource === "moz_api" ? "bg-zinc-800 text-zinc-300" : "bg-zinc-800 text-zinc-500"
-                    }`}>
-                      {backlinkResult.dataSource === "moz_api" ? "Moz verified" : "AI estimated"}
-                    </Badge>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-3 gap-4 text-center">
-                    <div>
-                      <div className="text-3xl font-bold text-zinc-100">{backlinkResult.domainAuthority}</div>
-                      <div className="text-[11px] text-zinc-500 mt-1 font-medium">Domain Authority</div>
+              {backlinkResult.topReferrers?.length > 0 && (
+                <SectionCard>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center gap-2">
+                      <CardTitle className="text-[13px] font-semibold">Who links to you</CardTitle>
+                      <Badge className={`text-[10px] h-5 px-1.5 rounded-md border-0 ml-auto ${
+                        backlinkResult.dataSource === "moz_api"
+                          ? "bg-[#7CB342]/10 text-[#7CB342]"
+                          : "bg-blue-500/10 text-blue-400"
+                      }`}>
+                        {backlinkResult.dataSource === "moz_api" ? "Moz verified" : "Verified via web search"}
+                      </Badge>
                     </div>
-                    <div>
-                      <div className="text-3xl font-bold text-zinc-100">{backlinkResult.referringDomains?.toLocaleString()}</div>
-                      <div className="text-[11px] text-zinc-500 mt-1 font-medium">Referring Domains</div>
-                    </div>
-                    <div>
-                      <div className="text-3xl font-bold text-zinc-100">{backlinkResult.totalBacklinks?.toLocaleString()}</div>
-                      <div className="text-[11px] text-zinc-500 mt-1 font-medium">Total Backlinks</div>
-                    </div>
-                  </div>
-                </CardContent>
-              </SectionCard>
-
-              {/* Top referrers: honest display with data-source clarity */}
-              <SectionCard>
-                <CardHeader className="pb-3">
-                  <div className="flex items-center gap-2">
-                    <CardTitle className="text-[13px] font-semibold">Verified Referring Domains</CardTitle>
-                    <Badge className={`text-[10px] h-5 px-1.5 rounded-md border-0 ml-auto ${
-                      backlinkResult.dataSource === "moz_api" ? "bg-[#7CB342]/10 text-[#7CB342]" :
-                      "bg-blue-500/10 text-blue-400"
-                    }`}>
-                      {backlinkResult.dataSource === "moz_api" ? "Moz API · live data" : "Verified via web search"}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-1">
-                  {backlinkResult.topReferrers?.length > 0 ? (
-                    <>
-                      <p className="text-[11px] text-zinc-500 mb-2">
-                        {backlinkResult.dataSource === "moz_api"
-                          ? "Live data from Moz — your actual referring domains, sorted by authority."
-                          : "Every domain below was confirmed in real time via web search — each one has a verified page linking to you."}
-                      </p>
-                      {backlinkResult.topReferrers.slice(0, 15).map((ref: any, i: number) => (
-                        <div key={i} className="flex items-center justify-between py-1.5 text-[13px]">
-                          <span className="text-zinc-300">{ref.domain}</span>
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline" className="text-[10px] border-zinc-700/50 rounded-md">
-                              DA {ref.authority}
-                            </Badge>
-                            <Badge variant="secondary" className={`text-[10px] rounded-md h-5 px-1.5 border-0 ${
-                              ref.type === "dofollow" ? "bg-zinc-800 text-zinc-300" : "bg-zinc-800 text-zinc-500"
-                            }`}>
-                              {ref.type}
-                            </Badge>
-                          </div>
+                  </CardHeader>
+                  <CardContent className="space-y-1">
+                    {backlinkResult.topReferrers.slice(0, 15).map((ref: any, i: number) => (
+                      <div key={i} className="flex items-center justify-between py-1.5 text-[13px]">
+                        <span className="text-zinc-300">{ref.domain}</span>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-[10px] border-zinc-700/50 rounded-md">
+                            DA {ref.authority}
+                          </Badge>
+                          <Badge variant="secondary" className={`text-[10px] rounded-md h-5 px-1.5 border-0 ${
+                            ref.type === "dofollow" ? "bg-zinc-800 text-zinc-300" : "bg-zinc-800 text-zinc-500"
+                          }`}>
+                            {ref.type}
+                          </Badge>
                         </div>
-                      ))}
-                    </>
-                  ) : (
-                    <div className="py-3">
-                      <p className="text-[12px] text-zinc-400 mb-2">
-                        No verified inbound links found from high-value Indian real estate domains.
-                      </p>
-                      <p className="text-[11px] text-zinc-500 leading-relaxed">
-                        Without a Moz / Ahrefs API key, Cabbge can&apos;t see your full backlink profile.
-                        We check the domains below via web search — none of them are currently linking to you.
-                        Add <code className="text-zinc-400">MOZ_API_TOKEN</code> to Vercel env vars for full data.
-                      </p>
-                    </div>
-                  )}
-                </CardContent>
-              </SectionCard>
+                      </div>
+                    ))}
+                  </CardContent>
+                </SectionCard>
+              )}
 
-              {/* Outreach targets — high-value domains NOT linking to you yet */}
               {backlinkResult.unlinkedHighValueDomains?.length > 0 && (
                 <SectionCard>
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-[13px] font-semibold">Priority Outreach Targets</CardTitle>
+                    <CardTitle className="text-[13px] font-semibold">Outreach targets — not yet linking to you</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <p className="text-[11px] text-zinc-500 mb-3">
-                      These high-authority Indian real estate domains DON&apos;T currently link to you. Each inbound link from these would move DA significantly.
+                      High-authority Indian real-estate domains that aren&apos;t linking to you yet. Each one earned would move your DA measurably.
                     </p>
                     <div className="space-y-1">
-                      {backlinkResult.unlinkedHighValueDomains.map((d: any, i: number) => (
+                      {backlinkResult.unlinkedHighValueDomains.slice(0, 10).map((d: any, i: number) => (
                         <div key={i} className="flex items-center justify-between py-1 text-[12px]">
                           <span className="text-zinc-300">{d.domain}</span>
                           <div className="flex items-center gap-2">
@@ -1586,12 +1610,12 @@ export function AnalyticsPanel({
               {backlinkResult.recommendations?.length > 0 && (
                 <SectionCard>
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-[13px] font-semibold">Link Building Recommendations</CardTitle>
+                    <CardTitle className="text-[13px] font-semibold">Link-building playbook</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-3">
+                  <CardContent className="space-y-2">
                     {backlinkResult.recommendations.map((rec: any, i: number) => (
-                      <div key={i} className="p-3 rounded-lg bg-zinc-800/20 border border-white/[0.04] space-y-1.5">
-                        <div className="flex items-center justify-between gap-2">
+                      <div key={i} className="p-3 rounded-lg bg-zinc-800/20 border border-white/[0.04]">
+                        <div className="flex items-center justify-between gap-2 mb-1">
                           <div className="flex items-center gap-2">
                             <Badge variant="outline" className={`text-[10px] rounded-md h-5 ${
                               rec.priority === "high" ? "border-red-500/30 text-red-400 bg-red-500/8" :
@@ -1602,7 +1626,7 @@ export function AnalyticsPanel({
                           </div>
                           <button
                             onClick={() => navigator.clipboard.writeText(`${rec.title}: ${rec.description}`)}
-                            className="text-[11px] font-medium px-2.5 py-1 rounded-md bg-zinc-800 text-zinc-300 border border-zinc-700/50 hover:bg-zinc-700 active:scale-[0.97] transition-all flex-shrink-0"
+                            className="text-[11px] font-medium px-2 py-1 rounded-md bg-zinc-800 text-zinc-300 border border-zinc-700/50 hover:bg-zinc-700 flex-shrink-0"
                           >
                             Copy
                           </button>
@@ -1614,396 +1638,38 @@ export function AnalyticsPanel({
                 </SectionCard>
               )}
             </>
-          ) : (
-            <EmptyState icon={Link2} title="Analyze your backlink profile" subtitle="Domain authority, referring domains, and link building opportunities" />
           )}
-
         </TabsContent>
 
         {/* ================================================================ */}
-        {/* -------- CONTENT TAB (Keywords \u2192 Articles \u2192 Schema) -------- */}
+        {/* -------- CONTENT TAB -------- */}
+        {/*                                                                  */}
+        {/* The whole tab is one component: ContentQueue. It auto-merges     */}
+        {/* keyword research + GEO blind spots + content decay into a single */}
+        {/* priority list. No manual topic forms. No keyword input. The user */}
+        {/* picks what to write, we handle the writing.                      */}
         {/* ================================================================ */}
         <TabsContent value="content" className="space-y-4">
-
-          {/* Step 1 — Keyword research. The whole content workflow starts
-              here: every article is pegged to a keyword the site should
-              win. Clicking "Write" on any opportunity generates a full
-              article inline (no separate form). */}
-          {onRunKeywordResearch && (
-            <KeywordResearchPanel
-              city={city}
-              data={keywordResearchResult}
-              isLoading={isResearchingKeywords}
-              onSearch={onRunKeywordResearch}
-              onFixKeyword={onGeoFixQuery}
-            />
-          )}
-
-          {/* Step 2 — Inline article writer. One input, one button. We
-              hand off to onGeoFixQuery which picks a sensible article
-              type and tracks the piece for the publish -> rescan loop. */}
-          {onGeoFixQuery && (
-            <SectionCard>
-              <CardContent className="p-5 space-y-3">
-                <div className="flex items-center gap-2">
-                  <PenTool size={14} className="text-zinc-100" />
-                  <h4 className="text-[13px] font-semibold text-zinc-200">Write an article for any keyword</h4>
-                </div>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder={`e.g. "3BHK flats in ${city || 'your city'}"`}
-                    value={articleKeyword}
-                    onChange={(e) => setArticleKeyword(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && articleKeyword.trim()) onGeoFixQuery(articleKeyword.trim());
-                    }}
-                    className="bg-zinc-900/80 border-zinc-800 text-[13px] h-10 placeholder:text-zinc-500/80 flex-1"
-                  />
-                  <Button
-                    onClick={() => articleKeyword.trim() && onGeoFixQuery(articleKeyword.trim())}
-                    disabled={isFixingGeo || !articleKeyword.trim()}
-                    className="bg-zinc-100 text-zinc-900 hover:bg-white h-10 px-4 text-[13px] font-medium rounded-lg"
-                  >
-                    {isFixingGeo ? (
-                      <><Loader2 size={14} className="animate-spin mr-2" />Writing...</>
-                    ) : (
-                      <><PenTool size={14} className="mr-2" />Write Article</>
-                    )}
-                  </Button>
-                </div>
-                <p className="text-[11px] text-zinc-500">
-                  One article, GEO-optimized. Use the &ldquo;Write&rdquo; button on any opportunity above, or type a keyword here.
-                </p>
-              </CardContent>
-            </SectionCard>
-          )}
-
-          {/* Article output */}
-          {articleResult && (
-            <>
-              <SectionCard>
-                <CardContent className="p-5">
-                  <div className="flex items-start justify-between mb-3 gap-3">
-                    <div className="min-w-0">
-                      <h4 className="text-[15px] font-semibold text-zinc-100">{articleResult.title}</h4>
-                      <p className="text-[12px] text-zinc-500 mt-1">{articleResult.metaDescription}</p>
-                    </div>
-                    <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
-                      <Badge className="bg-zinc-800 text-zinc-300 border-0 text-[10px] h-5 rounded-md">{articleResult.wordCount} words</Badge>
-                      <DeployViaLoader
-                        html={articleResult.content}
-                        title={articleResult.title}
-                        metaDescription={articleResult.metaDescription}
-                        defaultSiteUrl={websiteUrl}
-                        contentType="article"
-                      />
-                      <PublishButton
-                        title={articleResult.title}
-                        content={articleResult.content}
-                        excerpt={articleResult.metaDescription}
-                        targetKeyword={articleResult.targetKeyword}
-                        onPublished={(url) => {
-                          if (articleResult._trackedArticleId) {
-                            markArticlePublished(articleResult._trackedArticleId, url);
-                          }
-                        }}
-                      />
-                      <CopyBtn text={articleResult.content} field="article" />
-                    </div>
-                  </div>
-                  <div className="rounded-lg bg-zinc-800/40 border border-zinc-700/30 p-5 max-h-[500px] overflow-y-auto">
-                    <div className="text-[13px] text-zinc-300 leading-relaxed whitespace-pre-wrap">{articleResult.content}</div>
-                  </div>
-                </CardContent>
-              </SectionCard>
-
-              {articleResult.faqs?.length > 0 && (
-                <SectionCard>
-                  <CardContent className="p-5">
-                    <h4 className="text-[13px] font-semibold text-zinc-200 mb-3">FAQs (AI/GEO Optimized)</h4>
-                    <div className="space-y-3">
-                      {articleResult.faqs.map((faq: any, i: number) => (
-                        <div key={i} className="p-3.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30">
-                          <div className="text-[13px] font-medium text-zinc-200 mb-1">{faq.question}</div>
-                          <div className="text-[12px] text-zinc-400 leading-relaxed">{faq.answer}</div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </SectionCard>
-              )}
-
-              {articleResult.suggestedInternalLinks?.length > 0 && (
-                <SectionCard>
-                  <CardContent className="p-5">
-                    <h4 className="text-[13px] font-semibold text-zinc-200 mb-3">Suggested Internal Links</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {articleResult.suggestedInternalLinks.map((link: string, i: number) => (
-                        <Badge key={i} variant="outline" className="border-zinc-700/50 text-zinc-400 text-[12px] rounded-lg h-7 px-2.5">{link}</Badge>
-                      ))}
-                    </div>
-                  </CardContent>
-                </SectionCard>
-              )}
-            </>
-          )}
-
-          {/* Step 3 — Content decay. Lives in the Content tab now because
-              it is fundamentally a content problem: pages that were
-              ranking are falling. The panel shows a health score so the
-              user sees how much decay is pulling down content. */}
-          <ContentDecayPanel
-            report={contentDecayReport || null}
+          <ContentQueue
+            city={city}
+            websiteUrl={websiteUrl}
+            keywordResearchResult={keywordResearchResult}
+            isResearchingKeywords={isResearchingKeywords}
+            onRefreshKeywords={() => onRunKeywordResearch?.("__portfolio__")}
+            geoProgress={geoProgress}
+            contentDecayReport={contentDecayReport}
             snapshotCount={snapshotCount}
+            articleResult={articleResult}
+            isFixingGeo={isFixingGeo}
+            onWriteArticle={onGeoFixQuery}
             onRefreshPage={onGeoFixQuery ? (url) => onGeoFixQuery(`refresh content for ${url}`) : undefined}
+            onRunGbpPosts={onRunGbpPosts}
+            gbpResult={gbpResult}
+            isGeneratingGbp={isGeneratingGbp}
+            onRunSchemaGenerator={onRunSchemaGenerator}
+            schemaResult={schemaResult}
+            isGeneratingSchema={isGeneratingSchema}
           />
-
-          {/* Step 4 — Schema. Collapsible because most users deploy this
-              once per project and move on. */}
-          <button
-            onClick={() => setContentSection(contentSection === "schema" ? null : "schema")}
-            className="w-full flex items-center justify-between px-4 py-3 rounded-lg bg-zinc-900/60 border border-zinc-800/50 text-left hover:border-zinc-700 transition-all"
-          >
-            <span className="flex items-center gap-2 text-[13px] font-semibold text-zinc-200">
-              <Code size={15} className="text-zinc-400" /> Property Schema
-            </span>
-            <ChevronDown size={14} className={`text-zinc-500 transition-transform ${contentSection === "schema" ? "rotate-180" : ""}`} />
-          </button>
-          {contentSection === "schema" && (
-            <div className="space-y-4">
-              <Button
-                onClick={onRunSchemaGenerator}
-                disabled={isGeneratingSchema}
-                className="w-full bg-zinc-100 text-zinc-900 hover:bg-white h-10 text-[13px] font-medium rounded-lg"
-              >
-                {isGeneratingSchema ? (
-                  <><Loader2 size={15} className="animate-spin mr-2" />Generating schemas...</>
-                ) : (
-                  <><Code size={15} className="mr-2" />Generate Property Schema (JSON-LD)</>
-                )}
-              </Button>
-
-              {schemaResult ? (
-                <>
-                  <SchemaDeployPanel
-                    defaultPageUrl={websiteUrl}
-                    schemaJson={(schemaResult.schemas && (schemaResult.schemas.realEstate || schemaResult.schemas.organization || Object.values(schemaResult.schemas)[0])) as Record<string, unknown> || null}
-                    schemaType={Object.keys(schemaResult.schemas || {})[0] || "Schema"}
-                  />
-
-                  <SectionCard>
-                    <CardContent className="p-5">
-                      <div className="flex items-center justify-between mb-3">
-                        <h4 className="text-[13px] font-semibold text-zinc-200">Ready-to-Paste HTML Snippet</h4>
-                        <CopyBtn text={schemaResult.htmlSnippet} field="schema-html" />
-                      </div>
-                      <p className="text-[12px] text-zinc-500 mb-3">Copy this into your website&apos;s &lt;head&gt; tag for rich search results and AI visibility.</p>
-                      <div className="rounded-lg bg-zinc-800/40 border border-zinc-700/30 p-4 max-h-[400px] overflow-y-auto">
-                        <pre className="text-[11px] text-zinc-100 whitespace-pre-wrap font-mono">{schemaResult.htmlSnippet}</pre>
-                      </div>
-                    </CardContent>
-                  </SectionCard>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    {Object.entries(schemaResult.schemas || {}).map(([key, schema]) => (
-                      <SectionCard key={key}>
-                        <CardContent className="p-4">
-                          <div className="flex items-center justify-between mb-2">
-                            <Badge className="bg-zinc-800 text-zinc-300 border-0 text-[10px] h-5 rounded-md">{key}</Badge>
-                            <CopyBtn text={JSON.stringify(schema, null, 2)} field={`schema-${key}`} />
-                          </div>
-                          <div className="rounded-lg bg-zinc-800/40 border border-zinc-700/30 p-3 max-h-[200px] overflow-y-auto">
-                            <pre className="text-[10px] text-zinc-400 whitespace-pre-wrap font-mono">{JSON.stringify(schema, null, 2).substring(0, 500)}...</pre>
-                          </div>
-                        </CardContent>
-                      </SectionCard>
-                    ))}
-                  </div>
-                </>
-              ) : (
-                <EmptyState icon={Code} title="Generate structured data for your property" subtitle="RealEstateListing, Organization, FAQ, BreadcrumbList, LocalBusiness schemas" />
-              )}
-            </div>
-          )}
-        </TabsContent>
-
-        {/* ================================================================ */}
-        {/* -------- LOCALITY TAB (Neighborhood intelligence) -------- */}
-        {/* ================================================================ */}
-        <TabsContent value="locality" className="space-y-4">
-          <Button
-            onClick={onRunNeighborhood}
-            disabled={isGeneratingNeighborhood}
-            className="w-full bg-zinc-100 text-zinc-900 hover:bg-white h-10 text-[13px] font-medium rounded-lg"
-          >
-            {isGeneratingNeighborhood ? (
-              <><Loader2 size={15} className="animate-spin mr-2" />Analyzing neighborhood...</>
-            ) : (
-              <><Navigation size={15} className="mr-2" />Analyze Neighborhood</>
-            )}
-          </Button>
-
-          {neighborhoodResult ? (
-            <>
-              {/* Data source badge — is this Places-verified or AI-estimated? */}
-              <div className="flex items-center gap-2">
-                <Badge className={`text-[10px] h-5 px-1.5 rounded-md border-0 ${
-                  neighborhoodResult.dataSource === "places_api"
-                    ? "bg-[#7CB342]/10 text-[#7CB342]"
-                    : "bg-amber-500/10 text-amber-400"
-                }`}>
-                  {neighborhoodResult.dataSource === "places_api"
-                    ? "Verified via Google Places"
-                    : "AI-estimated — verify before publishing"}
-                </Badge>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <SectionCard>
-                  <CardContent className="p-5 text-center">
-                    <div className="text-3xl font-bold text-zinc-100">{neighborhoodResult.walkScore}</div>
-                    <div className="text-[11px] text-zinc-500 mt-1 font-medium">Walk Score</div>
-                  </CardContent>
-                </SectionCard>
-                <SectionCard>
-                  <CardContent className="p-5 text-center">
-                    <div className="text-3xl font-bold text-zinc-400">{neighborhoodResult.connectivityScore}</div>
-                    <div className="text-[11px] text-zinc-500 mt-1 font-medium">Connectivity Score</div>
-                  </CardContent>
-                </SectionCard>
-              </div>
-
-              {neighborhoodResult.connectivity && (
-                <SectionCard>
-                  <CardContent className="p-5">
-                    <h4 className="text-[13px] font-semibold text-zinc-200 mb-3">Connectivity</h4>
-                    <div className="grid grid-cols-2 gap-2">
-                      {Object.entries(neighborhoodResult.connectivity).map(([key, val]: [string, any]) => val && (
-                        <div key={key} className="p-2.5 rounded-lg bg-zinc-800/40 border border-zinc-700/30">
-                          <div className="text-[11px] text-zinc-500 capitalize">{key}</div>
-                          <div className="text-[13px] text-zinc-300">{val}</div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </SectionCard>
-              )}
-
-              {[
-                { key: "education", label: "Education", data: neighborhoodResult.education },
-                { key: "healthcare", label: "Healthcare", data: neighborhoodResult.healthcare },
-                { key: "shopping", label: "Shopping & Entertainment", data: neighborhoodResult.shopping },
-                { key: "itHubs", label: "IT / Business Hubs", data: neighborhoodResult.itHubs },
-              ].map(({ key, label, data }) => data?.length > 0 && (
-                <SectionCard key={key}>
-                  <CardContent className="p-5">
-                    <h4 className="text-[13px] font-semibold text-zinc-200 mb-3">{label}</h4>
-                    <div className="space-y-1.5">
-                      {data.map((item: any, i: number) => (
-                        <div key={i} className="flex items-center justify-between py-1 text-[13px]">
-                          <span className="text-zinc-300">{item.name}</span>
-                          <span className="text-[12px] text-zinc-500">{item.distance || item.type}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </SectionCard>
-              ))}
-
-              {neighborhoodResult.upcomingInfra?.length > 0 && (
-                <SectionCard>
-                  <CardContent className="p-5">
-                    <h4 className="text-[13px] font-semibold text-zinc-200 mb-3">Upcoming Infrastructure</h4>
-                    <div className="space-y-2.5">
-                      {neighborhoodResult.upcomingInfra.map((infra: any, i: number) => (
-                        <div key={i} className="p-3 rounded-lg bg-zinc-800/40 border border-zinc-700/30">
-                          <div className="text-[13px] text-zinc-200 font-medium">{infra.project}</div>
-                          <div className="text-[12px] text-zinc-500 mt-0.5">{infra.timeline} — {infra.impact}</div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </SectionCard>
-              )}
-
-              {neighborhoodResult.whyLiveHere?.length > 0 && (
-                <SectionCard>
-                  <CardContent className="p-5">
-                    <div className="flex items-center justify-between mb-3">
-                      <h4 className="text-[13px] font-semibold text-zinc-200">Why Live Here (Marketing Copy)</h4>
-                      <CopyBtn text={neighborhoodResult.whyLiveHere.join("\n")} field="why-live" />
-                    </div>
-                    <div className="space-y-1.5">
-                      {neighborhoodResult.whyLiveHere.map((point: string, i: number) => (
-                        <div key={i} className="text-[13px] text-zinc-300 flex items-start gap-2">
-                          <span className="text-zinc-100 mt-0.5 flex-shrink-0">&#8226;</span> {point}
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </SectionCard>
-              )}
-
-              {neighborhoodResult.seoContent?.length > 0 && (
-                <SectionCard>
-                  <CardContent className="p-5">
-                    <div className="flex items-center justify-between mb-3">
-                      <h4 className="text-[13px] font-semibold text-zinc-200">SEO Content (Ready to Use)</h4>
-                      <CopyBtn text={neighborhoodResult.seoContent.join("\n\n")} field="seo-content" />
-                    </div>
-                    <div className="space-y-3">
-                      {neighborhoodResult.seoContent.map((para: string, i: number) => (
-                        <p key={i} className="text-[13px] text-zinc-400 leading-relaxed">{para}</p>
-                      ))}
-                    </div>
-                  </CardContent>
-                </SectionCard>
-              )}
-            </>
-          ) : (
-            <EmptyState icon={Navigation} title="Analyze the neighborhood around your project" subtitle="Walk score, connectivity, schools, hospitals, IT hubs, infrastructure" />
-          )}
-
-
-          {/* ---- GBP Posts ---- */}
-          <div className="border-t border-zinc-800/40 pt-4 mt-4" />
-          <SectionCard>
-            <CardContent className="p-5">
-              <h4 className="text-[14px] font-semibold text-zinc-100 mb-1">Google Business Profile Posts</h4>
-              <p className="text-[12px] text-zinc-400 mb-3">4 weeks of GBP posts with CTAs — copy directly to your Google Business Profile.</p>
-              <Button
-                onClick={onRunGbpPosts}
-                disabled={isGeneratingGbp}
-                className="w-full bg-zinc-100 text-zinc-900 hover:bg-white active:scale-[0.99] h-10 text-[13px] font-medium rounded-lg transition-all"
-              >
-                {isGeneratingGbp ? <><Loader2 size={15} className="animate-spin mr-2" />Generating...</> : <>Generate 8 GBP Posts</>}
-              </Button>
-            </CardContent>
-          </SectionCard>
-
-          {gbpResult?.posts?.length > 0 && (
-            <SectionCard>
-              <CardContent className="p-5">
-                <h4 className="text-[13px] font-semibold text-zinc-200 mb-3">GBP Posts ({gbpResult.posts.length})</h4>
-                <div className="space-y-3">
-                  {gbpResult.posts.map((post: any, i: number) => (
-                    <div key={i} className="p-3.5 rounded-lg bg-zinc-800/40 border border-white/[0.04] group relative">
-                      <div className="flex items-center gap-2 mb-1.5">
-                        <Badge className="text-[10px] bg-zinc-800 text-zinc-300 border-0 rounded-md h-5 px-1.5">Week {post.week}</Badge>
-                        <Badge variant="outline" className="text-[10px] border-zinc-700/50 text-zinc-500 rounded-md">{post.type}</Badge>
-                      </div>
-                      <div className="text-[13px] text-zinc-200 font-medium mb-1">{post.title}</div>
-                      <div className="text-[12px] text-zinc-400 leading-relaxed">{post.body?.slice(0, 200)}...</div>
-                      <div className="flex items-center gap-2 mt-2">
-                        <Badge className="text-[10px] bg-[#7CB342]/10 text-[#7CB342] border-0 rounded-md h-5 px-1.5">{post.cta}</Badge>
-                        {post.targetKeyword && <span className="text-[10px] text-zinc-600">Keyword: {post.targetKeyword}</span>}
-                      </div>
-                      <CopyBtn text={`${post.title}\n\n${post.body}\n\nCTA: ${post.cta}`} field={`gbp-${i}`} />
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </SectionCard>
-          )}
         </TabsContent>
 
         {/* ================================================================ */}

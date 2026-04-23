@@ -739,6 +739,28 @@ export function recordArticleRescan(
 }
 
 /**
+ * Delete a tracked article (draft that the user doesn't want to publish).
+ * Publishing an article via PublishButton marks it as published — this is
+ * for drafts that the user dismisses instead.
+ */
+export function deleteTrackedArticle(articleId: string): void {
+  const articles = getTrackedArticles();
+  const next = articles.filter((a) => a.id !== articleId);
+  if (next.length !== articles.length) saveTrackedArticles(next);
+}
+
+/**
+ * Split tracked articles into the two lists the queue UI needs.
+ * Both are returned newest-first so the most recent work shows at the top.
+ */
+export function getArticleQueue(): { drafts: TrackedArticle[]; published: TrackedArticle[] } {
+  const articles = getTrackedArticles();
+  const drafts = articles.filter((a) => a.status === "draft").reverse();
+  const published = articles.filter((a) => a.status === "published").reverse();
+  return { drafts, published };
+}
+
+/**
  * Get articles for a specific query (to show in the query-by-query breakdown).
  */
 export function getArticlesForQuery(query: string): TrackedArticle[] {

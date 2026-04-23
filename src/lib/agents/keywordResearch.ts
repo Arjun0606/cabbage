@@ -62,8 +62,48 @@ export interface KeywordResearchResult {
 }
 
 /**
- * Expand a seed keyword into variants. Uses AI to generate related
- * queries covering different buyer intents.
+ * Template-based keyword fallback. Works deterministically from seed +
+ * city without calling the model — used when AI expansion fails or
+ * returns a thin list. Guarantees ~15 usable keywords per seed so the
+ * Content queue never renders empty just because the LLM blinked.
+ */
+function fallbackKeywords(seed: string, city: string): string[] {
+  const s = seed.trim();
+  const c = city.trim();
+  const variants = [
+    s,
+    `${s} in ${c}`,
+    `best ${s} in ${c}`,
+    `top ${s} in ${c}`,
+    `${s} ${c} price`,
+    `${s} ${c} for sale`,
+    `${s} ${c} review`,
+    `new launch ${s} in ${c}`,
+    `ready to move ${s} in ${c}`,
+    `${s} under 1 crore ${c}`,
+    `${s} ${c} location advantages`,
+    `is ${s} a good investment in ${c}`,
+    `${s} ${c} floor plans`,
+    `${s} ${c} amenities`,
+    `${s} ${c} possession date`,
+    `${s} near metro ${c}`,
+  ];
+  const seen = new Set<string>();
+  return variants
+    .map((v) => v.replace(/\s+/g, " ").trim().toLowerCase())
+    .filter((v) => {
+      if (!v || seen.has(v)) return false;
+      seen.add(v);
+      return true;
+    })
+    .slice(0, 16);
+}
+
+/**
+ * Expand a seed keyword into variants. Uses AI first, then merges with
+ * a template fallback so the final list is always >= 12 keywords. This
+ * fixes the "keyword research came back empty / only one row" case we
+ * used to hit whenever the LLM returned non-JSON.
  */
 async function expandKeywords(seed: string, city: string): Promise<string[]> {
   const prompt = `Generate 20 related real estate search keywords that buyers would type on Google, based on this seed: "${seed}" in ${city}.
@@ -82,19 +122,43 @@ Include variants with:
 
 Return ONLY a JSON array of strings, no other text. Max 20 keywords.`;
 
+  let aiKeywords: string[] = [];
   try {
     const text = await aiLight("Return JSON array of search queries. No other text.", prompt, 1000);
     const match = text.match(/\[[\s\S]*\]/);
     if (match) {
-      const parsed = JSON.parse(match[0]);
-      if (Array.isArray(parsed)) {
-        return parsed.filter((s: unknown) => typeof s === "string").slice(0, 20);
+      try {
+        const parsed = JSON.parse(match[0]);
+        if (Array.isArray(parsed)) {
+          aiKeywords = parsed
+            .filter((s: unknown) => typeof s === "string")
+            .map((s: string) => s.trim())
+            .filter(Boolean);
+        }
+      } catch {
+        // Truncated JSON — attempt to recover individual quoted strings.
+        const recovered = match[0].match(/"([^"\\]+)"/g);
+        if (recovered) aiKeywords = recovered.map((r) => r.replace(/^"|"$/g, ""));
       }
     }
   } catch (err) {
     console.error("keywordResearch: expansion failed:", err instanceof Error ? err.message : err);
   }
-  return [seed];
+
+  // Always merge with the deterministic fallback so we never return
+  // fewer than ~12 keywords. The AI list goes first so its wording
+  // wins on dedupe, but users always see a real breadth of variants.
+  const combined = [...aiKeywords, ...fallbackKeywords(seed, city)];
+  const seen = new Set<string>();
+  return combined
+    .map((v) => v.replace(/\s+/g, " ").trim())
+    .filter((v) => {
+      const key = v.toLowerCase();
+      if (!v || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 22);
 }
 
 /**
@@ -170,14 +234,78 @@ Rules:
     console.error("keywordResearch: web search failed:", err instanceof Error ? err.message : err);
   }
 
+  // Fallback estimation pass. If the web-search lookup produced nothing
+  // (rate limit, tool not available, parse failure) we at least want to
+  // show users the keyword list with rough volume / difficulty estimates
+  // so the Content queue has priority signal. Marked as "inferred" via
+  // the caller, so the UI can badge these honestly.
+  if (result.size === 0) {
+    try {
+      const estPrompt = `Estimate rough Indian monthly search volume, keyword difficulty (0-100), CPC in INR, and intent for these real estate keywords in ${city}. Use reasonable judgment from typical Indian real-estate search patterns — do not claim precision. Return ONLY JSON, no prose.
+
+Keywords:
+${keywords.map((k) => `- ${k}`).join("\n")}
+
+Return JSON in this exact shape:
+[
+  {"keyword": "exact keyword", "volume": 800, "difficulty": 42, "cpc": 22, "intent": "commercial"}
+]
+
+Rules:
+- volume: integer (rough estimate is fine)
+- difficulty: 0-100
+- cpc: INR number
+- intent: "informational" | "commercial" | "transactional" | "navigational"
+- Return ALL ${keywords.length} keywords.`;
+
+      const estText = await aiLight("Return only valid JSON array.", estPrompt, 2000);
+      const estMatch = estText.match(/\[[\s\S]*\]/);
+      if (estMatch) {
+        let estStr = estMatch[0];
+        try { JSON.parse(estStr); } catch {
+          const lastObj = estStr.lastIndexOf("}");
+          if (lastObj > 0) estStr = estStr.slice(0, lastObj + 1) + "]";
+        }
+        try {
+          const data = JSON.parse(estStr);
+          if (Array.isArray(data)) {
+            for (const item of data) {
+              if (item?.keyword && typeof item.keyword === "string") {
+                result.set(item.keyword.toLowerCase(), {
+                  volume: typeof item.volume === "number" ? item.volume : null,
+                  difficulty: typeof item.difficulty === "number" ? Math.max(0, Math.min(100, item.difficulty)) : null,
+                  cpc: typeof item.cpc === "number" ? item.cpc : null,
+                  intent: ["informational", "commercial", "transactional", "navigational"].includes(item.intent) ? item.intent : "unknown",
+                });
+              }
+            }
+          }
+        } catch (err) {
+          console.error("keywordResearch: fallback estimate parse failed:", err instanceof Error ? err.message : err);
+        }
+      }
+    } catch (err) {
+      console.error("keywordResearch: fallback estimate call failed:", err instanceof Error ? err.message : err);
+    }
+  }
+
   return result;
 }
 
 /**
  * Derive an opportunity score: high volume + low difficulty = best.
+ * When metrics are missing we still want the keyword to surface as
+ * something the user can write about, so an absent-volume keyword is
+ * scored as "medium" instead of silently tanking to "low".
  */
 function calculateOpportunity(volume: number | null, difficulty: number | null): "high" | "medium" | "low" {
-  if (volume === null || difficulty === null) return "low";
+  if (volume === null && difficulty === null) return "medium";
+  if (volume === null || difficulty === null) {
+    // Partial data — use what we have.
+    if (volume !== null && volume >= 500) return "high";
+    if (difficulty !== null && difficulty <= 35) return "medium";
+    return "medium";
+  }
   if (volume >= 1000 && difficulty <= 40) return "high";
   if (volume >= 500 && difficulty <= 60) return "medium";
   if (volume >= 100 && difficulty <= 50) return "medium";
