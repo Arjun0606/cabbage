@@ -35,6 +35,7 @@ import { LocalityRollup } from "./LocalityRollup";
 import { ProjectRollup } from "./ProjectRollup";
 import { ProjectScorecard } from "./ProjectScorecard";
 import { CompetitiveLandscape } from "./CompetitiveLandscape";
+import { OwnPagesAICites } from "./OwnPagesAICites";
 import { getCompanyCities, projectMatchesCity } from "@/lib/cities";
 import { parseLocation, inferState } from "@/lib/projectParse";
 import { isPortalSubmitted, togglePortalSubmitted, computeCoverage } from "@/lib/portalTracker";
@@ -1031,6 +1032,14 @@ export function AnalyticsPanel({
             brand={companyName}
             localities={localitiesInScope}
             onWriteArticle={onGeoFixQuery}
+          />
+
+          {/* Our own pages AI is citing — the "what's actually working"
+              card. Shows the top own-domain URLs AI pulled from during
+              this scan so the developer can double down on what ranks. */}
+          <OwnPagesAICites
+            aiVisResult={aiVisResult}
+            websiteUrl={websiteUrl}
           />
 
           {/* City scope banner — reminds the user that "overall score"

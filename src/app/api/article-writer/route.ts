@@ -10,7 +10,9 @@ type ArticleType =
   | "buyer_guide"
   | "comparison"
   | "investment"
-  | "nri_guide";
+  | "nri_guide"
+  | "landing_page"
+  | "construction_update";
 
 const ARTICLE_TYPE_INSTRUCTIONS: Record<ArticleType, string> = {
   locality_guide:
@@ -27,6 +29,10 @@ const ARTICLE_TYPE_INSTRUCTIONS: Record<ArticleType, string> = {
     "Write an investment-focused article. Cover ROI potential, rental yield estimates, capital appreciation trends, infrastructure catalysts, risk factors, and exit strategy considerations.",
   nri_guide:
     "Write a guide specifically for NRI (Non-Resident Indian) buyers. Cover FEMA regulations, repatriation rules, Power of Attorney process, NRE/NRO account usage for transactions, tax implications (TDS, capital gains), virtual site visit and video tour options, property management services, and currency conversion considerations (USD/AED/GBP to INR).",
+  landing_page:
+    "Write a conversion-optimised locality-config landing page (not a blog article). Structure: (1) H1 with exact locality + config + city (e.g. '3 BHK Flats in Gachibowli, Hyderabad'), (2) a short 2-sentence hook, (3) a 'Project at a glance' block with bullets — configurations, carpet area range, price range, possession, RERA, (4) 'Why {locality}' section with connectivity, social infrastructure, micro-market momentum (no fabricated landmarks), (5) 'Who this suits' block (first-time buyer / investor / NRI / IT-professional — whichever matches the data), (6) Floor plans / typical units description, (7) Frequently asked buyer questions (5-7), (8) Clear final CTA block with 'Book a site visit' and 'Get price sheet' language. Use structured subheadings (H2/H3). Page-length, not blog-length: aim ~800-1200 words, scannable, buyer-decision oriented.",
+  construction_update:
+    "Write a dated construction-progress update. Open with quarter + year + project name + locality. Cover: (1) structural progress — floors poured, slab casting, block-wise status, (2) amenity progress — clubhouse, landscaping, pool, gym, (3) handover milestone remaining vs completed, (4) key photos/visuals described textually, (5) regulatory updates (RERA extensions, approvals), (6) next-quarter outlook. Dated, specific, factual — no marketing puffery. This becomes the canonical citation source AI models will quote when buyers ask 'what's the latest at {project}'.",
 };
 
 export async function POST(req: NextRequest) {

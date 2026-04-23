@@ -1035,12 +1035,36 @@ export default function DashboardPage() {
   const runGeoFixForQuery = async (query: string) => {
     if (!spendCredits("article")) return;
     setIsFixingGeo(true);
-    addLog(`> Writing GEO-optimized article for: "${query}"...`);
+    // Route to the appropriate article shape based on the query form.
+    // Landing-page recs say "3 BHK flats in {locality}" — those need a
+    // structured locality-config page, not a blog article. Construction
+    // updates (for UC projects) need dated progress content. NRI intent
+    // goes to the NRI guide. The article writer handles each shape.
+    const qLower = query.toLowerCase();
+    let articleType = "locality_guide";
+    if (/\bflats?\s+in\b/.test(qLower) && /bhk|villa|plot|studio/.test(qLower)) {
+      articleType = "landing_page";
+    } else if (/construction update|q[1-4]\s*(20\d\d)?/.test(qLower)) {
+      articleType = "construction_update";
+    } else if (/\bnri\b|non[\s-]?resident|fema|nre|nro/.test(qLower)) {
+      articleType = "nri_guide";
+    } else if (/\bvs\b|compare|versus/.test(qLower)) {
+      articleType = "comparison";
+    } else if (/investment|roi|rental yield/.test(qLower)) {
+      articleType = "investment";
+    } else if (/buyer guide|how to buy|buying process/.test(qLower)) {
+      articleType = "buyer_guide";
+    } else if (/refresh content for /.test(qLower)) {
+      // Decay-refresh — regenerate the existing page's content as a
+      // locality guide by default.
+      articleType = "locality_guide";
+    }
+    addLog(`> Writing ${articleType.replace(/_/g, " ")} for: "${query}"...`);
     try {
       const ctx = getProjectContext();
       const res = await fetch("/api/article-writer", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...ctx, topic: query, targetKeyword: query, articleType: "locality_guide" }),
+        body: JSON.stringify({ ...ctx, topic: query, targetKeyword: query, articleType }),
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
