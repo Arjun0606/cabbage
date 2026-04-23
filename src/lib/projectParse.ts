@@ -15,10 +15,18 @@
 
 /**
  * "Gachibowli, Hyderabad" -> { locality: "Gachibowli", city: "Hyderabad" }
- * "Hyderabad" alone      -> { locality: undefined, city: "Hyderabad" }
- * "Kukatpally, HYD, Telangana" -> { locality: "Kukatpally", city: "HYD" }
- *   (we take the first two meaningful parts; state is ignored because
- *    Indian buyer queries never use it)
+ * "Tellapur" + fallback "Hyderabad" -> { locality: "Tellapur", city: "Hyderabad" }
+ * "Hyderabad" + fallback "Hyderabad" -> { locality: undefined, city: "Hyderabad" }
+ * "Neopolis, Kokapet" + fallback "Hyderabad" -> { locality: "Neopolis", city: "Kokapet" }
+ *   — correct because "Kokapet" is the lower admin level in the address
+ *   even though it's a Hyderabad sub-locality; UI code groups it under
+ *   Hyderabad via the separate `city` rollup.
+ *
+ * The critical rule: if a single-token project location differs from
+ * the company's primary city, treat it as a LOCALITY, not a city.
+ * Most Indian developers type "Tellapur" without the ", Hyderabad"
+ * suffix because it's obvious from context. The old implementation
+ * wrongly promoted every such project to a separate city.
  */
 export function parseLocation(
   location: string | null | undefined,
@@ -28,12 +36,24 @@ export function parseLocation(
   const parts = location.split(",").map((s) => s.trim()).filter(Boolean);
   if (parts.length === 0) return { city: fallbackCity };
   if (parts.length === 1) {
-    // Single token — it's either the city or a locality with no city
-    // written. Without context we assume it's the city.
-    return { city: parts[0] };
+    const only = parts[0];
+    // If the user has specified a company-wide primary city and the
+    // project token is something different, the project is a locality
+    // within that city. Only when the token IS the company city (or no
+    // fallback exists) do we treat it as the city.
+    if (fallbackCity && only.toLowerCase() !== fallbackCity.toLowerCase()) {
+      return { locality: only, city: fallbackCity };
+    }
+    return { city: only };
   }
-  // Two or more parts: first is locality, second is city.
-  return { locality: parts[0], city: parts[1] };
+  // Two or more parts: "Locality, City" or "Locality, City, State".
+  // We drop the last part when it looks like an Indian state (since
+  // buyer queries never use state names).
+  const INDIAN_STATES = /\b(telangana|andhra pradesh|karnataka|maharashtra|tamil nadu|kerala|gujarat|rajasthan|madhya pradesh|uttar pradesh|bihar|jharkhand|chhattisgarh|odisha|west bengal|punjab|haryana|himachal|uttarakhand|assam|goa|delhi ncr)\b/i;
+  if (parts.length >= 3 && INDIAN_STATES.test(parts[parts.length - 1])) {
+    return { locality: parts[0], city: parts[1] };
+  }
+  return { locality: parts[0], city: parts[parts.length - 1] };
 }
 
 // ---------------------------------------------------------------------------

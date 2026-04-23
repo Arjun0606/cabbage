@@ -17,9 +17,12 @@ export interface ProjectLike {
 
 /**
  * Extract the city from a free-text `location` string. Indian project
- * addresses are consistently formatted "Locality, City" — we take the
- * last comma-segment. If `location` is empty or missing a comma we fall
- * back to the explicit `project.city` or the `fallback` (company.city).
+ * addresses are consistently formatted "Locality, City" but developers
+ * frequently type just "Tellapur" when the company is single-city and
+ * the context is obvious. Rule: a comma-less token that differs from
+ * the company's primary city is a locality, not a city — we return
+ * the fallback so "Tellapur" (in a Hyderabad company) is city =
+ * Hyderabad, not "Tellapur".
  */
 export function extractCityFromLocation(
   location: string | null | undefined,
@@ -28,15 +31,43 @@ export function extractCityFromLocation(
   if (!location) return fallback.trim();
   const parts = location.split(",").map((s) => s.trim()).filter(Boolean);
   if (parts.length === 0) return fallback.trim();
-  // "Whitefield, Bangalore" -> "Bangalore"
-  // "Bangalore" alone -> "Bangalore"
+  if (parts.length === 1) {
+    const only = parts[0];
+    if (fallback && only.toLowerCase() !== fallback.toLowerCase()) {
+      // Looks like a locality the user shorthanded. Honour the
+      // fallback primary city.
+      return fallback.trim();
+    }
+    return only;
+  }
   return parts[parts.length - 1];
 }
 
-/** Best-effort city for a single project. */
+/**
+ * Best-effort city for a single project. Prefers the explicit
+ * `project.city` column when set, falling back to parsing the
+ * location. Older rows saved before the parser fix may have
+ * `city = "Tellapur"` for single-city developers — when that happens
+ * and the primary city differs, we trust the fallback primary city
+ * (because it's the one the user explicitly configured at company level).
+ */
 export function getProjectCity(project: ProjectLike, fallback: string = ""): string {
-  if (project.city && project.city.trim()) return project.city.trim();
-  return extractCityFromLocation(project.location, fallback);
+  const parsed = extractCityFromLocation(project.location, fallback);
+  const explicit = project.city?.trim();
+  // Only honour the explicit city column when it agrees with what we
+  // parse from the location (or when the parser gave up). This guards
+  // against stale rows where the city field was auto-filled from a
+  // single-token location before the parser fix landed.
+  if (explicit) {
+    if (parsed && parsed.toLowerCase() !== explicit.toLowerCase() && fallback
+        && parsed.toLowerCase() === fallback.toLowerCase()) {
+      // Parsed says primary city, explicit says something else → trust
+      // parsed because the user-configured primary city wins.
+      return parsed;
+    }
+    return explicit;
+  }
+  return parsed;
 }
 
 /**

@@ -32,6 +32,7 @@ import { SiteCrawlPanel } from "./SiteCrawlPanel";
 import { InternalLinkingPanel } from "./InternalLinkingPanel";
 import { ContentQueue } from "./ContentQueue";
 import { LocalityRollup } from "./LocalityRollup";
+import { ProjectRollup } from "./ProjectRollup";
 import { getCompanyCities, projectMatchesCity } from "@/lib/cities";
 import { parseLocation } from "@/lib/projectParse";
 import { isPortalSubmitted, togglePortalSubmitted, computeCoverage } from "@/lib/portalTracker";
@@ -992,6 +993,17 @@ export function AnalyticsPanel({
             city={selectedCity || city}
             onSelectLocality={onSelectLocality}
             selectedLocality={selectedLocality}
+          />
+
+          {/* Per-project rollup — the answer to "how is each of my 17
+              projects performing in AI search". Derived from the same
+              scan (zero extra cost) by tagging queries against project
+              names and locality+config signatures. */}
+          <ProjectRollup
+            aiVisResult={aiVisResult}
+            projects={visibleProjects as any}
+            onSelectProject={onSelectProject}
+            selectedProject={selectedProject}
           />
 
           {/* City scope banner — reminds the user that "overall score"
