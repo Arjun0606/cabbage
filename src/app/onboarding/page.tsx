@@ -43,7 +43,8 @@ export default function OnboardingPage() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [cities, setCities] = useState<string[]>([""]);
-  const [industry, setIndustry] = useState("real_estate");
+  // Industry is fixed for now — Cabbge is scoped to Indian real estate.
+  const industry = "real_estate";
   const [projects, setProjects] = useState<Project[]>([]);
   const [competitors, setCompetitors] = useState<string[]>([]);
   const [extraSites, setExtraSites] = useState<Array<{ url: string; label: string; type?: string }>>([]);

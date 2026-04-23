@@ -247,7 +247,6 @@ export async function runTechnicalSeo(url: string): Promise<TechnicalSeoResult> 
   const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
   const metaDescMatch = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']*)/i);
   const bodyText = html.replace(/<script[\s\S]*?<\/script>/gi, "").replace(/<style[\s\S]*?<\/style>/gi, "").replace(/<[^>]*>/g, "");
-  const wordCount = bodyText.split(/\s+/).filter(Boolean).length;
   const codeSize = size;
   const textSize = new Blob([bodyText]).size;
 

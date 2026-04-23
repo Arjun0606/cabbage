@@ -16,23 +16,18 @@ import {
   Link2,
   Wrench,
   FileText,
-  MapPin,
   PenTool,
-  PartyPopper,
-  Users,
   Code,
   Copy,
   Check,
   Building,
   Navigation,
   BarChart3,
-  Megaphone,
   ChevronDown,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { PromptVolumes } from "./PromptVolumes";
 import { TrendsPanel } from "./TrendsPanel";
-import { EditableBlock } from "./EditableBlock";
 import { GEOProgressPanel } from "./GEOProgressPanel";
 import { ExecutionChecklist } from "./ExecutionChecklist";
 import { SitesTreePanel } from "./SitesTreePanel";
@@ -72,8 +67,6 @@ interface Props {
   selectedProject: number | null;
   onSelectProject: (idx: number | null) => void;
   articleResult: any;
-  isGeneratingArticle: boolean;
-  onRunArticleWriter: (topic: string, targetKeyword: string, articleType: string) => void;
   schemaResult: any;
   isGeneratingSchema: boolean;
   onRunSchemaGenerator: () => void;
@@ -209,7 +202,7 @@ export function AnalyticsPanel({
   websiteUrl, allSites, onSwitchSite, companyName, city,
   trends,
   projects, selectedProject, onSelectProject,
-  articleResult, isGeneratingArticle, onRunArticleWriter,
+  articleResult,
   schemaResult, isGeneratingSchema, onRunSchemaGenerator,
   portalResult, isGeneratingPortal, onRunPortalOptimizer,
   neighborhoodResult, isGeneratingNeighborhood, onRunNeighborhood,

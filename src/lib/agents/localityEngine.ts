@@ -272,11 +272,14 @@ export interface GeneratedQueries {
 export async function generateSearchQueries(
   city: string,
   brand: string,
-  projects: string[],
+  // `projects` was previously a bare name list; we now use projectDetails
+  // below for anything we need to know about projects, so the list is
+  // kept in the signature only for API stability.
+  _projects: string[],
   locality?: string,
   industry?: string,
   projectDetails?: Array<{ name?: string; location?: string; configurations?: string; priceRange?: string }>,
-  brandContext?: { targetAudience?: string; usps?: string; projectsCompleted?: string }
+  brandContext?: { usps?: string; productInfo?: string }
 ): Promise<GeneratedQueries> {
   // NOTE: We do NOT include the brand name in queries.
   // Real customers don't know the company — they search by need, location, budget.
@@ -340,8 +343,10 @@ export async function generateSearchQueries(
       }\n\nFor EACH city above, generate locality-level queries covering every project's micro-market, configuration, and price segment.`
     : "";
 
-  const audienceBlock = brandContext?.targetAudience
-    ? `\n\nTARGET AUDIENCE (real buyer profile):\n${brandContext.targetAudience.slice(0, 500)}\nGenerate queries THIS specific audience would type.`
+  // Buyer profile is now carried in productInfo (the consolidated block
+  // that combines "what we build" + "who buys it" into a single doc).
+  const audienceBlock = brandContext?.productInfo
+    ? `\n\nPRODUCT + BUYER PROFILE:\n${brandContext.productInfo.slice(0, 600)}\nGenerate queries the buyers described above would actually type.`
     : "";
 
   const uspsBlock = brandContext?.usps

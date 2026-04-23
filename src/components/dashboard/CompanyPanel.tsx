@@ -9,7 +9,6 @@ import {
   Users,
   Plus,
   X,
-  Globe,
   ExternalLink,
   ChevronRight,
   ChevronDown,

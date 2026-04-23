@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { updateSession } from "@/lib/db/supabase-middleware";
 
 /**
- * Security + auth middleware.
+ * Security + auth proxy (formerly middleware — Next.js 16 renamed the
+ * file convention; the function behaves the same way).
  * 1. Security headers (XSS, clickjacking, MIME sniffing, etc.)
  * 2. API rate limiting (per company cookie, fallback IP)
  * 3. Cron endpoint protection
@@ -66,7 +67,7 @@ function applySecurityHeaders(response: NextResponse): NextResponse {
   return response;
 }
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // Skip Supabase session refresh for static assets + the public loaders

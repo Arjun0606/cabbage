@@ -52,7 +52,6 @@ export default function DashboardPage() {
   // New feature states
   const [articleResult, setArticleResult] = useState<any>(null);
   const [schemaResult, setSchemaResult] = useState<any>(null);
-  const [isGeneratingArticle, setIsGeneratingArticle] = useState(false);
   const [isGeneratingSchema, setIsGeneratingSchema] = useState(false);
   const [selectedProject, setSelectedProject] = useState<number | null>(null);
 
@@ -814,24 +813,6 @@ export default function DashboardPage() {
     };
   };
 
-  const runArticleWriter = async (topic: string, targetKeyword: string, articleType: string) => {
-    if (!spendCredits("article")) return;
-    setIsGeneratingArticle(true);
-    addLog(`> Writing article: "${topic}"...`);
-    try {
-      const ctx = getProjectContext();
-      const res = await fetch("/api/article-writer", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...ctx, topic, targetKeyword, articleType }),
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      setArticleResult(data);
-      addLog(`> Article: "${data.title}" — ${data.wordCount} words`);
-    } catch (err) { addLog(`> Error: ${err instanceof Error ? err.message : "Article failed"}`); }
-    finally { setIsGeneratingArticle(false); }
-  };
-
   const runSchemaGenerator = async () => {
     if (!spendCredits("schema")) return;
     setIsGeneratingSchema(true);
@@ -1240,8 +1221,7 @@ export default function DashboardPage() {
               // New features
               projects={company.projects}
               selectedProject={selectedProject} onSelectProject={setSelectedProject}
-              articleResult={articleResult} isGeneratingArticle={isGeneratingArticle}
-              onRunArticleWriter={runArticleWriter}
+              articleResult={articleResult}
               schemaResult={schemaResult} isGeneratingSchema={isGeneratingSchema}
               onRunSchemaGenerator={runSchemaGenerator}
               // Round 2 features

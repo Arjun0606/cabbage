@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { TrendingUp, TrendingDown, Minus, Search, MousePointerClick, Eye, BarChart3, ExternalLink } from "lucide-react";
+import { TrendingUp, Search, MousePointerClick, Eye, BarChart3, ExternalLink } from "lucide-react";
 
 interface GSCQueryResult {
   query: string;
