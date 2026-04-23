@@ -1,5 +1,4 @@
 import { aiComplete, aiLight, queryForVisibility } from "@/lib/ai";
-import { getMozBacklinks } from "@/lib/integrations/mozBacklinks";
 
 // ---------- Types ----------
 
@@ -12,7 +11,7 @@ export interface BacklinkResult {
   linkVelocity: string;
   anchorTexts: AnchorText[];
   recommendations: BacklinkRecommendation[];
-  dataSource: "moz_api" | "web_search" | "ai_estimated";
+  dataSource: "web_search" | "ai_estimated";
   /** Real, verified referrers from high-value domains via web search.
    *  Every entry has a specific citation URL — no fabrication. */
   verifiedReferrers?: VerifiedReferrer[];
@@ -42,17 +41,15 @@ interface BacklinkRecommendation {
 }
 
 // ---------- Backlink Data Fetching ----------
-
-/**
- * Fetches backlink data using free/freemium APIs.
- * In v1, we use a combination of:
- * - Common Crawl data (free, public)
- * - DNS/WHOIS lookups
- * - Google Search operator scraping
- * - AI estimation based on site signals
- *
- * In v2, integrate with Ahrefs/Moz/SEMrush APIs for precise data.
- */
+//
+// We are model-only — no Moz/Ahrefs/SEMrush API dependency. Two paths:
+//   1. Grounded web search (ChatGPT/Gemini) — pulls real DA/backlink
+//      numbers from public sources (Moz's free public scans, Ahrefs
+//      Website Authority Checker, UberSuggest, Similarweb, press coverage).
+//   2. AI estimate from observable site signals — when web search is
+//      unavailable or returns nothing, we produce a rough DA band +
+//      order-of-magnitude backlink estimate based on sitemap size,
+//      schema, https, indexed pages. The UI labels this "AI estimated".
 
 async function fetchSiteSignals(url: string): Promise<{
   hasHttps: boolean;
@@ -183,30 +180,38 @@ async function analyzeBacklinks(
   url: string,
   signals: Awaited<ReturnType<typeof fetchSiteSignals>>
 ): Promise<BacklinkResult> {
-  const system = `You are Cabbge's backlink analysis agent, specialized in Indian residential real estate developer websites. Based on observable site signals, estimate the backlink profile and provide actionable recommendations.
+  const system = `You are Cabbge's backlink analysis agent, specialized in Indian residential real estate developer websites. You estimate the backlink profile from observable site signals + your knowledge of the Indian RE media landscape, and you return an order-of-magnitude range that a marketer can use for planning.
 
 You must return valid JSON only, no other text.`;
 
-  // Fallback prompt ONLY asks for a DA guess + strategic recommendations.
-  // We deliberately do NOT ask the AI to invent topReferrers or anchorTexts
-  // — fabricated referring domains look plausible but are worse than useless:
-  // users trust them, then notice they aren't real, then lose trust in the
-  // whole product. Better to show nothing than to show fakes.
-  const prompt = `For ${url} (Indian real estate developer), provide ONLY:
+  const domain = (() => { try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return url; } })();
+  const brand = domain.split(".")[0];
 
-Site Signals:
+  // Ask the model for rough-but-useful numbers. We're explicit that these
+  // are estimates — the UI badges them "AI estimated" — but empty/zero
+  // screens look broken, so the model DOES commit to a number it can
+  // defend (typical DA range for a developer with N sitemap pages + schema,
+  // typical backlink count for a brand this well-known, etc.). This is
+  // the same call a human analyst would make without paid tools.
+  const prompt = `Estimate the backlink profile for ${domain} (brand: ${brand}) — an Indian residential real estate developer.
+
+Signals observed on the site:
 - HTTPS: ${signals.hasHttps}
-- Schema: ${signals.schemaMarkup}
-- Indexed pages (est): ${signals.pageCount}
+- Schema.org markup: ${signals.schemaMarkup}
+- Indexed pages (from sitemap): ${signals.pageCount}
 
-JSON output:
+Use your knowledge of Indian RE: a big Hyderabad/Bengaluru developer with 20+ live projects, RERA coverage, and 10+ years in market typically has DA 40-55, 5k-40k backlinks from 300-800 referring domains. A small emerging builder with 1-3 projects typically has DA 10-25, 50-500 backlinks from 20-80 domains. Scale your numbers to the brand's recognition and site size.
+
+Return JSON:
 {
-  "domainAuthority": <0-100 rough estimate based on site scale — this is a ROUGH guess, clearly labeled as estimated in the UI>,
+  "domainAuthority": <0-100 integer. Base on brand recognition + site scale. Be realistic — most Indian developers are DA 15-50.>,
+  "totalBacklinks": <integer. Rough order of magnitude is what matters. For a well-known builder think 5000-30000; obscure, a few hundred.>,
+  "referringDomains": <integer. Typically 2-5% of totalBacklinks for RE brands.>,
   "linkVelocity": "growing|stable|declining|unknown",
   "recommendations": [
     {
       "title": "...",
-      "description": "2-3 sentences, specific to Indian real estate link building — portal listings, local PR, RERA pages, broker blogs",
+      "description": "2-3 sentences, specific to Indian real estate link building — portal listings, local PR, RERA pages, broker blogs, YouTube walkthroughs, Reddit locality subs",
       "priority": "high|medium|low",
       "category": "Content|Outreach|Technical|Local"
     }
@@ -215,8 +220,8 @@ JSON output:
 
 Rules:
 - recommendations: 6-8 actionable items. Specific to Indian real estate.
-- DO NOT invent referring domains. DO NOT invent anchor text distributions.
-  We don't have that data without a Moz/Ahrefs API key.`;
+- DO NOT fabricate specific referring-domain names (topReferrers) or anchor-text distributions — those require real lookup. We handle that separately via verified-referrer web search.
+- DO commit to realistic DA/backlink/referring-domain numbers. Zero is only valid for a brand that clearly doesn't exist.`;
 
   const text = await aiComplete(system, prompt, 1500);
   const jsonMatch = text.match(/\{[\s\S]*\}/);
@@ -226,12 +231,12 @@ Rules:
       const data = JSON.parse(jsonMatch[0]);
       return {
         url,
-        domainAuthority: data.domainAuthority || 0,
-        totalBacklinks: 0,                     // unknown without real API
-        referringDomains: 0,                   // unknown without real API
-        topReferrers: [],                      // explicitly empty — no fabrication
+        domainAuthority: Number(data.domainAuthority) || 0,
+        totalBacklinks: Number(data.totalBacklinks) || 0,
+        referringDomains: Number(data.referringDomains) || 0,
+        topReferrers: [],                      // only filled by verified-referrer path
         linkVelocity: data.linkVelocity || "unknown",
-        anchorTexts: [],                       // explicitly empty — no fabrication
+        anchorTexts: [],                       // only filled by verified-referrer path
         recommendations: data.recommendations || [],
         dataSource: "ai_estimated",
       };
@@ -368,56 +373,20 @@ Only include domains where you can see an actual linking/mentioning page URL. Ne
 export async function runBacklinkAnalysis(url: string): Promise<BacklinkResult> {
   if (!url.startsWith("http")) url = `https://${url}`;
 
-  // Priority 1: Try real Moz API data
-  const mozData = await getMozBacklinks(url);
-  if (mozData) {
-    const signals = await fetchSiteSignals(url);
-    const aiResult = await analyzeBacklinks(url, signals);
-    return {
-      url,
-      domainAuthority: mozData.domainAuthority,
-      totalBacklinks: mozData.inboundLinks,
-      referringDomains: mozData.linkingDomains,
-      topReferrers: mozData.topLinkingDomains.map(d => ({
-        domain: d.domain,
-        authority: d.domainAuthority,
-        linkCount: d.linkCount,
-        type: "dofollow" as const,
-      })),
-      linkVelocity: aiResult.linkVelocity,
-      anchorTexts: aiResult.anchorTexts,
-      recommendations: aiResult.recommendations,
-      dataSource: "moz_api" as const,
-    };
-  }
-
-  // Priority 2: Try web search for real backlink data (ChatGPT + Moz/Ahrefs/SEMrush)
-  const webSearchResult = await analyzeBacklinksViaWebSearch(url);
-  if (webSearchResult) {
-    const signals = await fetchSiteSignals(url);
-    const aiResult = await analyzeBacklinks(url, signals);
-    return {
-      ...webSearchResult,
-      anchorTexts: aiResult.anchorTexts,
-      recommendations: aiResult.recommendations,
-      dataSource: "web_search" as const,
-    };
-  }
-
-  // Priority 3: Fallback to AI-estimated DA + recommendations (NO fabricated referrers).
-  // Augment with verified-referrer check via web search — real, auditable data.
-  const signals = await fetchSiteSignals(url);
-  const [estimate, verifiedRes] = await Promise.all([
-    analyzeBacklinks(url, signals),
+  // Run signal fetch, AI estimate, and verified-referrer check in parallel.
+  // We always get an AI estimate — no empty screens. We also always try
+  // web search for real numbers and for confirming which high-value
+  // Indian RE domains actually link to this brand.
+  const [signals, webSearchResult, verifiedRes] = await Promise.all([
+    fetchSiteSignals(url),
+    analyzeBacklinksViaWebSearch(url),
     findVerifiedReferrers(url),
   ]);
 
-  // Which high-value domains we checked but DIDN'T find — these are outreach targets
+  const estimate = await analyzeBacklinks(url, signals);
+
   const verifiedSet = new Set(verifiedRes.verified.map((v) => v.domain));
   const unlinked = verifiedRes.highValueDomains.filter((d) => !verifiedSet.has(d.domain));
-
-  // If we got verified referrers, expose them as topReferrers so the UI
-  // shows REAL data instead of an empty list.
   const realReferrers: Referrer[] = verifiedRes.verified.map((v) => ({
     domain: v.domain,
     authority: v.authority,
@@ -425,11 +394,21 @@ export async function runBacklinkAnalysis(url: string): Promise<BacklinkResult> 
     type: "dofollow" as const,
   }));
 
+  // Prefer web-search numbers when we got them; otherwise use the AI estimate.
+  // Recommendations + linkVelocity always come from the AI pass.
+  const base = webSearchResult
+    ? {
+        ...webSearchResult,
+        anchorTexts: estimate.anchorTexts,
+        recommendations: estimate.recommendations,
+        dataSource: "web_search" as const,
+      }
+    : estimate;
+
   return {
-    ...estimate,
-    topReferrers: realReferrers,  // only real data, possibly empty
+    ...base,
+    topReferrers: realReferrers,
     verifiedReferrers: verifiedRes.verified,
     unlinkedHighValueDomains: unlinked,
-    dataSource: "ai_estimated" as const,
   };
 }

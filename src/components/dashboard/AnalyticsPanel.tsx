@@ -1644,7 +1644,7 @@ export function AnalyticsPanel({
                       {backlinkResult?.domainAuthority ?? "—"}
                     </div>
                     <div className="text-[11px] text-zinc-500 mt-0.5">
-                      {backlinkResult?.dataSource === "moz_api" ? "Moz verified" : backlinkResult ? "AI estimated" : "Run scan to measure"}
+                      {backlinkResult?.dataSource === "web_search" ? "Verified via web search" : backlinkResult ? "AI estimated" : "Run scan to measure"}
                     </div>
                   </CardContent>
                 </SectionCard>
@@ -1957,12 +1957,8 @@ export function AnalyticsPanel({
                   <CardHeader className="pb-3">
                     <div className="flex items-center gap-2">
                       <CardTitle className="text-[13px] font-semibold">Who links to you</CardTitle>
-                      <Badge className={`text-[10px] h-5 px-1.5 rounded-md border-0 ml-auto ${
-                        backlinkResult.dataSource === "moz_api"
-                          ? "bg-[#7CB342]/10 text-[#7CB342]"
-                          : "bg-blue-500/10 text-blue-400"
-                      }`}>
-                        {backlinkResult.dataSource === "moz_api" ? "Moz verified" : "Verified via web search"}
+                      <Badge className="text-[10px] h-5 px-1.5 rounded-md border-0 ml-auto bg-blue-500/10 text-blue-400">
+                        Verified via web search
                       </Badge>
                     </div>
                   </CardHeader>
