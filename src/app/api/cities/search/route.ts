@@ -9,6 +9,11 @@ import { aiLight } from "@/lib/ai";
  * cities with the state / UT they belong to. Caches in-process for 10
  * minutes per prefix to keep latency + cost down on rapid typing.
  *
+ * When the LLM is down (rate limit, quota, network), we return
+ * `{cities: [], degraded: true}` so the UI can accept whatever the
+ * user typed rather than falsely claiming "no matches" for obvious
+ * cities like Hyderabad. The autocomplete is a helper, not a gate.
+ *
  * GET /api/cities/search?q=bang
  *   → { cities: [{ name: "Bengaluru", state: "Karnataka" }, ...] }
  */
@@ -89,7 +94,11 @@ Rules:
     writeCache(q, out);
     return NextResponse.json({ cities: out });
   } catch (err) {
-    console.error("cities/search error:", err instanceof Error ? err.message : err);
-    return NextResponse.json({ cities: [] });
+    // LLM down (quota exhausted, rate limit, network). Critically, do
+    // NOT return a success with empty cities — that makes the UI claim
+    // "no matches" for obvious cities. Flag degraded so the client
+    // knows to silently accept what the user typed.
+    console.error("cities/search llm error:", err instanceof Error ? err.message : err);
+    return NextResponse.json({ cities: [], degraded: true });
   }
 }

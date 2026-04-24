@@ -458,7 +458,41 @@ export default function DashboardPage() {
     return () => clearTimeout(timer);
   }, [company]);
 
-  const addLog = (msg: string) => setTerminalLogs((prev) => [...prev, msg]);
+  /**
+   * Translate infra-level error shouting into language a prospect
+   * won't recoil from. The Navanaami demo hit "Error: 429 You exceeded
+   * your current quota, please check your plan and billing details"
+   * — raw OpenAI text — which reads like the product is broken even
+   * though it's our upstream billing. Same for rate-limit and Gemini
+   * outages. We surface the issue as "retry in a minute" without the
+   * finger-pointy backend copy.
+   */
+  const prettifyError = (raw: string): string => {
+    const s = raw || "";
+    if (/429|exceeded your current quota|rate[ _-]?limit/i.test(s)) {
+      return "AI provider is rate-limited right now. Retry in ~60 seconds — no data lost.";
+    }
+    if (/quota|billing|insufficient_quota/i.test(s)) {
+      return "AI provider quota temporarily maxed. Retry shortly — we're scaling capacity.";
+    }
+    if (/ECONNRESET|ETIMEDOUT|fetch failed|network/i.test(s)) {
+      return "Network blip between us and the AI provider. Retry — most scans succeed on second attempt.";
+    }
+    if (/503|service unavailable/i.test(s)) {
+      return "AI provider is momentarily unavailable. Retry in ~60 seconds.";
+    }
+    return s;
+  };
+
+  const addLog = (msg: string) => {
+    // Only touch lines that start with "> " and contain raw error
+    // signatures. We don't want to double-process lines the handlers
+    // already wrote nice copy for.
+    const prettified = msg.startsWith("> ")
+      ? "> " + prettifyError(msg.slice(2))
+      : prettifyError(msg);
+    setTerminalLogs((prev) => [...prev, prettified]);
+  };
 
   const refreshTrends = () => setTrends(getAllTrends(company.website));
 

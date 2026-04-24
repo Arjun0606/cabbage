@@ -35,6 +35,11 @@ export function CityAutocomplete({
   const [hits, setHits] = useState<City[]>([]);
   const [loading, setLoading] = useState(false);
   const [activeIdx, setActiveIdx] = useState(-1);
+  // True when the backend LLM is rate-limited / down and the suggestion
+  // endpoint returned {degraded: true}. In that state we accept any
+  // reasonable user input silently rather than gaslighting them with
+  // "no matches" for cities like Hyderabad.
+  const [degraded, setDegraded] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
 
@@ -72,8 +77,12 @@ export function CityAutocomplete({
         });
         if (!res.ok) return;
         const data = await res.json();
+        setDegraded(Boolean(data.degraded));
         if (Array.isArray(data.cities)) setHits(data.cities);
-      } catch { /* aborted or offline — ignore */ }
+      } catch {
+        // Network failure also counts as degraded — never block the user
+        setDegraded(true);
+      }
       finally { setLoading(false); }
     }, 250);
 
@@ -149,9 +158,14 @@ export function CityAutocomplete({
           ))}
         </div>
       )}
-      {open && !loading && query.trim().length >= 2 && hits.length === 0 && (
+      {/* Only surface the empty state when autocomplete is actually
+          working. When degraded (LLM rate-limited), accept what the
+          user typed silently — the value is already committed via
+          onChange. Telling them "no matches" for obvious cities like
+          Hyderabad is a first-impression killer. */}
+      {open && !loading && !degraded && query.trim().length >= 2 && hits.length === 0 && (
         <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-50 rounded-md border border-white/[0.08] bg-zinc-900 px-3 py-2 text-[12px] text-zinc-500">
-          No Indian city matches. Keep typing, or leave as-is.
+          No matches. Keep typing, or leave as-is — we&apos;ll use what you entered.
         </div>
       )}
     </div>
