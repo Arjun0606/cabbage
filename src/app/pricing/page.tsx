@@ -27,22 +27,43 @@ import Link from "next/link";
 
 const TIERS = [
   {
+    key: "solo",
+    name: "Solo",
+    usd: 120,
+    inr: 9999,
+    credits: 400,
+    subtitle: "Local builder · 1-3 projects in one locality",
+    anchor: "Cheaper than a mid-tier SEO tool subscription — and it does the work, not just the reporting.",
+    features: [
+      "400 credits per month",
+      "Up to 3 projects · 1 city",
+      "Monthly full scan (every surface on your main site)",
+      "6 articles generated per month",
+      "200 pages per full-site crawl",
+      "3 competitors tracked",
+      "Weekly AI visibility scans",
+      "Weekly review monitor (Housing, 99acres, Google)",
+      "Portal Optimizer + RERA tracking",
+      "Email support",
+    ],
+  },
+  {
     key: "starter",
     name: "Starter",
-    usd: 500,
-    inr: 42000,
-    credits: 1500,
-    subtitle: "Single-city residential developer, under 10 projects",
-    anchor: "Replaces a freelance digital lead, same price, 10× the surface",
+    usd: 360,
+    inr: 29999,
+    credits: 1200,
+    subtitle: "Single-city developer · 5-10 projects",
+    anchor: "Replaces a freelance digital lead at the same price with 10× the surface.",
     features: [
-      "1,500 credits per month",
+      "1,200 credits per month",
       "Up to 10 projects · 1 city",
-      "~25 full scans / month (audit+AI+backlinks+portal+RERA)",
+      "~20 full scans / month (cover every surface weekly)",
       "20 articles generated per month",
       "500 pages per full-site crawl",
-      "5 competitors tracked per city",
+      "5 competitors tracked",
       "Daily AI visibility scans (ChatGPT + Gemini)",
-      "Weekly review monitor (Housing, 99acres, Google, Reddit)",
+      "Weekly review monitor",
       "Portal Optimizer + submission tracker",
       "RERA + possession tracking",
       "Email support (24h)",
@@ -50,15 +71,15 @@ const TIERS = [
   },
   {
     key: "pro",
-    name: "Pro",
-    usd: 1200,
-    inr: 99000,
-    credits: 6000,
+    name: "Growth",
+    usd: 950,
+    inr: 79999,
+    credits: 4000,
     highlight: true,
-    subtitle: "Multi-city developer, 10-40 projects",
-    anchor: "Replaces a ₹3-5L/mo agency retainer. 15× agency content output.",
+    subtitle: "Regional developer · 10-40 projects across 2-3 cities",
+    anchor: "Replaces a ₹3-5L/mo agency retainer. 15× agency content output. The sweet spot.",
     features: [
-      "6,000 credits per month",
+      "4,000 credits per month",
       "Up to 40 projects · 3 cities",
       "Daily full scan included (every surface, automatically)",
       "60 articles generated per month",
@@ -73,26 +94,48 @@ const TIERS = [
     ],
   },
   {
+    key: "scale",
+    name: "Scale",
+    usd: 2400,
+    inr: 199999,
+    credits: 12000,
+    subtitle: "National developer · 40-100 projects across 5-10 cities",
+    anchor: "For multi-city builders pushing past what a single agency can deliver. Replaces a 2-3 person in-house team.",
+    features: [
+      "12,000 credits per month",
+      "Up to 100 projects · 10 cities",
+      "Daily full scan on every project microsite (100+ URLs)",
+      "120 articles generated per month",
+      "3,000 pages per full-site crawl",
+      "40 competitors · per-locality + per-city competitive map",
+      "Per-city AI visibility scans (all your metros)",
+      "Multi-state RERA compliance tracking + expiry alerts",
+      "Custom report templates",
+      "Hallucination audit + citation drift on every scan",
+      "Priority WhatsApp support (2h) + monthly strategy call",
+    ],
+  },
+  {
     key: "enterprise",
     name: "Enterprise",
-    usd: 2500,
-    inr: 210000,
-    credits: 20000,
-    subtitle: "Prestige / DLF / Lodha / Godrej scale",
-    anchor: "One CMO + Cabbge = a 5-person digital team. Replaces ₹10-15L/mo in-house stack.",
+    usd: 5999,
+    inr: 499999,
+    credits: 35000,
+    subtitle: "DLF · Prestige · Lodha · Godrej · Sobha scale",
+    anchor: "One CMO + Cabbge = a 5-person digital team. Replaces ₹15-25L/mo in-house stack.",
     features: [
-      "20,000 credits per month",
+      "35,000 credits per month",
       "Unlimited projects · unlimited cities",
-      "Full scan on every microsite daily (100+ URLs)",
-      "200 articles generated per month",
-      "3,000 pages per full-site crawl",
+      "Daily full scan on every microsite + brand-level surfaces",
+      "300 articles generated per month",
+      "10,000 pages per full-site crawl",
       "Unlimited competitors tracked",
-      "Per-city AI visibility scans (all metros)",
-      "Daily review monitor with same-day alerting",
-      "Multi-state RERA compliance tracking + expiry alerts",
-      "Brand disambiguation for multi-vertical groups",
-      "Priority WhatsApp (2h) + dedicated success manager",
-      "Custom integrations (Ahrefs, GSC, CRM)",
+      "Per-city AI visibility scans across every metro",
+      "Multi-state RERA compliance with same-day expiry alerts",
+      "Brand disambiguation for multi-vertical groups (Godrej Properties vs Godrej Consumer)",
+      "Dedicated success manager + 2h WhatsApp SLA",
+      "Custom integrations (Ahrefs, GSC, CRM, DMS)",
+      "Early access to new features",
     ],
   },
 ];
@@ -118,7 +161,7 @@ const AGENCY_COMPARE = [
   { label: "Review monitor (Housing / 99acres / Google)", agency: "Manual / spreadsheet", cabbge: "Automated, prioritised" },
   { label: "Portal submission tracker", agency: "In your team's head", cabbge: "Per project × portal matrix" },
   { label: "Ramp / onboarding time", agency: "4-8 weeks", cabbge: "15 minutes" },
-  { label: "Price (multi-city developer)", agency: "₹3-10 L/mo", cabbge: "₹99k/mo" },
+  { label: "Price (multi-city developer)", agency: "₹3-10 L/mo", cabbge: "₹79,999/mo (Growth)" },
 ];
 
 export default function PricingPage() {
@@ -203,10 +246,10 @@ export default function PricingPage() {
             Pricing
           </div>
           <h1 className="text-3xl sm:text-5xl font-bold tracking-tight mb-4">
-            Priced against your agency retainer, not a SaaS tool.
+            From a local builder to DLF. One product. Five tiers.
           </h1>
           <p className="text-zinc-400 text-[15px] max-w-2xl mx-auto leading-relaxed">
-            Cabbge replaces the digital agency, the freelance CMO, and most of the SEO tool stack. Three tiers, no trial, cancel anytime.
+            Credit-based pricing that scales with your portfolio. Every tier does the work — audit, AI visibility, article writing, portal coverage, RERA verification. The bigger your brand, the more of it you need.
           </p>
         </div>
 
@@ -233,12 +276,12 @@ export default function PricingPage() {
           </div>
         </div>
 
-        {/* Tier cards */}
-        <div className="grid md:grid-cols-3 gap-5 mb-16">
+        {/* Tier cards — 5 tiers, responsive: 1→2→3→5 columns */}
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-16">
           {TIERS.map((tier) => (
             <div
               key={tier.key}
-              className={`rounded-2xl p-6 flex flex-col ${
+              className={`rounded-2xl p-5 flex flex-col ${
                 tier.highlight
                   ? "bg-[#7CB342]/[0.06] border border-[#7CB342]/30 shadow-[0_0_48px_rgba(124,179,66,0.08)]"
                   : "bg-zinc-900/60 border border-white/[0.06]"
@@ -255,17 +298,21 @@ export default function PricingPage() {
                     </span>
                   )}
                 </div>
-                <div className="flex items-baseline gap-2">
-                  <span className="text-4xl font-bold">₹{priceFor(tier).toLocaleString("en-IN")}</span>
-                  <span className="text-[13px] text-zinc-400">/ month</span>
+                <div className="flex items-baseline gap-1.5 flex-wrap">
+                  <span className="text-3xl font-bold tabular-nums">₹{priceFor(tier).toLocaleString("en-IN")}</span>
+                  <span className="text-[12px] text-zinc-400">/ mo</span>
                 </div>
-                <div className="text-[11px] text-zinc-500 mt-1">
-                  ~${Math.round(tier.usd * (billed === "annual" ? 0.8 : 1))}/mo · billed {billed === "annual" ? "annually" : "monthly"} · GST extra
+                <div className="text-[10px] text-zinc-500 mt-1">
+                  ~${Math.round(tier.usd * (billed === "annual" ? 0.8 : 1))}/mo · {billed === "annual" ? "annual" : "monthly"} · GST extra
                 </div>
-                <p className="text-[12px] text-zinc-400 mt-3 leading-relaxed">
+                <div className="mt-3 py-2 px-2.5 rounded-lg bg-zinc-800/60 border border-white/[0.04] flex items-center justify-between">
+                  <span className="text-[10px] uppercase tracking-wide text-zinc-500 font-semibold">Credits / mo</span>
+                  <span className="text-[14px] font-bold text-[#7CB342] tabular-nums">{tier.credits.toLocaleString("en-IN")}</span>
+                </div>
+                <p className="text-[11px] text-zinc-400 mt-3 leading-relaxed">
                   {tier.subtitle}
                 </p>
-                <p className="text-[11px] text-[#7CB342] mt-2 leading-relaxed italic">
+                <p className="text-[10px] text-[#7CB342]/80 mt-2 leading-relaxed">
                   {tier.anchor}
                 </p>
               </div>
@@ -273,26 +320,26 @@ export default function PricingPage() {
               <button
                 onClick={() => handleSubscribe(tier.key)}
                 disabled={subscribing === tier.key}
-                className={`w-full h-11 rounded-lg text-[14px] font-semibold mb-5 flex items-center justify-center gap-1.5 transition-all ${
+                className={`w-full h-10 rounded-lg text-[13px] font-semibold mb-4 flex items-center justify-center gap-1.5 transition-all ${
                   tier.highlight
                     ? "bg-[#7CB342] text-zinc-950 hover:bg-[#8BC34A] active:scale-[0.98]"
                     : "bg-zinc-800 text-zinc-100 border border-white/[0.08] hover:bg-zinc-700 active:scale-[0.98]"
                 } disabled:opacity-60`}
               >
                 {subscribing === tier.key ? (
-                  <Loader2 size={14} className="animate-spin" />
+                  <Loader2 size={13} className="animate-spin" />
                 ) : (
                   <>
-                    {authed ? `Subscribe to ${tier.name}` : "Get started"}
-                    <ArrowRight size={14} />
+                    {authed ? "Subscribe" : "Get started"}
+                    <ArrowRight size={13} />
                   </>
                 )}
               </button>
 
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 {tier.features.map((f, i) => (
-                  <div key={i} className="flex items-start gap-2 text-[12.5px] text-zinc-300">
-                    <Check size={13} className="text-[#7CB342] flex-shrink-0 mt-0.5" />
+                  <div key={i} className="flex items-start gap-1.5 text-[11.5px] text-zinc-300">
+                    <Check size={12} className="text-[#7CB342] flex-shrink-0 mt-0.5" />
                     <span className="leading-relaxed">{f}</span>
                   </div>
                 ))}
@@ -313,7 +360,7 @@ export default function PricingPage() {
             <div className="grid grid-cols-[1fr_1fr_1fr] px-5 py-2.5 bg-zinc-900/80 text-[10px] uppercase tracking-wide text-zinc-500 font-semibold">
               <div>Dimension</div>
               <div>Digital agency</div>
-              <div>Cabbge Pro (₹99k/mo)</div>
+              <div>Cabbge Growth (₹79,999/mo)</div>
             </div>
             {AGENCY_COMPARE.map((row) => (
               <div key={row.label} className="grid grid-cols-[1fr_1fr_1fr] px-5 py-3 text-[13px]">

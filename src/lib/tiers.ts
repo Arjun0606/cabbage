@@ -12,7 +12,21 @@
  *   anything else (including "none", null) → no access (paywall)
  */
 
-export type PlanTier = "starter" | "pro" | "enterprise";
+/**
+ * Five-tier ladder sized so the product fits a local builder all the
+ * way up to DLF / Lodha scale. Every tier is designed for >92% gross
+ * margin — the credit pool is sized so a typical customer's real COGS
+ * (OpenAI web_search + article writing) stays well under 10% of list.
+ *
+ * Legacy keys kept for backward compatibility with existing Supabase
+ * `subscriptions.plan` rows:
+ *   "starter"      existing — unchanged
+ *   "pro"          existing — display label changed to "Growth"
+ *   "enterprise"   existing — unchanged
+ *   "solo"         NEW — smallest tier, local-builder pricing
+ *   "scale"        NEW — regional/national, fits between pro and enterprise
+ */
+export type PlanTier = "solo" | "starter" | "pro" | "scale" | "enterprise";
 export type PlanBilled = "monthly" | "annual";
 
 export interface TierLimits {
@@ -61,17 +75,52 @@ export interface TierDef {
 }
 
 export const TIERS: Record<PlanTier, TierDef> = {
+  // ------- Solo (₹9,999/mo) -------
+  // Local builder with 1-3 projects in one locality. Monthly manual
+  // scans, a handful of articles. Cheapest entry so the product is
+  // never out of reach for an SEO-curious small developer.
+  // Typical COGS: ~$10/mo → >90% margin at ₹9,999.
+  solo: {
+    key: "solo",
+    label: "Solo",
+    usd: 120,
+    inr: 9999,
+    dodoProductEnv: {
+      monthly: "DODO_PRODUCT_SOLO_MONTHLY",
+      annual: "DODO_PRODUCT_SOLO_ANNUAL",
+    },
+    limits: {
+      creditsPerMonth: 400,
+      maxProjects: 3,
+      maxCities: 1,
+      maxPagesPerCrawl: 200,
+      articlesPerMonth: 6,
+      maxCompetitors: 3,
+      reviewMonitorFrequency: "weekly",
+      features: {
+        cmoDigest: false,
+        infraNews: false,
+        perCityAIVisibility: false,
+        customReportTemplates: false,
+        prioritySupport: false,
+      },
+    },
+  },
+  // ------- Starter (₹29,999/mo) -------
+  // Small single-city developer, 5-10 projects. Weekly scans, 15-20
+  // articles per month, covers one city's AI visibility.
+  // Typical COGS: ~$25/mo → ~93% margin.
   starter: {
     key: "starter",
     label: "Starter",
-    usd: 500,
-    inr: 42000,
+    usd: 360,
+    inr: 29999,
     dodoProductEnv: {
       monthly: "DODO_PRODUCT_STARTER_MONTHLY",
       annual: "DODO_PRODUCT_STARTER_ANNUAL",
     },
     limits: {
-      creditsPerMonth: 1500,
+      creditsPerMonth: 1200,
       maxProjects: 10,
       maxCities: 1,
       maxPagesPerCrawl: 500,
@@ -87,17 +136,22 @@ export const TIERS: Record<PlanTier, TierDef> = {
       },
     },
   },
+  // ------- Growth (pro key, ₹79,999/mo) -------
+  // Regional multi-city developer, 10-40 projects. Daily full scan
+  // included, 40-60 articles/mo, per-city AI visibility, CMO digest,
+  // infrastructure-news pipeline.
+  // Typical COGS: ~$80/mo → ~93% margin.
   pro: {
     key: "pro",
-    label: "Pro",
-    usd: 1200,
-    inr: 99000,
+    label: "Growth",
+    usd: 950,
+    inr: 79999,
     dodoProductEnv: {
       monthly: "DODO_PRODUCT_PRO_MONTHLY",
       annual: "DODO_PRODUCT_PRO_ANNUAL",
     },
     limits: {
-      creditsPerMonth: 6000,
+      creditsPerMonth: 4000,
       maxProjects: 40,
       maxCities: 3,
       maxPagesPerCrawl: 1500,
@@ -113,21 +167,57 @@ export const TIERS: Record<PlanTier, TierDef> = {
       },
     },
   },
+  // ------- Scale (₹1,99,999/mo) -------
+  // Regional heavyweight / national builder, 40-100 projects across
+  // 5-10 cities. Daily scans on every microsite, 100 articles, full
+  // portal + RERA coverage, custom report templates.
+  // Typical COGS: ~$180/mo → ~92% margin.
+  scale: {
+    key: "scale",
+    label: "Scale",
+    usd: 2400,
+    inr: 199999,
+    dodoProductEnv: {
+      monthly: "DODO_PRODUCT_SCALE_MONTHLY",
+      annual: "DODO_PRODUCT_SCALE_ANNUAL",
+    },
+    limits: {
+      creditsPerMonth: 12000,
+      maxProjects: 100,
+      maxCities: 10,
+      maxPagesPerCrawl: 3000,
+      articlesPerMonth: 120,
+      maxCompetitors: 40,
+      reviewMonitorFrequency: "daily",
+      features: {
+        cmoDigest: true,
+        infraNews: true,
+        perCityAIVisibility: true,
+        customReportTemplates: true,
+        prioritySupport: true,
+      },
+    },
+  },
+  // ------- Enterprise (₹4,99,999/mo) -------
+  // DLF / Lodha / Prestige / Godrej / Sobha scale. Unlimited projects,
+  // daily full scans on every microsite, 250 articles, dedicated CSM,
+  // custom integrations, early access to new features.
+  // Typical COGS: ~$400/mo → ~93% margin.
   enterprise: {
     key: "enterprise",
     label: "Enterprise",
-    usd: 2500,
-    inr: 210000,
+    usd: 5999,
+    inr: 499999,
     dodoProductEnv: {
       monthly: "DODO_PRODUCT_ENTERPRISE_MONTHLY",
       annual: "DODO_PRODUCT_ENTERPRISE_ANNUAL",
     },
     limits: {
-      creditsPerMonth: 20000,
+      creditsPerMonth: 35000,
       maxProjects: -1,
       maxCities: -1,
-      maxPagesPerCrawl: 3000,
-      articlesPerMonth: 200,
+      maxPagesPerCrawl: 10000,
+      articlesPerMonth: 300,
       maxCompetitors: -1,
       reviewMonitorFrequency: "daily",
       features: {
