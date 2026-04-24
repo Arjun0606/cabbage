@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -8,7 +8,18 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, CheckCircle2, XCircle, ArrowRight, Zap, Shield, TrendingUp } from "lucide-react";
 import Link from "next/link";
 
+// Next 16 requires useSearchParams() to live inside a Suspense
+// boundary at static-generation time. The default export wraps the
+// client component for that reason.
 export default function GraderPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#0a0a0b]" />}>
+      <GraderInner />
+    </Suspense>
+  );
+}
+
+function GraderInner() {
   const searchParams = useSearchParams();
   const [brand, setBrand] = useState("");
   const [city, setCity] = useState("");
