@@ -128,12 +128,30 @@ export async function POST(req: NextRequest) {
     const aliases = parseList((brandContext as any)?.aliases);
     const exclusions = parseList((brandContext as any)?.exclusions);
 
+    // Ground-truth projects for the hallucination audit. projectDetails
+    // is the rich array (name + location + configs + price + RERA)
+    // produced by auto-discover's per-project scraper — auditing against
+    // our own scraped data means zero made-up facts flagged as wrong.
+    const projectGroundTruth = Array.isArray(projectDetails)
+      ? projectDetails
+          .filter((p: any) => p && typeof p === "object" && typeof p.name === "string" && p.name.trim())
+          .map((p: any) => ({
+            name: String(p.name).trim(),
+            location: typeof p.location === "string" ? p.location : "",
+            configurations: typeof p.configurations === "string" ? p.configurations : "",
+            priceRange: typeof p.priceRange === "string" ? p.priceRange : "",
+            reraNumber: typeof p.reraNumber === "string" ? p.reraNumber : "",
+            possession: typeof p.possession === "string" ? p.possession : "",
+          }))
+      : undefined;
+
     const result = await runAIVisibility(
       websiteUrl || "",
       brand,
       projects || [],
       queries,
-      { aliases, exclusions }
+      { aliases, exclusions },
+      projectGroundTruth,
     );
 
     // Pull the latest volatility snapshot so the UI can render sparklines

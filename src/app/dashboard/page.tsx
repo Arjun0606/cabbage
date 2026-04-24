@@ -818,6 +818,11 @@ export default function DashboardPage() {
             priceMin: (p as any).price_min,
             priceMax: (p as any).price_max,
             stage: (p as any).stage,
+            // Fields piped to the hallucination auditor — ground truth
+            // for RERA / possession / status / locality checks.
+            reraNumber: (p as any).reraNumber || (p as any).rera_number || "",
+            possession: (p as any).possession || (p as any).possession_date || "",
+            status: (p as any).status || "",
             assetType: inferAssetType({
               name: p.name,
               configurations: p.configurations,

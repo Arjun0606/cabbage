@@ -37,6 +37,7 @@ import { ProjectScorecard } from "./ProjectScorecard";
 import { CompetitiveLandscape } from "./CompetitiveLandscape";
 import { OwnPagesAICites } from "./OwnPagesAICites";
 import { ThirdPartyAuthority } from "./ThirdPartyAuthority";
+import { HallucinationAudit } from "./HallucinationAudit";
 import { ProjectCompare } from "./ProjectCompare";
 import { DelayRiskPanel } from "./DelayRiskPanel";
 import { ReviewMonitor } from "./ReviewMonitor";
@@ -1074,6 +1075,13 @@ export function AnalyticsPanel({
             localities={localitiesInScope}
             onWriteArticle={onGeoFixQuery}
           />
+
+          {/* AI accuracy audit — flags factual errors the AI made about
+              the brand (RERA mismatch, misattribution, wrong price/BHK).
+              Runs against ground-truth project data scraped from the
+              brand's own site, so every flag is actionable and legally
+              defensible. Quiet by default when nothing is wrong. */}
+          <HallucinationAudit aiVisResult={aiVisResult} />
 
           {/* Our own pages AI is citing — the "what's actually working"
               card. Shows the top own-domain URLs AI pulled from during

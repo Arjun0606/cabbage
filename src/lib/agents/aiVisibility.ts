@@ -1,5 +1,6 @@
 import { queryForVisibility, aiLight, type VisibilitySource } from "@/lib/ai";
 import type { QueryWithMeta } from "@/lib/agents/localityEngine";
+import { checkHallucinations } from "@/lib/agents/hallucinationCheck";
 
 // ---------- Types ----------
 
@@ -61,6 +62,10 @@ interface LLMResult {
   sentiment: "positive" | "neutral" | "negative" | "absent";
   coCitations: string[];  // Other brands/developers mentioned in same answer
   citationSources: Array<{ url: string; type: "own_site" | "competitor" | "portal" | "ugc" | "news" | "government" | "unknown" }>;
+  /** Factual errors the AI made about the brand in this response.
+   *  Empty array means checked-and-clean. Absent / undefined means not
+   *  audited (no ground-truth projects supplied, or brand not mentioned). */
+  hallucinations?: import("./hallucinationCheck").Hallucination[];
 }
 
 interface AIReadinessCheck {
@@ -438,7 +443,8 @@ export async function runAIVisibility(
   brand: string,
   projects: string[],
   queries: QueryWithMeta[],
-  disambiguation?: BrandDisambiguation
+  disambiguation?: BrandDisambiguation,
+  projectGroundTruth?: import("./hallucinationCheck").ProjectGroundTruth[],
 ): Promise<AIVisibilityResult> {
   // Run AI readiness checks
   const aiReadiness = await checkAIReadiness(websiteUrl);
@@ -481,6 +487,34 @@ export async function runAIVisibility(
       analyzeMention(geminiRes.text, brand, projects, disambiguation),
     ]);
 
+    // Hallucination audit — compare AI's factual claims against the
+    // scraped ground-truth projects. Only run when the brand was
+    // actually mentioned (no point auditing absence) and we have
+    // ground-truth data to compare against.
+    const shouldAudit = !!projectGroundTruth && projectGroundTruth.length > 0;
+    const [chatgptHallucinations, geminiHallucinations] = shouldAudit
+      ? await Promise.all([
+          chatgptAnalysis.mentioned
+            ? checkHallucinations(
+                brand,
+                disambiguation?.aliases || [],
+                disambiguation?.exclusions || [],
+                projectGroundTruth!,
+                chatgptRes.text,
+              ).then((r) => r.hallucinations).catch(() => [])
+            : Promise.resolve([]),
+          geminiAnalysis.mentioned
+            ? checkHallucinations(
+                brand,
+                disambiguation?.aliases || [],
+                disambiguation?.exclusions || [],
+                projectGroundTruth!,
+                geminiRes.text,
+              ).then((r) => r.hallucinations).catch(() => [])
+            : Promise.resolve([]),
+        ])
+      : [undefined, undefined];
+
     queryResults.push({
       query: qm.query,
       level: qm.level,
@@ -488,8 +522,8 @@ export async function runAIVisibility(
       config: qm.config,
       priceTier: qm.priceTier,
       intent: qm.intent,
-      chatgpt: chatgptAnalysis,
-      gemini: geminiAnalysis,
+      chatgpt: { ...chatgptAnalysis, hallucinations: chatgptHallucinations },
+      gemini: { ...geminiAnalysis, hallucinations: geminiHallucinations },
       claude: emptyResult,
       perplexity: emptyResult,
     });
