@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -8,20 +9,24 @@ import { Loader2, CheckCircle2, XCircle, ArrowRight, Zap, Shield, TrendingUp } f
 import Link from "next/link";
 
 export default function GraderPage() {
+  const searchParams = useSearchParams();
   const [brand, setBrand] = useState("");
   const [city, setCity] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
+  const autoRanRef = useRef(false);
 
-  const runGrader = async () => {
-    if (!brand.trim() || !city.trim()) return;
+  const runGrader = async (overrideBrand?: string, overrideCity?: string) => {
+    const b = (overrideBrand ?? brand).trim();
+    const c = (overrideCity ?? city).trim();
+    if (!b || !c) return;
     setIsLoading(true);
     setResult(null);
     try {
       const res = await fetch("/api/grader", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ brand: brand.trim(), city: city.trim() }),
+        body: JSON.stringify({ brand: b, city: c }),
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
@@ -32,6 +37,23 @@ export default function GraderPage() {
       setIsLoading(false);
     }
   };
+
+  // Auto-run when the URL has ?brand=X&city=Y&autorun=1 — this is what
+  // makes the preview link in cold-outreach emails work on click. The
+  // prospect lands here and immediately sees their brand's scan running.
+  useEffect(() => {
+    if (autoRanRef.current) return;
+    const qBrand = searchParams.get("brand")?.trim();
+    const qCity = searchParams.get("city")?.trim();
+    const qAuto = searchParams.get("autorun");
+    if (qBrand) setBrand(qBrand);
+    if (qCity) setCity(qCity);
+    if (qBrand && qCity && qAuto) {
+      autoRanRef.current = true;
+      runGrader(qBrand, qCity);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   return (
     <div className="min-h-screen bg-[#0a0a0b] text-zinc-100">
@@ -91,7 +113,7 @@ export default function GraderPage() {
               </div>
               <div className="flex items-end">
                 <button
-                  onClick={runGrader}
+                  onClick={() => runGrader()}
                   disabled={isLoading || !brand.trim() || !city.trim()}
                   className="h-11 px-6 rounded-lg bg-[#7CB342] text-zinc-900 font-semibold text-[14px] hover:bg-[#8BC34A] active:scale-[0.97] transition-all disabled:opacity-40 flex items-center gap-2"
                 >
