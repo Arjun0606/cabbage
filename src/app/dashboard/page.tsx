@@ -53,6 +53,8 @@ export default function DashboardPage() {
   const [isCheckingPortalCoverage, setIsCheckingPortalCoverage] = useState(false);
   const [fanoutByQuery, setFanoutByQuery] = useState<Record<string, any>>({});
   const [fanoutLoading, setFanoutLoading] = useState<Set<string>>(new Set());
+  const [reraVerification, setReraVerification] = useState<any>(null);
+  const [isVerifyingRera, setIsVerifyingRera] = useState(false);
   const [backlinkResult, setBacklinkResult] = useState<any>(null);
   const [technicalResult, setTechnicalResult] = useState<any>(null);
   const [competitorResults, setCompetitorResults] = useState<any[]>([]);
@@ -762,6 +764,38 @@ export default function DashboardPage() {
         next.delete(anchor);
         return next;
       });
+    }
+  };
+
+  const runReraVerification = async () => {
+    if (!company.projects || company.projects.length === 0) {
+      addLog("> Add projects before running RERA verification");
+      return;
+    }
+    if (!spendCredits("audit")) return;
+    setIsVerifyingRera(true);
+    addLog(`> Cross-checking ${company.projects.length} project RERA numbers against state portals...`);
+    try {
+      const res = await fetch("/api/rera-verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          companyId: (company as any)._companyId,
+          projects: company.projects.map((p) => ({
+            name: p.name,
+            reraNumber: (p as any).reraNumber || (p as any).rera_number || "",
+            location: p.location || "",
+          })),
+        }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setReraVerification(data);
+      addLog(`> RERA verification: ${data.verified}/${data.total} verified${data.mismatch > 0 ? `, ${data.mismatch} mismatch` : ""}`);
+    } catch (err) {
+      addLog(`> RERA verification failed: ${err instanceof Error ? err.message : "unknown"}`);
+    } finally {
+      setIsVerifyingRera(false);
     }
   };
 
@@ -1718,6 +1752,9 @@ export default function DashboardPage() {
               fanoutByQuery={fanoutByQuery}
               fanoutLoading={fanoutLoading}
               onRunFanout={runFanout}
+              reraVerification={reraVerification}
+              isVerifyingRera={isVerifyingRera}
+              onRunReraVerification={runReraVerification}
             />
           </div>
 

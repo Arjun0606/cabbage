@@ -123,6 +123,25 @@ interface Props {
   } | null;
   isCheckingPortalCoverage?: boolean;
   onRunPortalCoverage?: () => void;
+  // RERA cross-verification against state authority portals
+  reraVerification?: {
+    entries: Array<{
+      project: string;
+      reraNumber: string;
+      state: string;
+      portalDomain: string;
+      status: "verified" | "not_found" | "mismatch" | "invalid_format" | "no_number" | "unknown";
+      citationUrl?: string;
+      note: string;
+    }>;
+    verified: number;
+    mismatch: number;
+    unverified: number;
+    total: number;
+    ranAt: string;
+  } | null;
+  isVerifyingRera?: boolean;
+  onRunReraVerification?: () => void;
   reportResult: any;
   isGeneratingReport: boolean;
   onRunMarketingReport: () => void;
@@ -277,6 +296,7 @@ export function AnalyticsPanel({
   schemaResult, isGeneratingSchema, onRunSchemaGenerator,
   portalResult, isGeneratingPortal, onRunPortalOptimizer,
   portalCoverage = null, isCheckingPortalCoverage = false, onRunPortalCoverage,
+  reraVerification = null, isVerifyingRera = false, onRunReraVerification,
   reportResult, isGeneratingReport, onRunMarketingReport,
   cmoDigestResult, isGeneratingCmoDigest, onRunCmoDigest,
   reviewMonitorResult, isRunningReviewMonitor, onRunReviewMonitor,
@@ -1743,15 +1763,23 @@ export function AnalyticsPanel({
                     each state has its own RERA authority. */}
                 <SectionCard>
                   <CardContent className="p-4">
-                    <div className="text-[10px] uppercase tracking-wide text-zinc-500 font-semibold mb-1">RERA Verified</div>
+                    <div className="text-[10px] uppercase tracking-wide text-zinc-500 font-semibold mb-1">
+                      RERA {reraVerification ? "State-Verified" : "Verified"}
+                    </div>
                     <div className="text-2xl font-bold text-zinc-100 tabular-nums">
-                      {reraProjects}
+                      {reraVerification ? reraVerification.verified : reraProjects}
                       <span className="text-[13px] text-zinc-500 font-normal">
-                        {" / "}{projects.length || 0}
+                        {" / "}{reraVerification ? reraVerification.total : projects.length || 0}
                       </span>
                     </div>
                     <div className="text-[11px] text-zinc-500 mt-0.5">
-                      {projects.length === 0
+                      {reraVerification
+                        ? reraVerification.mismatch > 0
+                          ? `${reraVerification.mismatch} mismatch${reraVerification.mismatch === 1 ? "" : "es"} — click for detail`
+                          : reraVerification.verified === reraVerification.total
+                          ? "All RERA records confirmed by state portal"
+                          : `${reraVerification.total - reraVerification.verified} unverified`
+                        : projects.length === 0
                         ? "Add projects to track"
                         : multiState
                         ? `${stateBreakdown.length} state authorities`
@@ -1882,6 +1910,124 @@ export function AnalyticsPanel({
               )}
             </CardContent>
           </SectionCard>
+
+          {/* --- RERA state-portal cross-verification. Takes the scraped
+               RERA number for each project and confirms it against the
+               relevant state authority's public registry via grounded
+               web search. Catches expired / mismatched / invalid numbers
+               that expose the brand to regulatory complaints. --- */}
+          {(projects.length > 0 || reraVerification) && (
+            <SectionCard>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <CardTitle className="text-[13px] font-semibold flex items-center gap-2">
+                      <Wrench size={14} className="text-zinc-400" />
+                      RERA state-portal verification
+                      {reraVerification && (
+                        <Badge className={`text-[10px] h-5 px-1.5 rounded-md border-0 ${
+                          reraVerification.mismatch > 0
+                            ? "bg-red-500/10 text-red-400"
+                            : reraVerification.verified === reraVerification.total
+                            ? "bg-[#7CB342]/10 text-[#7CB342]"
+                            : "bg-amber-500/10 text-amber-400"
+                        }`}>
+                          {reraVerification.verified}/{reraVerification.total} verified
+                          {reraVerification.mismatch > 0 ? ` · ${reraVerification.mismatch} mismatch` : ""}
+                        </Badge>
+                      )}
+                    </CardTitle>
+                    <p className="text-[11px] text-zinc-500 mt-1">
+                      Cross-checks each project&apos;s RERA number against the state authority registry (HARERA, K-RERA, TS-RERA, MahaRERA, etc.). Mismatches expose you to regulatory complaints.
+                    </p>
+                  </div>
+                  {onRunReraVerification && (
+                    <Button
+                      onClick={onRunReraVerification}
+                      disabled={isVerifyingRera}
+                      size="sm"
+                      className="bg-zinc-100 text-zinc-900 hover:bg-white h-8 text-[12px] rounded-lg flex-shrink-0"
+                    >
+                      {isVerifyingRera ? (
+                        <><Loader2 size={12} className="animate-spin mr-1.5" />Verifying</>
+                      ) : reraVerification ? (
+                        <>Re-verify</>
+                      ) : (
+                        <>Verify all</>
+                      )}
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                {!reraVerification ? (
+                  <div className="text-[11px] text-zinc-500 leading-relaxed p-3 rounded-lg bg-zinc-800/30 border border-white/[0.04]">
+                    Run the check — for each project we look up the RERA number on the relevant state authority&apos;s public registry and return a citation URL on the state&apos;s own domain. No fabrication, no AI-guessed status.
+                  </div>
+                ) : (
+                  <div className="divide-y divide-white/[0.04] rounded-lg bg-zinc-800/20 border border-white/[0.04] overflow-hidden max-h-[420px] overflow-y-auto">
+                    {reraVerification.entries.map((e, i) => {
+                      const color =
+                        e.status === "verified" ? "text-[#7CB342]"
+                        : e.status === "mismatch" ? "text-red-400"
+                        : e.status === "not_found" || e.status === "invalid_format" ? "text-red-400"
+                        : e.status === "no_number" ? "text-zinc-500"
+                        : "text-amber-400";
+                      const badgeStyles =
+                        e.status === "verified" ? "bg-[#7CB342]/10 text-[#7CB342]"
+                        : e.status === "mismatch" || e.status === "not_found" || e.status === "invalid_format" ? "bg-red-500/10 text-red-400"
+                        : e.status === "no_number" ? "bg-zinc-800 text-zinc-500"
+                        : "bg-amber-500/10 text-amber-400";
+                      const label =
+                        e.status === "verified" ? "Verified"
+                        : e.status === "mismatch" ? "Mismatch"
+                        : e.status === "not_found" ? "Not on portal"
+                        : e.status === "invalid_format" ? "Invalid format"
+                        : e.status === "no_number" ? "Not scraped"
+                        : "Unverified";
+                      return (
+                        <div key={i} className="flex items-start gap-3 px-3.5 py-2.5">
+                          <span className={`text-[10px] w-2 flex-shrink-0 mt-1 ${color}`}>●</span>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-[12px] text-zinc-200 font-medium truncate" title={e.project}>{e.project}</span>
+                              {e.state && (
+                                <Badge className="text-[9px] bg-zinc-800 text-zinc-500 border-0 rounded h-4 px-1 font-normal">
+                                  {e.state}
+                                </Badge>
+                              )}
+                              {e.reraNumber && (
+                                <span className="text-[10px] text-zinc-500 font-mono truncate" title={e.reraNumber}>
+                                  {e.reraNumber}
+                                </span>
+                              )}
+                            </div>
+                            {e.note && (
+                              <div className="text-[11px] text-zinc-500 mt-0.5 line-clamp-2" title={e.note}>{e.note}</div>
+                            )}
+                          </div>
+                          {e.citationUrl ? (
+                            <a
+                              href={e.citationUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[10px] text-[#7CB342] hover:underline flex items-center gap-1 flex-shrink-0 mt-0.5"
+                            >
+                              Portal <ExternalLink size={10} />
+                            </a>
+                          ) : (
+                            <Badge className={`text-[10px] h-5 px-1.5 rounded-md border-0 flex-shrink-0 ${badgeStyles}`}>
+                              {label}
+                            </Badge>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </SectionCard>
+          )}
 
           {/* --- Portal listings (execution-first) --- */}
           <SectionCard>
