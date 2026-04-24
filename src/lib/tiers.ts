@@ -75,26 +75,27 @@ export interface TierDef {
 }
 
 export const TIERS: Record<PlanTier, TierDef> = {
-  // ------- Solo (₹9,999/mo) -------
-  // Local builder with 1-3 projects in one locality. Monthly manual
-  // scans, a handful of articles. Cheapest entry so the product is
-  // never out of reach for an SEO-curious small developer.
-  // Typical COGS: ~$10/mo → >90% margin at ₹9,999.
+  // ------- Solo (₹19,999/mo) -------
+  // Local builder with 1-3 projects in one locality who already pays
+  // a freelance SEO consultant ₹20-40k/mo. Same price, does the work
+  // instead of just reporting it. Not the "cheapest possible" — the
+  // minimum-viable entry for a serious marketer.
+  // Typical COGS: ~$12/mo → ~95% margin.
   solo: {
     key: "solo",
     label: "Solo",
-    usd: 120,
-    inr: 9999,
+    usd: 240,
+    inr: 19999,
     dodoProductEnv: {
       monthly: "DODO_PRODUCT_SOLO_MONTHLY",
       annual: "DODO_PRODUCT_SOLO_ANNUAL",
     },
     limits: {
-      creditsPerMonth: 400,
+      creditsPerMonth: 600,
       maxProjects: 3,
       maxCities: 1,
-      maxPagesPerCrawl: 200,
-      articlesPerMonth: 6,
+      maxPagesPerCrawl: 300,
+      articlesPerMonth: 10,
       maxCompetitors: 3,
       reviewMonitorFrequency: "weekly",
       features: {
@@ -106,26 +107,27 @@ export const TIERS: Record<PlanTier, TierDef> = {
       },
     },
   },
-  // ------- Starter (₹29,999/mo) -------
-  // Small single-city developer, 5-10 projects. Weekly scans, 15-20
-  // articles per month, covers one city's AI visibility.
-  // Typical COGS: ~$25/mo → ~93% margin.
+  // ------- Starter (₹49,999/mo) -------
+  // Small single-city developer with 5-10 projects who typically runs
+  // a ₹50k-₹1L agency retainer. We match that retainer and deliver
+  // 10× the output with daily AI visibility scans.
+  // Typical COGS: ~$40/mo → ~93% margin.
   starter: {
     key: "starter",
     label: "Starter",
-    usd: 360,
-    inr: 29999,
+    usd: 600,
+    inr: 49999,
     dodoProductEnv: {
       monthly: "DODO_PRODUCT_STARTER_MONTHLY",
       annual: "DODO_PRODUCT_STARTER_ANNUAL",
     },
     limits: {
-      creditsPerMonth: 1200,
+      creditsPerMonth: 2000,
       maxProjects: 10,
       maxCities: 1,
       maxPagesPerCrawl: 500,
-      articlesPerMonth: 20,
-      maxCompetitors: 5,
+      articlesPerMonth: 30,
+      maxCompetitors: 7,
       reviewMonitorFrequency: "weekly",
       features: {
         cmoDigest: false,
@@ -136,27 +138,28 @@ export const TIERS: Record<PlanTier, TierDef> = {
       },
     },
   },
-  // ------- Growth (pro key, ₹79,999/mo) -------
-  // Regional multi-city developer, 10-40 projects. Daily full scan
-  // included, 40-60 articles/mo, per-city AI visibility, CMO digest,
-  // infrastructure-news pipeline.
-  // Typical COGS: ~$80/mo → ~93% margin.
+  // ------- Growth (pro key, ₹99,999/mo) -------
+  // Regional multi-city developer (10-40 projects) — the sweet spot.
+  // Priced precisely against the ₹3-5L/mo agency retainer they'd
+  // otherwise pay. Daily full scan on main site + microsites, 80
+  // articles, CMO digest, infrastructure news.
+  // Typical COGS: ~$100/mo → ~92% margin.
   pro: {
     key: "pro",
     label: "Growth",
-    usd: 950,
-    inr: 79999,
+    usd: 1200,
+    inr: 99999,
     dodoProductEnv: {
       monthly: "DODO_PRODUCT_PRO_MONTHLY",
       annual: "DODO_PRODUCT_PRO_ANNUAL",
     },
     limits: {
-      creditsPerMonth: 4000,
+      creditsPerMonth: 5000,
       maxProjects: 40,
       maxCities: 3,
       maxPagesPerCrawl: 1500,
-      articlesPerMonth: 60,
-      maxCompetitors: 15,
+      articlesPerMonth: 80,
+      maxCompetitors: 20,
       reviewMonitorFrequency: "daily",
       features: {
         cmoDigest: true,
@@ -167,27 +170,28 @@ export const TIERS: Record<PlanTier, TierDef> = {
       },
     },
   },
-  // ------- Scale (₹1,99,999/mo) -------
-  // Regional heavyweight / national builder, 40-100 projects across
-  // 5-10 cities. Daily scans on every microsite, 100 articles, full
-  // portal + RERA coverage, custom report templates.
-  // Typical COGS: ~$180/mo → ~92% margin.
+  // ------- Scale (₹2,49,999/mo) -------
+  // National builder with 40-100 projects across multiple cities.
+  // Replaces a 3-person in-house marketing team. Daily scan on every
+  // microsite, 200 articles, full portal + RERA coverage, custom
+  // report templates.
+  // Typical COGS: ~$250/mo → ~92% margin.
   scale: {
     key: "scale",
     label: "Scale",
-    usd: 2400,
-    inr: 199999,
+    usd: 3000,
+    inr: 249999,
     dodoProductEnv: {
       monthly: "DODO_PRODUCT_SCALE_MONTHLY",
       annual: "DODO_PRODUCT_SCALE_ANNUAL",
     },
     limits: {
-      creditsPerMonth: 12000,
+      creditsPerMonth: 15000,
       maxProjects: 100,
       maxCities: 10,
       maxPagesPerCrawl: 3000,
-      articlesPerMonth: 120,
-      maxCompetitors: 40,
+      articlesPerMonth: 200,
+      maxCompetitors: 50,
       reviewMonitorFrequency: "daily",
       features: {
         cmoDigest: true,
@@ -198,26 +202,26 @@ export const TIERS: Record<PlanTier, TierDef> = {
       },
     },
   },
-  // ------- Enterprise (₹4,99,999/mo) -------
-  // DLF / Lodha / Prestige / Godrej / Sobha scale. Unlimited projects,
-  // daily full scans on every microsite, 250 articles, dedicated CSM,
-  // custom integrations, early access to new features.
-  // Typical COGS: ~$400/mo → ~93% margin.
+  // ------- Enterprise (₹5,99,999/mo) -------
+  // Top-30 Indian developer — DLF / Prestige / Lodha / Godrej / Sobha /
+  // Macrotech / Oberoi. Unlimited everything, daily scans on every
+  // microsite, 500 articles, dedicated CSM, custom integrations.
+  // Typical COGS: ~$550/mo → ~91% margin.
   enterprise: {
     key: "enterprise",
     label: "Enterprise",
-    usd: 5999,
-    inr: 499999,
+    usd: 7200,
+    inr: 599999,
     dodoProductEnv: {
       monthly: "DODO_PRODUCT_ENTERPRISE_MONTHLY",
       annual: "DODO_PRODUCT_ENTERPRISE_ANNUAL",
     },
     limits: {
-      creditsPerMonth: 35000,
+      creditsPerMonth: 40000,
       maxProjects: -1,
       maxCities: -1,
       maxPagesPerCrawl: 10000,
-      articlesPerMonth: 300,
+      articlesPerMonth: 500,
       maxCompetitors: -1,
       reviewMonitorFrequency: "daily",
       features: {

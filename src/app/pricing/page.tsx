@@ -29,19 +29,22 @@ const TIERS = [
   {
     key: "solo",
     name: "Solo",
-    usd: 120,
-    inr: 9999,
-    credits: 400,
+    usd: 240,
+    inr: 19999,
+    credits: 600,
+    articles: 10,
+    projects: 3,
+    cities: 1,
     subtitle: "Local builder · 1-3 projects in one locality",
-    anchor: "Cheaper than a mid-tier SEO tool subscription — and it does the work, not just the reporting.",
+    anchor: "Same price as your freelance SEO consultant. Does the work instead of just reporting it.",
     features: [
-      "400 credits per month",
+      "600 credits per month",
       "Up to 3 projects · 1 city",
-      "Monthly full scan (every surface on your main site)",
-      "6 articles generated per month",
-      "200 pages per full-site crawl",
+      "10 articles generated per month",
+      "Weekly full scan across every surface",
+      "300 pages per full-site crawl",
       "3 competitors tracked",
-      "Weekly AI visibility scans",
+      "Weekly AI visibility (ChatGPT + Gemini)",
       "Weekly review monitor (Housing, 99acres, Google)",
       "Portal Optimizer + RERA tracking",
       "Email support",
@@ -50,89 +53,101 @@ const TIERS = [
   {
     key: "starter",
     name: "Starter",
-    usd: 360,
-    inr: 29999,
-    credits: 1200,
+    usd: 600,
+    inr: 49999,
+    credits: 2000,
+    articles: 30,
+    projects: 10,
+    cities: 1,
     subtitle: "Single-city developer · 5-10 projects",
-    anchor: "Replaces a freelance digital lead at the same price with 10× the surface.",
+    anchor: "Replaces a small agency retainer at the same price with 10× the output.",
     features: [
-      "1,200 credits per month",
+      "2,000 credits per month",
       "Up to 10 projects · 1 city",
-      "~20 full scans / month (cover every surface weekly)",
-      "20 articles generated per month",
+      "30 articles generated per month",
+      "Daily AI visibility scans",
+      "Weekly full scan (every surface, every project)",
       "500 pages per full-site crawl",
-      "5 competitors tracked",
-      "Daily AI visibility scans (ChatGPT + Gemini)",
-      "Weekly review monitor",
+      "7 competitors tracked",
       "Portal Optimizer + submission tracker",
       "RERA + possession tracking",
+      "Hallucination audit on every scan",
       "Email support (24h)",
     ],
   },
   {
     key: "pro",
     name: "Growth",
-    usd: 950,
-    inr: 79999,
-    credits: 4000,
+    usd: 1200,
+    inr: 99999,
+    credits: 5000,
+    articles: 80,
+    projects: 40,
+    cities: 3,
     highlight: true,
-    subtitle: "Regional developer · 10-40 projects across 2-3 cities",
-    anchor: "Replaces a ₹3-5L/mo agency retainer. 15× agency content output. The sweet spot.",
+    subtitle: "Regional developer · 10-40 projects · 2-3 cities",
+    anchor: "Replaces a ₹3-5L/mo agency retainer. The sweet spot.",
     features: [
-      "4,000 credits per month",
+      "5,000 credits per month",
       "Up to 40 projects · 3 cities",
-      "Daily full scan included (every surface, automatically)",
-      "60 articles generated per month",
+      "80 articles generated per month",
+      "Daily full scan (every surface, every microsite)",
       "1,500 pages per full-site crawl",
-      "15 competitors · per-locality competitive map",
+      "20 competitors · per-locality map",
       "Daily AI visibility + citation drift + query fanout",
       "Daily review monitor across every platform",
       "CMO monthly digest (CEO-ready)",
       "Infrastructure news → content pipeline",
       "NRI track (UAE / UK / US / SG)",
-      "Priority email + WhatsApp support (4h)",
+      "Priority email + WhatsApp (4h)",
     ],
   },
   {
     key: "scale",
     name: "Scale",
-    usd: 2400,
-    inr: 199999,
-    credits: 12000,
-    subtitle: "National developer · 40-100 projects across 5-10 cities",
-    anchor: "For multi-city builders pushing past what a single agency can deliver. Replaces a 2-3 person in-house team.",
+    usd: 3000,
+    inr: 249999,
+    credits: 15000,
+    articles: 200,
+    projects: 100,
+    cities: 10,
+    subtitle: "National developer · 40-100 projects · 5-10 cities",
+    anchor: "Replaces a 3-person in-house marketing team. Multi-city operational depth.",
     features: [
-      "12,000 credits per month",
+      "15,000 credits per month",
       "Up to 100 projects · 10 cities",
-      "Daily full scan on every project microsite (100+ URLs)",
-      "120 articles generated per month",
+      "200 articles generated per month",
+      "Daily full scan on every project microsite",
       "3,000 pages per full-site crawl",
-      "40 competitors · per-locality + per-city competitive map",
-      "Per-city AI visibility scans (all your metros)",
-      "Multi-state RERA compliance tracking + expiry alerts",
+      "50 competitors · per-locality + per-city map",
+      "Per-city AI visibility across every metro",
+      "Multi-state RERA tracking + expiry alerts",
       "Custom report templates",
-      "Hallucination audit + citation drift on every scan",
-      "Priority WhatsApp support (2h) + monthly strategy call",
+      "Hallucination audit on every scan",
+      "Priority WhatsApp (2h) + monthly strategy call",
     ],
   },
   {
     key: "enterprise",
     name: "Enterprise",
-    usd: 5999,
-    inr: 499999,
-    credits: 35000,
+    usd: 7200,
+    inr: 599999,
+    credits: 40000,
+    articles: 500,
+    projects: -1,
+    cities: -1,
     subtitle: "DLF · Prestige · Lodha · Godrej · Sobha scale",
-    anchor: "One CMO + Cabbge = a 5-person digital team. Replaces ₹15-25L/mo in-house stack.",
+    anchor: "One CMO + Cabbge = a 5-person digital team. Replaces a ₹15-25L/mo in-house stack.",
     features: [
-      "35,000 credits per month",
+      "40,000 credits per month",
       "Unlimited projects · unlimited cities",
-      "Daily full scan on every microsite + brand-level surfaces",
-      "300 articles generated per month",
+      "500 articles generated per month",
+      "Daily full scan on every microsite + brand-level",
       "10,000 pages per full-site crawl",
-      "Unlimited competitors tracked",
-      "Per-city AI visibility scans across every metro",
-      "Multi-state RERA compliance with same-day expiry alerts",
-      "Brand disambiguation for multi-vertical groups (Godrej Properties vs Godrej Consumer)",
+      "Unlimited competitors",
+      "Per-city AI visibility across every metro",
+      "Multi-state RERA with same-day expiry alerts",
+      "Brand disambiguation (Godrej Properties vs Consumer)",
       "Dedicated success manager + 2h WhatsApp SLA",
       "Custom integrations (Ahrefs, GSC, CRM, DMS)",
       "Early access to new features",
@@ -346,6 +361,155 @@ export default function PricingPage() {
               </div>
             </div>
           ))}
+        </div>
+
+        {/* Per-tier spec comparison — scannable in 10 seconds */}
+        <div className="rounded-2xl bg-zinc-900/60 border border-white/[0.06] overflow-hidden mb-12">
+          <div className="p-5 border-b border-white/[0.06]">
+            <h2 className="text-[20px] font-bold">Tier specs at a glance</h2>
+            <p className="text-[12px] text-zinc-500 mt-1">
+              Match your project count and city footprint to the right tier. Every tier includes every feature — the numbers scale with your portfolio.
+            </p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-[12px]">
+              <thead>
+                <tr className="bg-zinc-900/80 border-b border-white/[0.04]">
+                  <th className="text-left px-4 py-2.5 text-[10px] uppercase tracking-wide text-zinc-500 font-semibold">Spec</th>
+                  {TIERS.map((t) => (
+                    <th key={t.key} className={`text-center px-3 py-2.5 text-[11px] uppercase tracking-wide font-semibold ${t.highlight ? "text-[#7CB342]" : "text-zinc-400"}`}>
+                      {t.name}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/[0.04]">
+                <tr>
+                  <td className="px-4 py-2.5 text-zinc-500">Price / month</td>
+                  {TIERS.map((t) => (
+                    <td key={t.key} className={`text-center px-3 py-2.5 tabular-nums ${t.highlight ? "text-[#7CB342] font-semibold" : "text-zinc-300"}`}>
+                      ₹{priceFor(t).toLocaleString("en-IN")}
+                    </td>
+                  ))}
+                </tr>
+                <tr>
+                  <td className="px-4 py-2.5 text-zinc-500">Credits / month</td>
+                  {TIERS.map((t) => (
+                    <td key={t.key} className="text-center px-3 py-2.5 text-zinc-200 font-semibold tabular-nums">
+                      {t.credits.toLocaleString("en-IN")}
+                    </td>
+                  ))}
+                </tr>
+                <tr>
+                  <td className="px-4 py-2.5 text-zinc-500">Projects</td>
+                  {TIERS.map((t) => (
+                    <td key={t.key} className="text-center px-3 py-2.5 text-zinc-300 tabular-nums">
+                      {t.projects === -1 ? "Unlimited" : `Up to ${t.projects}`}
+                    </td>
+                  ))}
+                </tr>
+                <tr>
+                  <td className="px-4 py-2.5 text-zinc-500">Cities</td>
+                  {TIERS.map((t) => (
+                    <td key={t.key} className="text-center px-3 py-2.5 text-zinc-300 tabular-nums">
+                      {t.cities === -1 ? "Unlimited" : t.cities}
+                    </td>
+                  ))}
+                </tr>
+                <tr>
+                  <td className="px-4 py-2.5 text-zinc-500">Articles / month</td>
+                  {TIERS.map((t) => (
+                    <td key={t.key} className="text-center px-3 py-2.5 text-zinc-300 tabular-nums">
+                      {t.articles}
+                    </td>
+                  ))}
+                </tr>
+                <tr>
+                  <td className="px-4 py-2.5 text-zinc-500">Full scan cadence</td>
+                  <td className="text-center px-3 py-2.5 text-zinc-300">Weekly</td>
+                  <td className="text-center px-3 py-2.5 text-zinc-300">Weekly</td>
+                  <td className="text-center px-3 py-2.5 text-[#7CB342]">Daily</td>
+                  <td className="text-center px-3 py-2.5 text-zinc-300">Daily</td>
+                  <td className="text-center px-3 py-2.5 text-zinc-300">Daily</td>
+                </tr>
+                <tr>
+                  <td className="px-4 py-2.5 text-zinc-500">AI visibility scans</td>
+                  <td className="text-center px-3 py-2.5 text-zinc-300">Weekly</td>
+                  <td className="text-center px-3 py-2.5 text-zinc-300">Daily</td>
+                  <td className="text-center px-3 py-2.5 text-[#7CB342]">Daily</td>
+                  <td className="text-center px-3 py-2.5 text-zinc-300">Daily, per city</td>
+                  <td className="text-center px-3 py-2.5 text-zinc-300">Daily, every metro</td>
+                </tr>
+                <tr>
+                  <td className="px-4 py-2.5 text-zinc-500">Review monitor</td>
+                  <td className="text-center px-3 py-2.5 text-zinc-300">Weekly</td>
+                  <td className="text-center px-3 py-2.5 text-zinc-300">Weekly</td>
+                  <td className="text-center px-3 py-2.5 text-[#7CB342]">Daily</td>
+                  <td className="text-center px-3 py-2.5 text-zinc-300">Daily</td>
+                  <td className="text-center px-3 py-2.5 text-zinc-300">Same-day alerts</td>
+                </tr>
+                <tr>
+                  <td className="px-4 py-2.5 text-zinc-500">Site crawl pages</td>
+                  <td className="text-center px-3 py-2.5 text-zinc-300 tabular-nums">300</td>
+                  <td className="text-center px-3 py-2.5 text-zinc-300 tabular-nums">500</td>
+                  <td className="text-center px-3 py-2.5 text-[#7CB342] tabular-nums">1,500</td>
+                  <td className="text-center px-3 py-2.5 text-zinc-300 tabular-nums">3,000</td>
+                  <td className="text-center px-3 py-2.5 text-zinc-300 tabular-nums">10,000</td>
+                </tr>
+                <tr>
+                  <td className="px-4 py-2.5 text-zinc-500">Competitors tracked</td>
+                  <td className="text-center px-3 py-2.5 text-zinc-300 tabular-nums">3</td>
+                  <td className="text-center px-3 py-2.5 text-zinc-300 tabular-nums">7</td>
+                  <td className="text-center px-3 py-2.5 text-[#7CB342] tabular-nums">20</td>
+                  <td className="text-center px-3 py-2.5 text-zinc-300 tabular-nums">50</td>
+                  <td className="text-center px-3 py-2.5 text-zinc-300">Unlimited</td>
+                </tr>
+                <tr>
+                  <td className="px-4 py-2.5 text-zinc-500">CMO monthly digest</td>
+                  <td className="text-center px-3 py-2.5 text-zinc-600">—</td>
+                  <td className="text-center px-3 py-2.5 text-zinc-600">—</td>
+                  <td className="text-center px-3 py-2.5 text-[#7CB342]">✓</td>
+                  <td className="text-center px-3 py-2.5 text-[#7CB342]">✓</td>
+                  <td className="text-center px-3 py-2.5 text-[#7CB342]">✓ Weekly</td>
+                </tr>
+                <tr>
+                  <td className="px-4 py-2.5 text-zinc-500">Infrastructure news pipeline</td>
+                  <td className="text-center px-3 py-2.5 text-zinc-600">—</td>
+                  <td className="text-center px-3 py-2.5 text-zinc-600">—</td>
+                  <td className="text-center px-3 py-2.5 text-[#7CB342]">✓</td>
+                  <td className="text-center px-3 py-2.5 text-[#7CB342]">✓</td>
+                  <td className="text-center px-3 py-2.5 text-[#7CB342]">✓</td>
+                </tr>
+                <tr>
+                  <td className="px-4 py-2.5 text-zinc-500">Custom report templates</td>
+                  <td className="text-center px-3 py-2.5 text-zinc-600">—</td>
+                  <td className="text-center px-3 py-2.5 text-zinc-600">—</td>
+                  <td className="text-center px-3 py-2.5 text-zinc-600">—</td>
+                  <td className="text-center px-3 py-2.5 text-[#7CB342]">✓</td>
+                  <td className="text-center px-3 py-2.5 text-[#7CB342]">✓</td>
+                </tr>
+                <tr>
+                  <td className="px-4 py-2.5 text-zinc-500">Dedicated success manager</td>
+                  <td className="text-center px-3 py-2.5 text-zinc-600">—</td>
+                  <td className="text-center px-3 py-2.5 text-zinc-600">—</td>
+                  <td className="text-center px-3 py-2.5 text-zinc-600">—</td>
+                  <td className="text-center px-3 py-2.5 text-zinc-300">Monthly call</td>
+                  <td className="text-center px-3 py-2.5 text-[#7CB342]">✓</td>
+                </tr>
+                <tr>
+                  <td className="px-4 py-2.5 text-zinc-500">Support SLA</td>
+                  <td className="text-center px-3 py-2.5 text-zinc-300">Email</td>
+                  <td className="text-center px-3 py-2.5 text-zinc-300">24h email</td>
+                  <td className="text-center px-3 py-2.5 text-[#7CB342]">4h WhatsApp</td>
+                  <td className="text-center px-3 py-2.5 text-zinc-300">2h WhatsApp</td>
+                  <td className="text-center px-3 py-2.5 text-zinc-300">2h + CSM</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div className="px-5 py-3 border-t border-white/[0.04] text-[11px] text-zinc-500 leading-relaxed">
+            Credits roll over 0% month-to-month. Overages billed at ₹4/credit so a 500-credit overage on Growth is ₹2,000. Need a custom plan? <a href="mailto:sales@cabbge.com" className="text-[#7CB342]">sales@cabbge.com</a>.
+          </div>
         </div>
 
         {/* Agency comparison table */}
