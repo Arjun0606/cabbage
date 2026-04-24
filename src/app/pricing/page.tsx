@@ -121,7 +121,7 @@ const TIERS = [
       "3,000 pages per full-site crawl",
       "50 competitors · per-locality + per-city map",
       "Per-city AI visibility across every metro",
-      "Multi-state RERA tracking + expiry alerts",
+      "Multi-state RERA tracking + 30/60-day expiry alerts",
       "Custom report templates",
       "Hallucination audit on every scan",
       "Priority WhatsApp (2h) + monthly strategy call",
@@ -146,7 +146,7 @@ const TIERS = [
       "10,000 pages per full-site crawl",
       "Unlimited competitors",
       "Per-city AI visibility across every metro",
-      "Multi-state RERA with same-day expiry alerts",
+      "Multi-state RERA tracking + 30-day expiry alerts",
       "Brand disambiguation (Godrej Properties vs Consumer)",
       "Dedicated success manager + 2h WhatsApp SLA",
       "Custom integrations (Ahrefs, GSC, CRM, DMS)",
@@ -446,7 +446,7 @@ export default function PricingPage() {
                   <td className="text-center px-3 py-2.5 text-zinc-300">Weekly</td>
                   <td className="text-center px-3 py-2.5 text-[#7CB342]">Daily</td>
                   <td className="text-center px-3 py-2.5 text-zinc-300">Daily</td>
-                  <td className="text-center px-3 py-2.5 text-zinc-300">Same-day alerts</td>
+                  <td className="text-center px-3 py-2.5 text-zinc-300">Daily</td>
                 </tr>
                 <tr>
                   <td className="px-4 py-2.5 text-zinc-500">Site crawl pages</td>

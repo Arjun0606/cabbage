@@ -45,6 +45,11 @@ export interface TierLimits {
   maxCompetitors: number;
   /** Review-monitor cadence — enforced by rejecting rescans within the window. */
   reviewMonitorFrequency: "weekly" | "daily";
+  /** Full-site scan cadence (audit + technical + backlinks + site-crawl).
+   *  "weekly" blocks re-scans within 7 days. */
+  fullScanCadence: "weekly" | "daily";
+  /** AI visibility scan cadence. "weekly" blocks re-scans within 7 days. */
+  aiVisibilityCadence: "weekly" | "daily";
   /** Feature flags — simple on/off per tier. */
   features: {
     cmoDigest: boolean;
@@ -98,6 +103,8 @@ export const TIERS: Record<PlanTier, TierDef> = {
       articlesPerMonth: 10,
       maxCompetitors: 3,
       reviewMonitorFrequency: "weekly",
+      fullScanCadence: "weekly",
+      aiVisibilityCadence: "weekly",
       features: {
         cmoDigest: false,
         infraNews: false,
@@ -129,6 +136,8 @@ export const TIERS: Record<PlanTier, TierDef> = {
       articlesPerMonth: 30,
       maxCompetitors: 7,
       reviewMonitorFrequency: "weekly",
+      fullScanCadence: "weekly",
+      aiVisibilityCadence: "daily",
       features: {
         cmoDigest: false,
         infraNews: false,
@@ -161,6 +170,8 @@ export const TIERS: Record<PlanTier, TierDef> = {
       articlesPerMonth: 80,
       maxCompetitors: 20,
       reviewMonitorFrequency: "daily",
+      fullScanCadence: "daily",
+      aiVisibilityCadence: "daily",
       features: {
         cmoDigest: true,
         infraNews: true,
@@ -193,6 +204,8 @@ export const TIERS: Record<PlanTier, TierDef> = {
       articlesPerMonth: 200,
       maxCompetitors: 50,
       reviewMonitorFrequency: "daily",
+      fullScanCadence: "daily",
+      aiVisibilityCadence: "daily",
       features: {
         cmoDigest: true,
         infraNews: true,
@@ -224,6 +237,8 @@ export const TIERS: Record<PlanTier, TierDef> = {
       articlesPerMonth: 500,
       maxCompetitors: -1,
       reviewMonitorFrequency: "daily",
+      fullScanCadence: "daily",
+      aiVisibilityCadence: "daily",
       features: {
         cmoDigest: true,
         infraNews: true,
@@ -242,6 +257,11 @@ export const TIERS: Record<PlanTier, TierDef> = {
 export const DEMO_LIMITS: TierLimits = {
   ...TIERS.enterprise.limits,
   creditsPerMonth: 999999, // demo has no credit ceiling
+  // demo also bypasses cadence gates so the sales pitch never shows
+  // "wait 7 days to re-scan" during a live demo
+  fullScanCadence: "daily",
+  aiVisibilityCadence: "daily",
+  reviewMonitorFrequency: "daily",
 };
 
 /**

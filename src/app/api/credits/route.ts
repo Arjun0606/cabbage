@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/db/supabase";
 import { getCurrentUser } from "@/lib/db/supabase-server";
+import { TIERS, type PlanTier } from "@/lib/tiers";
 
 /**
  * Credit Usage API — read-only.
@@ -13,7 +14,10 @@ import { getCurrentUser } from "@/lib/db/supabase-server";
  * protected route (src/lib/credits.ts — single source of truth).
  */
 
-const MONTHLY_INCLUDED = 1000;
+// Overage rate must match the pricing-page footnote so the UI and the
+// invoice agree. ₹4 per credit = ~$0.048 — matches what we tell prospects.
+const OVERAGE_RATE_INR = 4;
+const FALLBACK_MONTHLY = 1000;
 
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
@@ -38,6 +42,19 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
+    // Resolve the company's tier so we report against the right monthly
+    // pool, not a global constant.
+    const { data: sub } = await supabase
+      .from("subscriptions")
+      .select("plan")
+      .eq("company_id", companyId)
+      .maybeSingle();
+    const planRaw = sub?.plan as string | undefined;
+    const plan: PlanTier = planRaw === "solo" || planRaw === "starter" || planRaw === "pro" || planRaw === "scale" || planRaw === "enterprise"
+      ? (planRaw as PlanTier)
+      : "pro";
+    const monthlyIncluded = TIERS[plan]?.limits.creditsPerMonth ?? FALLBACK_MONTHLY;
+
     const startOfMonth = new Date();
     startOfMonth.setDate(1);
     startOfMonth.setHours(0, 0, 0, 0);
@@ -52,7 +69,8 @@ export async function GET(req: NextRequest) {
     if (error) throw error;
 
     const totalUsed = (data || []).reduce((sum, d) => sum + d.credits_used, 0);
-    const remaining = Math.max(0, MONTHLY_INCLUDED - totalUsed);
+    const remaining = Math.max(0, monthlyIncluded - totalUsed);
+    const overageCredits = Math.max(0, totalUsed - monthlyIncluded);
 
     const breakdown: Record<string, number> = {};
     for (const row of data || []) {
@@ -60,11 +78,13 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json({
-      monthlyIncluded: MONTHLY_INCLUDED,
+      plan,
+      monthlyIncluded,
       totalUsed,
       remaining,
-      overageCredits: Math.max(0, totalUsed - MONTHLY_INCLUDED),
-      overageCost: Math.max(0, totalUsed - MONTHLY_INCLUDED) * 0.40,
+      overageCredits,
+      overageRateInr: OVERAGE_RATE_INR,
+      overageCostInr: overageCredits * OVERAGE_RATE_INR,
       breakdown,
       recentActions: (data || []).slice(0, 20),
     });

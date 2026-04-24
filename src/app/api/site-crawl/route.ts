@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { runSiteCrawl } from "@/lib/agents/siteCrawler";
 import { enforceCredits } from "@/lib/credits";
 import { requireActiveSubscription } from "@/lib/db/supabase-server";
+import { canRunScan } from "@/lib/cadence";
 
 /**
  * Full-site crawler endpoint. The per-scan page cap is tier-gated so
@@ -24,6 +25,23 @@ export async function POST(req: NextRequest) {
 
     if (!url || typeof url !== "string") {
       return NextResponse.json({ error: "URL is required" }, { status: 400 });
+    }
+
+    // Cadence gate — Solo + Starter buy weekly full scans, Growth+ buy
+    // daily. Block re-crawls within the tier window.
+    if (companyId && typeof companyId === "string") {
+      const cadenceCheck = await canRunScan(companyId, "audit", gate.limits.fullScanCadence);
+      if (!cadenceCheck.ok) {
+        return NextResponse.json(
+          {
+            error: "Cadence limit reached",
+            hint: cadenceCheck.hint,
+            nextAllowedAt: cadenceCheck.nextAllowedAt,
+            needsUpgrade: gate.limits.fullScanCadence === "weekly",
+          },
+          { status: 429 }
+        );
+      }
     }
 
     await enforceCredits(companyId, "audit");

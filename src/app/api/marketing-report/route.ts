@@ -18,12 +18,26 @@ export async function POST(req: NextRequest) {
       competitorCount,
       contentGenerated,
       period,
+      templateKey,
     } = await req.json();
 
     if (!companyName) {
       return NextResponse.json(
         { error: "companyName is required" },
         { status: 400 }
+      );
+    }
+
+    // Custom report templates are a Scale+ feature. Lower tiers get the
+    // default report only; passing a templateKey on Solo/Starter/Growth
+    // returns 402.
+    if (templateKey && !gate.limits.features.customReportTemplates) {
+      return NextResponse.json(
+        {
+          error: "Custom report templates are only available on Scale and Enterprise plans",
+          needsUpgrade: true,
+        },
+        { status: 402 }
       );
     }
 

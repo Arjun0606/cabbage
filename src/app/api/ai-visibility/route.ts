@@ -7,6 +7,7 @@ import { enforceCredits } from "@/lib/credits";
 import { requireActiveSubscription } from "@/lib/db/supabase-server";
 import { getServiceClient } from "@/lib/db/supabase";
 import { loadVolatilityFromDb, loadCitationDriftFromDb } from "@/lib/agents/volatility";
+import { canRunScan } from "@/lib/cadence";
 
 /**
  * Normalize whatever the client sent for `savedQueries` into QueryWithMeta[].
@@ -51,11 +52,64 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Brand name is required" }, { status: 400 });
     }
 
+    // Cadence gate — pricing tiers promise weekly vs daily AI visibility
+    // scans. Block re-scans within the tier's window. Demo mode bypasses.
+    if (companyId && typeof companyId === "string") {
+      const cadenceCheck = await canRunScan(companyId, "ai_visibility", gate.limits.aiVisibilityCadence);
+      if (!cadenceCheck.ok) {
+        return NextResponse.json(
+          {
+            error: "Cadence limit reached",
+            hint: cadenceCheck.hint,
+            nextAllowedAt: cadenceCheck.nextAllowedAt,
+            needsUpgrade: gate.limits.aiVisibilityCadence === "weekly",
+          },
+          { status: 429 }
+        );
+      }
+    }
+
     // Server-side credit tracking (always allows — upsell model, not hard block)
     await enforceCredits(companyId, "ai_visibility");
 
     const cityClean = typeof city === "string" ? city.trim() : "";
     const normalizedSaved = normalizeSavedQueries(savedQueries, cityClean);
+
+    // Per-city AI visibility is a Scale+ feature. For lower tiers, restrict
+    // projectDetails to projects whose location matches the primary city —
+    // so the query generator doesn't generate Bangalore queries for a
+    // Growth-tier Hyderabad customer who happens to have one Bangalore
+    // project.
+    let scopedProjectDetails = projectDetails;
+    let cityRestrictionApplied: { reason: string; restrictedTo: string; ignoredCities: string[] } | null = null;
+    if (
+      Array.isArray(projectDetails) &&
+      projectDetails.length > 0 &&
+      cityClean &&
+      !gate.limits.features.perCityAIVisibility
+    ) {
+      const inPrimary: typeof projectDetails = [];
+      const otherCities = new Set<string>();
+      const cityLower = cityClean.toLowerCase();
+      for (const p of projectDetails) {
+        const loc = String((p as any)?.location || "").toLowerCase();
+        if (!loc || loc.includes(cityLower)) {
+          inPrimary.push(p);
+        } else {
+          // Try to extract a city token after the comma
+          const tail = loc.split(",").pop()?.trim();
+          if (tail) otherCities.add(tail);
+        }
+      }
+      if (otherCities.size > 0 && inPrimary.length > 0) {
+        scopedProjectDetails = inPrimary;
+        cityRestrictionApplied = {
+          reason: "Per-city AI visibility is a Scale+ feature. Projects outside your primary city were excluded from this scan.",
+          restrictedTo: cityClean,
+          ignoredCities: Array.from(otherCities).slice(0, 10),
+        };
+      }
+    }
 
     if (!cityClean && !normalizedSaved) {
       // Fail loudly instead of falling back to "the market" — that produces
@@ -80,9 +134,9 @@ export async function POST(req: NextRequest) {
         cityClean,
         brand,
         projects || [],
-        projectDetails?.[0]?.location,
+        scopedProjectDetails?.[0]?.location,
         industry,
-        projectDetails,
+        scopedProjectDetails,
         brandContext
       );
       queries = generated.queries;
@@ -134,8 +188,8 @@ export async function POST(req: NextRequest) {
     // is the rich array (name + location + configs + price + RERA)
     // produced by auto-discover's per-project scraper — auditing against
     // our own scraped data means zero made-up facts flagged as wrong.
-    const projectGroundTruth = Array.isArray(projectDetails)
-      ? projectDetails
+    const projectGroundTruth = Array.isArray(scopedProjectDetails)
+      ? scopedProjectDetails
           .filter((p: any) => p && typeof p === "object" && typeof p.name === "string" && p.name.trim())
           .map((p: any) => ({
             name: String(p.name).trim(),
@@ -178,6 +232,7 @@ export async function POST(req: NextRequest) {
       goldenPrompts,
       volatility,
       citationDrift,
+      cityRestriction: cityRestrictionApplied,
     });
   } catch (error) {
     console.error("AI Visibility error:", error);
