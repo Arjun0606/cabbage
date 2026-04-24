@@ -1,4 +1,5 @@
 import { getServiceClient } from "@/lib/db/supabase";
+import { TIERS, type PlanTier } from "@/lib/tiers";
 
 /**
  * Server-side credit enforcement.
@@ -11,7 +12,7 @@ import { getServiceClient } from "@/lib/db/supabase";
  * in dashboard/page.tsx. Both must agree on costs.
  */
 
-const CREDIT_COSTS: Record<string, number> = {
+export const CREDIT_COSTS: Record<string, number> = {
   audit: 2,
   technical: 1,
   ai_visibility: 4,
@@ -32,7 +33,8 @@ const CREDIT_COSTS: Record<string, number> = {
   free_report: 0,
 };
 
-const MONTHLY_INCLUDED = 1000;
+/** Fallback when we can't resolve a tier — matches old behaviour. */
+const FALLBACK_MONTHLY_INCLUDED = 1000;
 
 export function getCreditCost(action: string): number {
   return CREDIT_COSTS[action] ?? 1;
@@ -46,13 +48,28 @@ export function getCreditCost(action: string): number {
 export async function enforceCredits(
   companyId: string | null | undefined,
   action: string
-): Promise<{ allowed: boolean; remaining: number; cost: number }> {
+): Promise<{ allowed: boolean; remaining: number; cost: number; monthly: number }> {
   const cost = getCreditCost(action);
-  if (cost === 0) return { allowed: true, remaining: MONTHLY_INCLUDED, cost: 0 };
-  if (!companyId) return { allowed: true, remaining: MONTHLY_INCLUDED, cost };
+  if (cost === 0) return { allowed: true, remaining: FALLBACK_MONTHLY_INCLUDED, cost: 0, monthly: FALLBACK_MONTHLY_INCLUDED };
+  if (!companyId) return { allowed: true, remaining: FALLBACK_MONTHLY_INCLUDED, cost, monthly: FALLBACK_MONTHLY_INCLUDED };
 
   try {
     const supabase = getServiceClient();
+
+    // Resolve the company's tier so we use THAT tier's monthly pool
+    // instead of a global constant. Legacy "base" plans map to Pro.
+    let monthlyPool = FALLBACK_MONTHLY_INCLUDED;
+    const { data: sub } = await supabase
+      .from("subscriptions")
+      .select("plan")
+      .eq("company_id", companyId)
+      .maybeSingle();
+    const planRaw = sub?.plan as string | undefined;
+    const plan: PlanTier = planRaw === "starter" || planRaw === "pro" || planRaw === "enterprise"
+      ? (planRaw as PlanTier)
+      : "pro"; // default legacy + demo-mode companies to pro's pool
+    monthlyPool = TIERS[plan].limits.creditsPerMonth;
+
     const startOfMonth = new Date();
     startOfMonth.setDate(1);
     startOfMonth.setHours(0, 0, 0, 0);
@@ -66,35 +83,24 @@ export async function enforceCredits(
     if (error) {
       // If credit_usage table doesn't exist yet, allow (graceful degradation)
       console.error("enforceCredits: query failed, allowing:", error.message);
-      return { allowed: true, remaining: MONTHLY_INCLUDED, cost };
+      return { allowed: true, remaining: monthlyPool, cost, monthly: monthlyPool };
     }
 
     const totalUsed = (data || []).reduce((sum, d) => sum + d.credits_used, 0);
-    const remaining = Math.max(0, MONTHLY_INCLUDED - totalUsed);
+    const remaining = Math.max(0, monthlyPool - totalUsed);
 
-    if (remaining < cost) {
-      // Soft limit — still allow the action but flag it as overage.
-      // The product philosophy is to let users use freely, then upsell
-      // more credits when they've seen the value. Hard blocks kill adoption.
-      // Record usage even on overage so billing can track it.
-      await supabase.from("credit_usage").insert({
-        company_id: companyId,
-        action,
-        credits_used: cost,
-      }).then(() => {}, () => {});
-      return { allowed: true, remaining: remaining - cost, cost };
-    }
-
-    // Record usage
+    // Record usage (soft limit — overage allowed so users aren't blocked
+    // mid-demo. We surface the shortfall in /api/billing/status for the UI
+    // to nudge an upgrade.)
     await supabase.from("credit_usage").insert({
       company_id: companyId,
       action,
       credits_used: cost,
-    }).then(() => {}, () => {}); // fire-and-forget
+    }).then(() => {}, () => {});
 
-    return { allowed: true, remaining: remaining - cost, cost };
+    return { allowed: true, remaining: remaining - cost, cost, monthly: monthlyPool };
   } catch {
     // On any error, allow (don't block users due to infra issues)
-    return { allowed: true, remaining: MONTHLY_INCLUDED, cost };
+    return { allowed: true, remaining: FALLBACK_MONTHLY_INCLUDED, cost, monthly: FALLBACK_MONTHLY_INCLUDED };
   }
 }

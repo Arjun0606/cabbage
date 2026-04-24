@@ -1,3 +1,5 @@
+export const runtime = "nodejs";
+export const maxDuration = 300;
 import { NextRequest, NextResponse } from "next/server";
 import { fetchInfraNewsForLocalities } from "@/lib/agents/infraNews";
 import { requireActiveSubscription } from "@/lib/db/supabase-server";

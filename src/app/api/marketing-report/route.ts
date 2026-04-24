@@ -1,3 +1,5 @@
+export const runtime = "nodejs";
+export const maxDuration = 300;
 import { NextRequest, NextResponse } from "next/server";
 import { aiComplete } from "@/lib/ai";
 import { requireActiveSubscription } from "@/lib/db/supabase-server";

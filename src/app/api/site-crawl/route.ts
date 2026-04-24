@@ -1,3 +1,5 @@
+export const runtime = "nodejs";
+export const maxDuration = 300;
 import { NextRequest, NextResponse } from "next/server";
 import { runSiteCrawl } from "@/lib/agents/siteCrawler";
 import { enforceCredits } from "@/lib/credits";

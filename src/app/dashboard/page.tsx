@@ -109,6 +109,7 @@ export default function DashboardPage() {
     status: string;
     canAccess: boolean;
     email?: string;
+    limits?: { creditsPerMonth?: number } | null;
   } | null>(null);
 
   // Fetch billing status on mount
@@ -1525,57 +1526,87 @@ export default function DashboardPage() {
     finally { setIsGeneratingGbp(false); }
   };
 
-  const runFullScan = async () => {
-    // Multi-site + per-project: if the user has a specific project
-    // selected AND that project has its own website (microsite), scan
-    // the project's URL. Otherwise fall back to the active site in the
-    // site switcher, then the main company website.
-    const selectedProjectWebsite =
-      selectedProject !== null ? company.projects[selectedProject]?.website : undefined;
-    const url = selectedProjectWebsite || activeSiteUrl || company.website;
+  /**
+   * Main site only — fast scan for single-URL demos or mid-week refreshes.
+   * Audit + technical + backlinks + AI visibility on the main site.
+   * Skips per-project microsites, portal coverage, RERA verification,
+   * review monitor. Use the Full Scan for everything.
+   */
+  const runMainOnly = async () => {
+    const url = activeSiteUrl || company.website;
     if (!url) { addLog("> Set your website URL first"); return; }
-    const siteLabel = selectedProjectWebsite
-      ? `${company.projects[selectedProject!].name} microsite`
-      : url === company.website
-      ? "Main site"
-      : (company.sites || []).find((s) => s.url === url)?.label || url;
-
-    addLog(`> Full scan started on ${siteLabel} (${url})...`);
-    addLog(`> ${company.projects.length} project${company.projects.length === 1 ? "" : "s"} in scope · ${(company.sites || []).length || 1} site${(company.sites || []).length === 1 ? "" : "s"} on the brand`);
-
-    // ---- Wave 1: fast per-URL scans that can run fully in parallel.
-    // Audit, technical, backlinks, site-crawl, AI visibility all take
-    // 15-90s each and don't depend on each other.
-    addLog("> Wave 1: audit · technical · backlinks · site-crawl · AI visibility (parallel)");
+    addLog(`> Main-site scan started (${url})...`);
     await Promise.all([
       runAudit(url),
       runTechnical(url),
       runBacklinks(url),
+      ...(company.name ? [runAIVisibility()] : []),
+    ]);
+    addLog("✓ Main-site scan complete — run Full Scan for every microsite + brand-level audits");
+  };
+
+  const runFullScan = async () => {
+    const mainUrl = activeSiteUrl || company.website;
+    if (!mainUrl) { addLog("> Set your website URL first"); return; }
+
+    // Every project with its own website gets its own audit row so the
+    // SitesTreePanel and project scorecards populate per-microsite.
+    // Cap at 20 to keep a full scan under ~10 min and respect rate limits.
+    const projectMicrosites: Array<{ name: string; url: string }> = (company.projects || [])
+      .filter((p) => p.website && /^https?:\/\//.test(p.website))
+      .slice(0, 20)
+      .map((p) => ({ name: p.name || "", url: p.website as string }));
+
+    addLog(`> Full scan started — main site + ${projectMicrosites.length} project microsite${projectMicrosites.length === 1 ? "" : "s"}`);
+
+    // ---- Wave 1: parallel fast scans on the MAIN site. Audit,
+    // technical, backlinks, site-crawl, AI visibility all take 15-90s
+    // each and don't depend on each other.
+    addLog("> Wave 1: main site — audit · technical · backlinks · site-crawl · AI visibility");
+    await Promise.all([
+      runAudit(mainUrl),
+      runTechnical(mainUrl),
+      runBacklinks(mainUrl),
       runSiteCrawl(),
       ...(company.name ? [runAIVisibility()] : []),
     ]);
 
-    // ---- Wave 2: deeper analyses that benefit from the Wave 1 data
-    // (keyword research uses the site text; internal linking uses the
-    // crawl; competitor analysis uses audit scores for comparison).
-    addLog("> Wave 2: keyword research · internal linking · competitor analysis (parallel)");
+    // ---- Wave 2: per-project microsite audits. Batched 5 in parallel
+    // to respect PSI + OpenAI rate limits. We only fire audit + technical
+    // per-project (the fast ones) — brand-level backlinks and AI visibility
+    // already cover every project via compound queries.
+    if (projectMicrosites.length > 0) {
+      addLog(`> Wave 2: scanning ${projectMicrosites.length} project microsite${projectMicrosites.length === 1 ? "" : "s"} (audit + technical, batched 5)`);
+      for (let i = 0; i < projectMicrosites.length; i += 5) {
+        const batch = projectMicrosites.slice(i, i + 5);
+        await Promise.all(
+          batch.flatMap(({ name, url }) => {
+            addLog(`> ${name} (${url.replace(/^https?:\/\//, "")})`);
+            return [
+              runAudit(url).catch((err) => addLog(`> ${name} audit skipped: ${err instanceof Error ? err.message : "error"}`)),
+              runTechnical(url).catch((err) => addLog(`> ${name} technical skipped: ${err instanceof Error ? err.message : "error"}`)),
+            ];
+          })
+        );
+      }
+    }
+
+    // ---- Wave 3: deeper brand-level analyses.
+    addLog("> Wave 3: keyword research · internal linking · competitor analysis");
     await Promise.all([
-      runKeywordResearch("__portfolio__", true),
-      runInternalLinking(),
-      ...(company.competitors.length > 0 ? [runCompetitorAnalysis()] : []),
+      runKeywordResearch("__portfolio__", true).catch(() => {}),
+      runInternalLinking().catch(() => {}),
+      ...(company.competitors.length > 0 ? [runCompetitorAnalysis().catch(() => {})] : []),
     ]);
 
-    // ---- Wave 3: web-search-heavy brand-level audits. Each is a
-    // dedicated CMO surface (portal coverage, RERA verification,
-    // review monitoring) — expensive but users expect them to run on
-    // a full scan. Fired sequentially to respect OpenAI rate limits
-    // on web_search.
-    addLog("> Wave 3: portal coverage · RERA verification · review monitor (sequential)");
+    // ---- Wave 4: web-search-heavy brand-level audits. Expensive — fired
+    // sequentially to respect OpenAI rate limits on web_search.
+    addLog("> Wave 4: portal coverage · RERA verification · review monitor");
     try { await runPortalCoverage(); } catch (err) { addLog(`> Portal coverage skipped: ${err instanceof Error ? err.message : "error"}`); }
     try { await runReraVerification(); } catch (err) { addLog(`> RERA verification skipped: ${err instanceof Error ? err.message : "error"}`); }
     try { await runReviewMonitor(); } catch (err) { addLog(`> Review monitor skipped: ${err instanceof Error ? err.message : "error"}`); }
 
-    addLog("✓ Full scan complete — every surface refreshed");
+    addLog(`✓ Full scan complete — ${1 + projectMicrosites.length} site${projectMicrosites.length === 0 ? "" : "s"} scored, every brand-level surface refreshed`);
 
     // Retention hook: show what to do next
     const today = new Date();
@@ -1664,8 +1695,11 @@ export default function DashboardPage() {
         <TerminalHeader
           logs={terminalLogs}
           onRunFullScan={runFullScan}
+          onRunMainOnly={runMainOnly}
           onClearAndRescan={clearAndRescan}
           hasWebsite={!!company.website}
+          creditsUsed={creditsUsed}
+          creditsMonthly={billing?.limits?.creditsPerMonth ?? (billing?.plan === "demo" ? 20000 : undefined)}
           leftSlot={
             <SiteSwitcher
               primarySite={company.website ? { url: company.website, label: "Main site" } : undefined}

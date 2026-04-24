@@ -8,13 +8,16 @@ import Link from "next/link";
 interface Props {
   logs: string[];
   onRunFullScan?: () => void;
+  onRunMainOnly?: () => void;
   onClearAndRescan?: () => void;
   hasWebsite?: boolean;
   /** Optional left-side slot — used for the SiteSwitcher so it shares the header row */
   leftSlot?: ReactNode;
+  creditsUsed?: number;
+  creditsMonthly?: number;
 }
 
-export function TerminalHeader({ logs, onRunFullScan, onClearAndRescan, hasWebsite, leftSlot }: Props) {
+export function TerminalHeader({ logs, onRunFullScan, onRunMainOnly, onClearAndRescan, hasWebsite, leftSlot, creditsUsed, creditsMonthly }: Props) {
   const [expanded, setExpanded] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -41,6 +44,20 @@ export function TerminalHeader({ logs, onRunFullScan, onClearAndRescan, hasWebsi
           {leftSlot}
         </div>
         <div className="flex items-center gap-2">
+          {typeof creditsMonthly === "number" && creditsMonthly > 0 && (
+            <Link
+              href="/pricing"
+              title={`${creditsUsed || 0} credits used this month out of ${creditsMonthly} included. Click to view plans.`}
+              className="hidden md:flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[11px] font-medium bg-zinc-800/60 border border-white/[0.06] hover:border-white/[0.15] hover:bg-zinc-700/60 transition-all"
+            >
+              <span className={(creditsUsed || 0) >= creditsMonthly ? "text-amber-400" : "text-zinc-300"}>
+                {(creditsUsed || 0).toLocaleString()}
+              </span>
+              <span className="text-zinc-600">/</span>
+              <span className="text-zinc-500 tabular-nums">{creditsMonthly.toLocaleString()}</span>
+              <span className="text-zinc-500 font-normal">credits</span>
+            </Link>
+          )}
           <Link href="/settings">
             <button className="w-7 h-7 rounded-md flex items-center justify-center text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/60 active:scale-[0.97] transition-all duration-150">
               <Settings size={15} />
@@ -56,11 +73,22 @@ export function TerminalHeader({ logs, onRunFullScan, onClearAndRescan, hasWebsi
               Clear &amp; re-scan
             </button>
           )}
+          {onRunMainOnly && hasWebsite && (
+            <button
+              onClick={onRunMainOnly}
+              title="Fast scan: main site only. Audit + technical + backlinks + AI visibility — skips per-project microsites, portal coverage, and RERA verification. Use this for a quick check."
+              className="h-8 px-3 rounded-lg text-[12px] font-medium text-zinc-300 bg-zinc-800/60 border border-white/[0.06] hover:bg-zinc-700/60 hover:text-zinc-100 active:scale-[0.97] transition-all duration-150 flex items-center gap-1.5"
+            >
+              <Zap size={12} />
+              Main site only
+            </button>
+          )}
           {onRunFullScan && hasWebsite && (
             <Button
               size="sm"
               onClick={onRunFullScan}
               data-auto-scan="true"
+              title="Everything: main site + every project microsite + brand-level portal coverage, RERA verification, review monitor. 3-10 minutes."
               className="bg-[#7CB342] text-zinc-950 hover:bg-[#8BC34A] active:scale-[0.97] text-[13px] font-medium h-8 px-4 rounded-lg shadow-[0_0_12px_rgba(124,179,66,0.15)] transition-all duration-150"
             >
               <Zap size={13} className="mr-1.5" />

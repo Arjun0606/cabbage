@@ -16,6 +16,9 @@ export type PlanTier = "starter" | "pro" | "enterprise";
 export type PlanBilled = "monthly" | "annual";
 
 export interface TierLimits {
+  /** Monthly credit pool. Every scan action deducts per CREDIT_COSTS.
+   *  Soft limit — overages are flagged, not hard-blocked (upsell model). */
+  creditsPerMonth: number;
   /** Max project rows the company can persist. -1 means unlimited. */
   maxProjects: number;
   /** Distinct cities the company can serve (derived from projects). -1 unlimited. */
@@ -68,6 +71,7 @@ export const TIERS: Record<PlanTier, TierDef> = {
       annual: "DODO_PRODUCT_STARTER_ANNUAL",
     },
     limits: {
+      creditsPerMonth: 1500,
       maxProjects: 10,
       maxCities: 1,
       maxPagesPerCrawl: 500,
@@ -93,6 +97,7 @@ export const TIERS: Record<PlanTier, TierDef> = {
       annual: "DODO_PRODUCT_PRO_ANNUAL",
     },
     limits: {
+      creditsPerMonth: 6000,
       maxProjects: 40,
       maxCities: 3,
       maxPagesPerCrawl: 1500,
@@ -118,6 +123,7 @@ export const TIERS: Record<PlanTier, TierDef> = {
       annual: "DODO_PRODUCT_ENTERPRISE_ANNUAL",
     },
     limits: {
+      creditsPerMonth: 20000,
       maxProjects: -1,
       maxCities: -1,
       maxPagesPerCrawl: 3000,
@@ -141,6 +147,7 @@ export const TIERS: Record<PlanTier, TierDef> = {
  */
 export const DEMO_LIMITS: TierLimits = {
   ...TIERS.enterprise.limits,
+  creditsPerMonth: 999999, // demo has no credit ceiling
 };
 
 /**

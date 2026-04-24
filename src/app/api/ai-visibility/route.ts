@@ -1,3 +1,5 @@
+export const runtime = "nodejs";
+export const maxDuration = 300;
 import { NextRequest, NextResponse } from "next/server";
 import { runAIVisibility } from "@/lib/agents/aiVisibility";
 import { generateSearchQueries, type QueryWithMeta } from "@/lib/agents/localityEngine";

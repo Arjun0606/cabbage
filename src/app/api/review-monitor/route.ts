@@ -1,3 +1,5 @@
+export const runtime = "nodejs";
+export const maxDuration = 300;
 import { NextRequest, NextResponse } from "next/server";
 import { runReviewMonitor } from "@/lib/agents/reviewMonitor";
 import { requireActiveSubscription } from "@/lib/db/supabase-server";

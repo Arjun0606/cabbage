@@ -1,3 +1,5 @@
+export const runtime = "nodejs";
+export const maxDuration = 300;
 import { NextRequest, NextResponse } from "next/server";
 import { runBacklinkAnalysis } from "@/lib/agents/backlinks";
 import { sanitizeUrl } from "@/lib/security";

@@ -1,3 +1,5 @@
+export const runtime = "nodejs";
+export const maxDuration = 300;
 import { NextRequest, NextResponse } from "next/server";
 import { runKeywordResearch, runKeywordPortfolio } from "@/lib/agents/keywordResearch";
 import { enforceCredits } from "@/lib/credits";
