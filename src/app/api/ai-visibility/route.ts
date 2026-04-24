@@ -3,6 +3,8 @@ import { runAIVisibility } from "@/lib/agents/aiVisibility";
 import { generateSearchQueries, type QueryWithMeta } from "@/lib/agents/localityEngine";
 import { enforceCredits } from "@/lib/credits";
 import { requireActiveSubscription } from "@/lib/db/supabase-server";
+import { getServiceClient } from "@/lib/db/supabase";
+import { loadVolatilityFromDb } from "@/lib/agents/volatility";
 
 /**
  * Normalize whatever the client sent for `savedQueries` into QueryWithMeta[].
@@ -85,6 +87,37 @@ export async function POST(req: NextRequest) {
       queryGenerationFallback = { used: generated.usedFallback, reason: generated.reason };
     }
 
+    // Golden prompts: user-locked queries that must be tracked on every
+    // scan so volatility reads as signal vs noise. We prepend them to
+    // the query list (deduped) — never dropped, never substituted.
+    let goldenPrompts: string[] = [];
+    if (companyId && typeof companyId === "string") {
+      try {
+        const db = getServiceClient();
+        const { data } = await db
+          .from("golden_prompts")
+          .select("query")
+          .eq("company_id", companyId);
+        goldenPrompts = (data || []).map((r) => r.query).filter(Boolean);
+        if (goldenPrompts.length > 0) {
+          const seen = new Set(queries.map((q) => q.query.trim().toLowerCase()));
+          const toPrepend: QueryWithMeta[] = [];
+          for (const g of goldenPrompts) {
+            const key = g.trim().toLowerCase();
+            if (!seen.has(key)) {
+              toPrepend.push({ query: g, level: "locality", city: cityClean || undefined });
+              seen.add(key);
+            }
+          }
+          queries = [...toPrepend, ...queries];
+        }
+      } catch (err) {
+        // Golden-prompts fetch is best-effort — a failure here should never
+        // break a scan, just log and continue.
+        console.warn("golden prompts fetch failed:", err instanceof Error ? err.message : err);
+      }
+    }
+
     // Parse aliases + exclusions from the brandContext payload. They
     // arrive as comma-separated strings (what the user typed) and get
     // normalised to trimmed arrays for the agent.
@@ -103,7 +136,24 @@ export async function POST(req: NextRequest) {
       { aliases, exclusions }
     );
 
-    return NextResponse.json({ ...result, queriesUsed: queries, queryGenerationFallback });
+    // Pull the latest volatility snapshot so the UI can render sparklines
+    // + stability labels without an extra round trip. Cheap — one indexed
+    // read of scan_history limit 10.
+    let volatility: Awaited<ReturnType<typeof loadVolatilityFromDb>> = [];
+    if (companyId && typeof companyId === "string") {
+      try {
+        const db = getServiceClient();
+        volatility = await loadVolatilityFromDb(db, companyId, { limit: 10 });
+      } catch { /* best-effort */ }
+    }
+
+    return NextResponse.json({
+      ...result,
+      queriesUsed: queries,
+      queryGenerationFallback,
+      goldenPrompts,
+      volatility,
+    });
   } catch (error) {
     console.error("AI Visibility error:", error);
     return NextResponse.json(

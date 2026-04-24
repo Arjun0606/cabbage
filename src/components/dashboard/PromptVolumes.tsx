@@ -2,8 +2,9 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { TrendingUp, TrendingDown, Minus, MessageSquare, PenTool, Loader2, Zap, Clock, AlertCircle } from "lucide-react";
-import { useState } from "react";
+import { TrendingUp, TrendingDown, Minus, MessageSquare, PenTool, Loader2, Zap, Clock, AlertCircle, Pin, PinOff, Activity } from "lucide-react";
+import { useState, useMemo } from "react";
+import type { QueryVolatility } from "@/lib/agents/volatility";
 
 interface Props {
   aiVisResult: any;
@@ -15,10 +16,89 @@ interface Props {
   articleCost?: number;
   bulkFixCost?: number;
   lastScanDate?: string;
+  /** User-pinned queries — these are tracked every scan and get a dedicated section. */
+  goldenPrompts?: string[];
+  /** Per-query score history + stddev across recent scans. Enables sparklines + stability labels. */
+  volatility?: QueryVolatility[];
+  onPinQuery?: (query: string) => void;
+  onUnpinQuery?: (query: string) => void;
 }
 
-export function PromptVolumes({ aiVisResult, companyName, city, onFixQuery, onFixAll, isFixing, articleCost = 5, bulkFixCost = 15, lastScanDate }: Props) {
+const GOLDEN_MAX = 20;
+
+function Sparkline({ points, label }: { points: number[]; label: "stable" | "moderate" | "volatile" | "insufficient-data" }) {
+  if (!points || points.length === 0) {
+    return <div className="w-[80px] h-[18px] flex items-center text-[10px] text-zinc-600">—</div>;
+  }
+  const w = 80;
+  const h = 18;
+  const max = 100;
+  const min = 0;
+  const step = points.length > 1 ? w / (points.length - 1) : 0;
+  const y = (v: number) => h - ((v - min) / (max - min)) * h;
+  const path = points
+    .map((v, i) => `${i === 0 ? "M" : "L"}${(i * step).toFixed(1)},${y(v).toFixed(1)}`)
+    .join(" ");
+  const stroke =
+    label === "volatile" ? "#f87171" : label === "moderate" ? "#fbbf24" : label === "stable" ? "#7CB342" : "#52525b";
+  const last = points[points.length - 1];
+  return (
+    <svg width={w} height={h} className="flex-shrink-0" aria-hidden>
+      <path d={path} fill="none" stroke={stroke} strokeWidth="1.5" />
+      {points.length > 0 && (
+        <circle cx={(points.length - 1) * step} cy={y(last)} r="1.8" fill={stroke} />
+      )}
+    </svg>
+  );
+}
+
+function StabilityBadge({ v }: { v: QueryVolatility }) {
+  if (v.label === "insufficient-data") {
+    return (
+      <Badge className="text-[10px] bg-zinc-800 text-zinc-500 border-0 rounded-md h-5 px-1.5">
+        {v.history.length}/3 runs
+      </Badge>
+    );
+  }
+  const styles = {
+    stable: "bg-[#7CB342]/10 text-[#7CB342]",
+    moderate: "bg-amber-500/10 text-amber-400",
+    volatile: "bg-red-500/10 text-red-400",
+  } as const;
+  return (
+    <Badge className={`text-[10px] border-0 rounded-md h-5 px-1.5 ${styles[v.label]}`}>
+      {v.label} · ±{Math.round(v.stddev)}pp
+    </Badge>
+  );
+}
+
+export function PromptVolumes({
+  aiVisResult,
+  companyName,
+  city,
+  onFixQuery,
+  onFixAll,
+  isFixing,
+  articleCost = 5,
+  bulkFixCost = 15,
+  lastScanDate,
+  goldenPrompts = [],
+  volatility = [],
+  onPinQuery,
+  onUnpinQuery,
+}: Props) {
   const [fixingQuery, setFixingQuery] = useState<string | null>(null);
+
+  // Fast lookups used throughout the render tree
+  const pinnedSet = useMemo(() => new Set(goldenPrompts.map((q) => q.trim().toLowerCase())), [goldenPrompts]);
+  const volatilityByQuery = useMemo(() => {
+    const m = new Map<string, QueryVolatility>();
+    for (const v of volatility) m.set(v.query.trim().toLowerCase(), v);
+    return m;
+  }, [volatility]);
+
+  const isPinned = (q: string) => pinnedSet.has(q.trim().toLowerCase());
+  const canPinMore = pinnedSet.size < GOLDEN_MAX;
 
   if (!aiVisResult) return null;
 
@@ -183,6 +263,121 @@ export function PromptVolumes({ aiVisResult, companyName, city, onFixQuery, onFi
             )}
           </div>
         </div>
+
+        {/* Golden Prompts — user-locked queries tracked every scan. These show
+            volatility + delta across runs so drift reads as signal vs noise.
+            Foundation's GEO research: AI visibility swings 20-30% baseline
+            between runs; without a fixed prompt set, there's no way to tell
+            a real regression from noise. */}
+        {(goldenPrompts.length > 0 || volatility.length > 0) && (
+          <div className="rounded-xl bg-zinc-800/30 border border-white/[0.04] overflow-hidden">
+            <div className="flex items-center gap-2 px-3.5 py-2.5 border-b border-white/[0.04]">
+              <Pin size={12} className="text-zinc-400" />
+              <span className="text-[12px] font-semibold text-zinc-200">Golden prompts</span>
+              <Badge className="text-[10px] bg-zinc-800 text-zinc-500 border-0 rounded-md h-5 px-1.5">
+                {pinnedSet.size}/{GOLDEN_MAX}
+              </Badge>
+              <span className="text-[10px] text-zinc-500 ml-auto">
+                {volatility.length >= 3
+                  ? `Stability tracked across last ${Math.min(volatility[0]?.history?.length || 0, 10)} scans`
+                  : "Pin up to 20 queries — volatility unlocks after 3 scans"}
+              </span>
+            </div>
+
+            {goldenPrompts.length === 0 ? (
+              <div className="p-4 text-[11px] text-zinc-500 leading-relaxed">
+                You haven&apos;t pinned any queries yet. Click the pin icon next to a query in your scan results to track it every run — this is how you separate real regressions from the 20-30% noise floor that hits every AI-visibility run.
+              </div>
+            ) : (
+              <div className="divide-y divide-white/[0.04]">
+                {goldenPrompts.map((q, i) => {
+                  const v = volatilityByQuery.get(q.trim().toLowerCase());
+                  const history = v?.history || [];
+                  const scores = history.map((h) => h.score);
+                  const current = v?.current ?? 0;
+                  const delta = v?.lastDelta ?? 0;
+                  return (
+                    <div key={i} className="flex items-center gap-3 px-3.5 py-2.5">
+                      <span className="text-zinc-600 text-[10px] tabular-nums w-5 flex-shrink-0">{i + 1}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[12px] text-zinc-200 truncate" title={q}>&ldquo;{q}&rdquo;</div>
+                      </div>
+                      <Sparkline points={scores} label={v?.label || "insufficient-data"} />
+                      <div className="text-right w-16 flex-shrink-0">
+                        <div className={`text-[13px] font-semibold tabular-nums ${current >= 50 ? "text-[#7CB342]" : current >= 20 ? "text-amber-400" : "text-red-400"}`}>
+                          {current}%
+                        </div>
+                        {v && v.history.length >= 2 && (
+                          <div className={`text-[10px] tabular-nums ${delta > 0 ? "text-[#7CB342]" : delta < 0 ? "text-red-400" : "text-zinc-500"}`}>
+                            {delta > 0 ? "+" : ""}{delta}pp
+                          </div>
+                        )}
+                      </div>
+                      {v && <StabilityBadge v={v} />}
+                      {onUnpinQuery && (
+                        <button
+                          onClick={() => onUnpinQuery(q)}
+                          className="text-zinc-500 hover:text-red-400 transition-colors flex-shrink-0 p-1 rounded hover:bg-red-500/10"
+                          title="Unpin"
+                        >
+                          <PinOff size={12} />
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* All queries — compact list with pin buttons so user can
+            promote any scanned query into their golden set. Only shows
+            when there's an active scan + onPinQuery callback wired. */}
+        {onPinQuery && totalQueries > 0 && (
+          <div className="rounded-xl bg-zinc-800/20 border border-white/[0.04] overflow-hidden">
+            <div className="flex items-center gap-2 px-3.5 py-2.5 border-b border-white/[0.04]">
+              <Activity size={12} className="text-zinc-400" />
+              <span className="text-[12px] font-semibold text-zinc-200">All queries · this scan</span>
+              <span className="text-[10px] text-zinc-500 ml-auto">
+                Pin the ones that matter — they&apos;ll show up in Golden prompts every run
+              </span>
+            </div>
+            <div className="divide-y divide-white/[0.04] max-h-[320px] overflow-y-auto">
+              {(aiVisResult.queryResults || []).map((qr: any, i: number) => {
+                const q = qr.query;
+                const mentioned = qr.chatgpt?.mentioned || qr.gemini?.mentioned;
+                const pinned = isPinned(q);
+                const v = volatilityByQuery.get(q.trim().toLowerCase());
+                return (
+                  <div key={i} className="flex items-center gap-2 px-3.5 py-2 hover:bg-white/[0.02] transition-colors">
+                    <span className={`text-[10px] tabular-nums w-5 flex-shrink-0 ${mentioned ? "text-[#7CB342]/60" : "text-red-500/60"}`}>
+                      {mentioned ? "●" : "○"}
+                    </span>
+                    <span className="text-[12px] text-zinc-300 flex-1 truncate" title={q}>&ldquo;{q}&rdquo;</span>
+                    {v && v.history.length >= 2 && (
+                      <Sparkline points={v.history.map((h) => h.score)} label={v.label} />
+                    )}
+                    <button
+                      onClick={() => (pinned ? onUnpinQuery?.(q) : onPinQuery(q))}
+                      disabled={!pinned && !canPinMore}
+                      className={`p-1 rounded transition-colors flex-shrink-0 ${
+                        pinned
+                          ? "text-[#7CB342] hover:bg-[#7CB342]/10"
+                          : canPinMore
+                          ? "text-zinc-500 hover:text-zinc-200 hover:bg-white/[0.04]"
+                          : "text-zinc-700 cursor-not-allowed"
+                      }`}
+                      title={pinned ? "Unpin" : canPinMore ? "Pin to Golden prompts" : `Max ${GOLDEN_MAX} pinned — unpin one first`}
+                    >
+                      {pinned ? <Pin size={12} /> : <Pin size={12} />}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Dynamic blind spots list — ALL queries, each with fix action */}
         {missingQueriesList.length > 0 && (

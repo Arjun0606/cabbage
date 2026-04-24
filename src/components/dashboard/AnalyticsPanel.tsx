@@ -160,6 +160,11 @@ interface Props {
   // Content decay (from GSC history)
   contentDecayReport?: any;
   snapshotCount?: number;
+  // Golden prompts — user-locked queries tracked every scan + per-query volatility
+  goldenPrompts?: string[];
+  volatility?: any[];
+  onPinQuery?: (query: string) => void;
+  onUnpinQuery?: (query: string) => void;
 }
 
 function ScoreCircle({ score, label, size = "md" }: { score: number; label: string; size?: "sm" | "md" }) {
@@ -264,6 +269,7 @@ export function AnalyticsPanel({
   keywordResearchResult, isResearchingKeywords, onRunKeywordResearch,
   internalLinkingResult, isAnalyzingLinks, onRunInternalLinking,
   contentDecayReport, snapshotCount = 0,
+  goldenPrompts = [], volatility = [], onPinQuery, onUnpinQuery,
 }: Props) {
   const cost = (action: string) => creditCosts[action] || 0;
   const [auditUrl, setAuditUrl] = useState(websiteUrl || "");
@@ -1300,6 +1306,10 @@ export function AnalyticsPanel({
                 articleCost={cost("article")}
                 bulkFixCost={cost("report")}
                 lastScanDate={geoProgress?.currentScan?.timestamp}
+                goldenPrompts={goldenPrompts}
+                volatility={volatility}
+                onPinQuery={onPinQuery}
+                onUnpinQuery={onUnpinQuery}
               />
 
               <SectionCard>

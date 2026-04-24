@@ -44,6 +44,10 @@ export default function DashboardPage() {
 
   const [auditResult, setAuditResult] = useState<any>(null);
   const [aiVisResult, setAiVisResult] = useState<any>(null);
+  // Golden prompts + volatility — user-locked top queries tracked every scan.
+  // Backed by the golden_prompts table when signed in, by localStorage in demo mode.
+  const [goldenPrompts, setGoldenPrompts] = useState<string[]>([]);
+  const [volatility, setVolatility] = useState<any[]>([]);
   const [backlinkResult, setBacklinkResult] = useState<any>(null);
   const [technicalResult, setTechnicalResult] = useState<any>(null);
   const [competitorResults, setCompetitorResults] = useState<any[]>([]);
@@ -584,6 +588,38 @@ export default function DashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [company.city, company.name, company.projects]);
 
+  // Load golden prompts on mount. Demo mode reads from localStorage, signed-in
+  // users hit the API which also returns the latest volatility snapshot.
+  useEffect(() => {
+    const demo =
+      billing?.plan === "demo" ||
+      (typeof window !== "undefined" && localStorage.getItem("cabbge_demo_mode") === "true");
+    if (demo) {
+      try {
+        const raw = localStorage.getItem("cabbge_golden_prompts");
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) setGoldenPrompts(parsed.filter((x) => typeof x === "string"));
+        }
+      } catch { /* malformed JSON is a no-op */ }
+      return;
+    }
+    const companyId = (company as any)?._companyId as string | undefined;
+    if (!companyId) return;
+    (async () => {
+      try {
+        const res = await fetch(`/api/golden-prompts?companyId=${encodeURIComponent(companyId)}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (Array.isArray(data.prompts)) {
+          setGoldenPrompts(data.prompts.map((p: { query: string }) => p.query));
+        }
+        if (Array.isArray(data.volatility)) setVolatility(data.volatility);
+      } catch { /* best-effort */ }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [(company as any)?._companyId, billing?.plan]);
+
   /**
    * Full-site crawler: visits every page, runs per-URL audit.
    * Much deeper than runAudit (single-page). Produces URL inventory
@@ -619,6 +655,67 @@ export default function DashboardPage() {
       addLog(`> Error: ${err instanceof Error ? err.message : "Crawl failed"}`);
     } finally {
       setIsCrawling(false);
+    }
+  };
+
+  // Demo mode is determined the same way as in the render body (billing.plan
+  // + localStorage flag); inlined here so the pin/unpin handlers don't forward-
+  // reference the later const.
+  const _isDemoNow = () =>
+    billing?.plan === "demo" ||
+    (typeof window !== "undefined" && localStorage.getItem("cabbge_demo_mode") === "true");
+
+  // Golden prompts pin/unpin. Demo mode keeps state in localStorage; signed-in
+  // users hit /api/golden-prompts which enforces the max-20 cap server-side.
+  const pinQuery = async (query: string) => {
+    const q = query.trim();
+    if (!q) return;
+    if (goldenPrompts.includes(q)) return;
+    if (goldenPrompts.length >= 20) {
+      addLog("> Golden prompts full (20 max). Unpin one first.");
+      return;
+    }
+    const next = [...goldenPrompts, q];
+    setGoldenPrompts(next);
+    try {
+      if (_isDemoNow()) {
+        localStorage.setItem("cabbge_golden_prompts", JSON.stringify(next));
+      } else {
+        const companyId = (company as any)?._companyId;
+        if (companyId) {
+          await fetch("/api/golden-prompts", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ companyId, query: q }),
+          });
+        }
+      }
+    } catch (err) {
+      // Rollback optimistic update on failure
+      setGoldenPrompts(goldenPrompts);
+      addLog(`> Pin failed: ${err instanceof Error ? err.message : "unknown error"}`);
+    }
+  };
+
+  const unpinQuery = async (query: string) => {
+    const q = query.trim();
+    const next = goldenPrompts.filter((g) => g !== q);
+    setGoldenPrompts(next);
+    try {
+      if (_isDemoNow()) {
+        localStorage.setItem("cabbge_golden_prompts", JSON.stringify(next));
+      } else {
+        const companyId = (company as any)?._companyId;
+        if (companyId) {
+          await fetch(
+            `/api/golden-prompts?companyId=${encodeURIComponent(companyId)}&query=${encodeURIComponent(q)}`,
+            { method: "DELETE" }
+          );
+        }
+      }
+    } catch (err) {
+      setGoldenPrompts(goldenPrompts);
+      addLog(`> Unpin failed: ${err instanceof Error ? err.message : "unknown error"}`);
     }
   };
 
@@ -748,6 +845,8 @@ export default function DashboardPage() {
         throw new Error(data.hint ? `${data.error} — ${data.hint}` : data.error);
       }
       setAiVisResult(data);
+      if (Array.isArray(data.goldenPrompts)) setGoldenPrompts(data.goldenPrompts);
+      if (Array.isArray(data.volatility)) setVolatility(data.volatility);
       recordScan("ai_visibility", company.website, data.scores.overall, `Readiness: ${data.scores.readiness}%, Mentions: ${data.scores.mentions}%`);
       logScoreChange("AI Readiness", data.scores.readiness || data.scores.overall, "ai_visibility");
 
@@ -1530,6 +1629,10 @@ export default function DashboardPage() {
               onRunInternalLinking={runInternalLinking}
               contentDecayReport={contentDecayReport}
               snapshotCount={snapshotCount}
+              goldenPrompts={goldenPrompts}
+              volatility={volatility}
+              onPinQuery={pinQuery}
+              onUnpinQuery={unpinQuery}
             />
           </div>
 

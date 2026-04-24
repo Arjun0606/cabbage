@@ -124,6 +124,16 @@ CREATE TABLE IF NOT EXISTS generated_content (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Golden prompts: user-locked top buyer queries tracked across every scan.
+-- Stable baseline so volatility reads as signal vs noise.
+CREATE TABLE IF NOT EXISTS golden_prompts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  query TEXT NOT NULL,
+  pinned_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (company_id, query)
+);
+
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_scan_history_company ON scan_history(company_id, scan_type, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_integrations_company ON integrations(company_id, provider);
@@ -132,3 +142,4 @@ CREATE INDEX IF NOT EXISTS idx_chat_company ON chat_messages(company_id, created
 CREATE INDEX IF NOT EXISTS idx_content_company ON generated_content(company_id, status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_projects_company ON projects(company_id);
 CREATE INDEX IF NOT EXISTS idx_competitors_company ON competitors(company_id);
+CREATE INDEX IF NOT EXISTS idx_golden_prompts_company ON golden_prompts(company_id, pinned_at DESC);
