@@ -40,6 +40,7 @@ import { OwnPagesAICites } from "./OwnPagesAICites";
 import { ThirdPartyAuthority } from "./ThirdPartyAuthority";
 import { HallucinationAudit } from "./HallucinationAudit";
 import { CitationDrift } from "./CitationDrift";
+import { PlatformMentions } from "./PlatformMentions";
 import { ProjectCompare } from "./ProjectCompare";
 import { DelayRiskPanel } from "./DelayRiskPanel";
 import { ReviewMonitor } from "./ReviewMonitor";
@@ -133,10 +134,16 @@ interface Props {
       status: "verified" | "not_found" | "mismatch" | "invalid_format" | "no_number" | "unknown";
       citationUrl?: string;
       note: string;
+      expiresAt?: string;
+      daysUntilExpiry?: number;
+      expiryUrgency?: "expired" | "critical" | "warning" | "ok" | "unknown";
     }>;
     verified: number;
     mismatch: number;
     unverified: number;
+    expired?: number;
+    expiringCritical?: number;
+    expiringWarning?: number;
     total: number;
     ranAt: string;
   } | null;
@@ -1156,6 +1163,13 @@ export function AnalyticsPanel({
             websiteUrl={websiteUrl}
           />
 
+          {/* Platform-specific mentions — the actual YouTube channels,
+              Reddit threads, and podcasts AI cited. ThirdPartyAuthority
+              shows platform SHARES; this shows specific URLs + the
+              queries that triggered them, so the CMO has real outreach
+              targets to act on. */}
+          <PlatformMentions aiVisResult={aiVisResult} />
+
           {/* Project comparison — answers the "X vs Y" buyer query
               shape Indian buyers search constantly. Side-by-side
               dimensions with an inline "Write the vs article" CTA. */}
@@ -1925,16 +1939,33 @@ export function AnalyticsPanel({
                       <Wrench size={14} className="text-zinc-400" />
                       RERA state-portal verification
                       {reraVerification && (
-                        <Badge className={`text-[10px] h-5 px-1.5 rounded-md border-0 ${
-                          reraVerification.mismatch > 0
-                            ? "bg-red-500/10 text-red-400"
-                            : reraVerification.verified === reraVerification.total
-                            ? "bg-[#7CB342]/10 text-[#7CB342]"
-                            : "bg-amber-500/10 text-amber-400"
-                        }`}>
-                          {reraVerification.verified}/{reraVerification.total} verified
-                          {reraVerification.mismatch > 0 ? ` · ${reraVerification.mismatch} mismatch` : ""}
-                        </Badge>
+                        <>
+                          <Badge className={`text-[10px] h-5 px-1.5 rounded-md border-0 ${
+                            reraVerification.mismatch > 0
+                              ? "bg-red-500/10 text-red-400"
+                              : reraVerification.verified === reraVerification.total
+                              ? "bg-[#7CB342]/10 text-[#7CB342]"
+                              : "bg-amber-500/10 text-amber-400"
+                          }`}>
+                            {reraVerification.verified}/{reraVerification.total} verified
+                            {reraVerification.mismatch > 0 ? ` · ${reraVerification.mismatch} mismatch` : ""}
+                          </Badge>
+                          {(reraVerification.expired ?? 0) > 0 && (
+                            <Badge className="text-[10px] h-5 px-1.5 rounded-md border-0 bg-red-500/10 text-red-400">
+                              {reraVerification.expired} expired
+                            </Badge>
+                          )}
+                          {(reraVerification.expiringCritical ?? 0) > 0 && (
+                            <Badge className="text-[10px] h-5 px-1.5 rounded-md border-0 bg-red-500/10 text-red-400">
+                              {reraVerification.expiringCritical} expiring ≤30d
+                            </Badge>
+                          )}
+                          {(reraVerification.expiringWarning ?? 0) > 0 && (
+                            <Badge className="text-[10px] h-5 px-1.5 rounded-md border-0 bg-amber-500/10 text-amber-400">
+                              {reraVerification.expiringWarning} expiring ≤60d
+                            </Badge>
+                          )}
+                        </>
                       )}
                     </CardTitle>
                     <p className="text-[11px] text-zinc-500 mt-1">
@@ -1985,6 +2016,18 @@ export function AnalyticsPanel({
                         : e.status === "invalid_format" ? "Invalid format"
                         : e.status === "no_number" ? "Not scraped"
                         : "Unverified";
+                      const expiryBadge = e.expiryUrgency && e.expiryUrgency !== "unknown" ? (
+                        <Badge className={`text-[9px] h-4 px-1 rounded border-0 font-normal ${
+                          e.expiryUrgency === "expired" ? "bg-red-500/15 text-red-400"
+                          : e.expiryUrgency === "critical" ? "bg-red-500/10 text-red-400"
+                          : e.expiryUrgency === "warning" ? "bg-amber-500/10 text-amber-400"
+                          : "bg-[#7CB342]/10 text-[#7CB342]"
+                        }`}>
+                          {e.expiryUrgency === "expired"
+                            ? `expired ${Math.abs(e.daysUntilExpiry ?? 0)}d ago`
+                            : `${e.daysUntilExpiry}d left`}
+                        </Badge>
+                      ) : null;
                       return (
                         <div key={i} className="flex items-start gap-3 px-3.5 py-2.5">
                           <span className={`text-[10px] w-2 flex-shrink-0 mt-1 ${color}`}>●</span>
@@ -2001,6 +2044,7 @@ export function AnalyticsPanel({
                                   {e.reraNumber}
                                 </span>
                               )}
+                              {expiryBadge}
                             </div>
                             {e.note && (
                               <div className="text-[11px] text-zinc-500 mt-0.5 line-clamp-2" title={e.note}>{e.note}</div>

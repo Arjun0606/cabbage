@@ -46,6 +46,19 @@ export interface ReraVerificationEntry {
   citationUrl?: string;
   /** Short one-line explanation. */
   note: string;
+  /** ISO date when the RERA registration expires (when extractable). */
+  expiresAt?: string;
+  /** Days until expiry at check time. Negative = already expired. */
+  daysUntilExpiry?: number;
+  /**
+   * Urgency flag derived from daysUntilExpiry:
+   *   expired   <= 0 days
+   *   critical  ≤ 30 days
+   *   warning   ≤ 60 days
+   *   ok        > 60 days
+   *   unknown   no expiry extracted
+   */
+  expiryUrgency?: "expired" | "critical" | "warning" | "ok" | "unknown";
   checkedAt: string;
 }
 
@@ -54,6 +67,12 @@ export interface ReraVerificationResult {
   verified: number;
   mismatch: number;
   unverified: number;
+  /** Count of records already expired by check time. */
+  expired: number;
+  /** Count of records expiring within 30 days. */
+  expiringCritical: number;
+  /** Count of records expiring within 60 days. */
+  expiringWarning: number;
   total: number;
   ranAt: string;
 }
@@ -227,6 +246,7 @@ Return ONLY JSON:
   "status": "verified" | "not_found" | "mismatch" | "unknown",
   "citationUrl": "<state-portal page URL that confirms the record, empty string if none>",
   "projectNameOnRecord": "<project name the portal lists for that RERA number, empty if unclear>",
+  "expiresAt": "<ISO date YYYY-MM-DD of the RERA registration's validity end / completion / possession / expiry date if the answer mentions one. Empty string if not stated.>",
   "note": "<one short sentence; under 140 chars>"
 }
 
@@ -235,7 +255,8 @@ Rules:
 - "mismatch" if the record exists but is for a DIFFERENT project name than "${project.name}" (fuzzy match is fine — "Aparna Moonstone" and "APARNA MOONSTONE, Kompally" match).
 - "not_found" if the portal says the number doesn't exist or the search confirms no record.
 - "unknown" otherwise (including when the answer is evasive, hallucinated, or didn't actually search).
-- citationUrl must be a URL visible in the answer.`;
+- citationUrl must be a URL visible in the answer.
+- expiresAt: extract only if the answer explicitly mentions an expiry / completion / validity-until date. Common labels: "Project Completion Date", "Proposed End Date", "Registration Valid Until", "Expected Completion". Do NOT invent. Empty string if uncertain.`;
 
   try {
     const raw = await aiLight("Parse a RERA lookup answer into structured JSON.", parsePrompt, 400);
@@ -255,6 +276,7 @@ Rules:
       status?: string;
       citationUrl?: string;
       projectNameOnRecord?: string;
+      expiresAt?: string;
       note?: string;
     };
 
@@ -270,6 +292,27 @@ Rules:
     // Guardrail — "verified" requires a URL on the expected state portal.
     if (status === "verified" && !hasDomain) status = "unknown";
 
+    // Parse expiry date if present + compute urgency. We accept any date
+    // string JS Date can parse; store canonical ISO YYYY-MM-DD so the UI
+    // doesn't have to round-trip timezones.
+    let expiresAt: string | undefined;
+    let daysUntilExpiry: number | undefined;
+    let expiryUrgency: ReraVerificationEntry["expiryUrgency"] = "unknown";
+    const rawExpiry = typeof parsed.expiresAt === "string" ? parsed.expiresAt.trim() : "";
+    if (rawExpiry) {
+      const parsedDate = new Date(rawExpiry);
+      if (!Number.isNaN(parsedDate.getTime()) && parsedDate.getFullYear() > 2000 && parsedDate.getFullYear() < 2100) {
+        expiresAt = parsedDate.toISOString().slice(0, 10);
+        const now = new Date();
+        daysUntilExpiry = Math.round((parsedDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
+        expiryUrgency =
+          daysUntilExpiry <= 0 ? "expired"
+          : daysUntilExpiry <= 30 ? "critical"
+          : daysUntilExpiry <= 60 ? "warning"
+          : "ok";
+      }
+    }
+
     return {
       project: project.name,
       reraNumber: rera,
@@ -278,6 +321,9 @@ Rules:
       status,
       citationUrl: hasDomain ? citationUrl : undefined,
       note: (parsed.note || "").toString().slice(0, 200),
+      expiresAt,
+      daysUntilExpiry,
+      expiryUrgency,
       checkedAt,
     };
   } catch {
@@ -312,12 +358,18 @@ export async function runReraVerification(
   const verified = entries.filter((e) => e.status === "verified").length;
   const mismatch = entries.filter((e) => e.status === "mismatch").length;
   const unverified = entries.filter((e) => !["verified", "no_number"].includes(e.status)).length;
+  const expired = entries.filter((e) => e.expiryUrgency === "expired").length;
+  const expiringCritical = entries.filter((e) => e.expiryUrgency === "critical").length;
+  const expiringWarning = entries.filter((e) => e.expiryUrgency === "warning").length;
 
   return {
     entries,
     verified,
     mismatch,
     unverified,
+    expired,
+    expiringCritical,
+    expiringWarning,
     total: entries.length,
     ranAt,
   };
