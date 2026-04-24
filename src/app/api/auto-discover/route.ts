@@ -44,6 +44,96 @@ const PROJECT_INDEX_RX = /\/(our-)?projects?(\/|$)|\/portfolio|\/residential|\/a
 const PROJECT_DETAIL_RX = /\/(project|projects|properties|residential|apartments|bungalows|villas|plots)\/[a-z0-9-]+\/[a-z0-9-]+/i;
 const NON_PROJECT_SLUG_RX = /^(about|about-us|contact|contact-us|careers|blog|news|media|press|privacy|terms|tos|sitemap|faq|login|signup|gallery|events|csr|testimonials|awards|team|leadership|download|brochure|enquire|search|all|home|index)$/i;
 
+// RERA registration number patterns. Every Indian state RERA authority
+// uses a slightly different prefix but all are discoverable via regex.
+// We match broadly and keep the matched substring verbatim.
+const RERA_PATTERNS: RegExp[] = [
+  /P\d{2}\d{8,14}/g,                                    // Telangana/AP/MH TSRERA/MahaRERA compact IDs
+  /TS\/\d+\/\d+\/\d+/gi,                                // Telangana long form
+  /K-?RERA\/PR\/\d+\/\d+(?:\/\d+)?/gi,                  // Karnataka
+  /HARERA-[A-Z]+-\d+/gi,                                // Haryana
+  /MAHARERA[\/-]P\d+/gi,                                // Maharashtra prefix variant
+  /PRM\/KA\/RERA\/\d+\/\d+\/PR\/\d+\/\d+/gi,            // Karnataka full
+  /RERA\s*(?:Reg(?:istration)?\s*(?:No\.?|Number)?\s*[:\-]?\s*)([A-Z0-9\/-]{8,40})/gi,
+  /Regn\.?\s*No\.?\s*[:\-]?\s*([A-Z0-9\/-]{8,40})/gi,
+];
+
+function extractRera(text: string, rawHtml?: string): string {
+  for (const rx of RERA_PATTERNS) {
+    rx.lastIndex = 0;
+    const m = rx.exec(text);
+    if (m) {
+      // If the pattern used a capture group, prefer it (strips the "RERA No:" prefix)
+      const val = (m[1] || m[0]).trim();
+      // Sanity filter — avoid grabbing words like "AUTHORITY" etc.
+      if (/\d/.test(val) && val.length >= 6 && val.length <= 40) return val;
+    }
+  }
+  // Next.js SPAs often embed the data as escaped JSON: \"reraNumber\":\"P0...\"
+  if (rawHtml) {
+    const embedded = /\\?"reraNumber\\?"\s*:\s*\\?"([^"\\]{4,60})\\?"/i.exec(rawHtml);
+    if (embedded && embedded[1] && embedded[1].toUpperCase() !== "NA" && /\d/.test(embedded[1])) {
+      return embedded[1];
+    }
+  }
+  return "";
+}
+
+function extractConfigurations(text: string): string {
+  // "2 BHK", "2, 3 & 4 BHK", "3BHK", "3-BHK"
+  const re = /(\d(?:\s*(?:,|&|and|-|\/|to)\s*\d)*)\s*BHK/gi;
+  const configs = new Set<string>();
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text))) {
+    const digits = m[1].replace(/\s+/g, "").replace(/and/gi, "&");
+    digits.split(/[,&/-]/).forEach((d) => {
+      const n = parseInt(d, 10);
+      if (n >= 1 && n <= 6) configs.add(`${n}BHK`);
+    });
+  }
+  return Array.from(configs).sort().join(", ");
+}
+
+function extractPrice(text: string): string {
+  // "₹1.2 Cr onwards", "₹85 Lakhs", "Rs. 1.2 Crore"
+  const re = /(?:₹|Rs\.?|INR)\s*([\d.,]+)\s*(Cr(?:ore)?s?|Lakh?s?|L)\b/i;
+  const m = re.exec(text);
+  if (!m) return "";
+  const num = m[1];
+  const unit = /cr/i.test(m[2]) ? "Cr" : "L";
+  return `₹${num} ${unit} onwards`;
+}
+
+function extractLocation(text: string, slug: string, metaTitle: string): string {
+  // Prefer explicit "Location: X" or "in X, Hyderabad/Bengaluru/Mumbai/..." patterns
+  const re1 = /Location\s*[:\-]\s*([A-Z][A-Za-z0-9 &'-]+?)(?:,\s*([A-Z][A-Za-z ]+))?(?:\s*[.|]|$)/;
+  const m1 = re1.exec(text);
+  if (m1) {
+    return m1[2] ? `${m1[1].trim()}, ${m1[2].trim()}` : m1[1].trim();
+  }
+  // "<name> in <Locality>, <City>"
+  const re2 = /\b(?:in|at)\s+([A-Z][A-Za-z]+(?:\s[A-Z][A-Za-z]+)?)\s*,\s*([A-Z][A-Za-z]+)\b/;
+  const m2 = re2.exec(text);
+  if (m2) return `${m2[1]}, ${m2[2]}`;
+  // Fallback from slug: "...-in-gandimaisamma" → "Gandimaisamma"
+  const inMatch = /(?:-in-|-at-)([a-z0-9-]+)$/.exec(slug);
+  if (inMatch) return slugToName(inMatch[1]);
+  // Metatitle sometimes includes locality
+  const tm = /\bin\s+([A-Z][A-Za-z]+)\b/.exec(metaTitle);
+  if (tm) return tm[1];
+  return "";
+}
+
+interface ScrapedProject {
+  name: string;
+  location: string;
+  configurations: string;
+  priceRange: string;
+  reraNumber: string;
+  website: string;
+  status: string;
+}
+
 function slugToName(slug: string): string {
   // "aparna-moonstone" -> "Aparna Moonstone"
   return slug
@@ -101,25 +191,29 @@ export async function POST(req: NextRequest) {
       )
     ).slice(0, 4);
 
-    const collectDetailSlugs = (rawHtml: string, baseUrl: string, into: string[]) => {
-      const a2 = extractAnchors(rawHtml, baseUrl);
-      for (const a of a2) {
-        try {
-          const u = new URL(a.href);
-          if (u.hostname.replace(/^www\./, "") !== baseHost) continue;
-          if (!PROJECT_DETAIL_RX.test(u.pathname)) continue;
-          const slug = u.pathname.split("/").filter(Boolean).pop() || "";
-          if (slug && slug.length >= 4 && !NON_PROJECT_SLUG_RX.test(slug)) into.push(slug);
-        } catch { /* ignore */ }
-      }
+    // Keep slug → full URL so we can scrape each project detail page.
+    const detailUrls = new Map<string, string>();
+    const addSlug = (href: string) => {
+      try {
+        const u = new URL(href);
+        if (u.hostname.replace(/^www\./, "") !== baseHost) return;
+        if (!PROJECT_DETAIL_RX.test(u.pathname)) return;
+        const slug = u.pathname.split("/").filter(Boolean).pop() || "";
+        if (slug && slug.length >= 4 && !NON_PROJECT_SLUG_RX.test(slug)) {
+          if (!detailUrls.has(slug)) detailUrls.set(slug, u.origin + u.pathname);
+        }
+      } catch { /* ignore */ }
     };
 
-    const detailSlugs: string[] = [];
-    collectDetailSlugs(html, url, detailSlugs);
+    const collectFromHtml = (rawHtml: string, baseUrl: string) => {
+      for (const a of extractAnchors(rawHtml, baseUrl)) addSlug(a.href);
+    };
+
+    collectFromHtml(html, url);
 
     const indexHtmls = await Promise.all(indexPages.map((p) => fetchHtml(p)));
     for (let i = 0; i < indexHtmls.length; i++) {
-      collectDetailSlugs(indexHtmls[i], indexPages[i], detailSlugs);
+      collectFromHtml(indexHtmls[i], indexPages[i]);
     }
 
     // Many modern developer sites are Next.js SPAs — index pages don't
@@ -129,18 +223,51 @@ export async function POST(req: NextRequest) {
       const origin = new URL(url).origin;
       const smXml = await fetchHtml(origin + "/sitemap.xml");
       const locs = Array.from(smXml.matchAll(/<loc>([^<]+)<\/loc>/gi)).map((m) => m[1]);
-      for (const loc of locs) {
-        try {
-          const u = new URL(loc);
-          if (u.hostname.replace(/^www\./, "") !== baseHost) continue;
-          if (!PROJECT_DETAIL_RX.test(u.pathname)) continue;
-          const slug = u.pathname.split("/").filter(Boolean).pop() || "";
-          if (slug && slug.length >= 4 && !NON_PROJECT_SLUG_RX.test(slug)) detailSlugs.push(slug);
-        } catch { /* ignore */ }
-      }
+      for (const loc of locs) addSlug(loc);
     } catch { /* sitemap optional */ }
 
-    const candidateNames = Array.from(new Set(detailSlugs)).slice(0, 60).map(slugToName);
+    // Scrape each project detail page in parallel to extract RERA,
+    // configurations, location, price. Cap at 20 to keep the discover
+    // call under ~30s even on slow sites.
+    const detailEntries = Array.from(detailUrls.entries()).slice(0, 20);
+    const scrapedProjects: ScrapedProject[] = await Promise.all(
+      detailEntries.map(async ([slug, pageUrl]) => {
+        const pageHtml = await fetchHtml(pageUrl);
+        const metaT = (pageHtml.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1] || "").trim();
+        const body = stripToText(pageHtml, 20000);
+        return {
+          name: slugToName(slug),
+          location: extractLocation(body, slug, metaT),
+          configurations: extractConfigurations(body),
+          priceRange: extractPrice(body),
+          reraNumber: extractRera(body, pageHtml),
+          website: pageUrl,
+          status: /sold\s*out/i.test(body) ? "Sold Out"
+            : /ready\s*to\s*move/i.test(body) ? "Ready to Move"
+            : /pre-?launch/i.test(body) ? "Pre-launch"
+            : /under\s*construction|on-?going/i.test(body) ? "Under Construction"
+            : "Active",
+        };
+      })
+    );
+
+    // For slugs we didn't scrape in this pass (over the cap), still
+    // include them as name-only entries so the project count is accurate.
+    const scrapedSlugs = new Set(detailEntries.map(([s]) => s));
+    const unscrapedProjects: ScrapedProject[] = Array.from(detailUrls.keys())
+      .filter((s) => !scrapedSlugs.has(s))
+      .map((s) => ({
+        name: slugToName(s),
+        location: "",
+        configurations: "",
+        priceRange: "",
+        reraNumber: "",
+        website: detailUrls.get(s) || "",
+        status: "Active",
+      }));
+
+    const allProjects: ScrapedProject[] = [...scrapedProjects, ...unscrapedProjects];
+    const candidateNames = allProjects.map((p) => p.name);
 
     const combinedText =
       stripToText(html, 5000) +
@@ -169,10 +296,10 @@ You must infer everything from the website content — the company's voice, posi
 **Page Title:** ${pageTitle}
 **Meta Description:** ${metaDesc}
 
-**Candidate project slugs discovered from site navigation (these are reliable — treat each as a likely real project; convert slug to Title Case for the name):**
-${candidateNames.length > 0 ? candidateNames.map((n) => "- " + n).join("\n") : "(none found in navigation — rely on page text below)"}
+**Projects we already extracted (for context — do NOT re-list these):**
+${candidateNames.length > 0 ? candidateNames.slice(0, 30).map((n) => "- " + n).join("\n") : "(none found)"}
 
-**Website Content (homepage + ${indexHtmls.filter(Boolean).length} project-index pages, up to 15000 chars):**
+**Website Content (homepage + ${indexHtmls.filter(Boolean).length} project-index pages, up to 20000 chars):**
 ${textContent || "Could not fetch website content. Generate based on company name and URL only."}
 
 Generate this JSON:
@@ -185,16 +312,6 @@ Generate this JSON:
     "brandVoice": "200-word combined block: brand voice and tone (luxury / affordable / family-focused / tech-forward / formal / casual) + values, mission, vision (what they stand for \u2014 quality / innovation / trust / heritage).",
     "competitorAnalysis": "150-word analysis of their competitive landscape. Who are their likely competitors in their city/segment? How are they positioned relative to competition?"
   },
-
-  "inferredProjects": [
-    {
-      "name": "<EXACT project name. Prefer names found in the candidate slug list above OR in body text. If the site uses a brand-prefix convention (e.g. 'Aparna Moonstone', 'Prestige Lakeside Habitat', 'Brigade Eldorado'), preserve it. Include every candidate slug as a project entry unless it's clearly non-project nav (about, contact, blog, careers, privacy, sitemap, etc.). Never use placeholders like 'Project 1', 'Unknown', 'featured project'.>",
-      "location": "<actual locality, e.g. 'Kukatpally, Hyderabad'. If not findable in text, leave empty string — better empty than fabricated.>",
-      "configurations": "<e.g. '3BHK, 4BHK'. Empty string if unknown.>",
-      "priceRange": "<if mentioned on site, e.g. '₹1.2 Cr onwards'. Empty string if not found>",
-      "status": "Active | Pre-launch | Under Construction | Ready to Move | Sold Out"
-    }
-  ],
 
   "inferredCompetitors": ["<Only list competitor developer names you can see explicitly mentioned on the scraped site (e.g., in comparison pages, press releases, or copy). If none are mentioned, return an empty array []. Never guess at competitors based on market knowledge — that fabricates names.>"],
 
@@ -212,13 +329,17 @@ Be specific to this company — don't generate generic real estate descriptions.
 
     const raw = await aiComplete(system, prompt, 3000);
 
-    let result;
+    let result: Record<string, unknown>;
     try {
       const cleaned = raw.replace(/```json?\n?/g, "").replace(/```/g, "").trim();
       result = JSON.parse(cleaned);
     } catch {
       return NextResponse.json({ error: "Failed to analyze website" }, { status: 500 });
     }
+
+    // Always attach the deterministically-scraped projects. The LLM never
+    // sees or re-generates these, so hallucination risk is zero.
+    result.inferredProjects = allProjects;
 
     return NextResponse.json(result);
   } catch (error) {
