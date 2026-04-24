@@ -188,6 +188,10 @@ interface Props {
   onPinQuery?: (query: string) => void;
   onUnpinQuery?: (query: string) => void;
   citationDrift?: any[];
+  // Query fanout — on-demand expansion for golden prompts
+  fanoutByQuery?: Record<string, any>;
+  fanoutLoading?: Set<string>;
+  onRunFanout?: (query: string) => void;
 }
 
 function ScoreCircle({ score, label, size = "md" }: { score: number; label: string; size?: "sm" | "md" }) {
@@ -295,6 +299,7 @@ export function AnalyticsPanel({
   contentDecayReport, snapshotCount = 0,
   goldenPrompts = [], volatility = [], onPinQuery, onUnpinQuery,
   citationDrift = [],
+  fanoutByQuery = {}, fanoutLoading, onRunFanout,
 }: Props) {
   const cost = (action: string) => creditCosts[action] || 0;
   const [auditUrl, setAuditUrl] = useState(websiteUrl || "");
@@ -1348,6 +1353,9 @@ export function AnalyticsPanel({
                 volatility={volatility}
                 onPinQuery={onPinQuery}
                 onUnpinQuery={onUnpinQuery}
+                fanoutByQuery={fanoutByQuery}
+                fanoutLoading={fanoutLoading}
+                onRunFanout={onRunFanout}
               />
 
               <SectionCard>

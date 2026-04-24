@@ -2,9 +2,10 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { TrendingUp, TrendingDown, Minus, MessageSquare, PenTool, Loader2, Zap, Clock, AlertCircle, Pin, PinOff, Activity } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, MessageSquare, PenTool, Loader2, Zap, Clock, AlertCircle, Pin, PinOff, Activity, Sparkles, ChevronDown, ChevronRight } from "lucide-react";
 import { useState, useMemo } from "react";
 import type { QueryVolatility } from "@/lib/agents/volatility";
+import type { FanoutResult, FanoutVariant } from "@/lib/agents/queryFanout";
 
 interface Props {
   aiVisResult: any;
@@ -22,6 +23,12 @@ interface Props {
   volatility?: QueryVolatility[];
   onPinQuery?: (query: string) => void;
   onUnpinQuery?: (query: string) => void;
+  /** Fanout cache keyed by anchor query. Populated on demand. */
+  fanoutByQuery?: Record<string, FanoutResult>;
+  /** Set of anchor queries currently running fanout (spinner state). */
+  fanoutLoading?: Set<string>;
+  /** Trigger to fire fanout for a single anchor. */
+  onRunFanout?: (query: string) => void;
 }
 
 const GOLDEN_MAX = 20;
@@ -86,8 +93,18 @@ export function PromptVolumes({
   volatility = [],
   onPinQuery,
   onUnpinQuery,
+  fanoutByQuery = {},
+  fanoutLoading,
+  onRunFanout,
 }: Props) {
   const [fixingQuery, setFixingQuery] = useState<string | null>(null);
+  const [expandedFanout, setExpandedFanout] = useState<Set<string>>(new Set());
+  const toggleFanout = (q: string) => {
+    const next = new Set(expandedFanout);
+    if (next.has(q)) next.delete(q);
+    else next.add(q);
+    setExpandedFanout(next);
+  };
 
   // Fast lookups used throughout the render tree
   const pinnedSet = useMemo(() => new Set(goldenPrompts.map((q) => q.trim().toLowerCase())), [goldenPrompts]);
@@ -296,32 +313,122 @@ export function PromptVolumes({
                   const scores = history.map((h) => h.score);
                   const current = v?.current ?? 0;
                   const delta = v?.lastDelta ?? 0;
+                  const fanout = fanoutByQuery[q];
+                  const isFanoutLoading = fanoutLoading?.has(q) ?? false;
+                  const isFanoutOpen = expandedFanout.has(q);
                   return (
-                    <div key={i} className="flex items-center gap-3 px-3.5 py-2.5">
-                      <span className="text-zinc-600 text-[10px] tabular-nums w-5 flex-shrink-0">{i + 1}</span>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-[12px] text-zinc-200 truncate" title={q}>&ldquo;{q}&rdquo;</div>
-                      </div>
-                      <Sparkline points={scores} label={v?.label || "insufficient-data"} />
-                      <div className="text-right w-16 flex-shrink-0">
-                        <div className={`text-[13px] font-semibold tabular-nums ${current >= 50 ? "text-[#7CB342]" : current >= 20 ? "text-amber-400" : "text-red-400"}`}>
-                          {current}%
+                    <div key={i}>
+                      <div className="flex items-center gap-3 px-3.5 py-2.5">
+                        <span className="text-zinc-600 text-[10px] tabular-nums w-5 flex-shrink-0">{i + 1}</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-[12px] text-zinc-200 truncate" title={q}>&ldquo;{q}&rdquo;</div>
                         </div>
-                        {v && v.history.length >= 2 && (
-                          <div className={`text-[10px] tabular-nums ${delta > 0 ? "text-[#7CB342]" : delta < 0 ? "text-red-400" : "text-zinc-500"}`}>
-                            {delta > 0 ? "+" : ""}{delta}pp
+                        <Sparkline points={scores} label={v?.label || "insufficient-data"} />
+                        <div className="text-right w-16 flex-shrink-0">
+                          <div className={`text-[13px] font-semibold tabular-nums ${current >= 50 ? "text-[#7CB342]" : current >= 20 ? "text-amber-400" : "text-red-400"}`}>
+                            {current}%
                           </div>
+                          {v && v.history.length >= 2 && (
+                            <div className={`text-[10px] tabular-nums ${delta > 0 ? "text-[#7CB342]" : delta < 0 ? "text-red-400" : "text-zinc-500"}`}>
+                              {delta > 0 ? "+" : ""}{delta}pp
+                            </div>
+                          )}
+                        </div>
+                        {v && <StabilityBadge v={v} />}
+                        {onRunFanout && (
+                          <button
+                            onClick={() => {
+                              if (!fanout) onRunFanout(q);
+                              toggleFanout(q);
+                            }}
+                            disabled={isFanoutLoading}
+                            className={`p-1 rounded transition-colors flex-shrink-0 flex items-center gap-0.5 ${
+                              fanout
+                                ? "text-[#7CB342] hover:bg-[#7CB342]/10"
+                                : "text-zinc-500 hover:text-zinc-200 hover:bg-white/[0.04]"
+                            } disabled:opacity-40`}
+                            title={fanout ? "Toggle fanout detail" : "Run AI fanout: generate 5 variants and measure coverage"}
+                          >
+                            {isFanoutLoading ? (
+                              <Loader2 size={12} className="animate-spin" />
+                            ) : (
+                              <>
+                                <Sparkles size={11} />
+                                {fanout ? (isFanoutOpen ? <ChevronDown size={11} /> : <ChevronRight size={11} />) : null}
+                              </>
+                            )}
+                          </button>
+                        )}
+                        {onUnpinQuery && (
+                          <button
+                            onClick={() => onUnpinQuery(q)}
+                            className="text-zinc-500 hover:text-red-400 transition-colors flex-shrink-0 p-1 rounded hover:bg-red-500/10"
+                            title="Unpin"
+                          >
+                            <PinOff size={12} />
+                          </button>
                         )}
                       </div>
-                      {v && <StabilityBadge v={v} />}
-                      {onUnpinQuery && (
-                        <button
-                          onClick={() => onUnpinQuery(q)}
-                          className="text-zinc-500 hover:text-red-400 transition-colors flex-shrink-0 p-1 rounded hover:bg-red-500/10"
-                          title="Unpin"
-                        >
-                          <PinOff size={12} />
-                        </button>
+                      {fanout && isFanoutOpen && (
+                        <div className="px-3.5 pb-3 pl-14 bg-zinc-900/40 border-t border-white/[0.04]">
+                          <div className="flex items-center gap-3 py-2 mb-1">
+                            <div className="flex items-center gap-1.5">
+                              <Sparkles size={11} className="text-zinc-400" />
+                              <span className="text-[10px] uppercase tracking-wide text-zinc-500 font-semibold">
+                                Fanout coverage
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-3 text-[11px]">
+                              <span className="text-zinc-400">
+                                Anchor: <span className={fanout.anchorMentioned ? "text-[#7CB342] font-semibold" : "text-red-400 font-semibold"}>
+                                  {fanout.anchorMentioned ? "mentioned" : "absent"}
+                                </span>
+                              </span>
+                              <span className="text-zinc-400">
+                                Fanout: <span className={`font-semibold tabular-nums ${fanout.fanoutScore >= 50 ? "text-[#7CB342]" : fanout.fanoutScore >= 20 ? "text-amber-400" : "text-red-400"}`}>
+                                  {fanout.fanoutScore}%
+                                </span>
+                              </span>
+                              {fanout.gapVsAnchor < 0 && (
+                                <Badge className="text-[10px] bg-red-500/10 text-red-400 border-0 rounded-md h-5 px-1.5">
+                                  Hidden ceiling {fanout.gapVsAnchor}pp
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                          <div className="space-y-1">
+                            {fanout.variants.map((variant: FanoutVariant, vi: number) => (
+                              <div key={vi} className="flex items-start gap-2 py-1">
+                                <span className={`text-[10px] w-4 flex-shrink-0 mt-0.5 ${variant.mentioned ? "text-[#7CB342]" : "text-red-400"}`}>
+                                  {variant.mentioned ? "●" : "○"}
+                                </span>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-1.5">
+                                    <Badge className="text-[9px] bg-zinc-800 text-zinc-500 border-0 rounded h-4 px-1 font-normal">
+                                      {variant.dimension}
+                                    </Badge>
+                                    <span className="text-[11px] text-zinc-300 truncate" title={variant.query}>
+                                      &ldquo;{variant.query}&rdquo;
+                                    </span>
+                                  </div>
+                                  {variant.mentioned && variant.context && (
+                                    <div className="text-[10px] text-zinc-500 mt-0.5 line-clamp-2" title={variant.context}>
+                                      {variant.context}
+                                    </div>
+                                  )}
+                                </div>
+                                {!variant.grounded && (
+                                  <Badge className="text-[9px] bg-amber-500/10 text-amber-400 border-0 rounded h-4 px-1">
+                                    ungrounded
+                                  </Badge>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                          <div className="text-[10px] text-zinc-600 mt-2 leading-relaxed">
+                            AI engines expand each prompt into ~20 semantic variants before pulling sources. If your anchor is mentioned but the fanout isn&apos;t, you have a ceiling — publish topic-cluster content that covers these phrasings.
+                          </div>
+                        </div>
                       )}
                     </div>
                   );

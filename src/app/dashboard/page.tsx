@@ -51,6 +51,8 @@ export default function DashboardPage() {
   const [citationDrift, setCitationDrift] = useState<any[]>([]);
   const [portalCoverage, setPortalCoverage] = useState<any>(null);
   const [isCheckingPortalCoverage, setIsCheckingPortalCoverage] = useState(false);
+  const [fanoutByQuery, setFanoutByQuery] = useState<Record<string, any>>({});
+  const [fanoutLoading, setFanoutLoading] = useState<Set<string>>(new Set());
   const [backlinkResult, setBacklinkResult] = useState<any>(null);
   const [technicalResult, setTechnicalResult] = useState<any>(null);
   const [competitorResults, setCompetitorResults] = useState<any[]>([]);
@@ -719,6 +721,47 @@ export default function DashboardPage() {
     } catch (err) {
       setGoldenPrompts(goldenPrompts);
       addLog(`> Unpin failed: ${err instanceof Error ? err.message : "unknown error"}`);
+    }
+  };
+
+  const runFanout = async (anchor: string) => {
+    if (!company.name || !anchor) return;
+    if (fanoutByQuery[anchor]) return; // Already have a result — UI toggles display
+    if (!spendCredits("audit")) return;
+    setFanoutLoading((prev) => {
+      const next = new Set(prev);
+      next.add(anchor);
+      return next;
+    });
+    addLog(`> Fanout: expanding "${anchor}" into 5 semantic variants...`);
+    try {
+      const aliases = (company.documents as any)?.brandAliases
+        ? String((company.documents as any).brandAliases).split(",").map((s) => s.trim()).filter(Boolean)
+        : [];
+      const res = await fetch("/api/query-fanout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          anchor,
+          brand: company.name,
+          aliases,
+          city: company.city || "",
+          variantCount: 5,
+          companyId: (company as any)._companyId,
+        }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setFanoutByQuery((prev) => ({ ...prev, [anchor]: data }));
+      addLog(`> Fanout: ${data.fanoutScore}% across ${data.variants?.length || 0} variants (anchor was ${data.anchorMentioned ? "mentioned" : "absent"})`);
+    } catch (err) {
+      addLog(`> Fanout failed: ${err instanceof Error ? err.message : "unknown"}`);
+    } finally {
+      setFanoutLoading((prev) => {
+        const next = new Set(prev);
+        next.delete(anchor);
+        return next;
+      });
     }
   };
 
@@ -1672,6 +1715,9 @@ export default function DashboardPage() {
               portalCoverage={portalCoverage}
               isCheckingPortalCoverage={isCheckingPortalCoverage}
               onRunPortalCoverage={runPortalCoverage}
+              fanoutByQuery={fanoutByQuery}
+              fanoutLoading={fanoutLoading}
+              onRunFanout={runFanout}
             />
           </div>
 
