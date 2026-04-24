@@ -535,6 +535,14 @@ export default function PricingPage() {
             </a>.
           </div>
         </div>
+
+        {/* Legal footer — every marketing page links to the trust surface. */}
+        <div className="mt-12 pt-6 border-t border-white/[0.04] flex flex-wrap justify-center gap-x-6 gap-y-2 text-[11px] text-zinc-500">
+          <Link href="/terms" className="hover:text-zinc-300">Terms of Service</Link>
+          <Link href="/privacy" className="hover:text-zinc-300">Privacy Policy</Link>
+          <Link href="/dpa" className="hover:text-zinc-300">Data Processing Agreement</Link>
+          <Link href="/legal" className="hover:text-zinc-300">Security and trust</Link>
+        </div>
       </div>
     </div>
   );

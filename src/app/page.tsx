@@ -223,14 +223,18 @@ export default function Home() {
       )}
 
       {/* Footer */}
-      <div className="mt-12 flex items-center gap-4 text-xs text-zinc-700">
-        <Link href="/pricing" className="hover:text-zinc-400 transition-colors">
-          Pricing
-        </Link>
+      <div className="mt-12 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs text-zinc-700">
+        <Link href="/pricing" className="hover:text-zinc-400 transition-colors">Pricing</Link>
         <span>&bull;</span>
-        <Link href="/signup" className="hover:text-zinc-400 transition-colors">
-          Full setup
-        </Link>
+        <Link href="/signup" className="hover:text-zinc-400 transition-colors">Full setup</Link>
+        <span>&bull;</span>
+        <Link href="/terms" className="hover:text-zinc-400 transition-colors">Terms</Link>
+        <span>&bull;</span>
+        <Link href="/privacy" className="hover:text-zinc-400 transition-colors">Privacy</Link>
+        <span>&bull;</span>
+        <Link href="/dpa" className="hover:text-zinc-400 transition-colors">DPA</Link>
+        <span>&bull;</span>
+        <Link href="/legal" className="hover:text-zinc-400 transition-colors">Security</Link>
       </div>
     </div>
   );

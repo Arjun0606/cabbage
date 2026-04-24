@@ -1971,6 +1971,9 @@ export function AnalyticsPanel({
                     <p className="text-[11px] text-zinc-500 mt-1">
                       Cross-checks each project&apos;s RERA number against the state authority registry (HARERA, K-RERA, TS-RERA, MahaRERA, etc.). Mismatches expose you to regulatory complaints.
                     </p>
+                    <p className="text-[10px] text-zinc-600 mt-1.5 leading-relaxed">
+                      Informational only. State RERA registries remain the authoritative source of truth — <a href="/legal" target="_blank" rel="noopener noreferrer" className="text-zinc-500 hover:text-zinc-400 underline">full disclaimer</a>.
+                    </p>
                   </div>
                   {onRunReraVerification && (
                     <Button
