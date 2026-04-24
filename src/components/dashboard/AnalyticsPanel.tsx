@@ -20,6 +20,7 @@ import {
   Check,
   Building,
   BarChart3,
+  ExternalLink,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { PromptVolumes } from "./PromptVolumes";
@@ -38,6 +39,7 @@ import { CompetitiveLandscape } from "./CompetitiveLandscape";
 import { OwnPagesAICites } from "./OwnPagesAICites";
 import { ThirdPartyAuthority } from "./ThirdPartyAuthority";
 import { HallucinationAudit } from "./HallucinationAudit";
+import { CitationDrift } from "./CitationDrift";
 import { ProjectCompare } from "./ProjectCompare";
 import { DelayRiskPanel } from "./DelayRiskPanel";
 import { ReviewMonitor } from "./ReviewMonitor";
@@ -102,6 +104,25 @@ interface Props {
   portalResult: any;
   isGeneratingPortal: boolean;
   onRunPortalOptimizer: () => void;
+  // Portal coverage — "are we actually listed on 99acres / MagicBricks /
+  // Housing / NoBroker / CommonFloor" measured via grounded web search.
+  portalCoverage?: {
+    entries: Array<{
+      portal: string;
+      domain: string;
+      status: "listed" | "missing" | "unknown";
+      citationUrl?: string;
+      listingHint?: string;
+      note?: string;
+    }>;
+    listed: number;
+    total: number;
+    unknown: number;
+    ranAt: string;
+    source: "ok" | "degraded" | "unavailable";
+  } | null;
+  isCheckingPortalCoverage?: boolean;
+  onRunPortalCoverage?: () => void;
   reportResult: any;
   isGeneratingReport: boolean;
   onRunMarketingReport: () => void;
@@ -166,6 +187,7 @@ interface Props {
   volatility?: any[];
   onPinQuery?: (query: string) => void;
   onUnpinQuery?: (query: string) => void;
+  citationDrift?: any[];
 }
 
 function ScoreCircle({ score, label, size = "md" }: { score: number; label: string; size?: "sm" | "md" }) {
@@ -250,6 +272,7 @@ export function AnalyticsPanel({
   articleResult,
   schemaResult, isGeneratingSchema, onRunSchemaGenerator,
   portalResult, isGeneratingPortal, onRunPortalOptimizer,
+  portalCoverage = null, isCheckingPortalCoverage = false, onRunPortalCoverage,
   reportResult, isGeneratingReport, onRunMarketingReport,
   cmoDigestResult, isGeneratingCmoDigest, onRunCmoDigest,
   reviewMonitorResult, isRunningReviewMonitor, onRunReviewMonitor,
@@ -271,6 +294,7 @@ export function AnalyticsPanel({
   internalLinkingResult, isAnalyzingLinks, onRunInternalLinking,
   contentDecayReport, snapshotCount = 0,
   goldenPrompts = [], volatility = [], onPinQuery, onUnpinQuery,
+  citationDrift = [],
 }: Props) {
   const cost = (action: string) => creditCosts[action] || 0;
   const [auditUrl, setAuditUrl] = useState(websiteUrl || "");
@@ -1083,6 +1107,12 @@ export function AnalyticsPanel({
               defensible. Quiet by default when nothing is wrong. */}
           <HallucinationAudit aiVisResult={aiVisResult} />
 
+          {/* Citation drift — which sources + which competitors just
+              entered or left the citation set vs the previous scan.
+              Turns a score delta into a specific fixable incident.
+              Silently hidden until there are ≥2 scans. */}
+          <CitationDrift citationDrift={citationDrift} />
+
           {/* Our own pages AI is citing — the "what's actually working"
               card. Shows the top own-domain URLs AI pulled from during
               this scan so the developer can double down on what ranks. */}
@@ -1670,13 +1700,19 @@ export function AnalyticsPanel({
                   <CardContent className="p-4">
                     <div className="text-[10px] uppercase tracking-wide text-zinc-500 font-semibold mb-1">Portal Listings</div>
                     <div className="text-2xl font-bold text-zinc-100 tabular-nums">
-                      {portalResult ? Object.keys(portalResult.portals || {}).length : 0}
+                      {portalCoverage ? portalCoverage.listed : (portalResult ? Object.keys(portalResult.portals || {}).length : 0)}
                       <span className="text-[13px] text-zinc-500 font-normal">
-                        {" / "}{portalResult?.meta?.portals?.length || 5}
+                        {" / "}{portalCoverage ? portalCoverage.total : (portalResult?.meta?.portals?.length || 5)}
                       </span>
                     </div>
                     <div className="text-[11px] text-zinc-500 mt-0.5">
-                      {portalResult ? "Copy generated — submit next" : "Not generated yet"}
+                      {portalCoverage
+                        ? portalCoverage.listed === portalCoverage.total
+                          ? "Listed on every portal"
+                          : `${portalCoverage.total - portalCoverage.listed} missing — action below`
+                        : portalResult
+                        ? "Copy generated — run coverage check"
+                        : "Run coverage check to measure"}
                     </div>
                   </CardContent>
                 </SectionCard>
@@ -1739,6 +1775,105 @@ export function AnalyticsPanel({
               </div>
             );
           })()}
+
+          {/* --- Portal coverage audit — are we actually listed on the top
+               portals? Measured via grounded web search per portal, each
+               row backed by a real citation URL so the CMO can click
+               through to verify. No fabrication. --- */}
+          <SectionCard>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <CardTitle className="text-[13px] font-semibold flex items-center gap-2">
+                    <Globe size={14} className="text-zinc-400" />
+                    Portal coverage audit
+                    {portalCoverage && (
+                      <Badge className={`text-[10px] h-5 px-1.5 rounded-md border-0 ${
+                        portalCoverage.listed === portalCoverage.total
+                          ? "bg-[#7CB342]/10 text-[#7CB342]"
+                          : portalCoverage.listed > 0
+                          ? "bg-amber-500/10 text-amber-400"
+                          : "bg-red-500/10 text-red-400"
+                      }`}>
+                        {portalCoverage.listed}/{portalCoverage.total} listed
+                      </Badge>
+                    )}
+                  </CardTitle>
+                  <p className="text-[11px] text-zinc-500 mt-1">
+                    99acres, MagicBricks, Housing, NoBroker, CommonFloor — AI cites these on 35-40% of buyer queries. Missing ones cap your ceiling.
+                  </p>
+                </div>
+                {onRunPortalCoverage && (
+                  <Button
+                    onClick={onRunPortalCoverage}
+                    disabled={isCheckingPortalCoverage}
+                    size="sm"
+                    className="bg-zinc-100 text-zinc-900 hover:bg-white h-8 text-[12px] rounded-lg flex-shrink-0"
+                  >
+                    {isCheckingPortalCoverage ? (
+                      <><Loader2 size={12} className="animate-spin mr-1.5" />Checking</>
+                    ) : portalCoverage ? (
+                      <>Recheck</>
+                    ) : (
+                      <>Run check</>
+                    )}
+                  </Button>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              {!portalCoverage ? (
+                <div className="text-[11px] text-zinc-500 leading-relaxed p-3 rounded-lg bg-zinc-800/30 border border-white/[0.04]">
+                  Run the check — we search each portal&apos;s domain for your brand and return the listing URL when we find one. Every row is backed by a real citation, not a guess.
+                </div>
+              ) : (
+                <div className="divide-y divide-white/[0.04] rounded-lg bg-zinc-800/20 border border-white/[0.04] overflow-hidden">
+                  {portalCoverage.entries.map((e, i) => (
+                    <div key={i} className="flex items-center gap-3 px-3.5 py-2.5">
+                      <span className={`text-[10px] w-2 flex-shrink-0 ${
+                        e.status === "listed" ? "text-[#7CB342]" : e.status === "missing" ? "text-red-400" : "text-zinc-500"
+                      }`}>●</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[12px] text-zinc-200 font-medium">{e.portal}</span>
+                          <span className="text-[10px] text-zinc-600">{e.domain}</span>
+                          {e.listingHint && (
+                            <Badge className="text-[9px] bg-zinc-800 text-zinc-400 border-0 rounded-md h-4 px-1">
+                              {e.listingHint}
+                            </Badge>
+                          )}
+                        </div>
+                        {e.note && (
+                          <div className="text-[11px] text-zinc-500 mt-0.5 truncate" title={e.note}>{e.note}</div>
+                        )}
+                      </div>
+                      {e.citationUrl ? (
+                        <a
+                          href={e.citationUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[10px] text-[#7CB342] hover:underline flex items-center gap-1 flex-shrink-0"
+                        >
+                          Open <ExternalLink size={10} />
+                        </a>
+                      ) : (
+                        <Badge className={`text-[10px] h-5 px-1.5 rounded-md border-0 flex-shrink-0 ${
+                          e.status === "missing" ? "bg-red-500/10 text-red-400" : "bg-zinc-800 text-zinc-500"
+                        }`}>
+                          {e.status === "missing" ? "Not listed" : "Unconfirmed"}
+                        </Badge>
+                      )}
+                    </div>
+                  ))}
+                  {portalCoverage.source === "unavailable" && (
+                    <div className="px-3.5 py-2.5 text-[11px] text-amber-400 bg-amber-500/[0.04]">
+                      Web search was unavailable — results are best-effort. Try again in a few minutes.
+                    </div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </SectionCard>
 
           {/* --- Portal listings (execution-first) --- */}
           <SectionCard>

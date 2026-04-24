@@ -4,7 +4,7 @@ import { generateSearchQueries, type QueryWithMeta } from "@/lib/agents/locality
 import { enforceCredits } from "@/lib/credits";
 import { requireActiveSubscription } from "@/lib/db/supabase-server";
 import { getServiceClient } from "@/lib/db/supabase";
-import { loadVolatilityFromDb } from "@/lib/agents/volatility";
+import { loadVolatilityFromDb, loadCitationDriftFromDb } from "@/lib/agents/volatility";
 
 /**
  * Normalize whatever the client sent for `savedQueries` into QueryWithMeta[].
@@ -154,14 +154,18 @@ export async function POST(req: NextRequest) {
       projectGroundTruth,
     );
 
-    // Pull the latest volatility snapshot so the UI can render sparklines
-    // + stability labels without an extra round trip. Cheap — one indexed
-    // read of scan_history limit 10.
+    // Pull volatility + citation drift snapshots so the UI renders
+    // sparklines + gained/lost-citation panels without a second round
+    // trip. Cheap — one indexed read each.
     let volatility: Awaited<ReturnType<typeof loadVolatilityFromDb>> = [];
+    let citationDrift: Awaited<ReturnType<typeof loadCitationDriftFromDb>> = [];
     if (companyId && typeof companyId === "string") {
       try {
         const db = getServiceClient();
-        volatility = await loadVolatilityFromDb(db, companyId, { limit: 10 });
+        [volatility, citationDrift] = await Promise.all([
+          loadVolatilityFromDb(db, companyId, { limit: 10 }),
+          loadCitationDriftFromDb(db, companyId),
+        ]);
       } catch { /* best-effort */ }
     }
 
@@ -171,6 +175,7 @@ export async function POST(req: NextRequest) {
       queryGenerationFallback,
       goldenPrompts,
       volatility,
+      citationDrift,
     });
   } catch (error) {
     console.error("AI Visibility error:", error);

@@ -166,3 +166,165 @@ export async function loadVolatilityFromDb(
   if (error || !data) return [];
   return computeVolatility(data as ScanRow[]);
 }
+
+// ---------- Citation drift ----------
+//
+// Volatility answers "is the score stable?" — drift answers "did the
+// ingredients change?". For each query, which external domains + which
+// competitor brands just started (or stopped) getting cited? That's what
+// actually moves a ranking. A score drop of 5pp with no citation change
+// is noise; a score drop because Moneycontrol swapped to a competitor
+// is a specific fixable incident.
+
+export interface QueryCitationDrift {
+  query: string;
+  /** Domains newly cited in the latest scan vs the previous one. */
+  gainedDomains: string[];
+  /** Domains that were cited before but not in the latest. */
+  lostDomains: string[];
+  /** Competitor brands (co-citations) newly appearing. */
+  gainedCompetitors: string[];
+  /** Competitor brands that dropped off. */
+  lostCompetitors: string[];
+  /** True if the brand itself flipped mentioned↔absent vs last scan. */
+  flippedToMentioned: boolean;
+  flippedToAbsent: boolean;
+}
+
+interface CitationLooseQueryResult extends LooseQueryResult {
+  chatgpt?: LooseLLMResult & {
+    citationSources?: Array<{ url?: string }>;
+    coCitations?: string[];
+  };
+  gemini?: LooseLLMResult & {
+    citationSources?: Array<{ url?: string }>;
+    coCitations?: string[];
+  };
+}
+
+function hostOf(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "").toLowerCase();
+  } catch {
+    return "";
+  }
+}
+
+function domainsFromQR(qr: CitationLooseQueryResult): Set<string> {
+  const out = new Set<string>();
+  for (const llm of [qr.chatgpt, qr.gemini]) {
+    if (!llm) continue;
+    for (const c of llm.citationSources || []) {
+      const h = hostOf(String(c?.url || ""));
+      if (h) out.add(h);
+    }
+  }
+  return out;
+}
+
+function competitorsFromQR(qr: CitationLooseQueryResult): Set<string> {
+  const out = new Set<string>();
+  for (const llm of [qr.chatgpt, qr.gemini]) {
+    if (!llm) continue;
+    for (const c of llm.coCitations || []) {
+      const clean = String(c || "").trim();
+      if (clean && clean.length >= 2) out.add(clean);
+    }
+  }
+  return out;
+}
+
+function mentionedInQR(qr: CitationLooseQueryResult): boolean {
+  return Boolean(qr.chatgpt?.mentioned || qr.gemini?.mentioned);
+}
+
+/**
+ * Compare the two most-recent scans (current vs previous) and return
+ * per-query drift. Only queries that appear in BOTH scans are compared —
+ * a brand-new query can't drift because there's nothing to compare to.
+ */
+export function computeCitationDrift(
+  scans: Array<{ created_at: string; results: unknown }>
+): QueryCitationDrift[] {
+  if (scans.length < 2) return [];
+
+  const ordered = [...scans].sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  );
+  const current = ordered[0];
+  const previous = ordered[1];
+
+  const currentByQ = new Map<string, CitationLooseQueryResult>();
+  const previousByQ = new Map<string, CitationLooseQueryResult>();
+
+  for (const qr of (current.results as LooseScanResults | null)?.queryResults || []) {
+    if (qr?.query) currentByQ.set(qr.query.trim(), qr as CitationLooseQueryResult);
+  }
+  for (const qr of (previous.results as LooseScanResults | null)?.queryResults || []) {
+    if (qr?.query) previousByQ.set(qr.query.trim(), qr as CitationLooseQueryResult);
+  }
+
+  const out: QueryCitationDrift[] = [];
+  for (const [query, curQR] of currentByQ.entries()) {
+    const prevQR = previousByQ.get(query);
+    if (!prevQR) continue;
+
+    const curDomains = domainsFromQR(curQR);
+    const prevDomains = domainsFromQR(prevQR);
+    const curCompetitors = competitorsFromQR(curQR);
+    const prevCompetitors = competitorsFromQR(prevQR);
+    const curMentioned = mentionedInQR(curQR);
+    const prevMentioned = mentionedInQR(prevQR);
+
+    const gainedDomains = [...curDomains].filter((d) => !prevDomains.has(d));
+    const lostDomains = [...prevDomains].filter((d) => !curDomains.has(d));
+    const gainedCompetitors = [...curCompetitors].filter((c) => !prevCompetitors.has(c));
+    const lostCompetitors = [...prevCompetitors].filter((c) => !curCompetitors.has(c));
+
+    const hasChange =
+      gainedDomains.length > 0 ||
+      lostDomains.length > 0 ||
+      gainedCompetitors.length > 0 ||
+      lostCompetitors.length > 0 ||
+      curMentioned !== prevMentioned;
+
+    if (!hasChange) continue;
+
+    out.push({
+      query,
+      gainedDomains,
+      lostDomains,
+      gainedCompetitors,
+      lostCompetitors,
+      flippedToMentioned: !prevMentioned && curMentioned,
+      flippedToAbsent: prevMentioned && !curMentioned,
+    });
+  }
+
+  // Ordering: flipped-to-absent first (red flag), then flipped-to-mentioned,
+  // then by size of change (domains lost + competitors gained is the most
+  // concerning combination)
+  return out.sort((a, b) => {
+    if (a.flippedToAbsent !== b.flippedToAbsent) return a.flippedToAbsent ? -1 : 1;
+    if (a.flippedToMentioned !== b.flippedToMentioned) return a.flippedToMentioned ? -1 : 1;
+    const aScore = a.lostDomains.length + a.gainedCompetitors.length;
+    const bScore = b.lostDomains.length + b.gainedCompetitors.length;
+    return bScore - aScore;
+  });
+}
+
+export async function loadCitationDriftFromDb(
+  supabase: SupabaseClient,
+  companyId: string,
+): Promise<QueryCitationDrift[]> {
+  const { data, error } = await supabase
+    .from("scan_history")
+    .select("created_at, results")
+    .eq("company_id", companyId)
+    .eq("scan_type", "ai_visibility")
+    .order("created_at", { ascending: false })
+    .limit(2);
+
+  if (error || !data) return [];
+  return computeCitationDrift(data as ScanRow[]);
+}

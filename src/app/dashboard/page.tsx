@@ -48,6 +48,9 @@ export default function DashboardPage() {
   // Backed by the golden_prompts table when signed in, by localStorage in demo mode.
   const [goldenPrompts, setGoldenPrompts] = useState<string[]>([]);
   const [volatility, setVolatility] = useState<any[]>([]);
+  const [citationDrift, setCitationDrift] = useState<any[]>([]);
+  const [portalCoverage, setPortalCoverage] = useState<any>(null);
+  const [isCheckingPortalCoverage, setIsCheckingPortalCoverage] = useState(false);
   const [backlinkResult, setBacklinkResult] = useState<any>(null);
   const [technicalResult, setTechnicalResult] = useState<any>(null);
   const [competitorResults, setCompetitorResults] = useState<any[]>([]);
@@ -719,6 +722,32 @@ export default function DashboardPage() {
     }
   };
 
+  const runPortalCoverage = async () => {
+    if (!company.name) { addLog("> Set company name first"); return; }
+    if (!spendCredits("audit")) return;
+    setIsCheckingPortalCoverage(true);
+    addLog("> Checking 99acres / MagicBricks / Housing / NoBroker / CommonFloor...");
+    try {
+      const res = await fetch("/api/portal-coverage", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          brand: company.name,
+          city: company.city || "",
+          companyId: (company as any)._companyId,
+        }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setPortalCoverage(data);
+      addLog(`> Portal coverage: ${data.listed}/${data.total} confirmed${data.unknown > 0 ? `, ${data.unknown} unverifiable` : ""}`);
+    } catch (err) {
+      addLog(`> Portal coverage failed: ${err instanceof Error ? err.message : "unknown"}`);
+    } finally {
+      setIsCheckingPortalCoverage(false);
+    }
+  };
+
   const runAudit = async (url: string) => {
     if (!spendCredits("audit")) return;
     setIsAuditing(true);
@@ -852,6 +881,7 @@ export default function DashboardPage() {
       setAiVisResult(data);
       if (Array.isArray(data.goldenPrompts)) setGoldenPrompts(data.goldenPrompts);
       if (Array.isArray(data.volatility)) setVolatility(data.volatility);
+      if (Array.isArray(data.citationDrift)) setCitationDrift(data.citationDrift);
       recordScan("ai_visibility", company.website, data.scores.overall, `Readiness: ${data.scores.readiness}%, Mentions: ${data.scores.mentions}%`);
       logScoreChange("AI Readiness", data.scores.readiness || data.scores.overall, "ai_visibility");
 
@@ -1638,6 +1668,10 @@ export default function DashboardPage() {
               volatility={volatility}
               onPinQuery={pinQuery}
               onUnpinQuery={unpinQuery}
+              citationDrift={citationDrift}
+              portalCoverage={portalCoverage}
+              isCheckingPortalCoverage={isCheckingPortalCoverage}
+              onRunPortalCoverage={runPortalCoverage}
             />
           </div>
 
