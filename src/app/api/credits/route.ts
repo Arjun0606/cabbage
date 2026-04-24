@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
       .eq("company_id", companyId)
       .maybeSingle();
     const planRaw = sub?.plan as string | undefined;
-    const plan: PlanTier = planRaw === "solo" || planRaw === "starter" || planRaw === "pro" || planRaw === "scale" || planRaw === "enterprise"
+    const plan: PlanTier = planRaw === "starter" || planRaw === "pro" || planRaw === "scale" || planRaw === "enterprise"
       ? (planRaw as PlanTier)
       : "pro";
     const monthlyIncluded = TIERS[plan]?.limits.creditsPerMonth ?? FALLBACK_MONTHLY;

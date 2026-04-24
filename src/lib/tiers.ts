@@ -13,20 +13,24 @@
  */
 
 /**
- * Five-tier ladder sized so the product fits a local builder all the
- * way up to DLF / Lodha scale. Every tier is designed for >92% gross
- * margin — the credit pool is sized so a typical customer's real COGS
- * (OpenAI web_search + article writing) stays well under 10% of list.
+ * Four-tier ladder sized so the product fits a serious single-city
+ * developer all the way up to DLF / Lodha scale. Every tier is designed
+ * for >92% gross margin — the credit pool is sized so a typical
+ * customer's real COGS (OpenAI web_search + article writing) stays well
+ * under 10% of list price.
+ *
+ * Starter (₹49,999) is the floor: this is a paid tool for serious
+ * marketing teams, not a freemium hobby SKU. Anyone smaller than
+ * Starter isn't our ICP — they don't pay for marketing services.
  *
  * Legacy keys kept for backward compatibility with existing Supabase
  * `subscriptions.plan` rows:
  *   "starter"      existing — unchanged
- *   "pro"          existing — display label changed to "Growth"
+ *   "pro"          existing — display label "Growth"
  *   "enterprise"   existing — unchanged
- *   "solo"         NEW — smallest tier, local-builder pricing
  *   "scale"        NEW — regional/national, fits between pro and enterprise
  */
-export type PlanTier = "solo" | "starter" | "pro" | "scale" | "enterprise";
+export type PlanTier = "starter" | "pro" | "scale" | "enterprise";
 export type PlanBilled = "monthly" | "annual";
 
 export interface TierLimits {
@@ -80,40 +84,6 @@ export interface TierDef {
 }
 
 export const TIERS: Record<PlanTier, TierDef> = {
-  // ------- Solo (₹19,999/mo) -------
-  // Local builder with 1-3 projects in one locality who already pays
-  // a freelance SEO consultant ₹20-40k/mo. Same price, does the work
-  // instead of just reporting it. Not the "cheapest possible" — the
-  // minimum-viable entry for a serious marketer.
-  // Typical COGS: ~$12/mo → ~95% margin.
-  solo: {
-    key: "solo",
-    label: "Solo",
-    usd: 240,
-    inr: 19999,
-    dodoProductEnv: {
-      monthly: "DODO_PRODUCT_SOLO_MONTHLY",
-      annual: "DODO_PRODUCT_SOLO_ANNUAL",
-    },
-    limits: {
-      creditsPerMonth: 600,
-      maxProjects: 3,
-      maxCities: 1,
-      maxPagesPerCrawl: 300,
-      articlesPerMonth: 10,
-      maxCompetitors: 3,
-      reviewMonitorFrequency: "weekly",
-      fullScanCadence: "weekly",
-      aiVisibilityCadence: "weekly",
-      features: {
-        cmoDigest: false,
-        infraNews: false,
-        perCityAIVisibility: false,
-        customReportTemplates: false,
-        prioritySupport: false,
-      },
-    },
-  },
   // ------- Starter (₹49,999/mo) -------
   // Small single-city developer with 5-10 projects who typically runs
   // a ₹50k-₹1L agency retainer. We match that retainer and deliver

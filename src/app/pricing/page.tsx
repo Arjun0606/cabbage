@@ -27,30 +27,6 @@ import Link from "next/link";
 
 const TIERS = [
   {
-    key: "solo",
-    name: "Solo",
-    usd: 240,
-    inr: 19999,
-    credits: 600,
-    articles: 10,
-    projects: 3,
-    cities: 1,
-    subtitle: "Local builder · 1-3 projects in one locality",
-    anchor: "Same price as your freelance SEO consultant. Does the work instead of just reporting it.",
-    features: [
-      "600 credits per month",
-      "Up to 3 projects · 1 city",
-      "10 articles generated per month",
-      "Weekly full scan across every surface",
-      "300 pages per full-site crawl",
-      "3 competitors tracked",
-      "Weekly AI visibility (ChatGPT + Gemini)",
-      "Weekly review monitor (Housing, 99acres, Google)",
-      "Portal Optimizer + RERA tracking",
-      "Email support",
-    ],
-  },
-  {
     key: "starter",
     name: "Starter",
     usd: 600,
@@ -261,10 +237,10 @@ export default function PricingPage() {
             Pricing
           </div>
           <h1 className="text-3xl sm:text-5xl font-bold tracking-tight mb-4">
-            From a local builder to DLF. One product. Five tiers.
+            From a single-city developer to DLF. One product.
           </h1>
           <p className="text-zinc-400 text-[15px] max-w-2xl mx-auto leading-relaxed">
-            Credit-based pricing that scales with your portfolio. Every tier does the work — audit, AI visibility, article writing, portal coverage, RERA verification. The bigger your brand, the more of it you need.
+            Credit-based pricing that scales with your portfolio. Every tier does the work — audit, AI visibility, article writing, portal coverage, RERA verification. Starts at ₹49,999/mo because Cabbge is built for serious marketing teams, not hobbyists.
           </p>
         </div>
 
@@ -291,8 +267,8 @@ export default function PricingPage() {
           </div>
         </div>
 
-        {/* Tier cards — 5 tiers, responsive: 1→2→3→5 columns */}
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-16">
+        {/* Tier cards — 4 tiers, responsive: 1→2→4 columns */}
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-16">
           {TIERS.map((tier) => (
             <div
               key={tier.key}
@@ -427,14 +403,12 @@ export default function PricingPage() {
                 <tr>
                   <td className="px-4 py-2.5 text-zinc-500">Full scan cadence</td>
                   <td className="text-center px-3 py-2.5 text-zinc-300">Weekly</td>
-                  <td className="text-center px-3 py-2.5 text-zinc-300">Weekly</td>
                   <td className="text-center px-3 py-2.5 text-[#7CB342]">Daily</td>
                   <td className="text-center px-3 py-2.5 text-zinc-300">Daily</td>
                   <td className="text-center px-3 py-2.5 text-zinc-300">Daily</td>
                 </tr>
                 <tr>
                   <td className="px-4 py-2.5 text-zinc-500">AI visibility scans</td>
-                  <td className="text-center px-3 py-2.5 text-zinc-300">Weekly</td>
                   <td className="text-center px-3 py-2.5 text-zinc-300">Daily</td>
                   <td className="text-center px-3 py-2.5 text-[#7CB342]">Daily</td>
                   <td className="text-center px-3 py-2.5 text-zinc-300">Daily, per city</td>
@@ -443,14 +417,12 @@ export default function PricingPage() {
                 <tr>
                   <td className="px-4 py-2.5 text-zinc-500">Review monitor</td>
                   <td className="text-center px-3 py-2.5 text-zinc-300">Weekly</td>
-                  <td className="text-center px-3 py-2.5 text-zinc-300">Weekly</td>
                   <td className="text-center px-3 py-2.5 text-[#7CB342]">Daily</td>
                   <td className="text-center px-3 py-2.5 text-zinc-300">Daily</td>
                   <td className="text-center px-3 py-2.5 text-zinc-300">Daily</td>
                 </tr>
                 <tr>
                   <td className="px-4 py-2.5 text-zinc-500">Site crawl pages</td>
-                  <td className="text-center px-3 py-2.5 text-zinc-300 tabular-nums">300</td>
                   <td className="text-center px-3 py-2.5 text-zinc-300 tabular-nums">500</td>
                   <td className="text-center px-3 py-2.5 text-[#7CB342] tabular-nums">1,500</td>
                   <td className="text-center px-3 py-2.5 text-zinc-300 tabular-nums">3,000</td>
@@ -458,7 +430,6 @@ export default function PricingPage() {
                 </tr>
                 <tr>
                   <td className="px-4 py-2.5 text-zinc-500">Competitors tracked</td>
-                  <td className="text-center px-3 py-2.5 text-zinc-300 tabular-nums">3</td>
                   <td className="text-center px-3 py-2.5 text-zinc-300 tabular-nums">7</td>
                   <td className="text-center px-3 py-2.5 text-[#7CB342] tabular-nums">20</td>
                   <td className="text-center px-3 py-2.5 text-zinc-300 tabular-nums">50</td>
@@ -467,14 +438,12 @@ export default function PricingPage() {
                 <tr>
                   <td className="px-4 py-2.5 text-zinc-500">CMO monthly digest</td>
                   <td className="text-center px-3 py-2.5 text-zinc-600">—</td>
-                  <td className="text-center px-3 py-2.5 text-zinc-600">—</td>
                   <td className="text-center px-3 py-2.5 text-[#7CB342]">✓</td>
                   <td className="text-center px-3 py-2.5 text-[#7CB342]">✓</td>
                   <td className="text-center px-3 py-2.5 text-[#7CB342]">✓ Weekly</td>
                 </tr>
                 <tr>
                   <td className="px-4 py-2.5 text-zinc-500">Infrastructure news pipeline</td>
-                  <td className="text-center px-3 py-2.5 text-zinc-600">—</td>
                   <td className="text-center px-3 py-2.5 text-zinc-600">—</td>
                   <td className="text-center px-3 py-2.5 text-[#7CB342]">✓</td>
                   <td className="text-center px-3 py-2.5 text-[#7CB342]">✓</td>
@@ -484,7 +453,6 @@ export default function PricingPage() {
                   <td className="px-4 py-2.5 text-zinc-500">Custom report templates</td>
                   <td className="text-center px-3 py-2.5 text-zinc-600">—</td>
                   <td className="text-center px-3 py-2.5 text-zinc-600">—</td>
-                  <td className="text-center px-3 py-2.5 text-zinc-600">—</td>
                   <td className="text-center px-3 py-2.5 text-[#7CB342]">✓</td>
                   <td className="text-center px-3 py-2.5 text-[#7CB342]">✓</td>
                 </tr>
@@ -492,13 +460,11 @@ export default function PricingPage() {
                   <td className="px-4 py-2.5 text-zinc-500">Dedicated success manager</td>
                   <td className="text-center px-3 py-2.5 text-zinc-600">—</td>
                   <td className="text-center px-3 py-2.5 text-zinc-600">—</td>
-                  <td className="text-center px-3 py-2.5 text-zinc-600">—</td>
                   <td className="text-center px-3 py-2.5 text-zinc-300">Monthly call</td>
                   <td className="text-center px-3 py-2.5 text-[#7CB342]">✓</td>
                 </tr>
                 <tr>
                   <td className="px-4 py-2.5 text-zinc-500">Support SLA</td>
-                  <td className="text-center px-3 py-2.5 text-zinc-300">Email</td>
                   <td className="text-center px-3 py-2.5 text-zinc-300">24h email</td>
                   <td className="text-center px-3 py-2.5 text-[#7CB342]">4h WhatsApp</td>
                   <td className="text-center px-3 py-2.5 text-zinc-300">2h WhatsApp</td>
