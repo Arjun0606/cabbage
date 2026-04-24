@@ -1539,16 +1539,43 @@ export default function DashboardPage() {
       : url === company.website
       ? "Main site"
       : (company.sites || []).find((s) => s.url === url)?.label || url;
+
     addLog(`> Full scan started on ${siteLabel} (${url})...`);
-    addLog("> Technical SEO scan...");
-    addLog("> Analyzing backlinks...");
-    addLog("> Checking AI visibility...");
+    addLog(`> ${company.projects.length} project${company.projects.length === 1 ? "" : "s"} in scope · ${(company.sites || []).length || 1} site${(company.sites || []).length === 1 ? "" : "s"} on the brand`);
+
+    // ---- Wave 1: fast per-URL scans that can run fully in parallel.
+    // Audit, technical, backlinks, site-crawl, AI visibility all take
+    // 15-90s each and don't depend on each other.
+    addLog("> Wave 1: audit · technical · backlinks · site-crawl · AI visibility (parallel)");
     await Promise.all([
-      runAudit(url), runTechnical(url), runBacklinks(url),
+      runAudit(url),
+      runTechnical(url),
+      runBacklinks(url),
+      runSiteCrawl(),
       ...(company.name ? [runAIVisibility()] : []),
     ]);
-    if (company.competitors.length > 0) await runCompetitorAnalysis();
-    addLog("✓ Full scan complete");
+
+    // ---- Wave 2: deeper analyses that benefit from the Wave 1 data
+    // (keyword research uses the site text; internal linking uses the
+    // crawl; competitor analysis uses audit scores for comparison).
+    addLog("> Wave 2: keyword research · internal linking · competitor analysis (parallel)");
+    await Promise.all([
+      runKeywordResearch("__portfolio__", true),
+      runInternalLinking(),
+      ...(company.competitors.length > 0 ? [runCompetitorAnalysis()] : []),
+    ]);
+
+    // ---- Wave 3: web-search-heavy brand-level audits. Each is a
+    // dedicated CMO surface (portal coverage, RERA verification,
+    // review monitoring) — expensive but users expect them to run on
+    // a full scan. Fired sequentially to respect OpenAI rate limits
+    // on web_search.
+    addLog("> Wave 3: portal coverage · RERA verification · review monitor (sequential)");
+    try { await runPortalCoverage(); } catch (err) { addLog(`> Portal coverage skipped: ${err instanceof Error ? err.message : "error"}`); }
+    try { await runReraVerification(); } catch (err) { addLog(`> RERA verification skipped: ${err instanceof Error ? err.message : "error"}`); }
+    try { await runReviewMonitor(); } catch (err) { addLog(`> Review monitor skipped: ${err instanceof Error ? err.message : "error"}`); }
+
+    addLog("✓ Full scan complete — every surface refreshed");
 
     // Retention hook: show what to do next
     const today = new Date();

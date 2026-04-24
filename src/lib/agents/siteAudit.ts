@@ -133,6 +133,102 @@ function extractSeoHealth(psiResult: Record<string, unknown>): SeoHealthCheck[] 
   return checks;
 }
 
+/**
+ * HTML-only SEO health check. Used when PageSpeed Insights fails (no
+ * API key, rate-limited, or network hiccup). Produces a meaningful
+ * Checks tab even without Lighthouse.
+ *
+ * We fetch the URL, parse the HTML, and derive pass/warn/fail for the
+ * core on-page signals that drive both Google ranking and AI citability.
+ * This is deliberately strict — better to under-count passes than to
+ * mark broken fundamentals as "OK".
+ */
+async function htmlBasedSeoHealth(url: string): Promise<SeoHealthCheck[]> {
+  const checks: SeoHealthCheck[] = [];
+  let html = "";
+  let hasHttps = false;
+  let robotsOk = false;
+  let sitemapOk = false;
+  let llmsOk = false;
+
+  try {
+    if (!url.startsWith("http")) url = `https://${url}`;
+    hasHttps = url.startsWith("https://");
+    const res = await fetch(url, {
+      headers: { "User-Agent": "Cabbge/1.0 (SEO Audit Bot)" },
+      redirect: "follow",
+      signal: AbortSignal.timeout(12000),
+    });
+    if (res.ok) html = await res.text();
+  } catch { /* HTML missing → every check degrades gracefully below */ }
+
+  const base = (() => { try { return new URL(url).origin; } catch { return ""; } })();
+  try {
+    const r = await fetch(`${base}/robots.txt`, { signal: AbortSignal.timeout(8000) });
+    robotsOk = r.ok && /^\s*(user-agent|disallow|allow|sitemap)\s*:/im.test(await r.text());
+  } catch { /* ignore */ }
+  try {
+    const r = await fetch(`${base}/sitemap.xml`, { signal: AbortSignal.timeout(8000) });
+    sitemapOk = r.ok;
+  } catch { /* ignore */ }
+  try {
+    const r = await fetch(`${base}/llms.txt`, { signal: AbortSignal.timeout(8000) });
+    llmsOk = r.ok;
+  } catch { /* ignore */ }
+
+  const titleM = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+  const title = titleM?.[1]?.trim() || "";
+  const metaDescM = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i);
+  const metaDesc = metaDescM?.[1]?.trim() || "";
+  const canonicalM = html.match(/<link[^>]*rel=["']canonical["'][^>]*href=["']([^"']+)["']/i);
+  const canonical = canonicalM?.[1] || "";
+  const htmlLangM = html.match(/<html[^>]*lang=["']([^"']+)["']/i);
+  const hasLang = !!htmlLangM?.[1];
+  const hasViewport = /<meta[^>]*name=["']viewport["']/i.test(html);
+  const h1Count = (html.match(/<h1[\s>]/gi) || []).length;
+  const imgCount = (html.match(/<img\s/gi) || []).length;
+  const imgWithAlt = (html.match(/<img[^>]*\salt=["'][^"']+["']/gi) || []).length;
+  const hasJsonLd = /<script[^>]*type=["']application\/ld\+json["']/i.test(html);
+  const hasOg = /<meta[^>]*property=["']og:/i.test(html);
+  const hasFaq = /<script[^>]*type=["']application\/ld\+json["'][^>]*>[\s\S]*?"@type"\s*:\s*"FAQPage"/i.test(html);
+
+  const push = (check: string, status: SeoHealthCheck["status"], value: string) =>
+    checks.push({ check, status, value });
+
+  push(
+    "Meta Title",
+    title.length >= 30 && title.length <= 60 ? "pass" : title ? "warn" : "fail",
+    title ? `${title.length} chars` : "Missing"
+  );
+  push(
+    "Meta Description",
+    metaDesc.length >= 70 && metaDesc.length <= 160 ? "pass" : metaDesc ? "warn" : "fail",
+    metaDesc ? `${metaDesc.length} chars` : "Missing"
+  );
+  push(
+    "Single H1",
+    h1Count === 1 ? "pass" : h1Count === 0 ? "fail" : "warn",
+    h1Count === 0 ? "None" : h1Count === 1 ? "OK" : `${h1Count} found`
+  );
+  push("Canonical URL", canonical ? "pass" : "fail", canonical ? "OK" : "Missing");
+  push("Language tag", hasLang ? "pass" : "warn", hasLang ? htmlLangM![1] : "Missing");
+  push("Viewport meta (mobile)", hasViewport ? "pass" : "fail", hasViewport ? "OK" : "Missing");
+  push("HTTPS", hasHttps ? "pass" : "fail", hasHttps ? "OK" : "No");
+  push(
+    "Image Alt Coverage",
+    imgCount === 0 ? "warn" : imgWithAlt / imgCount >= 0.8 ? "pass" : imgWithAlt / imgCount >= 0.5 ? "warn" : "fail",
+    imgCount === 0 ? "No images" : `${imgWithAlt}/${imgCount}`
+  );
+  push("Schema (JSON-LD)", hasJsonLd ? "pass" : "fail", hasJsonLd ? "Present" : "Missing");
+  push("FAQ Schema (AI citation signal)", hasFaq ? "pass" : "warn", hasFaq ? "Present" : "Missing");
+  push("OpenGraph tags", hasOg ? "pass" : "warn", hasOg ? "Present" : "Missing");
+  push("robots.txt", robotsOk ? "pass" : "fail", robotsOk ? "Valid" : "Missing");
+  push("sitemap.xml", sitemapOk ? "pass" : "fail", sitemapOk ? "Present" : "Missing");
+  push("llms.txt (AI crawler hint)", llmsOk ? "pass" : "warn", llmsOk ? "Present" : "Missing");
+
+  return checks;
+}
+
 // ---------- RERA Verification via Web Search ----------
 
 interface RERAVerification {
@@ -381,7 +477,12 @@ export async function runSiteAudit(url: string): Promise<AuditResult> {
   const mobileScores = mobileResult ? extractScores(mobileResult) : { performance: 0, accessibility: 0, bestPractices: 0, seo: 0 };
   const desktopScores = desktopResult ? extractScores(desktopResult) : { performance: 0, accessibility: 0, bestPractices: 0, seo: 0 };
   const webVitals = mobileResult ? extractWebVitals(mobileResult) : { lcp: 0, fcp: 0, tbt: 0, cls: 0 };
-  const seoHealth = mobileResult ? extractSeoHealth(mobileResult) : [];
+  // When PSI is unavailable we run an HTML-only fallback so the Checks
+  // tab always has something actionable. Better a conservative in-house
+  // check than an empty "Passed (0)" card that looks broken.
+  const seoHealth = mobileResult
+    ? extractSeoHealth(mobileResult)
+    : await htmlBasedSeoHealth(url);
 
   const hasPageSpeed = mobileResult !== null;
   // Overall = average of the four mobile Lighthouse categories (what
