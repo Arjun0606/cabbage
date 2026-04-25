@@ -92,9 +92,11 @@ export async function requireActiveSubscription(
     const svc = getServiceClient();
     const { data: sub } = await svc
       .from("subscriptions")
-      .select("status, plan")
+      .select("status, plan, trial_ends_at")
       .eq("user_id", user.id)
       .maybeSingle();
+
+    // Active paid subscription — the canonical happy path.
     if (sub?.status === "active" && isPaidTier(sub.plan)) {
       return {
         ok: true,
@@ -103,6 +105,25 @@ export async function requireActiveSubscription(
         limits: TIERS[sub.plan].limits,
       };
     }
+
+    // Active trial — handle_new_profile() auto-creates one with
+    // plan='trial' status='trialing' trial_ends_at=now()+14d on
+    // signup. We grant Pro-tier limits during the trial so the new
+    // user can exercise every feature, then convert. trial_ends_at
+    // can be null if a row was inserted before the column existed —
+    // treat null as still-trialing for backward compat.
+    if (sub?.status === "trialing") {
+      const stillValid = !sub.trial_ends_at || new Date(sub.trial_ends_at) > new Date();
+      if (stillValid) {
+        return {
+          ok: true,
+          userId: user.id,
+          plan: "pro",
+          limits: TIERS.pro.limits,
+        };
+      }
+    }
+
     // Legacy single-plan customers (plan === "base") before the tier
     // split — treat them as Pro so they don't suddenly lose surface
     // they were paying for.
@@ -121,7 +142,12 @@ export async function requireActiveSubscription(
   return {
     ok: false,
     response: NextResponse.json(
-      { error: "Active subscription required", needsUpgrade: true },
+      {
+        error: "Active subscription required",
+        needsUpgrade: true,
+        // Friendly hint for trial-expired users
+        hint: "Your trial ended. Pick a plan at /pricing to continue.",
+      },
       { status: 402 }
     ),
   };

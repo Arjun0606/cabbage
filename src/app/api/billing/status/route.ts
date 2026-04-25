@@ -37,25 +37,36 @@ export async function GET(req: NextRequest) {
     const service = getServiceClient();
     const { data: sub } = await service
       .from("subscriptions")
-      .select("plan, status, current_period_end, cancel_at_period_end")
+      .select("plan, status, current_period_end, cancel_at_period_end, trial_ends_at")
       .eq("user_id", user.id)
       .maybeSingle();
 
-    // Access is strictly tied to an active subscription. New signups land
-    // on /pricing to pick a plan before they get anywhere useful.
+    // Access tiers:
+    //   active + paid plan  → full access at the paid tier
+    //   trialing + valid    → full access at Pro caps (testing surface)
+    //   anything else       → paywall
     const isActive = sub?.status === "active";
-    const canAccess = isActive;
+    const trialValid =
+      sub?.status === "trialing" &&
+      (!sub.trial_ends_at || new Date(sub.trial_ends_at) > new Date());
+    const canAccess = isActive || trialValid;
     const needsUpgrade = !canAccess;
 
-    // Map plan → tier limits so the frontend can surface per-tier
-    // nudges ("3 / 10 projects on Starter — upgrade to Pro for 40").
-    // Legacy "base" customers get Pro caps (they paid the old flat
-    // price that maps closest to Pro).
-    const limits = isPaidTier(sub?.plan || "")
-      ? TIERS[sub!.plan as keyof typeof TIERS].limits
-      : sub?.plan === "base"
-        ? TIERS.pro.limits
-        : null;
+    // Days left in trial — surfaced to the UI so we can render a
+    // "Trial: 9 days left · upgrade now" pill.
+    const trialDaysLeft = trialValid && sub.trial_ends_at
+      ? Math.max(0, Math.ceil((new Date(sub.trial_ends_at).getTime() - Date.now()) / (24 * 60 * 60 * 1000)))
+      : null;
+
+    // Map plan → tier limits. Trialing users get Pro caps so they can
+    // exercise every feature; "base" legacy plan also maps to Pro.
+    const limits = trialValid
+      ? TIERS.pro.limits
+      : isPaidTier(sub?.plan || "")
+        ? TIERS[sub!.plan as keyof typeof TIERS].limits
+        : sub?.plan === "base"
+          ? TIERS.pro.limits
+          : null;
 
     return NextResponse.json({
       authenticated: true,
@@ -66,6 +77,9 @@ export async function GET(req: NextRequest) {
       cancelAtPeriodEnd: sub?.cancel_at_period_end || false,
       canAccess,
       needsUpgrade,
+      isTrialing: trialValid,
+      trialEndsAt: sub?.trial_ends_at || null,
+      trialDaysLeft,
       limits,
     });
   } catch (error) {
