@@ -17,3 +17,61 @@ CREATE TABLE IF NOT EXISTS golden_prompts (
 
 CREATE INDEX IF NOT EXISTS idx_golden_prompts_company
   ON golden_prompts(company_id, pinned_at DESC);
+
+-- Row Level Security — every other customer-data table follows this
+-- pattern (user can access rows whose company they own). Without this
+-- the anon key in the client bundle could read every brand's pinned
+-- queries. Idempotent: the alter is a no-op if already enabled, and
+-- the policy CREATEs are guarded.
+ALTER TABLE golden_prompts ENABLE ROW LEVEL SECURITY;
+
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'golden_prompts'
+      AND policyname = 'Users can read their own golden prompts'
+  ) THEN
+    CREATE POLICY "Users can read their own golden prompts"
+      ON golden_prompts FOR SELECT
+      USING (
+        company_id IN (
+          SELECT id FROM companies WHERE owner_id = auth.uid()
+        )
+      );
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'golden_prompts'
+      AND policyname = 'Users can pin golden prompts to their own companies'
+  ) THEN
+    CREATE POLICY "Users can pin golden prompts to their own companies"
+      ON golden_prompts FOR INSERT
+      WITH CHECK (
+        company_id IN (
+          SELECT id FROM companies WHERE owner_id = auth.uid()
+        )
+      );
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'golden_prompts'
+      AND policyname = 'Users can unpin their own golden prompts'
+  ) THEN
+    CREATE POLICY "Users can unpin their own golden prompts"
+      ON golden_prompts FOR DELETE
+      USING (
+        company_id IN (
+          SELECT id FROM companies WHERE owner_id = auth.uid()
+        )
+      );
+  END IF;
+END $$;
