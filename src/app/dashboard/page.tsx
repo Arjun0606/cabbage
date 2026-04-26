@@ -1474,7 +1474,17 @@ export default function DashboardPage() {
         geminiMentioned: currentQueryResult.gemini.mentioned,
       } : undefined;
       const companyId = (company as any)._companyId as string | undefined;
-      const tracked = trackArticleGenerated(query, data.title, preScore, companyId);
+      const tracked = trackArticleGenerated(
+        query,
+        data.title,
+        preScore,
+        companyId,
+        // Persist the QA pass output on the draft so the approval gate
+        // in ContentQueue can show voice match / factual groundedness /
+        // fabrication flags before the user clicks publish.
+        data.qa,
+        typeof data.geoScore === "number" ? data.geoScore : undefined,
+      );
       // Attach the tracked article ID + company ID to the result so the
       // PublishButton can call markArticlePublished(id, url, companyId).
       data._trackedArticleId = tracked.id;

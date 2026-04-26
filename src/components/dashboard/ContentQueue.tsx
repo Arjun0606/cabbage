@@ -1138,26 +1138,99 @@ export function ContentQueue({
               </Badge>
             </div>
             <div className="space-y-1.5">
-              {queue.drafts.map((d) => (
-                <div key={d.id} className="flex items-center gap-3 py-2 px-2.5 rounded-lg hover:bg-zinc-800/40">
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[13px] text-zinc-200 truncate">{d.title}</div>
-                    <div className="text-[11px] text-zinc-500 truncate">
-                      Targets &ldquo;{d.query}&rdquo; • generated {new Date(d.generatedAt).toLocaleDateString()}
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => handleDismiss(d.id)}
-                    className="text-[10px] text-zinc-500 hover:text-red-400 p-1 flex-shrink-0"
-                    title="Delete draft"
+              {queue.drafts.map((d) => {
+                const qaPassed = d.qa?.passed === true;
+                const qaTone =
+                  !d.qa
+                    ? "neutral"
+                    : qaPassed && (d.qa.flags?.length ?? 0) === 0
+                      ? "good"
+                      : "warn";
+                return (
+                  <div
+                    key={d.id}
+                    className={`flex items-start gap-3 py-2.5 px-3 rounded-lg border ${
+                      qaTone === "good"
+                        ? "border-emerald-500/15 bg-emerald-500/[0.02]"
+                        : qaTone === "warn"
+                          ? "border-amber-500/20 bg-amber-500/[0.03]"
+                          : "border-white/[0.04] hover:bg-zinc-800/40"
+                    }`}
                   >
-                    <Trash2 size={12} />
-                  </button>
-                </div>
-              ))}
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[13px] text-zinc-200 truncate">{d.title}</div>
+                      <div className="text-[11px] text-zinc-500 truncate">
+                        Targets &ldquo;{d.query}&rdquo; • generated {new Date(d.generatedAt).toLocaleDateString()}
+                      </div>
+                      {/* QA review badges — voice match, factual groundedness,
+                          and any specific fabrication flags. Customer reads
+                          before approving for publish. Quiet when QA wasn't
+                          captured (older drafts pre-QA-feature). */}
+                      {d.qa && (
+                        <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                          <Badge className={`text-[10px] h-4 px-1.5 rounded border-0 ${
+                            d.qa.voiceMatch >= 80 ? "bg-emerald-500/15 text-emerald-400" :
+                            d.qa.voiceMatch >= 60 ? "bg-amber-500/15 text-amber-400" :
+                            "bg-red-500/15 text-red-400"
+                          }`}>
+                            Voice {d.qa.voiceMatch}
+                          </Badge>
+                          <Badge className={`text-[10px] h-4 px-1.5 rounded border-0 ${
+                            d.qa.factualGroundedness >= 80 ? "bg-emerald-500/15 text-emerald-400" :
+                            d.qa.factualGroundedness >= 70 ? "bg-amber-500/15 text-amber-400" :
+                            "bg-red-500/15 text-red-400"
+                          }`}>
+                            Facts {d.qa.factualGroundedness}
+                          </Badge>
+                          {typeof d.geoScore === "number" && (
+                            <Badge className={`text-[10px] h-4 px-1.5 rounded border-0 ${
+                              d.geoScore >= 70 ? "bg-emerald-500/15 text-emerald-400" :
+                              d.geoScore >= 50 ? "bg-amber-500/15 text-amber-400" :
+                              "bg-red-500/15 text-red-400"
+                            }`}>
+                              GEO {d.geoScore}
+                            </Badge>
+                          )}
+                          {d.qa.reraSuspect && (
+                            <Badge className="text-[10px] h-4 px-1.5 rounded border-0 bg-red-500/15 text-red-400">
+                              ⚠ RERA suspect
+                            </Badge>
+                          )}
+                          {d.qa.flags?.length > 0 && (
+                            <Badge className="text-[10px] h-4 px-1.5 rounded border-0 bg-amber-500/15 text-amber-400">
+                              {d.qa.flags.length} flag{d.qa.flags.length === 1 ? "" : "s"}
+                            </Badge>
+                          )}
+                          {qaPassed && (d.qa.flags?.length ?? 0) === 0 && (
+                            <Badge className="text-[10px] h-4 px-1.5 rounded border-0 bg-emerald-500/15 text-emerald-400">
+                              QA passed
+                            </Badge>
+                          )}
+                        </div>
+                      )}
+                      {d.qa?.flags && d.qa.flags.length > 0 && (
+                        <ul className="mt-1.5 space-y-0.5">
+                          {d.qa.flags.slice(0, 3).map((f, i) => (
+                            <li key={i} className="text-[11px] text-amber-400/90 leading-snug">
+                              · {f}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => handleDismiss(d.id)}
+                      className="text-[10px] text-zinc-500 hover:text-red-400 p-1 flex-shrink-0"
+                      title="Delete draft"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                );
+              })}
             </div>
             <p className="text-[11px] text-zinc-500 mt-3">
-              Drafts currently live in browser storage. Use the <strong className="text-zinc-300">Publish</strong> or <strong className="text-zinc-300">Deploy via loader</strong> buttons on the generated article above to push them live.
+              Review the QA badges (voice match, factual groundedness, GEO score, fabrication flags) before approving. Use the <strong className="text-zinc-300">Publish</strong> or <strong className="text-zinc-300">Deploy via loader</strong> buttons on the generated article above to push approved drafts live. Drafts live in browser storage until publish.
             </p>
           </CardContent>
         </Card>
