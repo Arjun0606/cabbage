@@ -4,6 +4,8 @@ export const maxDuration = 300;
 import { NextRequest, NextResponse } from "next/server";
 import { queryForVisibility, aiLight } from "@/lib/ai";
 import { checkHallucinations, type Hallucination, type ProjectGroundTruth } from "@/lib/agents/hallucinationCheck";
+import { getCurrentUser } from "@/lib/db/supabase-server";
+import { isAdminEmail } from "@/lib/admin";
 
 /**
  * Outreach Pack — the founder's "skip the cold pitch" weapon.
@@ -256,6 +258,19 @@ Open to a 15-min call?`;
 
 export async function POST(req: NextRequest) {
   try {
+    // Admin gate — this endpoint generates founder-voice outreach packs
+    // (used by Cabbge to pitch developers). Until/unless we productize
+    // it for customer-facing outreach, only the founder/CSM should hit
+    // it. Without this gate, anyone could mass-generate hallucination
+    // reports on third-party sites.
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    }
+    if (!isAdminEmail(user.email)) {
+      return NextResponse.json({ error: "Forbidden — admin only" }, { status: 403 });
+    }
+
     const body: OutreachInput = await req.json();
     let { websiteUrl, brand, city, recipientName, recipientTitle } = body;
     if (!websiteUrl || typeof websiteUrl !== "string") {
