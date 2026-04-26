@@ -45,6 +45,12 @@ function extractAnchors(html: string, base: string): Array<{ href: string; text:
 const PROJECT_INDEX_RX = /\/(our-)?projects?(\/|$)|\/portfolio|\/residential|\/apartments|\/bungalows?|\/plots?|\/villas?|\/ongoing|\/completed|\/upcoming|\/pre-?launch|\/ready-to-move/i;
 const PROJECT_DETAIL_RX = /\/(project|projects|properties|residential|apartments|bungalows|villas|plots)\/[a-z0-9-]+\/[a-z0-9-]+/i;
 const NON_PROJECT_SLUG_RX = /^(about|about-us|contact|contact-us|careers|blog|news|media|press|privacy|terms|tos|sitemap|faq|login|signup|gallery|events|csr|testimonials|awards|team|leadership|download|brochure|enquire|search|all|home|index)$/i;
+// Asset paths and downloadable docs masquerading as project URLs. The
+// Jayabheri demo turned up "Pinnacle April 2025.Pdf" as 7 separate
+// "projects" because monthly newsletters live under /thepinnacle/.
+// Rejecting these by extension + path keeps the discovered set clean.
+const ASSET_EXTENSION_RX = /\.(pdf|docx?|xlsx?|pptx?|jpg|jpeg|png|webp|gif|svg|mp4|mov|zip|csv)$/i;
+const ASSET_PATH_RX = /\/(assets|static|media|uploads|downloads|wp-content|images|img|files|pdfs?|brochures?|newsletters?|magazines?|press|gallery)\//i;
 
 // RERA registration number patterns. Every Indian state RERA authority
 // uses a slightly different prefix but all are discoverable via regex.
@@ -199,6 +205,11 @@ export async function POST(req: NextRequest) {
       try {
         const u = new URL(href);
         if (u.hostname.replace(/^www\./, "") !== baseHost) return;
+        // Reject downloadable assets (PDFs, brochures, newsletter PNGs)
+        // before any further checks — these are NEVER projects regardless
+        // of where they live in the URL tree.
+        if (ASSET_EXTENSION_RX.test(u.pathname)) return;
+        if (ASSET_PATH_RX.test(u.pathname)) return;
         if (!PROJECT_DETAIL_RX.test(u.pathname)) return;
         const slug = u.pathname.split("/").filter(Boolean).pop() || "";
         if (slug && slug.length >= 4 && !NON_PROJECT_SLUG_RX.test(slug)) {

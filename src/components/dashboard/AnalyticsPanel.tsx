@@ -2605,7 +2605,7 @@ export function AnalyticsPanel({
               variant="outline"
               className="w-full border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/10 hover:text-emerald-200 h-10 text-[13px] font-medium rounded-lg"
             >
-              <FileText size={15} className="mr-2" />Download CMO brief (.md)
+              <FileText size={15} className="mr-2" />Download site diagnostics (.md)
             </Button>
           </div>
 
