@@ -1888,11 +1888,15 @@ export function AnalyticsPanel({
                     higher-trust citations. Surfacing the gap nudges
                     developers to fix missing RERA numbers. For multi-
                     state developers we show the split per state since
-                    each state has its own RERA authority. */}
+                    each state has its own RERA authority.
+                    Note: state authority verification is best-effort
+                    (some portals don't expose stable lookup APIs);
+                    label the field as "Indicative" rather than
+                    "State-Verified" to set the right expectation. */}
                 <SectionCard>
                   <CardContent className="p-4">
                     <div className="text-[10px] uppercase tracking-wide text-zinc-500 font-semibold mb-1">
-                      RERA {reraVerification ? "State-Verified" : "Verified"}
+                      RERA {reraVerification ? "Indicative Match" : "On File"}
                     </div>
                     <div className="text-2xl font-bold text-zinc-100 tabular-nums">
                       {reraVerification ? reraVerification.verified : reraProjects}
@@ -1965,6 +1969,9 @@ export function AnalyticsPanel({
                   </CardTitle>
                   <p className="text-[11px] text-zinc-500 mt-1">
                     99acres, MagicBricks, Housing, NoBroker, CommonFloor — AI cites these on 35-40% of buyer queries. Missing ones cap your ceiling.
+                  </p>
+                  <p className="text-[10px] text-amber-400/70 mt-1">
+                    ⓘ Estimated coverage based on web-search signals. Confirm directly on each portal before acting.
                   </p>
                 </div>
                 {onRunPortalCoverage && (

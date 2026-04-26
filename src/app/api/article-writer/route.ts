@@ -360,11 +360,22 @@ Return ONLY valid JSON. No markdown code blocks around the JSON.`;
     // `content`, append them deterministically so every published piece
     // carries the GEO-critical signals even when the LLM slips.
     let finalContent = content;
+    const todayIso = new Date().toISOString().slice(0, 10);
+
+    // Prepend a deterministic author byline so every article carries an
+    // author signal AI overviews can extract. First-party byline (the
+    // brand's editorial team) is the right framing — this is the
+    // developer's own content, not third-party reporting. Skips if the
+    // LLM already wrote a byline at the top.
+    if (!/^\s*\*By\s|^\s*\*Posted/i.test(finalContent.slice(0, 80))) {
+      finalContent = `*By the ${developerName || projectName} editorial team · Published ${todayIso}*\n\n${finalContent}`;
+    }
+
     if (!hasEeat && parsed.eeatBlock) {
       finalContent += `\n\n## About ${developerName || projectName}\n\n${parsed.eeatBlock}`;
     }
     if (!hasFreshness) {
-      finalContent += `\n\n---\n*Last updated: ${new Date().toISOString().slice(0, 10)}*`;
+      finalContent += `\n\n---\n*Last updated: ${todayIso}*`;
     }
 
     // -----------------------------------------------------------------

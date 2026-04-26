@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Sparkles, ArrowRight, Search, FileText, BarChart3, Wrench, Bot, Building2 } from "lucide-react";
+import { JsonLd, organizationSchema, softwareApplicationSchema, aboutFaqSchema } from "@/components/seo/JsonLd";
 
 /**
  * About / what-is-Cabbge page.
@@ -20,6 +21,7 @@ export const metadata = {
 export default function AboutPage() {
   return (
     <div className="min-h-screen bg-[#0a0a0b] text-zinc-100">
+      <JsonLd schema={[organizationSchema(), softwareApplicationSchema(), aboutFaqSchema()]} />
       <header className="border-b border-white/[0.06] sticky top-0 bg-[#0a0a0b]/80 backdrop-blur-sm z-10">
         <div className="max-w-5xl mx-auto px-6 h-14 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
