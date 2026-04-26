@@ -23,17 +23,24 @@ export async function POST(req: NextRequest) {
     if (!gate.ok) return gate.response;
 
     const body = await req.json();
-    const { brand, projects, companyId } = body;
+    const { brand, projects, city, companyId } = body;
 
     if (!brand || typeof brand !== "string") {
       return NextResponse.json({ error: "brand is required" }, { status: 400 });
     }
-    if (!Array.isArray(projects) || projects.length === 0) {
-      return NextResponse.json(
-        { error: "projects[] is required and must be non-empty" },
-        { status: 400 }
-      );
-    }
+
+    // projects[] is optional now — when empty, we fall back to a
+    // brand-level search across review platforms scoped to the
+    // primary city. Lets the panel be useful during onboarding
+    // before any projects are added.
+    const safeProjects: Array<{ name: string; locality: string | null; city: string | null; website: string | null }> = Array.isArray(projects)
+      ? projects.map((p: { name?: string; locality?: string; city?: string; website?: string }) => ({
+          name: String(p.name || "").trim(),
+          locality: typeof p.locality === "string" ? p.locality : null,
+          city: typeof p.city === "string" ? p.city : null,
+          website: typeof p.website === "string" ? p.website : null,
+        })).filter((p) => p.name)
+      : [];
 
     // Review monitor is web-search heavy; charge a proper credit so
     // it aligns with AI visibility in cost.
@@ -41,13 +48,11 @@ export async function POST(req: NextRequest) {
 
     const result = await runReviewMonitor(
       brand.trim(),
-      projects.map((p: any) => ({
-        name: String(p.name || "").trim(),
-        locality: typeof p.locality === "string" ? p.locality : null,
-        city: typeof p.city === "string" ? p.city : null,
-        website: typeof p.website === "string" ? p.website : null,
-      })).filter((p: any) => p.name),
-      { cadence: gate.limits.reviewMonitorFrequency }
+      safeProjects,
+      {
+        cadence: gate.limits.reviewMonitorFrequency,
+        brandCity: typeof city === "string" && city.trim() ? city.trim() : null,
+      }
     );
 
     return NextResponse.json(result);
