@@ -187,6 +187,94 @@ Rules:
   }
 }
 
+/**
+ * Brand-only fallback search.
+ *
+ * Used when the customer has no projects in their portfolio yet (or the
+ * caller didn't pass any). Searches the same review platforms but
+ * scoped to the developer name + optional primary city. Less granular
+ * than the per-project version but keeps the panel functional during
+ * onboarding instead of throwing "projects required".
+ */
+async function fetchBrandMentions(
+  brand: string,
+  city: string | null
+): Promise<ReviewMention[]> {
+  const cityTag = city ? ` based in ${city}` : "";
+  const searchQuery = `Find recent reviews, comments, complaints, or buyer discussions about the real estate developer "${brand}"${cityTag} on Housing.com, 99acres, MagicBricks, NoBroker, CommonFloor, Google reviews, Reddit, or Quora. Include the platform, a short excerpt, the URL if visible, and a rough posting date if available. Prefer posts from the last 12 months. Skip marketing pages, broker pitches, and the developer's own listings — only real buyer / resident reviews and discussion threads about the developer's reputation, project quality, possession delays, or customer service.`;
+
+  let rawText = "";
+  try {
+    const { text, source } = await queryForVisibility("openai", searchQuery);
+    if (!text || (source !== "web_search" && source !== "grounded")) return [];
+    rawText = text;
+  } catch {
+    return [];
+  }
+
+  const extractPrompt = `Extract review mentions from this search result into JSON.
+
+Developer: ${brand}${city ? `\nCity: ${city}` : ""}
+
+Search result:
+"""
+${rawText.slice(0, 6000)}
+"""
+
+Return JSON ONLY, no markdown fences:
+{
+  "mentions": [
+    {
+      "platform": "Housing.com | 99acres | MagicBricks | NoBroker | CommonFloor | Google | Reddit | Quora | other",
+      "title": "short summary, max 90 chars",
+      "excerpt": "quoted text from the review, max 220 chars",
+      "url": "source URL if visible in the search result, else empty string",
+      "sentiment": "positive | neutral | negative",
+      "postedDate": "free-text date string or empty",
+      "projectName": "project name if a specific project is mentioned, else 'developer-level'"
+    }
+  ]
+}
+
+Rules:
+- Only include genuine review/discussion content — skip listing pages, ads, broker pitches.
+- Mentions can be developer-level (overall reputation) or project-level (specific project named).
+- "sentiment" reflects the content of the review, not the AI model's opinion.
+- Max 12 mentions.`;
+
+  try {
+    const parsed = await aiLight("Return only valid JSON.", extractPrompt, 1500);
+    const match = parsed.match(/\{[\s\S]*\}/);
+    if (!match) return [];
+    const obj = JSON.parse(match[0]);
+    const raw = Array.isArray(obj?.mentions) ? obj.mentions : [];
+    const out: ReviewMention[] = [];
+    for (const m of raw.slice(0, 12)) {
+      if (!m || typeof m !== "object") continue;
+      const rawPlatform = String(m.platform || "").trim();
+      const url = typeof m.url === "string" ? m.url : "";
+      const platform = url ? normalisePlatform(url) : rawPlatform || "unknown";
+      const sentiment: ReviewMention["sentiment"] = ["positive", "neutral", "negative"].includes(m.sentiment)
+        ? m.sentiment
+        : "neutral";
+      out.push({
+        platform,
+        title: typeof m.title === "string" ? m.title.slice(0, 140) : undefined,
+        excerpt: typeof m.excerpt === "string" ? m.excerpt.slice(0, 300) : undefined,
+        url: url || undefined,
+        sentiment,
+        priority: priorityFrom(sentiment, platform),
+        projectName: typeof m.projectName === "string" && m.projectName.trim() ? m.projectName.slice(0, 80) : "developer-level",
+        postedDate: typeof m.postedDate === "string" && m.postedDate.trim() ? m.postedDate.slice(0, 40) : undefined,
+      });
+    }
+    return out;
+  } catch (err) {
+    console.error("reviewMonitor (brand-only): extract parse failed:", err instanceof Error ? err.message : err);
+    return [];
+  }
+}
+
 // Process-local cache. Reviews don't churn intraday; the TTL is also
 // the tier-level cadence gate — "weekly" cadence effectively means
 // "the cache returns for 7 days, rescans only after".
@@ -207,7 +295,7 @@ function cacheKey(brand: string, projects: ProjectInput[]): string {
 export async function runReviewMonitor(
   brand: string,
   projects: ProjectInput[],
-  options?: { cadence?: "daily" | "weekly" }
+  options?: { cadence?: "daily" | "weekly"; brandCity?: string | null }
 ): Promise<ReviewMonitorResult> {
   const cadence = options?.cadence || "daily";
   const ttl = cadence === "weekly" ? 7 * DAY : DAY;
@@ -224,6 +312,18 @@ export async function runReviewMonitor(
   // Only scan projects that have at least a locality or city context;
   // otherwise web search is too vague and returns noise.
   const targets = projects.filter((p) => p.name && (p.locality || p.city));
+
+  // Brand-only fallback when the customer has no projects yet — keeps
+  // the review panel useful during onboarding instead of demanding
+  // project entry before they can see value.
+  if (targets.length === 0) {
+    try {
+      const brandMentions = await fetchBrandMentions(brand, options?.brandCity || null);
+      allMentions.push(...brandMentions);
+    } catch {
+      failed.push(brand);
+    }
+  }
 
   let i = 0;
   while (i < targets.length) {

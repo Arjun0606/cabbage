@@ -1260,6 +1260,10 @@ export default function DashboardPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           brand: company.name,
+          // Pass city explicitly so the brand-only fallback (when no
+          // projects exist yet) can scope the search instead of going
+          // global and returning noise.
+          city: company.city || null,
           projects: scopedProjects.map((p) => ({
             name: p.name,
             locality: (p as any).locality || null,
