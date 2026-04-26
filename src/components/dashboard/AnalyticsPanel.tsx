@@ -41,6 +41,7 @@ import { ThirdPartyAuthority } from "./ThirdPartyAuthority";
 import { HallucinationAudit } from "./HallucinationAudit";
 import { CitationDrift } from "./CitationDrift";
 import { PlatformMentions } from "./PlatformMentions";
+import { ProgressDashboard } from "./ProgressDashboard";
 import { ProjectCompare } from "./ProjectCompare";
 import { DelayRiskPanel } from "./DelayRiskPanel";
 import { ReviewMonitor } from "./ReviewMonitor";
@@ -494,6 +495,7 @@ export function AnalyticsPanel({
             dives into weekly rather than daily. */}
         <TabsList className="bg-zinc-900/60 border border-zinc-800/50 rounded-lg p-0.5 h-auto flex-wrap gap-0.5">
           <TabsTrigger value="health" className="text-[13px] rounded-md px-3.5 py-1.5">Overview</TabsTrigger>
+          <TabsTrigger value="progress" className="text-[13px] rounded-md px-3.5 py-1.5">Progress</TabsTrigger>
           <TabsTrigger value="aigeo" className="text-[13px] rounded-md px-3.5 py-1.5">AI Search</TabsTrigger>
           <TabsTrigger value="content" className="text-[13px] rounded-md px-3.5 py-1.5">Content</TabsTrigger>
           <TabsTrigger value="reviews" className="text-[13px] rounded-md px-3.5 py-1.5">Reviews</TabsTrigger>
@@ -504,6 +506,20 @@ export function AnalyticsPanel({
           <TabsTrigger value="checks" className="text-[13px] rounded-md px-3.5 py-1.5 text-zinc-400 data-[state=active]:text-zinc-100">Checks</TabsTrigger>
           {gscData && <TabsTrigger value="search" className="text-[13px] rounded-md px-3.5 py-1.5 text-zinc-400 data-[state=active]:text-zinc-100">Search</TabsTrigger>}
         </TabsList>
+
+        {/* ================================================================ */}
+        {/* -------- PROGRESS TAB — the compounding curve -------- */}
+        {/* ================================================================ */}
+        <TabsContent value="progress" className="space-y-4">
+          <ProgressDashboard companyId={(typeof window !== "undefined" ? (() => {
+            try {
+              const c = localStorage.getItem("cabbge_company");
+              if (!c) return undefined;
+              const parsed = JSON.parse(c);
+              return parsed?._companyId as string | undefined;
+            } catch { return undefined; }
+          })() : undefined)} />
+        </TabsContent>
 
         {/* ================================================================ */}
         {/* -------- HEALTH TAB (Health + Technical + Checks) -------- */}
