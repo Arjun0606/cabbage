@@ -14,6 +14,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import Link from "next/link";
+import { JsonLd, organizationSchema, softwareApplicationSchema, homepageFaqSchema } from "@/components/seo/JsonLd";
 
 export default function Home() {
   const [brand, setBrand] = useState("");
@@ -49,6 +50,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center px-4">
+      <JsonLd schema={[organizationSchema(), softwareApplicationSchema(), homepageFaqSchema()]} />
       {/* Logo + headline */}
       <div className="mb-10 flex flex-col items-center gap-3 text-center">
         <img src="/logo.png" alt="Cabbge" className="w-14 h-14 object-contain" />

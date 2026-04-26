@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Check, Loader2, Sparkles, ArrowRight } from "lucide-react";
 import Link from "next/link";
+import { JsonLd, organizationSchema, pricingFaqSchema } from "@/components/seo/JsonLd";
 
 /**
  * Three-tier pricing, anchored against agency retainers + in-house
@@ -210,6 +211,7 @@ export default function PricingPage() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0b] text-zinc-100">
+      <JsonLd schema={[organizationSchema(), pricingFaqSchema()]} />
       <div className="border-b border-white/[0.06] px-6 py-4">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
