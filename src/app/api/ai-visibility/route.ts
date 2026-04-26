@@ -210,6 +210,27 @@ export async function POST(req: NextRequest) {
       projectGroundTruth,
     );
 
+    // Persist the full scan to scan_history so volatility / trend / citation
+    // drift computation has per-query data to read. The cron path writes the
+    // same shape; without this server-side write, manual scans (the common
+    // case) leave scan_history.results empty and every trend chart stays flat.
+    // Skip for demo (no real company) and when no companyId was sent.
+    if (companyId && typeof companyId === "string" && gate.userId !== "demo") {
+      try {
+        const db = getServiceClient();
+        await db.from("scan_history").insert({
+          company_id: companyId,
+          scan_type: "ai_visibility",
+          url: websiteUrl || "",
+          score: (result as { scores?: { overall?: number } })?.scores?.overall ?? 0,
+          results: result,
+          triggered_by: "manual",
+        });
+      } catch (err) {
+        console.warn("scan_history write failed:", err instanceof Error ? err.message : err);
+      }
+    }
+
     // Pull volatility + citation drift snapshots so the UI renders
     // sparklines + gained/lost-citation panels without a second round
     // trip. Cheap — one indexed read each.
