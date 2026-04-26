@@ -184,7 +184,33 @@ Critical rules:
           .filter((h: Hallucination) => h.aiClaim.length >= 5)
       : [];
 
-    return { hallucinations, checked: true };
+    // Verification pass: each aiClaim is supposed to be a "verbatim quote
+    // from the AI response showing the wrong claim". If the auditor LLM
+    // itself hallucinates a claim that never appeared in the response,
+    // we end up showing the customer "ChatGPT said you have 50 projects"
+    // when ChatGPT never said that — that destroys trust in the audit.
+    // Verify each claim's text exists in the response (relaxed: lowercased,
+    // whitespace-collapsed, punctuation-stripped, ≥70% token overlap).
+    const normalize = (s: string) =>
+      s.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+    const normalizedResponse = normalize(aiResponse);
+    const responseTokens = new Set(normalizedResponse.split(" ").filter((t) => t.length >= 3));
+
+    const verified = hallucinations.filter((h) => {
+      const normClaim = normalize(h.aiClaim);
+      if (!normClaim) return false;
+      // Exact substring match — the happy path when the auditor obeyed
+      // the "verbatim quote" instruction.
+      if (normalizedResponse.includes(normClaim)) return true;
+      // Relaxed fallback for minor paraphrasing: at least 70% of the
+      // claim's content tokens (3+ chars) must appear in the response.
+      const claimTokens = normClaim.split(" ").filter((t) => t.length >= 3);
+      if (claimTokens.length < 3) return false;
+      const hits = claimTokens.filter((t) => responseTokens.has(t)).length;
+      return hits / claimTokens.length >= 0.7;
+    });
+
+    return { hallucinations: verified, checked: true };
   } catch {
     // Parse failure — return empty + checked:false so the UI can tell the
     // difference between "audited, nothing found" and "audit didn't run".
