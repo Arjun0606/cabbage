@@ -51,6 +51,7 @@ import { ReviewMonitor } from "./ReviewMonitor";
 import { AIVisibilityTrend } from "./AIVisibilityTrend";
 import { ArticleAttribution } from "./ArticleAttribution";
 import { RefreshQueue } from "./RefreshQueue";
+import { PlanMatch } from "./PlanMatch";
 import { getCompanyCities, projectMatchesCity } from "@/lib/cities";
 import { parseLocation, inferState } from "@/lib/projectParse";
 import { isPortalSubmitted, togglePortalSubmitted, computeCoverage } from "@/lib/portalTracker";
@@ -531,6 +532,13 @@ export function AnalyticsPanel({
         {/* -------- HEALTH TAB (Health + Technical + Checks) -------- */}
         {/* ================================================================ */}
         <TabsContent value="health" className="space-y-4">
+          {/* Plan match — recommends the smallest tier that fits the
+              customer's actual portfolio (projects, cities, competitors,
+              article need). Quietly hides when current plan already fits.
+              Doubles as the upgrade nudge once growth pushes them past
+              their current caps. */}
+          <PlanMatch companyId={companyId} refetchKey={aiVisResult} />
+
           {/* Pending-projects banner — surfaces new project URLs the
               weekly project-sync cron found on the customer's sitemap.
               Click "Accept all" → flipped to Active, included in next
@@ -2555,7 +2563,7 @@ export function AnalyticsPanel({
         {/* -------- REPORT TAB -------- */}
         {/* ================================================================ */}
         <TabsContent value="report" className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
             <Button
               onClick={onRunMarketingReport}
               disabled={isGeneratingReport}
@@ -2581,6 +2589,24 @@ export function AnalyticsPanel({
                 )}
               </Button>
             )}
+            {/* Markdown brief — bundles everything we know about the
+                customer (mention rates, hallucinations, audit gaps,
+                published content) into a one-page doc they can forward
+                internally. The browser handles the download via the
+                Content-Disposition header on /api/export-md. */}
+            <Button
+              onClick={() => {
+                if (typeof window === "undefined") return;
+                const url = companyId
+                  ? `/api/export-md?companyId=${encodeURIComponent(companyId)}`
+                  : `/api/export-md`;
+                window.location.href = url;
+              }}
+              variant="outline"
+              className="w-full border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/10 hover:text-emerald-200 h-10 text-[13px] font-medium rounded-lg"
+            >
+              <FileText size={15} className="mr-2" />Download CMO brief (.md)
+            </Button>
           </div>
 
           {cmoDigestResult?.digest && (
