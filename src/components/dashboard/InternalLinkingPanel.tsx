@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Link as LinkIcon, ArrowRight, Layers, AlertCircle, Loader2, Zap } from "lucide-react";
+import { Link as LinkIcon, ArrowRight, Layers, AlertCircle, Loader2, Zap, Copy, Check } from "lucide-react";
 
 interface LinkSuggestion {
   fromUrl: string;
@@ -44,6 +44,29 @@ function pathOf(url: string): string {
 
 export function InternalLinkingPanel({ data, isLoading, hasCrawl, onAnalyze, onRunCrawl, isCrawling }: Props) {
   const [tab, setTab] = useState<"suggestions" | "orphans" | "clusters">("suggestions");
+  const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
+
+  // Build the HTML snippet a customer can paste into their CMS to
+  // deploy a single internal-link suggestion. Real deployment requires
+  // editing the source page's content; this v1 hands the customer the
+  // exact HTML so they can drop it into the right paragraph in their
+  // editor without retyping the anchor or URL.
+  const linkHtmlFor = (s: LinkSuggestion): string => {
+    // Sanitize: only http/https URLs, escape angle brackets in anchor.
+    const safeUrl = /^https?:\/\//i.test(s.toUrl) ? s.toUrl : "";
+    const safeAnchor = (s.anchorText || s.toTitle || "Read more")
+      .replace(/[<>]/g, "")
+      .slice(0, 120);
+    return safeUrl ? `<a href="${safeUrl}">${safeAnchor}</a>` : "";
+  };
+
+  const copySnippet = (idx: number, snippet: string) => {
+    if (!snippet || typeof navigator === "undefined" || !navigator.clipboard) return;
+    navigator.clipboard.writeText(snippet).then(() => {
+      setCopiedIdx(idx);
+      setTimeout(() => setCopiedIdx((cur) => (cur === idx ? null : cur)), 1500);
+    }).catch(() => { /* swallow */ });
+  };
 
   if (!hasCrawl) {
     return (
@@ -165,22 +188,41 @@ export function InternalLinkingPanel({ data, isLoading, hasCrawl, onAnalyze, onR
                     <Zap size={11} className="text-[#7CB342]" />
                     Specific link insertions that would boost orphan / low-inbound pages.
                   </p>
-                  {data.suggestions.slice(0, 20).map((s, i) => (
-                    <div key={i} className="p-3 rounded-lg bg-zinc-800/40 border border-white/[0.04]">
-                      <div className="flex items-center gap-2 mb-1.5 text-[12px]">
-                        <span className="text-zinc-500 truncate flex-1">{pathOf(s.fromUrl)}</span>
-                        <ArrowRight size={12} className="text-[#7CB342] flex-shrink-0" />
-                        <span className="text-zinc-200 font-medium truncate flex-1 text-right">{pathOf(s.toUrl)}</span>
-                        <Badge className="text-[9px] h-4 px-1.5 rounded bg-[#7CB342]/10 text-[#7CB342] border-0 flex-shrink-0 tabular-nums">
-                          {Math.round(s.relevanceScore * 100)}%
-                        </Badge>
+                  {data.suggestions.slice(0, 20).map((s, i) => {
+                    const snippet = linkHtmlFor(s);
+                    return (
+                      <div key={i} className="p-3 rounded-lg bg-zinc-800/40 border border-white/[0.04]">
+                        <div className="flex items-center gap-2 mb-1.5 text-[12px]">
+                          <span className="text-zinc-500 truncate flex-1">{pathOf(s.fromUrl)}</span>
+                          <ArrowRight size={12} className="text-[#7CB342] flex-shrink-0" />
+                          <span className="text-zinc-200 font-medium truncate flex-1 text-right">{pathOf(s.toUrl)}</span>
+                          <Badge className="text-[9px] h-4 px-1.5 rounded bg-[#7CB342]/10 text-[#7CB342] border-0 flex-shrink-0 tabular-nums">
+                            {Math.round(s.relevanceScore * 100)}%
+                          </Badge>
+                        </div>
+                        <div className="text-[11px] text-zinc-400 mb-1">{s.reason}</div>
+                        <div className="flex items-center gap-2 text-[11px]">
+                          <span className="text-zinc-500">Suggested anchor:</span>
+                          <code className="text-zinc-300 bg-zinc-900/60 px-1.5 py-0.5 rounded text-[10px] truncate flex-1">
+                            {s.anchorText.slice(0, 80)}
+                          </code>
+                          {snippet && (
+                            <button
+                              onClick={() => copySnippet(i, snippet)}
+                              className="text-[10px] font-medium px-2 py-1 rounded-md bg-zinc-700 text-zinc-200 hover:bg-zinc-600 inline-flex items-center gap-1 flex-shrink-0"
+                              title="Copy HTML snippet — paste into your CMS at the source page"
+                            >
+                              {copiedIdx === i ? (
+                                <><Check size={10} className="text-[#7CB342]" />Copied</>
+                              ) : (
+                                <><Copy size={10} />Copy HTML</>
+                              )}
+                            </button>
+                          )}
+                        </div>
                       </div>
-                      <div className="text-[11px] text-zinc-400 mb-1">{s.reason}</div>
-                      <div className="text-[11px] text-zinc-500">
-                        Suggested anchor: <span className="text-zinc-300">&quot;{s.anchorText.slice(0, 60)}&quot;</span>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </>
