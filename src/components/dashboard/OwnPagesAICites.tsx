@@ -60,9 +60,15 @@ export function OwnPagesAICites({ aiVisResult, websiteUrl }: Props) {
   const queryResults = aiVisResult?.queryResults || [];
   if (queryResults.length === 0) return null;
 
+  // Host must match. The upstream LLM mis-tags competitor citations as
+  // "own_site" when brand names are similar (e.g., Tridasa scan picking
+  // up Praneeth pages because the AI confused parent/sub-brand). The
+  // type tag is hint-only; the host is the source of truth — without
+  // a known own-host we can't confidently say any page is ours.
   const ownHost = websiteUrl ? hostOf(websiteUrl) : "";
-  const counts = new Map<string, number>();
+  if (!ownHost) return null;
 
+  const counts = new Map<string, number>();
   for (const q of queryResults) {
     const all = [
       ...(q.chatgpt?.citationSources || []),
@@ -70,8 +76,7 @@ export function OwnPagesAICites({ aiVisResult, websiteUrl }: Props) {
     ];
     for (const c of all) {
       if (!c.url) continue;
-      const isOwn = c.type === "own_site" || (ownHost && hostOf(c.url) === ownHost);
-      if (!isOwn) continue;
+      if (hostOf(c.url) !== ownHost) continue;
       counts.set(c.url, (counts.get(c.url) || 0) + 1);
     }
   }
@@ -105,6 +110,7 @@ export function OwnPagesAICites({ aiVisResult, websiteUrl }: Props) {
             >
               <div className="min-w-0 flex-1">
                 <div className="text-[12px] text-zinc-200 truncate font-mono">{pathOf(r.url)}</div>
+                <div className="text-[10px] text-zinc-500 truncate">{hostOf(r.url)}</div>
               </div>
               <Badge className="text-[10px] bg-[#7CB342]/10 text-[#7CB342] border-0 rounded-md h-5 px-1.5 flex-shrink-0">
                 cited {r.count}×
