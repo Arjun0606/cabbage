@@ -36,15 +36,21 @@ interface Props {
   /** If provided, the "no crawl yet" state shows a Crawl Now button that triggers this. */
   onRunCrawl?: () => void;
   isCrawling?: boolean;
+  /** Customer site URL — used to deploy internal-link snippets via
+   *  the loader. When absent, only Copy HTML is offered. */
+  siteUrl?: string;
 }
 
 function pathOf(url: string): string {
   try { return new URL(url).pathname; } catch { return url; }
 }
 
-export function InternalLinkingPanel({ data, isLoading, hasCrawl, onAnalyze, onRunCrawl, isCrawling }: Props) {
+export function InternalLinkingPanel({ data, isLoading, hasCrawl, onAnalyze, onRunCrawl, isCrawling, siteUrl }: Props) {
   const [tab, setTab] = useState<"suggestions" | "orphans" | "clusters">("suggestions");
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
+  const [deployedIdx, setDeployedIdx] = useState<number | null>(null);
+  const [deploySnippetForIdx, setDeploySnippetForIdx] = useState<number | null>(null);
+  const [deployedSlots, setDeployedSlots] = useState<Map<number, string>>(new Map());
 
   // Build the HTML snippet a customer can paste into their CMS to
   // deploy a single internal-link suggestion. Real deployment requires
@@ -67,6 +73,58 @@ export function InternalLinkingPanel({ data, isLoading, hasCrawl, onAnalyze, onR
       setTimeout(() => setCopiedIdx((cur) => (cur === idx ? null : cur)), 1500);
     }).catch(() => { /* swallow */ });
   };
+
+  // Stable slot for a (toUrl, anchor) pair. Same suggestion always maps
+  // to the same slot so re-deploying overwrites in place rather than
+  // piling duplicates. Lowercase + alphanumeric so the dashed slot is
+  // safe to embed in HTML attributes.
+  const slotFor = (s: LinkSuggestion): string => {
+    const sluggify = (raw: string) =>
+      raw.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40);
+    let host = "";
+    try { host = new URL(s.toUrl).hostname.replace(/^www\./, "").replace(/\./g, "-"); } catch { host = ""; }
+    return `inlink-${host}-${sluggify(s.anchorText || s.toTitle || "link")}`;
+  };
+
+  // Deploy via loader: POST the anchor HTML to /api/content-deploy under
+  // a stable slot, then show the customer the <span> placeholder they
+  // paste into the source page where they want the link to land. The
+  // existing loader (already a one-line install) handles render at
+  // page load.
+  const deployViaLoader = async (idx: number, s: LinkSuggestion) => {
+    if (!siteUrl) return;
+    const snippet = linkHtmlFor(s);
+    if (!snippet) return;
+    const slot = slotFor(s);
+    try {
+      const res = await fetch("/api/content-deploy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          siteUrl,
+          slot,
+          contentType: "internal_link",
+          html: snippet,
+          meta: {
+            fromUrl: s.fromUrl,
+            toUrl: s.toUrl,
+            anchorText: s.anchorText,
+          },
+        }),
+      });
+      if (!res.ok) return;
+      setDeployedSlots((prev) => {
+        const next = new Map(prev);
+        next.set(idx, slot);
+        return next;
+      });
+      setDeployedIdx(idx);
+      setDeploySnippetForIdx(idx);
+    } catch { /* swallow — UI shows nothing changed */ }
+  };
+
+  const placeholderSpanFor = (slot: string): string =>
+    `<span data-cabbge-slot="${slot}"></span>`;
 
   if (!hasCrawl) {
     return (
@@ -219,7 +277,41 @@ export function InternalLinkingPanel({ data, isLoading, hasCrawl, onAnalyze, onR
                               )}
                             </button>
                           )}
+                          {snippet && siteUrl && (
+                            <button
+                              onClick={() => deployViaLoader(i, s)}
+                              className="text-[10px] font-medium px-2 py-1 rounded-md bg-[#7CB342] text-zinc-950 hover:bg-[#8BC34A] inline-flex items-center gap-1 flex-shrink-0"
+                              title="Push link HTML to the Cabbge loader. You'll get a placeholder <span> to paste once into the source page."
+                            >
+                              {deployedIdx === i ? (
+                                <><Check size={10} />Deployed</>
+                              ) : (
+                                <>Deploy via loader</>
+                              )}
+                            </button>
+                          )}
                         </div>
+                        {deploySnippetForIdx === i && deployedSlots.get(i) && (
+                          <div className="mt-2 p-2 rounded-md bg-zinc-950 border border-[#7CB342]/30 space-y-1">
+                            <div className="text-[10px] text-[#7CB342] font-semibold">
+                              Paste this once into {pathOf(s.fromUrl)} where you want the link to land:
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <code className="text-[10px] text-zinc-200 bg-zinc-900 px-2 py-1 rounded font-mono flex-1 truncate">
+                                {placeholderSpanFor(deployedSlots.get(i)!)}
+                              </code>
+                              <button
+                                onClick={() => copySnippet(-1 - i, placeholderSpanFor(deployedSlots.get(i)!))}
+                                className="text-[10px] px-2 py-1 rounded bg-zinc-700 text-zinc-200 hover:bg-zinc-600 inline-flex items-center gap-1 flex-shrink-0"
+                              >
+                                {copiedIdx === -1 - i ? <><Check size={10} className="text-[#7CB342]" />Copied</> : <><Copy size={10} />Copy</>}
+                              </button>
+                            </div>
+                            <div className="text-[10px] text-zinc-500">
+                              Loader fills it on next page load. Re-deploy this suggestion anytime to update the anchor.
+                            </div>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
