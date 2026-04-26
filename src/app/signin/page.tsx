@@ -113,7 +113,15 @@ function SignInInner() {
 
               {mode === "password" && (
                 <div>
-                  <label className="text-[11px] text-zinc-500 uppercase tracking-wide block mb-1.5">Password</label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-[11px] text-zinc-500 uppercase tracking-wide">Password</label>
+                    <Link
+                      href="/forgot-password"
+                      className="text-[11px] text-zinc-500 hover:text-[#7CB342] transition-colors"
+                    >
+                      Forgot password?
+                    </Link>
+                  </div>
                   <div className="relative">
                     <Lock size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
                     <Input

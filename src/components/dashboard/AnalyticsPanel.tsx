@@ -48,6 +48,9 @@ import { PendingProjectsBanner } from "./PendingProjectsBanner";
 import { ProjectCompare } from "./ProjectCompare";
 import { DelayRiskPanel } from "./DelayRiskPanel";
 import { ReviewMonitor } from "./ReviewMonitor";
+import { AIVisibilityTrend } from "./AIVisibilityTrend";
+import { ArticleAttribution } from "./ArticleAttribution";
+import { RefreshQueue } from "./RefreshQueue";
 import { getCompanyCities, projectMatchesCity } from "@/lib/cities";
 import { parseLocation, inferState } from "@/lib/projectParse";
 import { isPortalSubmitted, togglePortalSubmitted, computeCoverage } from "@/lib/portalTracker";
@@ -1169,6 +1172,24 @@ export function AnalyticsPanel({
         {/* -------- AI/GEO TAB -------- */}
         {/* ================================================================ */}
         <TabsContent value="aigeo" className="space-y-4">
+
+          {/* AI Visibility trend — the headline "improvement over time"
+              chart. Hidden until 2+ scans exist (a single point is not
+              a trend). Refetches when aiVisResult changes so a fresh
+              scan immediately updates the curve. */}
+          <AIVisibilityTrend companyId={companyId} refetchKey={aiVisResult} />
+
+          {/* Article attribution — closes the loop on "did the article
+              actually move the needle?". Quiet when no articles have
+              been published. Refetches when aiVisResult changes so the
+              latest scan's mention status feeds the post-side. */}
+          <ArticleAttribution companyId={companyId} refetchKey={aiVisResult} />
+
+          {/* Refresh queue — articles whose freshness score (age + GSC
+              click decay) has dipped below threshold. Hidden when nothing
+              needs refresh. Refresh callback hits the article writer for
+              the original query, charged at the same credit rate. */}
+          <RefreshQueue companyId={companyId} refetchKey={aiVisResult} onRefreshArticle={onGeoFixQuery} />
 
           {/* Per-locality rollup — turns one opaque overall score into
               a heatmap across the localities the brand serves. Only
