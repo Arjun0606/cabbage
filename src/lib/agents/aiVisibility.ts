@@ -173,13 +173,41 @@ RULES:
     const cleaned = raw.replace(/```json?\n?/g, "").replace(/```/g, "").trim();
     const parsed = JSON.parse(cleaned) as AIMentionAnalysis;
 
+    // Verification pass: if the analysis LLM claims `mentioned: true`,
+    // the brand (or an alias, or a known project name) must actually
+    // appear in the original response text. Catches the failure mode
+    // where the analyser hallucinates a positive mention — which would
+    // silently inflate trends, scores, attribution, and refresh queue
+    // by compounding false positives across every downstream consumer.
+    let verifiedMentioned = Boolean(parsed.mentioned);
+    if (verifiedMentioned) {
+      const lower = response.toLowerCase();
+      const brandLower = brand.toLowerCase();
+      const aliasList = (disambiguation?.aliases || []).filter((a): a is string => !!a);
+      const found =
+        lower.includes(brandLower) ||
+        aliasList.some((a) => a && lower.includes(a.toLowerCase())) ||
+        projects.some((p) => p && lower.includes(p.toLowerCase()));
+      if (!found) {
+        verifiedMentioned = false;
+      }
+    }
+
     return {
-      mentioned: Boolean(parsed.mentioned),
-      position: Math.max(0, Number(parsed.position) || 0),
-      context: String(parsed.context || "").substring(0, 300).replace(/[\x00-\x1F]/g, " "),
-      sentiment: (["positive", "neutral", "negative", "absent"].includes(parsed.sentiment as string)
-        ? parsed.sentiment
-        : "absent") as LLMResult["sentiment"],
+      mentioned: verifiedMentioned,
+      // Zero out downstream signals when we override — otherwise the
+      // analyser's claimed position/sentiment leak into the result and
+      // the row reads as "ranked #2 with positive sentiment but
+      // actually not mentioned at all".
+      position: verifiedMentioned ? Math.max(0, Number(parsed.position) || 0) : 0,
+      context: verifiedMentioned
+        ? String(parsed.context || "").substring(0, 300).replace(/[\x00-\x1F]/g, " ")
+        : "",
+      sentiment: verifiedMentioned
+        ? ((["positive", "neutral", "negative", "absent"].includes(parsed.sentiment as string)
+            ? parsed.sentiment
+            : "absent") as LLMResult["sentiment"])
+        : "absent",
       coCitations: Array.isArray(parsed.coCitations) ? parsed.coCitations.slice(0, 15) : [],
       citationSources: Array.isArray(parsed.citationSources)
         ? parsed.citationSources.slice(0, 10).map((s: any) => ({
