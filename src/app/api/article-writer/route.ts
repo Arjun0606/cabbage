@@ -5,6 +5,7 @@ import { aiComplete } from "@/lib/ai";
 import { enforceCredits } from "@/lib/credits";
 import { requireActiveSubscription } from "@/lib/db/supabase-server";
 import { getServiceClient } from "@/lib/db/supabase";
+import { scoreBrandContext, READY_THRESHOLD } from "@/lib/brandContext";
 
 type ArticleType =
   | "locality_guide"
@@ -121,6 +122,36 @@ export async function POST(req: NextRequest) {
         { error: "targetKeyword is required" },
         { status: 400 }
       );
+    }
+
+    // Brand-context completion gate. Generic articles produced from an
+    // empty brand context are the #1 reason customers cancel — they
+    // can't publish them, so they stop seeing value, so they churn.
+    // We hard-block writes below threshold and tell the user exactly
+    // which fields to fill. Demo bypasses (sales pitch needs to render).
+    if (gate.plan !== "demo") {
+      const ctxScore = scoreBrandContext({
+        productInfo,
+        brandVoice,
+        vision: body.brandContext?.vision || body.vision,
+        values: body.brandContext?.values || body.values,
+        targetAudience: body.brandContext?.targetAudience || body.targetAudience,
+        marketingStrategy: body.brandContext?.marketingStrategy || body.marketingStrategy,
+        competitorAnalysis: body.brandContext?.competitorAnalysis || body.competitorAnalysis,
+      });
+      if (!ctxScore.ready) {
+        return NextResponse.json(
+          {
+            error: `Brand context is ${ctxScore.score}% complete — fill the required fields before generating articles. Articles written from empty context read like every other developer's blog.`,
+            hint: `Need ${READY_THRESHOLD}% to unlock. Open Settings → Brand Context and fill: ${ctxScore.missing.map((m) => m.label).join(", ")}.`,
+            needsBrandContext: true,
+            score: ctxScore.score,
+            threshold: READY_THRESHOLD,
+            missing: ctxScore.missing,
+          },
+          { status: 412 }
+        );
+      }
     }
 
     const typeInstruction = ARTICLE_TYPE_INSTRUCTIONS[articleType as ArticleType];
@@ -336,6 +367,80 @@ Return ONLY valid JSON. No markdown code blocks around the JSON.`;
       finalContent += `\n\n---\n*Last updated: ${new Date().toISOString().slice(0, 10)}*`;
     }
 
+    // -----------------------------------------------------------------
+    // QA pass — second-pass LLM review catches what rule-based scoring
+    // can't: fabricated landmarks, made-up RERA numbers, off-brand voice,
+    // ungrounded claims. Cheap call (~$0.01), runs after the main draft
+    // so it costs nothing on rejected drafts. We don't auto-reject the
+    // article — surface the warnings so the customer can decide to
+    // regenerate or edit. Hidden auto-rejects produce mysterious
+    // failures that are worse than a flagged-but-saved draft.
+    // -----------------------------------------------------------------
+    let qa: {
+      passed: boolean;
+      voiceMatch: number;
+      factualGroundedness: number;
+      flags: string[];
+      reraSuspect: boolean;
+    } = {
+      passed: true,
+      voiceMatch: 100,
+      factualGroundedness: 100,
+      flags: [],
+      reraSuspect: false,
+    };
+    try {
+      const qaSystem = `You are a senior editor reviewing an AI-generated real estate article for two specific failure modes: factual fabrication and brand-voice drift. Be strict. Return ONLY valid JSON, no commentary.`;
+      const qaUser = `Review this draft and flag specific problems.
+
+GROUND TRUTH supplied by the brand (everything else is fabrication if asserted as fact):
+- Project name: ${projectName}
+- Developer: ${developerName || "(not supplied)"}
+- Location: ${location}, ${city}
+- Configurations: ${configurations || "(not supplied)"}
+- Price range: ${priceRange || "(not supplied)"}
+- RERA: ${reraNumber || "(not supplied)"}
+- Status: ${status || "(not supplied)"}
+- Brand voice description: ${brandVoice ? brandVoice.substring(0, 600) : "(not supplied — flag any voice issues as 'no baseline supplied')"}
+
+DRAFT:
+"""
+${finalContent.substring(0, 8000)}
+"""
+
+Check for:
+1. Named landmarks / schools / hospitals / metro stations not in the ground truth.
+2. RERA numbers in the draft that don't match the supplied RERA (or any RERA number when none was supplied).
+3. Specific distance / km / minute claims with no source.
+4. Voice drift from the supplied brand voice (if voice was supplied).
+5. Fabricated quoted reviews / testimonials.
+
+Return JSON:
+{
+  "voiceMatch": <0-100, how well the draft matches the supplied brand voice. 80+ = good, 50–79 = drift, <50 = off-brand>,
+  "factualGroundedness": <0-100, share of factual claims that are supported by the ground truth>,
+  "reraSuspect": <true|false — true if a RERA number appears that isn't the supplied one or is invented>,
+  "flags": ["<specific quote from draft>: <why it's a problem>", ... up to 5 most serious]
+}`;
+      const qaRaw = await aiComplete(qaSystem, qaUser, 800);
+      const cleaned = qaRaw.replace(/^```(?:json)?\s*/, "").replace(/\s*```$/, "");
+      const qaParsed = JSON.parse(cleaned);
+      const voiceMatch = typeof qaParsed.voiceMatch === "number" ? Math.max(0, Math.min(100, qaParsed.voiceMatch)) : 80;
+      const factualGroundedness = typeof qaParsed.factualGroundedness === "number" ? Math.max(0, Math.min(100, qaParsed.factualGroundedness)) : 80;
+      const flags = Array.isArray(qaParsed.flags) ? qaParsed.flags.filter((f: unknown): f is string => typeof f === "string").slice(0, 5) : [];
+      qa = {
+        voiceMatch,
+        factualGroundedness,
+        reraSuspect: qaParsed.reraSuspect === true,
+        flags,
+        // Pass if both axes are decent and no RERA fabrication
+        passed: voiceMatch >= 60 && factualGroundedness >= 70 && !(qaParsed.reraSuspect === true),
+      };
+    } catch (err) {
+      // QA failure is non-fatal — log it and proceed with the draft.
+      console.warn("article QA pass failed:", err instanceof Error ? err.message : err);
+    }
+
     return NextResponse.json({
       title: parsed.title || "",
       metaDescription: parsed.metaDescription || "",
@@ -349,6 +454,7 @@ Return ONLY valid JSON. No markdown code blocks around the JSON.`;
       suggestedInternalLinks: parsed.suggestedInternalLinks || [],
       geoScore,
       missingGeoSignals,
+      qa,
     });
   } catch (error) {
     console.error("Article writer error:", error);

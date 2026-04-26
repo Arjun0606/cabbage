@@ -52,6 +52,8 @@ import { AIVisibilityTrend } from "./AIVisibilityTrend";
 import { ArticleAttribution } from "./ArticleAttribution";
 import { RefreshQueue } from "./RefreshQueue";
 import { PlanMatch } from "./PlanMatch";
+import { BrandContextScore } from "./BrandContextScore";
+import { UsageWarning } from "./UsageWarning";
 import { getCompanyCities, projectMatchesCity } from "@/lib/cities";
 import { parseLocation, inferState } from "@/lib/projectParse";
 import { isPortalSubmitted, togglePortalSubmitted, computeCoverage } from "@/lib/portalTracker";
@@ -538,6 +540,17 @@ export function AnalyticsPanel({
               Doubles as the upgrade nudge once growth pushes them past
               their current caps. */}
           <PlanMatch companyId={companyId} refetchKey={aiVisResult} />
+
+          {/* Usage warning — fires when this month's article usage is
+              high or pace projects past the cap. Direct upgrade pressure
+              for Starter customers running hot. Quietly hidden under 70%. */}
+          <UsageWarning companyId={companyId} refetchKey={aiVisResult} />
+
+          {/* Brand context score — gates article generation at 70%
+              completion. Hidden when fully filled. The single highest
+              leverage retention surface — empty context = generic
+              articles = churn risk. */}
+          <BrandContextScore companyId={companyId} refetchKey={aiVisResult} />
 
           {/* Pending-projects banner — surfaces new project URLs the
               weekly project-sync cron found on the customer's sitemap.
