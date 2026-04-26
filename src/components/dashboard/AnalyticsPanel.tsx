@@ -42,6 +42,9 @@ import { HallucinationAudit } from "./HallucinationAudit";
 import { CitationDrift } from "./CitationDrift";
 import { PlatformMentions } from "./PlatformMentions";
 import { ProgressDashboard } from "./ProgressDashboard";
+import { NextActionBanner } from "./NextActionBanner";
+import { BrandContextRefreshNudge } from "./BrandContextRefreshNudge";
+import { PendingProjectsBanner } from "./PendingProjectsBanner";
 import { ProjectCompare } from "./ProjectCompare";
 import { DelayRiskPanel } from "./DelayRiskPanel";
 import { ReviewMonitor } from "./ReviewMonitor";
@@ -525,6 +528,59 @@ export function AnalyticsPanel({
         {/* -------- HEALTH TAB (Health + Technical + Checks) -------- */}
         {/* ================================================================ */}
         <TabsContent value="health" className="space-y-4">
+          {/* Pending-projects banner — surfaces new project URLs the
+              weekly project-sync cron found on the customer's sitemap.
+              Click "Accept all" → flipped to Active, included in next
+              scan. */}
+          <PendingProjectsBanner
+            companyId={(typeof window !== "undefined" ? (() => {
+              try {
+                const c = localStorage.getItem("cabbge_company");
+                return c ? (JSON.parse(c)?._companyId as string | undefined) : undefined;
+              } catch { return undefined; }
+            })() : undefined)}
+          />
+
+          {/* Brand-context refresh nudge — fires when the company row's
+              brand-context fields haven't been edited in 28+ days. Same
+              spot as the next-action banner so the user sees both in
+              the day-1 of-the-month they should be paying attention. */}
+          <BrandContextRefreshNudge
+            companyId={(typeof window !== "undefined" ? (() => {
+              try {
+                const c = localStorage.getItem("cabbge_company");
+                return c ? (JSON.parse(c)?._companyId as string | undefined) : undefined;
+              } catch { return undefined; }
+            })() : undefined)}
+            brandUpdatedAt={(typeof window !== "undefined" ? (() => {
+              try {
+                const c = localStorage.getItem("cabbge_company");
+                return c ? (JSON.parse(c)?.updated_at as string | undefined) : undefined;
+              } catch { return undefined; }
+            })() : undefined)}
+          />
+
+          {/* Always-on next-action banner. Single most important thing
+              the customer should do right now, derived from current
+              dashboard state. The user should never have to think
+              about what to do inside the product — the product knows. */}
+          <NextActionBanner
+            hasScanned={Boolean(auditResult || aiVisResult)}
+            aiVisResult={aiVisResult}
+            auditResult={auditResult}
+            citationDrift={citationDrift}
+            goldenPrompts={goldenPrompts}
+            articlesPublishedThisMonth={undefined}
+            scansRunThisWeek={undefined}
+            daysSinceFirstScan={undefined}
+            onRunFirstScan={() => onRunAIVisibility?.()}
+            onFixHallucinations={() => onTabChange("aigeo")}
+            onWriteArticles={() => onTabChange("content")}
+            onPinGoldenPrompts={() => onTabChange("aigeo")}
+            onRunFanout={() => onTabChange("aigeo")}
+            onRunBrandDefense={() => onTabChange("aigeo")}
+          />
+
           {/* Per-project focus strip — shown when the user has picked a
               specific project in the switcher. Collapses the project's
               four core health dimensions (GEO, SEO, portals, RERA) into

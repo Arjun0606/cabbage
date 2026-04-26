@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -40,8 +40,48 @@ interface Project {
 }
 
 export default function OnboardingPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#0a0a0b]" />}>
+      <OnboardingInner />
+    </Suspense>
+  );
+}
+
+function OnboardingInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [step, setStep] = useState<1 | 2 | 3>(1);
+
+  // Deep-link support — /onboarding?step=3 jumps the user straight
+  // into Step 3 (Brand Context). Used by the BrandContextRefreshNudge
+  // on the dashboard so "Edit" lands on the right field set with
+  // the existing values prefilled from localStorage.
+  useEffect(() => {
+    const requested = searchParams.get("step");
+    if (requested === "3") {
+      try {
+        const c = localStorage.getItem("cabbge_company");
+        if (c) {
+          const parsed = JSON.parse(c);
+          if (parsed?.name) setName(parsed.name);
+          if (parsed?.description) setDescription(parsed.description);
+          if (parsed?.website) setWebsite(parsed.website);
+          if (parsed?.city) setCities([parsed.city]);
+          if (parsed?.documents) {
+            if (parsed.documents.productInfo)        setProductInfo(parsed.documents.productInfo);
+            if (parsed.documents.brandVoice)         setBrandVoice(parsed.documents.brandVoice);
+            if (parsed.documents.brandValues)        setBrandValues(parsed.documents.brandValues);
+            if (parsed.documents.brandVision)        setBrandVision(parsed.documents.brandVision);
+            if (parsed.documents.targetAudience)     setTargetAudience(parsed.documents.targetAudience);
+            if (parsed.documents.marketingStrategy)  setMarketingStrategy(parsed.documents.marketingStrategy);
+            if (parsed.documents.competitorAnalysis) setCompetitorAnalysisDoc(parsed.documents.competitorAnalysis);
+          }
+          setStep(3);
+        }
+      } catch { /* ignore */ }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [website, setWebsite] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -223,7 +263,12 @@ export default function OnboardingPage() {
     // Also set company ID cookie for per-company rate limiting
     document.cookie = `cabbge_company_id=${encodeURIComponent(name.trim().toLowerCase().replace(/\s+/g, "-"))};path=/;max-age=${60 * 60 * 24 * 365};samesite=lax`;
 
-    router.push("/dashboard?welcome=1");
+    // Route through the animated first-scan page so the user sees the
+    // four scan waves complete with explanatory copy instead of landing
+    // on a sparsely-populated dashboard. The first-scan page POSTs to
+    // every scan endpoint in parallel and routes to /dashboard?welcome=1
+    // when done.
+    router.push("/onboarding/first-scan");
   };
 
   const addProject = () => {

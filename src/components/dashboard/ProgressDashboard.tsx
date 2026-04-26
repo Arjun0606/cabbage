@@ -19,7 +19,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { TrendingUp, TrendingDown, Minus, Activity, Sparkles, FileText, Loader2, RefreshCw, Award } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, Activity, Sparkles, FileText, Loader2, RefreshCw, Award, Printer } from "lucide-react";
+import Link from "next/link";
 
 interface DailyPoint {
   date: string;
@@ -323,15 +324,27 @@ export function ProgressDashboard({ companyId }: Props) {
                   : `${data.rangeDays} days of trajectory. Click a metric below to toggle it on the chart.`}
               </p>
             </div>
-            <button
-              onClick={load}
-              disabled={loading}
-              className="text-[11px] text-zinc-500 hover:text-zinc-200 flex items-center gap-1 disabled:opacity-40"
-              title="Refresh"
-            >
-              <RefreshCw size={11} />
-              Refresh
-            </button>
+            <div className="flex items-center gap-3 flex-shrink-0">
+              {companyId && (
+                <Link
+                  href={`/report/${companyId}`}
+                  className="text-[11px] font-semibold text-[#7CB342] hover:text-[#8BC34A] flex items-center gap-1"
+                  title="Open the CEO-ready printable report"
+                >
+                  <Printer size={11} />
+                  CEO report
+                </Link>
+              )}
+              <button
+                onClick={load}
+                disabled={loading}
+                className="text-[11px] text-zinc-500 hover:text-zinc-200 flex items-center gap-1 disabled:opacity-40"
+                title="Refresh"
+              >
+                <RefreshCw size={11} />
+                Refresh
+              </button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
