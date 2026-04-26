@@ -667,6 +667,21 @@ export interface TrackedArticle {
   preScore?: { chatgptMentioned: boolean; geminiMentioned: boolean };
   /** Score after rescan post-publish */
   postScore?: { chatgptMentioned: boolean; geminiMentioned: boolean; rescannedAt: string };
+  /** Second-pass QA review (lib/agents/articleWriter QA pass). Surfaced
+   *  on the draft row so the customer can see voice match, factual
+   *  groundedness, and any specific fabrication flags before approving
+   *  for publish. Persisted in localStorage; not yet mirrored to
+   *  Supabase (the row is the source of truth for this customer's
+   *  draft queue and lives client-side until publish). */
+  qa?: {
+    passed: boolean;
+    voiceMatch: number;          // 0-100
+    factualGroundedness: number; // 0-100
+    flags: string[];             // specific issues the QA pass surfaced
+    reraSuspect: boolean;
+  };
+  /** GEO-readiness rule-based score (0-100) computed by article-writer. */
+  geoScore?: number;
 }
 
 export function getTrackedArticles(): TrackedArticle[] {
@@ -802,7 +817,9 @@ export function trackArticleGenerated(
   query: string,
   title: string,
   preScore?: TrackedArticle["preScore"],
-  companyId?: string
+  companyId?: string,
+  qa?: TrackedArticle["qa"],
+  geoScore?: number
 ): TrackedArticle {
   const articles = getTrackedArticles();
   const article: TrackedArticle = {
@@ -812,6 +829,8 @@ export function trackArticleGenerated(
     generatedAt: new Date().toISOString(),
     status: "draft",
     preScore,
+    qa,
+    geoScore,
   };
   articles.push(article);
   saveTrackedArticles(articles);

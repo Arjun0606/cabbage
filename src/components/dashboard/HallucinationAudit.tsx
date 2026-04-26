@@ -21,6 +21,12 @@ import type { Hallucination, HallucinationType, HallucinationSeverity } from "@/
 
 interface Props {
   aiVisResult: any;
+  /** When set, each hallucination row gets a "Generate fix article"
+   *  button that hands a pre-constructed corrective-content brief
+   *  (claim + truth + project) back to the dashboard's article writer.
+   *  Closes the loop from "AI is wrong about you" → "draft article in
+   *  the queue" in one click. */
+  onFixHallucination?: (issue: Issue) => void;
 }
 
 interface Issue extends Hallucination {
@@ -58,7 +64,7 @@ function sevRank(s: HallucinationSeverity): number {
   return s === "critical" ? 0 : s === "high" ? 1 : 2;
 }
 
-export function HallucinationAudit({ aiVisResult }: Props) {
+export function HallucinationAudit({ aiVisResult, onFixHallucination }: Props) {
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
 
   const { issues, auditedQueries, totalMentioned } = useMemo(() => {
@@ -239,6 +245,22 @@ export function HallucinationAudit({ aiVisResult }: Props) {
                           <div className="text-[11px] mt-2 p-2 rounded-md bg-[#7CB342]/[0.04] border border-[#7CB342]/20">
                             <span className="text-[#7CB342] font-semibold">Fix: </span>
                             <span className="text-zinc-300">{issue.fix}</span>
+                          </div>
+                        )}
+                        {onFixHallucination && (
+                          <div className="mt-3">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onFixHallucination(issue);
+                              }}
+                              className="text-[11px] font-medium px-2.5 py-1.5 rounded-md bg-[#7CB342] text-zinc-950 hover:bg-[#8BC34A] transition-colors"
+                            >
+                              Generate fix article →
+                            </button>
+                            <span className="text-[10px] text-zinc-500 ml-2">
+                              Drafts a fact-correction page targeting this query. Costs ~50 credits, lands in your draft queue.
+                            </span>
                           </div>
                         )}
                       </div>

@@ -1251,7 +1251,20 @@ export function AnalyticsPanel({
               Runs against ground-truth project data scraped from the
               brand's own site, so every flag is actionable and legally
               defensible. Quiet by default when nothing is wrong. */}
-          <HallucinationAudit aiVisResult={aiVisResult} />
+          <HallucinationAudit
+            aiVisResult={aiVisResult}
+            onFixHallucination={onGeoFixQuery ? (issue) => {
+              // Construct a corrective-article brief from the hallucination
+              // payload and hand it to the existing geo-fix pipeline. The
+              // dashboard's runGeoFixForQuery handler routes by query
+              // shape, so we frame this as a "buyer guide" — the article
+              // writer's most fact-grounded format. Skips when no
+              // brand-context callback is wired (defensive).
+              const target = issue.project || issue.query;
+              const correctiveBrief = `Comprehensive facts page for ${companyName || "the brand"} addressing ${issue.type} hallucination: AI claimed "${issue.aiClaim.slice(0, 120)}" — actual truth: "${issue.truth.slice(0, 200)}". Target query: ${target}.`;
+              onGeoFixQuery(correctiveBrief);
+            } : undefined}
+          />
 
           {/* Citation drift — which sources + which competitors just
               entered or left the citation set vs the previous scan.
