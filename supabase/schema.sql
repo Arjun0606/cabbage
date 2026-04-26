@@ -42,7 +42,7 @@ CREATE TABLE IF NOT EXISTS projects (
   price_range TEXT,
   rera_number TEXT,
   amenities TEXT,
-  status TEXT DEFAULT 'Active' CHECK (status IN ('Active', 'Pre-launch', 'Under Construction', 'Ready to Move', 'Sold Out')),
+  status TEXT DEFAULT 'Active' CHECK (status IN ('Active', 'Pre-launch', 'Under Construction', 'Ready to Move', 'Sold Out', 'Pending Review')),
   possession_date TEXT,
   usps TEXT,
   brochure_text TEXT,

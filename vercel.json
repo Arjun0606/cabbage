@@ -11,10 +11,6 @@
     {
       "path": "/api/cron/project-sync",
       "schedule": "0 2 * * 0"
-    },
-    {
-      "path": "/api/cron/weekly-digest",
-      "schedule": "30 3 * * 1"
     }
   ]
 }

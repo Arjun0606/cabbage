@@ -1,9 +1,9 @@
 -- ============================================================
 -- CABBGE — One-shot setup script
--- Generated: 2026-04-25
+-- Generated: 2026-04-26
 --
 -- Paste this entire file into Supabase SQL Editor and hit Run.
--- It runs the base schema + every migration (001-009) in order,
+-- It runs the base schema + every migration (001-010) in order,
 -- with idempotency guards so re-runs are safe.
 --
 -- Estimated runtime: 5-15 seconds.
@@ -57,7 +57,7 @@ CREATE TABLE IF NOT EXISTS projects (
   price_range TEXT,
   rera_number TEXT,
   amenities TEXT,
-  status TEXT DEFAULT 'Active' CHECK (status IN ('Active', 'Pre-launch', 'Under Construction', 'Ready to Move', 'Sold Out')),
+  status TEXT DEFAULT 'Active' CHECK (status IN ('Active', 'Pre-launch', 'Under Construction', 'Ready to Move', 'Sold Out', 'Pending Review')),
   possession_date TEXT,
   usps TEXT,
   brochure_text TEXT,
@@ -819,14 +819,51 @@ END $$;
 
 
 -- ============================================================
--- VERIFICATION — these run last and show what you just created
+-- supabase/migrations/010_pending_review_status.sql
+-- ============================================================
+-- ============================================================
+-- 010 — Allow 'Pending Review' status on projects
+-- ============================================================
+--
+-- The weekly /api/cron/project-sync auto-detects new project URLs on
+-- the customer's sitemap and inserts them as status='Pending Review'.
+-- The original CHECK constraint only allowed five status values
+-- (Active / Pre-launch / Under Construction / Ready to Move / Sold Out)
+-- so the insert would otherwise fail. This migration drops the old
+-- CHECK and re-adds it with the new value included.
+--
+-- Idempotent — uses pg_constraint lookup so re-runs are safe.
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'projects_status_check'
+      AND conrelid = 'public.projects'::regclass
+  ) THEN
+    ALTER TABLE projects DROP CONSTRAINT projects_status_check;
+  END IF;
+END $$;
+
+ALTER TABLE projects
+  ADD CONSTRAINT projects_status_check
+  CHECK (status IN (
+    'Active',
+    'Pre-launch',
+    'Under Construction',
+    'Ready to Move',
+    'Sold Out',
+    'Pending Review'
+  ));
+
+
+-- ============================================================
+-- VERIFICATION
 -- ============================================================
 
--- All public tables that should exist:
 select table_name from information_schema.tables
   where table_schema = 'public' order by table_name;
 
--- Critical tables for tier enforcement + scans + billing:
 select 'companies' as t, exists(select 1 from information_schema.tables where table_schema='public' and table_name='companies') as ok
 union all select 'projects',         exists(select 1 from information_schema.tables where table_schema='public' and table_name='projects')
 union all select 'subscriptions',    exists(select 1 from information_schema.tables where table_schema='public' and table_name='subscriptions')
@@ -843,3 +880,6 @@ select schemaname, tablename, rowsecurity
   where schemaname = 'public'
     and tablename in ('companies','projects','scan_history','credit_usage','subscriptions','golden_prompts')
   order by tablename;
+
+-- Confirm 'Pending Review' is now an allowed projects.status:
+select pg_get_constraintdef(oid) from pg_constraint where conname='projects_status_check';
