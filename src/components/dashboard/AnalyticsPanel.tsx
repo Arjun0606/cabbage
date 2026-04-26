@@ -682,6 +682,7 @@ export function AnalyticsPanel({
               onAnalyze={onRunInternalLinking}
               onRunCrawl={onRunSiteCrawl}
               isCrawling={isCrawling}
+              siteUrl={websiteUrl}
             />
           )}
 

@@ -26,7 +26,7 @@ const CORS_HEADERS = {
   "Cache-Control": "public, max-age=300, s-maxage=300", // 5 min edge cache
 };
 
-const ALLOWED_TYPES = ["article", "gbp_post", "locality_page", "html_block"] as const;
+const ALLOWED_TYPES = ["article", "gbp_post", "locality_page", "html_block", "internal_link"] as const;
 type ContentType = typeof ALLOWED_TYPES[number];
 
 export async function OPTIONS() {
