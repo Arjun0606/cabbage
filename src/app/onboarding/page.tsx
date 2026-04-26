@@ -13,12 +13,19 @@ import {
 import { CityAutocomplete } from "@/components/CityAutocomplete";
 
 /**
- * Two-step onboarding:
- * Step 1: Paste URL → auto-discover runs → extracts company data
- * Step 2: Review extracted data → fill gaps → confirm → go to dashboard
+ * Three-step onboarding:
+ *   Step 1 — Paste URL, auto-discover runs, extracts company data.
+ *   Step 2 — Review structured data: brand, cities, sites, projects, competitors.
+ *   Step 3 — Brand context: voice, values, vision, target audience, marketing
+ *            strategy, competitor analysis. Auto-discover prefills each;
+ *            user can edit, replace, or expand any field. This is where
+ *            the brand's marketing dump lives — every downstream agent
+ *            (article writer, portal optimizer, GEO improvement) reads
+ *            from these fields, so the more the user puts here, the
+ *            sharper the generated output.
  *
- * The user MUST confirm city + at least 1 project before proceeding.
- * This prevents the "empty city" bug that caused 0/0 scans.
+ * The user MUST confirm city + at least 1 project before reaching Step 3.
+ * Step 3 is optional — they can skip and edit later from the Company panel.
  */
 
 interface Project {
@@ -34,7 +41,7 @@ interface Project {
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const [step, setStep] = useState<1 | 2>(1);
+  const [step, setStep] = useState<1 | 2 | 3>(1);
   const [website, setWebsite] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -51,6 +58,18 @@ export default function OnboardingPage() {
   const [siteCandidates, setSiteCandidates] = useState<Array<{ url: string; label: string; type: string; reason: string }>>([]);
   const [importingSites, setImportingSites] = useState(false);
   const [newCityInput, setNewCityInput] = useState("");
+
+  // Brand-context fields — edited in Step 3, persisted to companies.documents.
+  // Every downstream agent reads from these so the user's edits flow through
+  // to article quality, portal copy, GEO improvements, hallucination audit.
+  const [productInfo, setProductInfo] = useState("");
+  const [brandVoice, setBrandVoice] = useState("");
+  const [brandValues, setBrandValues] = useState("");
+  const [brandVision, setBrandVision] = useState("");
+  const [targetAudience, setTargetAudience] = useState("");
+  const [marketingStrategy, setMarketingStrategy] = useState("");
+  const [competitorAnalysisDoc, setCompetitorAnalysisDoc] = useState("");
+  const [savingFinish, setSavingFinish] = useState(false);
 
   // Auto-discover results for display
   const [discovered, setDiscovered] = useState<any>(null);
@@ -119,6 +138,16 @@ export default function OnboardingPage() {
       );
       if (validCompetitors.length > 0) setCompetitors(validCompetitors);
 
+      // Populate brand-context dump — Step 3 prefills from these.
+      const docs = data.documents || {};
+      if (typeof docs.productInfo === "string")        setProductInfo(docs.productInfo);
+      if (typeof docs.brandVoice === "string")         setBrandVoice(docs.brandVoice);
+      if (typeof docs.brandValues === "string")        setBrandValues(docs.brandValues);
+      if (typeof docs.brandVision === "string")        setBrandVision(docs.brandVision);
+      if (typeof docs.targetAudience === "string")     setTargetAudience(docs.targetAudience);
+      if (typeof docs.marketingStrategy === "string")  setMarketingStrategy(docs.marketingStrategy);
+      if (typeof docs.competitorAnalysis === "string") setCompetitorAnalysisDoc(docs.competitorAnalysis);
+
       // If auto-discover gave us a proper name
       if (data.companyDescription) {
         const nameFromDesc = data.companyDescription.split(" is ")[0]?.trim();
@@ -136,8 +165,8 @@ export default function OnboardingPage() {
     }
   };
 
-  // Step 2: Save and go to dashboard
-  const handleFinish = async () => {
+  // Step 2 → Step 3: validate basics then advance to brand-context capture.
+  const goToBrandContext = () => {
     const primaryCity = cities.filter(Boolean)[0] || "";
     if (!primaryCity) {
       setError("Please add at least one city where you operate.");
@@ -147,6 +176,17 @@ export default function OnboardingPage() {
       setError("Company name is required.");
       return;
     }
+    setError(null);
+    setStep(3);
+    if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  // Step 3: persist everything, land on dashboard. Brand-context fields
+  // are optional — empty strings are fine, the user can fill them later
+  // from the Company panel.
+  const handleFinish = async () => {
+    const primaryCity = cities.filter(Boolean)[0] || "";
+    setSavingFinish(true);
 
     const data = {
       name: name.trim(),
@@ -157,13 +197,15 @@ export default function OnboardingPage() {
       sites: extraSites.map((s) => ({ url: s.url, label: s.label, type: s.type || "other" })),
       projects: projects.length > 0 ? projects : [],
       competitors: competitors.map((c) => ({ name: c, website: "" })),
-      documents: discovered?.documents
-        ? {
-            productInfo: discovered.documents.productInfo || "",
-            brandVoice: discovered.documents.brandVoice || "",
-            competitorAnalysis: discovered.documents.competitorAnalysis || "",
-          }
-        : { productInfo: "", brandVoice: "", competitorAnalysis: "" },
+      documents: {
+        productInfo: productInfo.trim(),
+        brandVoice: brandVoice.trim(),
+        brandValues: brandValues.trim(),
+        brandVision: brandVision.trim(),
+        targetAudience: targetAudience.trim(),
+        marketingStrategy: marketingStrategy.trim(),
+        competitorAnalysis: competitorAnalysisDoc.trim(),
+      },
     };
     localStorage.setItem("cabbge_company", JSON.stringify(data));
 
@@ -181,7 +223,7 @@ export default function OnboardingPage() {
     // Also set company ID cookie for per-company rate limiting
     document.cookie = `cabbge_company_id=${encodeURIComponent(name.trim().toLowerCase().replace(/\s+/g, "-"))};path=/;max-age=${60 * 60 * 24 * 365};samesite=lax`;
 
-    router.push("/dashboard");
+    router.push("/dashboard?welcome=1");
   };
 
   const addProject = () => {
@@ -244,8 +286,10 @@ export default function OnboardingPage() {
           </div>
           <p className="text-zinc-400 text-[14px]">
             {step === 1
-              ? "Paste your website. We'll analyze everything about your brand."
-              : "Review what we found. Fill in anything we missed."}
+              ? "Paste your website. We will analyze everything about your brand."
+              : step === 2
+              ? "Review what we found. Fill in anything we missed."
+              : "Brand context. Edit, replace, or expand what we extracted — every agent reads from this."}
           </p>
         </div>
 
@@ -260,9 +304,16 @@ export default function OnboardingPage() {
           <div className="w-8 h-px bg-zinc-800" />
           <div className={`flex items-center gap-1.5 text-[12px] ${step >= 2 ? "text-[#7CB342]" : "text-zinc-600"}`}>
             <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold ${step >= 2 ? "bg-[#7CB342] text-zinc-900" : "bg-zinc-800 text-zinc-500"}`}>
-              2
+              {step > 2 ? <CheckCircle2 size={14} /> : "2"}
             </div>
-            Review & Confirm
+            Structure
+          </div>
+          <div className="w-8 h-px bg-zinc-800" />
+          <div className={`flex items-center gap-1.5 text-[12px] ${step >= 3 ? "text-[#7CB342]" : "text-zinc-600"}`}>
+            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold ${step >= 3 ? "bg-[#7CB342] text-zinc-900" : "bg-zinc-800 text-zinc-500"}`}>
+              3
+            </div>
+            Brand Context
           </div>
         </div>
 
@@ -541,18 +592,103 @@ export default function OnboardingPage() {
               </div>
             </div>
 
-            {/* Finish button */}
+            {/* Continue button */}
             <Button
-              onClick={handleFinish}
+              onClick={goToBrandContext}
               disabled={!name.trim() || cities.filter(Boolean).length === 0}
               className="w-full bg-[#7CB342] hover:bg-[#8BC34A] text-zinc-950 h-12 text-[15px] font-semibold rounded-lg mt-4"
             >
-              <Sparkles size={16} className="mr-2" />
-              Launch Dashboard
+              Continue to brand context
               <ArrowRight size={16} className="ml-2" />
             </Button>
             <p className="text-center text-[11px] text-zinc-600">
-              You can always edit these in the Company panel later.
+              Last step — review what we drafted for your brand voice and vision.
+            </p>
+          </div>
+        )}
+
+        {/* STEP 3: Brand Context — voice, values, vision, target audience,
+            marketing strategy, competitor analysis. Auto-discover prefills
+            each from the user's site; the user can edit, replace, or
+            expand. Every downstream agent (article writer, portal
+            optimizer, GEO, hallucination audit) reads from these. */}
+        {step === 3 && (
+          <div className="space-y-5">
+            <div className="p-3 rounded-lg bg-[#7CB342]/[0.06] border border-[#7CB342]/20 flex items-start gap-2">
+              <Sparkles size={14} className="text-[#7CB342] flex-shrink-0 mt-0.5" />
+              <div>
+                <div className="text-[12px] text-zinc-200 font-semibold">We drafted these from your site.</div>
+                <div className="text-[11px] text-zinc-400 mt-0.5">
+                  Edit, replace, or expand any block. Skip any field — you can come back from the Company panel any time. The richer this context, the sharper every article, portal listing, and AI-visibility scan we generate for you.
+                </div>
+              </div>
+            </div>
+
+            {error && (
+              <div className="p-3 rounded-lg bg-red-500/[0.06] border border-red-500/20 flex items-center gap-2">
+                <AlertCircle size={14} className="text-red-400 flex-shrink-0" />
+                <span className="text-[12px] text-red-400">{error}</span>
+              </div>
+            )}
+
+            {[
+              { label: "Product Info", hint: "What you build, configurations, price segments, signature features", value: productInfo, setter: setProductInfo, placeholder: "e.g. 3-4 BHK apartments in the ₹1.2-2.5 Cr band, IT-corridor focused, sky lounge + rooftop pool amenity stack." },
+              { label: "Brand Voice", hint: "How your copy reads — luxury, family-focused, tech-forward, heritage, etc.", value: brandVoice, setter: setBrandVoice, placeholder: "e.g. Heritage-traditional with a contemporary execution. We lead with 30 years of trust + craftsmanship language." },
+              { label: "Brand Values", hint: "The 3-4 values your brand actually leans into", value: brandValues, setter: setBrandValues, placeholder: "e.g. Trust (30-year track record), Quality (in-house design + construction), Community (every project has a community space)." },
+              { label: "Brand Vision", hint: "Where you're going, the long-term promise to buyers", value: brandVision, setter: setBrandVision, placeholder: "e.g. Become South India's most trusted developer for IT-corridor families through verifiable build quality and community-led projects." },
+              { label: "Target Audience", hint: "Who buys from you. Be specific — config, price, locality, family stage, NRI segments", value: targetAudience, setter: setTargetAudience, placeholder: "e.g. First-time IT-corridor buyers 28-35 (₹15-25L household income, 3BHK in Gachibowli/Kondapur). Plus NRI investors via UAE/UK channels for the 1.5 Cr+ tier." },
+              { label: "Marketing Strategy", hint: "What your current digital marketing looks like (observable only — no fluff)", value: marketingStrategy, setter: setMarketingStrategy, placeholder: "e.g. We invest in YT walkthroughs, RERA-compliant content, and broker portals. Quarterly NRI campaigns. No paid social currently." },
+              { label: "Competitor Analysis", hint: "Who you're up against and how you're positioned", value: competitorAnalysisDoc, setter: setCompetitorAnalysisDoc, placeholder: "e.g. Aparna and My Home are the volume players we compete on price; Total Environment competes on design above us; we differentiate on community + delivery track record." },
+            ].map((field) => (
+              <div key={field.label} className="space-y-1.5">
+                <div className="flex items-baseline justify-between gap-2">
+                  <h3 className="text-[13px] font-semibold text-zinc-200">{field.label}</h3>
+                  <span className="text-[10px] text-zinc-500">{field.hint}</span>
+                </div>
+                <Textarea
+                  value={field.value}
+                  onChange={(e) => field.setter(e.target.value)}
+                  placeholder={field.placeholder}
+                  className="bg-zinc-900/80 border-white/[0.06] text-[13px] min-h-[100px] leading-relaxed"
+                />
+                <div className="flex items-center justify-between text-[10px] text-zinc-600">
+                  <span>{field.value.length} chars</span>
+                  {field.value.trim() && (
+                    <button
+                      type="button"
+                      onClick={() => field.setter("")}
+                      className="text-zinc-600 hover:text-red-400"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+
+            {/* Nav buttons */}
+            <div className="flex gap-3 pt-2">
+              <Button
+                onClick={() => { setStep(2); if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                disabled={savingFinish}
+                className="bg-zinc-800 hover:bg-zinc-700 text-zinc-200 h-12 text-[14px] font-medium rounded-lg px-5"
+              >
+                Back
+              </Button>
+              <Button
+                onClick={handleFinish}
+                disabled={savingFinish}
+                className="flex-1 bg-[#7CB342] hover:bg-[#8BC34A] text-zinc-950 h-12 text-[15px] font-semibold rounded-lg"
+              >
+                {savingFinish ? (
+                  <><Loader2 size={16} className="animate-spin mr-2" /> Saving...</>
+                ) : (
+                  <><Sparkles size={16} className="mr-2" />Launch Dashboard<ArrowRight size={16} className="ml-2" /></>
+                )}
+              </Button>
+            </div>
+            <p className="text-center text-[11px] text-zinc-600">
+              All fields editable later from the Company panel.
             </p>
           </div>
         )}

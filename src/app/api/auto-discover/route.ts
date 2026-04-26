@@ -311,7 +311,11 @@ Generate this JSON:
 
   "documents": {
     "productInfo": "200-word summary: what they build (configurations, price segments, signature features) + target buyer (first-time / investor / NRI / families / IT / age / income bracket). Combine product + buyer in one block.",
-    "brandVoice": "200-word combined block: brand voice and tone (luxury / affordable / family-focused / tech-forward / formal / casual) + values, mission, vision (what they stand for \u2014 quality / innovation / trust / heritage).",
+    "brandVoice": "150-word block: brand voice and tone (luxury / affordable-aspirational / family-focused / tech-forward / heritage-traditional / contemporary-minimal) and how it shows up in their copy and creative. Reference specific phrasings you saw on their site.",
+    "brandValues": "120-word block: the values + ethos this brand markets on. Quality / safety / innovation / trust / sustainability / community. Pick 3-4 the brand actually leans into and explain how (e.g. Trust: they lead with their 30-year track record on every project page).",
+    "brandVision": "100-word block: where the brand says it is going + the long-term promise it makes to buyers. Inferred from their About page, founder messaging, or strategic comms.",
+    "targetAudience": "150-word block: who buys from them. Be specific about config, price band, locality, age, income, family stage, NRI segments. Reference the buyer personas the site signals.",
+    "marketingStrategy": "150-word block: what their current digital marketing approach looks like (YT walkthroughs, RERA-compliant content, NRI-targeted pages, broker portals, brand campaigns, performance ads). Only state what is observable.",
     "competitorAnalysis": "150-word analysis of their competitive landscape. Who are their likely competitors in their city/segment? How are they positioned relative to competition?"
   },
 
