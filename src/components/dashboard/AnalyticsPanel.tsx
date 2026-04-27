@@ -1926,6 +1926,20 @@ export function AnalyticsPanel({
           {/* --- Scorecards --- */}
           {(() => {
             const reraProjects = projects.filter((p) => !!(p as any).rera_number || !!(p as any).reraNumber).length;
+            // Detect the "name-only projects" case: projects came from
+            // portal-coverage backfill (we have names but no URLs and
+            // no RERA numbers to verify). Without a project URL, the
+            // RERA verification agent has nothing to scrape — the 0/N
+            // result isn't a failure, it's a missing-input signal.
+            // Surface that to the user clearly instead of letting the
+            // panel read like a 0% score.
+            const nameOnlyProjects =
+              projects.length > 0 &&
+              projects.every(
+                (p) =>
+                  !((p as any).rera_number || (p as any).reraNumber) &&
+                  !p.website,
+              );
             // Multi-state RERA split. Each Indian state has its own
             // RERA authority (HARERA / K-RERA / TS-RERA etc.). We
             // parse the project's location FIRST (smart parser knows
@@ -2004,16 +2018,24 @@ export function AnalyticsPanel({
                 <SectionCard>
                   <CardContent className="p-4">
                     <div className="text-[10px] uppercase tracking-wide text-zinc-500 font-semibold mb-1">
-                      RERA {reraVerification ? "Indicative Match" : "On File"}
+                      RERA {nameOnlyProjects ? "Needs URLs" : reraVerification ? "Indicative Match" : "On File"}
                     </div>
                     <div className="text-2xl font-bold text-zinc-100 tabular-nums">
-                      {reraVerification ? reraVerification.verified : reraProjects}
-                      <span className="text-[13px] text-zinc-500 font-normal">
-                        {" / "}{reraVerification ? reraVerification.total : projects.length || 0}
-                      </span>
+                      {nameOnlyProjects ? (
+                        <span className="text-zinc-500">—</span>
+                      ) : (
+                        <>
+                          {reraVerification ? reraVerification.verified : reraProjects}
+                          <span className="text-[13px] text-zinc-500 font-normal">
+                            {" / "}{reraVerification ? reraVerification.total : projects.length || 0}
+                          </span>
+                        </>
+                      )}
                     </div>
                     <div className="text-[11px] text-zinc-500 mt-0.5">
-                      {reraVerification
+                      {nameOnlyProjects
+                        ? `${projects.length} project${projects.length === 1 ? "" : "s"} need URLs in Company panel before we can scrape RERA numbers`
+                        : reraVerification
                         ? reraVerification.mismatch > 0
                           ? `${reraVerification.mismatch} mismatch${reraVerification.mismatch === 1 ? "" : "es"} — click for detail`
                           : reraVerification.verified === reraVerification.total
@@ -2161,7 +2183,21 @@ export function AnalyticsPanel({
                relevant state authority's public registry via grounded
                web search. Catches expired / mismatched / invalid numbers
                that expose the brand to regulatory complaints. --- */}
-          {(projects.length > 0 || reraVerification) && (
+          {(projects.length > 0 || reraVerification) && (() => {
+            // Same name-only detector used in the scorecard above —
+            // when projects came from portal-coverage backfill, they
+            // have names but no URLs and no RERA numbers. The agent
+            // can't verify what it can't scrape, so we show a clear
+            // empty state instead of the list of "no RERA number"
+            // entries (which reads as 11 failures, not 11 missing inputs).
+            const detailNameOnly =
+              projects.length > 0 &&
+              projects.every(
+                (p) =>
+                  !((p as any).rera_number || (p as any).reraNumber) &&
+                  !p.website,
+              );
+            return (
             <SectionCard>
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between gap-3">
@@ -2169,7 +2205,12 @@ export function AnalyticsPanel({
                     <CardTitle className="text-[13px] font-semibold flex items-center gap-2">
                       <Wrench size={14} className="text-zinc-400" />
                       RERA state-portal verification
-                      {reraVerification && (
+                      {detailNameOnly && (
+                        <Badge className="text-[10px] h-5 px-1.5 rounded-md border-0 bg-amber-500/10 text-amber-400">
+                          Needs URLs
+                        </Badge>
+                      )}
+                      {!detailNameOnly && reraVerification && (
                         <>
                           <Badge className={`text-[10px] h-5 px-1.5 rounded-md border-0 ${
                             reraVerification.mismatch > 0
@@ -2206,7 +2247,7 @@ export function AnalyticsPanel({
                       Informational only. State RERA registries remain the authoritative source of truth — <a href="/legal" target="_blank" rel="noopener noreferrer" className="text-zinc-500 hover:text-zinc-400 underline">full disclaimer</a>.
                     </p>
                   </div>
-                  {onRunReraVerification && (
+                  {onRunReraVerification && !detailNameOnly && (
                     <Button
                       onClick={onRunReraVerification}
                       disabled={isVerifyingRera}
@@ -2225,7 +2266,12 @@ export function AnalyticsPanel({
                 </div>
               </CardHeader>
               <CardContent>
-                {!reraVerification ? (
+                {detailNameOnly ? (
+                  <div className="text-[11px] text-amber-200 leading-relaxed p-3 rounded-lg bg-amber-500/[0.04] border border-amber-500/20">
+                    <span className="font-semibold">RERA verification needs project URLs.</span>{" "}
+                    Your {projects.length} project{projects.length === 1 ? "" : "s"} were discovered from portal listings (MagicBricks, 99acres, etc.) — we have the names but not the source URLs. Open the Company panel, paste each project&apos;s page URL or its RERA registration number, then come back. We&apos;ll cross-check every number against the relevant state portal (HARERA / K-RERA / TS-RERA / MahaRERA) automatically.
+                  </div>
+                ) : !reraVerification ? (
                   <div className="text-[11px] text-zinc-500 leading-relaxed p-3 rounded-lg bg-zinc-800/30 border border-white/[0.04]">
                     Run the check — for each project we look up the RERA number on the relevant state authority&apos;s public registry and return a citation URL on the state&apos;s own domain. No fabrication, no AI-guessed status.
                   </div>
@@ -2305,7 +2351,8 @@ export function AnalyticsPanel({
                 )}
               </CardContent>
             </SectionCard>
-          )}
+            );
+          })()}
 
           {/* --- Portal listings (execution-first) --- */}
           <SectionCard>

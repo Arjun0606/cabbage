@@ -917,10 +917,16 @@ export default function DashboardPage() {
             // — those are listing-page anchors, not real projects.
             if (key === String(company.name).toLowerCase().trim()) continue;
             seen.add(key);
+            // Backfilled projects are name-only — we don't have the
+            // project's URL, locality, configs, RERA, etc. Leave those
+            // empty so the dashboard can flag "needs more data" rather
+            // than silently inheriting the company's primary city for
+            // every project (wrong for multi-city builders like Urbanrise
+            // who have projects in Chennai + Bengaluru + Hyderabad).
             backfilled.push({
               name,
               website: "",
-              location: company.city || "",
+              location: "",
               configurations: "",
               priceRange: "",
               reraNumber: "",

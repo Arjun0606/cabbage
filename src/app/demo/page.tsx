@@ -130,6 +130,21 @@ export default function DemoPage() {
         },
       };
 
+      // Wipe any stale demo state from a previous prospect session.
+      // Without this, switching from demo-A to demo-B inherits A's
+      // geo-history / scan-history / golden-prompts, which surfaces as
+      // ghosted data on B's dashboard ("last scan 3d ago", "+40% this
+      // week", AI vis numbers from A's brand). Critical for sales
+      // pitches where the salesperson cycles between prospects.
+      [
+        "cabbge_geo_history",
+        "cabbge_geo_queries",
+        "cabbge_geo_schema_version",
+        "cabbge_scan_history",
+        "cabbge_has_scanned",
+        "cabbge_golden_prompts",
+      ].forEach((key) => localStorage.removeItem(key));
+
       // Save + mark demo mode
       localStorage.setItem("cabbge_company", JSON.stringify(companyData));
       localStorage.setItem("cabbge_demo_mode", "true");

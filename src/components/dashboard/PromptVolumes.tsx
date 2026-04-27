@@ -493,8 +493,26 @@ export function PromptVolumes({
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="text-[13px] text-red-300 font-semibold">
-                    {companyName || "Your brand"} is invisible for {missingQueries} {missingQueries === 1 ? "query" : "queries"}
-                    {city ? ` in ${city}` : ""}
+                    {(() => {
+                      // Only suffix "in {city}" when at least one missing
+                      // query actually mentions that city. Country-level
+                      // queries ("real estate developers in India") would
+                      // otherwise read as "invisible in Hyderabad" — which
+                      // is wrong, since the query never asked about Hyderabad.
+                      const cityLower = (city || "").toLowerCase().trim();
+                      const cityMatches = cityLower
+                        ? missingQueriesList.some((q: string) =>
+                            q.toLowerCase().includes(cityLower),
+                          )
+                        : false;
+                      return (
+                        <>
+                          {companyName || "Your brand"} is invisible for {missingQueries}{" "}
+                          {missingQueries === 1 ? "query" : "queries"}
+                          {cityMatches ? ` in ${city}` : " in AI search"}
+                        </>
+                      );
+                    })()}
                   </p>
                   <p className="text-[11px] text-zinc-500 mt-0.5">Buyers asking these questions get recommended to your competitors</p>
                 </div>

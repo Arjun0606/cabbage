@@ -146,6 +146,25 @@ export function ProjectCompare({ projects, aiVisResult, portalKeys, onWriteArtic
     { label: "Website", a: a.website || "—", b: b.website || "—" },
   ];
 
+  // Both projects are name-only when neither has a locality, configs,
+  // price, RERA, or website. Common state when projects came from
+  // portal-coverage backfill — the dashboard has names but nothing
+  // else. Comparison rows would all read "—", which looks broken.
+  const isNameOnly = (p: ProjectLike): boolean => {
+    const hasPrice = !!(p.price_min || p.price_max || p.priceRange);
+    return (
+      !p.locality &&
+      !p.city &&
+      !p.configurations &&
+      !(p.config_tags || []).length &&
+      !p.rera_number &&
+      !p.reraNumber &&
+      !p.website &&
+      !hasPrice
+    );
+  };
+  const bothNameOnly = isNameOnly(a) && isNameOnly(b);
+
   return (
     <Card className="bg-zinc-900/60 border-white/[0.06] rounded-xl">
       <CardContent className="p-5">
@@ -156,6 +175,13 @@ export function ProjectCompare({ projects, aiVisResult, portalKeys, onWriteArtic
             Buyers search &ldquo;X vs Y&rdquo; constantly — give them an answer before competitors do
           </span>
         </div>
+
+        {bothNameOnly && (
+          <div className="mb-3 p-3 rounded-lg bg-amber-500/[0.04] border border-amber-500/20 text-[11.5px] text-amber-200 leading-relaxed">
+            <span className="font-semibold">These projects only have names.</span>{" "}
+            They came from portal listings (MagicBricks, 99acres etc.) — we don&apos;t yet have their locality, configs, price, or RERA. Open the Company panel and paste each project&apos;s URL or fill the details by hand to unlock real comparisons.
+          </div>
+        )}
         <div className="grid grid-cols-2 gap-3 mb-3">
           <select
             value={idxA}
