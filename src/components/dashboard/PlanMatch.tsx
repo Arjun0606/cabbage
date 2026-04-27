@@ -27,8 +27,8 @@ interface Reason {
 }
 
 interface Recommendation {
-  currentPlan: "starter" | "pro" | "scale" | "enterprise" | "trial" | "none";
-  recommendedPlan: "starter" | "pro" | "scale" | "enterprise";
+  currentPlan: "starter" | "pro" | "scale" | "trial" | "none";
+  recommendedPlan: "starter" | "pro" | "scale";
   recommendedLabel: string;
   recommendedPriceInr: number;
   recommendedPriceUsd: number;

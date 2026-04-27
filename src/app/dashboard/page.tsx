@@ -630,6 +630,24 @@ export default function DashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [company.city, company.name, company.projects]);
 
+  // Demo mode: when the prospect's site didn't yield any projects in
+  // auto-discover (Next.js SPAs without SSR are common — jayabherigroup.com,
+  // many Aparna/Brigade microsites), portal coverage is the fastest path
+  // to a real project list. Auto-fire once on dashboard load so the
+  // salesperson doesn't have to click anything for RERA / per-project
+  // panels to populate.
+  useEffect(() => {
+    const demo =
+      billing?.plan === "demo" ||
+      (typeof window !== "undefined" && localStorage.getItem("cabbge_demo_mode") === "true");
+    if (!demo) return;
+    if (!company.name) return;
+    if (company.projects.length > 0) return;
+    if (portalCoverage || isCheckingPortalCoverage) return;
+    runPortalCoverage();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [billing?.plan, company.name, company.projects.length]);
+
   // Load golden prompts on mount. Demo mode reads from localStorage, signed-in
   // users hit the API which also returns the latest volatility snapshot.
   useEffect(() => {
@@ -708,13 +726,14 @@ export default function DashboardPage() {
     (typeof window !== "undefined" && localStorage.getItem("cabbge_demo_mode") === "true");
 
   // Golden prompts pin/unpin. Demo mode keeps state in localStorage; signed-in
-  // users hit /api/golden-prompts which enforces the max-20 cap server-side.
+  // Universal 100-prompt cap across every paid tier (volume-only pricing).
+  // The server is the source of truth; this client check is just UX.
   const pinQuery = async (query: string) => {
     const q = query.trim();
     if (!q) return;
     if (goldenPrompts.includes(q)) return;
-    if (goldenPrompts.length >= 20) {
-      addLog("> Golden prompts full (20 max). Unpin one first.");
+    if (goldenPrompts.length >= 100) {
+      addLog("> Golden prompts full (100 max). Unpin one first.");
       return;
     }
     const next = [...goldenPrompts, q];
@@ -802,21 +821,25 @@ export default function DashboardPage() {
     }
   };
 
-  const runReraVerification = async () => {
-    if (!company.projects || company.projects.length === 0) {
+  // Optional override lets callers (e.g. runPortalCoverage's project
+  // backfill flow) pass freshly-discovered projects without waiting for
+  // React to re-render and rebuild this closure with updated state.
+  const runReraVerification = async (projectsOverride?: typeof company.projects) => {
+    const projects = projectsOverride ?? company.projects;
+    if (!projects || projects.length === 0) {
       addLog("> Add projects before running RERA verification");
       return;
     }
     if (!spendCredits("audit")) return;
     setIsVerifyingRera(true);
-    addLog(`> Cross-checking ${company.projects.length} project RERA numbers against state portals...`);
+    addLog(`> Cross-checking ${projects.length} project RERA numbers against state portals...`);
     try {
       const res = await fetch("/api/rera-verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           companyId: (company as any)._companyId,
-          projects: company.projects.map((p) => ({
+          projects: projects.map((p) => ({
             name: p.name,
             reraNumber: (p as any).reraNumber || (p as any).rera_number || "",
             location: p.location || "",
@@ -853,6 +876,57 @@ export default function DashboardPage() {
       if (data.error) throw new Error(data.error);
       setPortalCoverage(data);
       addLog(`> Portal coverage: ${data.listed}/${data.total} confirmed${data.unknown > 0 ? `, ${data.unknown} unverifiable` : ""}`);
+
+      // Backfill projects from portal listings when the brand's own site
+      // didn't surface a project list (common with Next.js SPAs without
+      // SSR — e.g. jayabherigroup.com). The portals know their projects;
+      // pulling 3-5 sample names per portal and de-duping gives the
+      // dashboard enough to light up RERA, content queue, and per-project
+      // visibility tracking. Names are extracted from the same web-search
+      // citation as the listing — never invented.
+      if (company.projects.length === 0 && Array.isArray(data.entries)) {
+        const seen = new Set<string>();
+        const backfilled: typeof company.projects = [];
+        for (const entry of data.entries) {
+          if (entry.status !== "listed" || !Array.isArray(entry.sampleProjects)) continue;
+          for (const rawName of entry.sampleProjects) {
+            const name = String(rawName || "").trim();
+            if (!name) continue;
+            const key = name.toLowerCase().replace(/\s+/g, " ");
+            if (seen.has(key)) continue;
+            // Skip names that are just the brand itself ("Jayabheri Group")
+            // — those are listing-page anchors, not real projects.
+            if (key === String(company.name).toLowerCase().trim()) continue;
+            seen.add(key);
+            backfilled.push({
+              name,
+              website: "",
+              location: company.city || "",
+              configurations: "",
+              priceRange: "",
+              reraNumber: "",
+              amenities: "",
+              status: "Active",
+            });
+          }
+        }
+        if (backfilled.length > 0) {
+          setCompany((prev) => ({ ...prev, projects: [...backfilled] }));
+          addLog(`> Backfilled ${backfilled.length} projects from portal listings — RERA + content tabs now active`);
+          // Chain into RERA + AI visibility with the freshly-backfilled list.
+          // Without the override, both would read the stale closure of
+          // `company.projects` (still empty at this render) and skip / scan
+          // with generic queries. Re-running AI visibility here also
+          // replaces any earlier 0-project scan whose mention rate would
+          // have been artificially low (5 generic queries vs the proper
+          // project × locality × config matrix).
+          try { await runReraVerification(backfilled); } catch { /* surfaced via addLog */ }
+          if (aiVisResult) {
+            addLog(`> Re-running AI visibility with project context — earlier scan used 0 projects`);
+            try { await runAIVisibility(backfilled); } catch { /* surfaced via addLog */ }
+          }
+        }
+      }
     } catch (err) {
       addLog(`> Portal coverage failed: ${err instanceof Error ? err.message : "unknown"}`);
     } finally {
@@ -883,7 +957,10 @@ export default function DashboardPage() {
     finally { setIsAuditing(false); }
   };
 
-  const runAIVisibility = async () => {
+  // Optional override mirrors runReraVerification — lets the portal-coverage
+  // backfill chain into AI visibility immediately without waiting for React
+  // to re-render with the new project list.
+  const runAIVisibility = async (projectsOverride?: typeof company.projects) => {
     if (!company.name) { addLog("> Set company name first"); return; }
     if (!spendCredits("ai_visibility")) return;
     setIsCheckingAI(true);
@@ -891,12 +968,13 @@ export default function DashboardPage() {
     addLog(`> Querying ChatGPT with real buyer searches...`);
     addLog(`> Querying Google AI (Gemini) in parallel...`);
     try {
+      const projects = projectsOverride ?? company.projects;
       // Task C: auto-refresh queries when projects change. If the user added
       // new projects/localities/configs since the last query generation, the
       // saved query set no longer covers the full brand footprint.
       let existingQueries = getSavedQueries(company.name);
-      if (existingQueries && company.projects.length > 0) {
-        const currentFP = projectsFingerprint(company.projects);
+      if (existingQueries && projects.length > 0) {
+        const currentFP = projectsFingerprint(projects);
         const savedFP = getSavedQueriesFingerprint(company.name);
         if (savedFP && savedFP !== currentFP) {
           addLog(`> Projects changed since last query generation — regenerating queries to cover new localities/configs`);
@@ -923,7 +1001,7 @@ export default function DashboardPage() {
       const { projectMatchesCity } = await import("@/lib/cities");
       const { parseLocation } = await import("@/lib/projectParse");
       const scanCity = selectedCity || company.city;
-      let scopedProjects = company.projects;
+      let scopedProjects = projects;
       if (selectedCity) {
         scopedProjects = scopedProjects.filter((p) => projectMatchesCity(p, selectedCity, company.city || ""));
       }
@@ -933,11 +1011,11 @@ export default function DashboardPage() {
           return loc.toLowerCase() === selectedLocality.toLowerCase();
         });
       }
-      if (selectedProject !== null && company.projects[selectedProject]) {
-        scopedProjects = [company.projects[selectedProject]];
+      if (selectedProject !== null && projects[selectedProject]) {
+        scopedProjects = [projects[selectedProject]];
       }
-      const projectNote = selectedProject !== null && company.projects[selectedProject]
-        ? company.projects[selectedProject].name
+      const projectNote = selectedProject !== null && projects[selectedProject]
+        ? projects[selectedProject].name
         : "";
       const scopeNote = [projectNote, selectedLocality, selectedCity].filter(Boolean).join(" / ");
       addLog(`> Payload: brand="${company.name}" city="${scanCity || "(EMPTY!)"}" projects=${scopedProjects.length}${scopeNote ? ` (scoped to ${scopeNote})` : ""}`);
@@ -1191,20 +1269,22 @@ export default function DashboardPage() {
     finally { setIsGeneratingPortal(false); }
   };
 
-  const runMarketingReport = async () => {
+  const runMarketingReport = async (templateKey?: string) => {
     if (!spendCredits("report")) return;
     setIsGeneratingReport(true);
-    addLog(`> Generating marketing report...`);
+    const tmplLabel = templateKey && templateKey !== "default" ? ` (${templateKey})` : "";
+    addLog(`> Generating marketing report${tmplLabel}...`);
     try {
       const res = await fetch("/api/marketing-report", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
         companyName: company.name, projects: company.projects,
         auditScores: auditResult?.scores, aiVisibilityScore: aiVisResult?.scores?.overall,
         domainAuthority: backlinkResult?.domainAuthority, competitorCount: competitorResults?.length,
+        templateKey,
       }) });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       setReportResult(data);
-      addLog(`> Marketing report ready`);
+      addLog(`> Marketing report ready${data.template?.label ? ` — ${data.template.label}` : ""}`);
     } catch (err) { addLog(`> Error: ${err instanceof Error ? err.message : "Failed"}`); }
     finally { setIsGeneratingReport(false); }
   };
@@ -1650,8 +1730,15 @@ export default function DashboardPage() {
     // ---- Wave 4: web-search-heavy brand-level audits. Expensive — fired
     // sequentially to respect OpenAI rate limits on web_search.
     addLog("> Wave 4: portal coverage · RERA verification · review monitor");
+    // When the brand has no projects yet, runPortalCoverage will backfill
+    // them from portal listings and chain into RERA itself. Calling RERA
+    // here too would just see the stale (still empty) closure of company
+    // and log a confusing "add projects" line right after the backfill.
+    const hadProjectsBeforeWave4 = company.projects.length > 0;
     try { await runPortalCoverage(); } catch (err) { addLog(`> Portal coverage skipped: ${err instanceof Error ? err.message : "error"}`); }
-    try { await runReraVerification(); } catch (err) { addLog(`> RERA verification skipped: ${err instanceof Error ? err.message : "error"}`); }
+    if (hadProjectsBeforeWave4) {
+      try { await runReraVerification(); } catch (err) { addLog(`> RERA verification skipped: ${err instanceof Error ? err.message : "error"}`); }
+    }
     try { await runReviewMonitor(); } catch (err) { addLog(`> Review monitor skipped: ${err instanceof Error ? err.message : "error"}`); }
 
     addLog(`✓ Full scan complete — ${1 + projectMicrosites.length} site${projectMicrosites.length === 0 ? "" : "s"} scored, every brand-level surface refreshed`);
@@ -1842,6 +1929,7 @@ export default function DashboardPage() {
               siteCrawlResult={siteCrawlResult}
               isCrawling={isCrawling}
               onRunSiteCrawl={runSiteCrawl}
+              onSiteCrawlUpdate={setSiteCrawlResult}
               keywordResearchResult={keywordResearchResult}
               isResearchingKeywords={isResearchingKeywords}
               onRunKeywordResearch={runKeywordResearch}

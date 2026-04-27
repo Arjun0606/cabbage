@@ -34,7 +34,7 @@ export default function robots(): MetadataRoute.Robots {
       },
       ...aiCrawlers.map((agent) => ({
         userAgent: agent,
-        allow: ["/", "/about", "/pricing", "/compare", "/grader", "/benchmark", "/llms.txt"],
+        allow: ["/", "/about", "/pricing", "/compare", "/benchmark", "/llms.txt"],
         disallow: ["/dashboard", "/settings", "/api/", "/auth/", "/onboarding"],
       })),
     ],

@@ -27,6 +27,22 @@ interface Props {
    *  Closes the loop from "AI is wrong about you" → "draft article in
    *  the queue" in one click. */
   onFixHallucination?: (issue: Issue) => void;
+  /** Brand context piped through to the outreach drafts endpoint so the
+   *  generated emails can reference the brand correctly. Used by the
+   *  Scale+ "Draft correction outreach" action below. */
+  brand?: string;
+  brandUrl?: string;
+}
+
+interface OutreachDrafts {
+  brand: string;
+  provider: string;
+  providerSupportUrl?: string | null;
+  drafts: {
+    providerEmail?: { to?: string; subject?: string; body?: string } | null;
+    sgeFeedback?: string | null;
+    siteRebuttal?: string | null;
+  };
 }
 
 interface Issue extends Hallucination {
@@ -64,8 +80,34 @@ function sevRank(s: HallucinationSeverity): number {
   return s === "critical" ? 0 : s === "high" ? 1 : 2;
 }
 
-export function HallucinationAudit({ aiVisResult, onFixHallucination }: Props) {
+export function HallucinationAudit({ aiVisResult, onFixHallucination, brand, brandUrl }: Props) {
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
+  const [outreachLoading, setOutreachLoading] = useState<number | null>(null);
+  const [outreachByIdx, setOutreachByIdx] = useState<Record<number, OutreachDrafts>>({});
+
+  const generateOutreach = async (idx: number, issue: Issue) => {
+    setOutreachLoading(idx);
+    try {
+      const res = await fetch("/api/hallucination-outreach", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          claim: issue.aiClaim,
+          truth: issue.truth,
+          source: issue.llm === "ChatGPT" ? "chatgpt" : "gemini",
+          query: issue.query,
+          brand: brand || "",
+          brandUrl: brandUrl || "",
+        }),
+      });
+      const data = await res.json();
+      if (data?.drafts) {
+        setOutreachByIdx((prev) => ({ ...prev, [idx]: data as OutreachDrafts }));
+      }
+    } finally {
+      setOutreachLoading(null);
+    }
+  };
 
   const { issues, auditedQueries, totalMentioned } = useMemo(() => {
     const flat: Issue[] = [];
@@ -248,7 +290,7 @@ export function HallucinationAudit({ aiVisResult, onFixHallucination }: Props) {
                           </div>
                         )}
                         {onFixHallucination && (
-                          <div className="mt-3">
+                          <div className="mt-3 flex flex-wrap items-center gap-2">
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -258,9 +300,106 @@ export function HallucinationAudit({ aiVisResult, onFixHallucination }: Props) {
                             >
                               Generate fix article →
                             </button>
-                            <span className="text-[10px] text-zinc-500 ml-2">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                generateOutreach(i, issue);
+                              }}
+                              disabled={outreachLoading === i}
+                              className="text-[11px] font-medium px-2.5 py-1.5 rounded-md bg-amber-500/15 text-amber-200 border border-amber-500/25 hover:bg-amber-500/25 transition-colors disabled:opacity-60"
+                            >
+                              {outreachLoading === i ? "Drafting outreach..." : outreachByIdx[i] ? "Regenerate outreach" : "Draft correction outreach"}
+                            </button>
+                            <span className="text-[10px] text-zinc-500">
                               Drafts a fact-correction page targeting this query. Costs ~50 credits, lands in your draft queue.
                             </span>
+                          </div>
+                        )}
+                        {outreachByIdx[i] && (
+                          <div className="mt-3 p-3 rounded-lg bg-zinc-900/60 border border-amber-500/20 space-y-3">
+                            <div className="flex items-center gap-2">
+                              <Badge className="text-[9px] h-4 px-1.5 rounded bg-amber-500/15 text-amber-300 border-0 uppercase tracking-wide font-semibold">
+                                Outreach drafts
+                              </Badge>
+                              <span className="text-[10px] text-zinc-500">
+                                Copy + send manually. Cabbge does not send these.
+                              </span>
+                            </div>
+                            {outreachByIdx[i].drafts.providerEmail && (
+                              <details className="group">
+                                <summary className="cursor-pointer text-[11px] text-zinc-300 font-medium">
+                                  Email to {outreachByIdx[i].provider} support
+                                </summary>
+                                <div className="mt-2 space-y-1">
+                                  <div className="text-[10px] text-zinc-500">
+                                    To: {outreachByIdx[i].drafts.providerEmail!.to}
+                                  </div>
+                                  <div className="text-[10px] text-zinc-500">
+                                    Subject: {outreachByIdx[i].drafts.providerEmail!.subject}
+                                  </div>
+                                  <pre className="text-[11px] text-zinc-300 whitespace-pre-wrap font-sans bg-zinc-950/50 rounded p-2">
+                                    {outreachByIdx[i].drafts.providerEmail!.body}
+                                  </pre>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      navigator.clipboard.writeText(outreachByIdx[i].drafts.providerEmail!.body || "");
+                                    }}
+                                    className="text-[10px] px-2 py-1 rounded bg-zinc-800 text-zinc-200 hover:bg-zinc-700"
+                                  >
+                                    Copy email body
+                                  </button>
+                                  {outreachByIdx[i].providerSupportUrl && (
+                                    <a
+                                      href={outreachByIdx[i].providerSupportUrl!}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-[10px] px-2 py-1 ml-2 rounded bg-amber-500/15 text-amber-200 inline-block hover:bg-amber-500/25"
+                                    >
+                                      Open {outreachByIdx[i].provider} support →
+                                    </a>
+                                  )}
+                                </div>
+                              </details>
+                            )}
+                            {outreachByIdx[i].drafts.sgeFeedback && (
+                              <details className="group">
+                                <summary className="cursor-pointer text-[11px] text-zinc-300 font-medium">
+                                  Search Generative Experience feedback text
+                                </summary>
+                                <pre className="mt-2 text-[11px] text-zinc-300 whitespace-pre-wrap font-sans bg-zinc-950/50 rounded p-2">
+                                  {outreachByIdx[i].drafts.sgeFeedback}
+                                </pre>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    navigator.clipboard.writeText(outreachByIdx[i].drafts.sgeFeedback || "");
+                                  }}
+                                  className="text-[10px] mt-1 px-2 py-1 rounded bg-zinc-800 text-zinc-200 hover:bg-zinc-700"
+                                >
+                                  Copy
+                                </button>
+                              </details>
+                            )}
+                            {outreachByIdx[i].drafts.siteRebuttal && (
+                              <details className="group">
+                                <summary className="cursor-pointer text-[11px] text-zinc-300 font-medium">
+                                  Brand-site rebuttal page (markdown, ready to publish)
+                                </summary>
+                                <pre className="mt-2 text-[11px] text-zinc-300 whitespace-pre-wrap font-sans bg-zinc-950/50 rounded p-2 max-h-[280px] overflow-y-auto">
+                                  {outreachByIdx[i].drafts.siteRebuttal}
+                                </pre>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    navigator.clipboard.writeText(outreachByIdx[i].drafts.siteRebuttal || "");
+                                  }}
+                                  className="text-[10px] mt-1 px-2 py-1 rounded bg-zinc-800 text-zinc-200 hover:bg-zinc-700"
+                                >
+                                  Copy markdown
+                                </button>
+                              </details>
+                            )}
                           </div>
                         )}
                       </div>

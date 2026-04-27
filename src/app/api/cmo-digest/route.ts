@@ -25,17 +25,6 @@ export async function POST(req: NextRequest) {
     const gate = await requireActiveSubscription(req);
     if (!gate.ok) return gate.response;
 
-    if (!gate.limits.features.cmoDigest) {
-      return NextResponse.json(
-        {
-          error: "The CEO-ready monthly digest is available on Pro and Enterprise plans.",
-          needsUpgrade: true,
-          feature: "cmoDigest",
-        },
-        { status: 402 }
-      );
-    }
-
     const body = await req.json();
     const { companyId, companyName, city, brand } = body;
 

@@ -7,12 +7,17 @@ import { loadVolatilityFromDb } from "@/lib/agents/volatility";
 /**
  * Golden prompts — user-locked buyer queries tracked on every scan.
  *
- * Max 20 per company (Foundation's recommended top-N). Demo mode returns
- * a stub response so the UI still renders; demo-mode pinning lives
- * client-side in localStorage.
+ * Universal cap of 100 across every paid tier. Per the volume-only
+ * pricing model, golden prompts aren't a feature gate — saving a query
+ * to a list has no per-tier COGS. The actual scan cost (running each
+ * prompt through ChatGPT/Gemini) is metered via the credit pool, which
+ * is what naturally varies between tiers.
+ *
+ * Demo mode returns a stub response so the UI still renders; demo-mode
+ * pinning lives client-side in localStorage.
  */
 
-const MAX_GOLDEN_PROMPTS = 20;
+const MAX_GOLDEN_PROMPTS = 100;
 
 export async function GET(req: NextRequest) {
   if (isDemoRequest(req)) {

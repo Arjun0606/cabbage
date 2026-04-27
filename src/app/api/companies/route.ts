@@ -80,8 +80,9 @@ export async function POST(req: NextRequest) {
     }
 
     // Enforce per-tier project + city + competitor caps. -1 means
-    // unlimited (Enterprise). These caps are what make Starter vs Pro
-    // vs Enterprise sell — fail with a clean upgrade hint when hit.
+    // unlimited (none of the live tiers use this; the field is kept on
+    // TierLimits for legacy compatibility). These caps are the volume
+    // levers between Starter / Growth / Scale.
     const limits = gate.limits;
     if (Array.isArray(projects)) {
       if (limits.maxProjects >= 0 && projects.length > limits.maxProjects) {

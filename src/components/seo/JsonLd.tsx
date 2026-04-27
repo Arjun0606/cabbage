@@ -89,7 +89,7 @@ export function pricingFaqSchema(): Record<string, unknown> {
         name: "How much does Cabbge cost?",
         acceptedAnswer: {
           "@type": "Answer",
-          text: "Cabbge pricing starts at ₹49,999/month (Starter, 5-10 projects) and scales to ₹5,99,999/month (Enterprise, unlimited projects across cities). Growth at ₹99,999/month is the most-chosen tier and replaces the typical ₹3-5 lakh/month agency retainer. Annual plans get 20% off.",
+          text: "Cabbge pricing has three tiers: Starter at ₹49,999/month (5-10 projects, 1 city), Growth at ₹99,999/month (10-40 projects, up to 3 cities — the most-chosen tier and replaces the typical ₹3-5 lakh/month agency retainer), and Scale at ₹2,49,999/month (40-100 projects across 5-10 cities). Annual plans get 20% off.",
         },
       },
       {
@@ -97,15 +97,15 @@ export function pricingFaqSchema(): Record<string, unknown> {
         name: "Which plan should I choose?",
         acceptedAnswer: {
           "@type": "Answer",
-          text: "Most regional developers (10-40 projects across 1-3 cities) are best served by Growth at ₹99,999/month. National builders with 40-100 projects pick Scale (₹2,49,999/month). Top-30 developers like DLF, Prestige, Lodha, Godrej pick Enterprise. Cabbge auto-recommends a tier based on your portfolio at the end of onboarding.",
+          text: "Single-city developers with under 10 projects pick Starter (₹49,999/month). Most regional developers (10-40 projects across 1-3 cities) are best served by Growth at ₹99,999/month. National builders with 40-100 projects across multiple cities pick Scale (₹2,49,999/month). Cabbge auto-recommends a tier based on your portfolio at the end of onboarding.",
         },
       },
       {
         "@type": "Question",
-        name: "Is there a free trial?",
+        name: "Can I see my AI visibility before subscribing?",
         acceptedAnswer: {
           "@type": "Answer",
-          text: "Yes — every signup gets a 14-day free trial of the Growth tier with full feature access. No credit card required to start. The free /grader tool also runs an AI-visibility scan instantly with no signup required.",
+          text: "Yes — sign up, add your projects and brand voice, and we run a comprehensive scan against your real portfolio. You see your AI mention rate, competitor citations, RERA exposure, and content gaps before committing to a plan. Cabbge then auto-recommends the tier that fits your portfolio scale.",
         },
       },
       {
@@ -187,7 +187,7 @@ export function homepageFaqSchema(): Record<string, unknown> {
         name: "How do I check if my real estate brand is recommended by AI?",
         acceptedAnswer: {
           "@type": "Answer",
-          text: "Use Cabbge's free grader at cabbge.com/grader. Enter your brand name and city, and within 60 seconds you'll see your mention rate on ChatGPT and Gemini for high-intent buyer queries, the competitors getting cited instead, and the specific gap queries where you're absent.",
+          text: "Sign up at cabbge.com, add your brand details and projects, and Cabbge runs a comprehensive scan across ChatGPT and Gemini for high-intent buyer queries about your city. You see your mention rate, the competitors getting cited instead, and the specific gap queries where you're absent — all before committing to a plan.",
         },
       },
     ],

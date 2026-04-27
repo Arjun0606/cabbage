@@ -8,7 +8,7 @@ import { TIERS, tierDodoProductId, isPaidTier, type PlanBilled } from "@/lib/tie
 /**
  * POST /api/billing/checkout
  *
- * Body: { plan: "starter" | "pro" | "enterprise", billed: "monthly" | "annual" }
+ * Body: { plan: "starter" | "pro" | "scale", billed: "monthly" | "annual" }
  *
  * Picks the Dodo Payments product id for (tier, billed), creates a
  * hosted checkout session, and returns the URL the frontend should
@@ -17,7 +17,7 @@ import { TIERS, tierDodoProductId, isPaidTier, type PlanBilled } from "@/lib/tie
  *
  * Dodo env vars required:
  *   DODO_API_KEY
- *   DODO_PRODUCT_{STARTER|PRO|ENTERPRISE}_{MONTHLY|ANNUAL}
+ *   DODO_PRODUCT_{STARTER|PRO|SCALE}_{MONTHLY|ANNUAL}
  */
 export async function POST(req: NextRequest) {
   try {
@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
 
     if (!isPaidTier(planInput)) {
       return NextResponse.json(
-        { error: `Unknown plan "${planInput}". Use starter, pro, or enterprise.` },
+        { error: `Unknown plan "${planInput}". Use starter, pro, or scale.` },
         { status: 400 }
       );
     }

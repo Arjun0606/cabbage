@@ -1,18 +1,30 @@
 export const runtime = "nodejs";
 export const maxDuration = 300;
 import { NextRequest, NextResponse } from "next/server";
-import { runSiteCrawl } from "@/lib/agents/siteCrawler";
+import { runSiteCrawlChunk } from "@/lib/agents/siteCrawler";
 import { enforceCredits } from "@/lib/credits";
 import { requireActiveSubscription } from "@/lib/db/supabase-server";
 import { canRunScan } from "@/lib/cadence";
+import { getServiceClient } from "@/lib/db/supabase";
 
 /**
- * Full-site crawler endpoint. The per-scan page cap is tier-gated so
- * Starter customers can't crawl more than 500 pages per scan — that's
- * the lever Starter vs Pro vs Enterprise actually buys. Enterprise
- * caps at 3000 (the agent's hard ceiling).
+ * Full-site crawler endpoint. The per-scan page cap is tier-gated:
+ * Starter 500, Growth 1500, Scale 3000.
+ *
+ * Crawls under INLINE_THRESHOLD pages run synchronously in a single
+ * invocation — the existing fast-path that fits Vercel's 5-minute
+ * function timeout. Crawls bigger than that get a `crawl_jobs` row
+ * and a chunk-based worker handoff: the first chunk runs inline so
+ * the response carries partial data immediately, then the cron worker
+ * (every 30 min) drains subsequent chunks until the crawl is done.
+ *
+ * This is what makes Scale's 3000-page promise honest. Without it,
+ * a national builder's site tree hits the function-timeout wall and
+ * returns ~2000 pages with maxPagesReached: false (misleading state).
  */
 const DEFAULT_PAGES = 200;
+const INLINE_THRESHOLD = 1500;
+const FIRST_CHUNK_PAGES = 1500;
 
 export async function POST(req: NextRequest) {
   try {
@@ -48,16 +60,66 @@ export async function POST(req: NextRequest) {
 
     const requested = Math.max(Number(maxPages) || DEFAULT_PAGES, 1);
     const limit = Math.min(requested, tierCap);
-    const result = await runSiteCrawl(url, limit);
 
-    // Annotate the response with tier-cap context so the client can
-    // render an upgrade nudge when the user asked for more than their
-    // plan permits.
+    // Inline path: single-shot crawl, fits in this invocation. This
+    // is the existing behaviour for Starter / Growth and for any
+    // smaller crawl on Scale.
+    if (limit <= INLINE_THRESHOLD) {
+      const { result } = await runSiteCrawlChunk(url, { maxPages: limit });
+      return NextResponse.json({
+        ...result,
+        tierCap,
+        requestedPages: requested,
+        cappedByPlan: requested > tierCap,
+      });
+    }
+
+    // Chunked path: enqueue a crawl_jobs row, run the FIRST chunk
+    // inline so the response is immediately useful (partial pages +
+    // discovered URLs), then hand the rest off to the cron worker.
+    // Scale-tier 3000-page crawls finish in 2 chunks.
+    if (!companyId || typeof companyId !== "string") {
+      // No company → can't persist state. Fall back to inline; might
+      // hit the timeout but at least returns something.
+      const { result } = await runSiteCrawlChunk(url, { maxPages: limit });
+      return NextResponse.json({
+        ...result,
+        tierCap,
+        requestedPages: requested,
+        cappedByPlan: requested > tierCap,
+      });
+    }
+
+    const { result, state, done } = await runSiteCrawlChunk(url, {
+      maxPages: limit,
+      chunkSize: FIRST_CHUNK_PAGES,
+    });
+
+    const svc = getServiceClient();
+    const { data: job } = await svc
+      .from("crawl_jobs")
+      .insert({
+        company_id: companyId,
+        url,
+        max_pages: limit,
+        state,
+        pages_done: result.totalPages,
+        status: done ? "done" : "running",
+        last_tick_at: new Date().toISOString(),
+        completed_at: done ? new Date().toISOString() : null,
+      })
+      .select("id")
+      .single();
+
     return NextResponse.json({
       ...result,
       tierCap,
       requestedPages: requested,
       cappedByPlan: requested > tierCap,
+      // Job-tracking fields the dashboard polls on.
+      crawlJobId: job?.id ?? null,
+      crawlChunked: true,
+      crawlComplete: done,
     });
   } catch (error) {
     console.error("Site crawl error:", error);

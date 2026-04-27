@@ -333,9 +333,12 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 5. Build the public preview URL — the grader page can render this
-    // from query string params alone, no signup needed.
-    const previewUrl = `https://cabbge.com/grader?brand=${encodeURIComponent(finalBrand)}${finalCity ? `&city=${encodeURIComponent(finalCity)}` : ""}&autorun=1`;
+    // 5. Public preview URL — the standalone /grader page was retired
+    // 2026-04-27 in favour of the signed-up scan flow. Outreach packs
+    // now point recipients to /signup with a referral hint so they
+    // land on a page that converts. The brand + city query params are
+    // preserved so the signup form can pre-fill them.
+    const previewUrl = `https://cabbge.com/signup?brand=${encodeURIComponent(finalBrand)}${finalCity ? `&city=${encodeURIComponent(finalCity)}` : ""}&ref=outreach`;
 
     const partialPack: Omit<OutreachPack, "copy"> = {
       brand: finalBrand,

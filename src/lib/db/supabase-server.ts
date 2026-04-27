@@ -72,8 +72,9 @@ export async function requireActiveSubscription(
   req?: NextRequest
 ): Promise<SubscriptionGateOk | SubscriptionGateFail> {
   // Demo cookie — sales pitches don't have a real Supabase session but
-  // still need the full product surface working. We mirror Enterprise
-  // caps so demo prospects see everything unlocked.
+  // still need the full product surface working. We mirror Scale caps
+  // (lifted past their numeric ceilings) so demo prospects see
+  // everything unlocked.
   const demo = req?.cookies.get("cabbge_demo")?.value === "1";
   if (demo) return { ok: true, userId: "demo", plan: "demo", limits: DEMO_LIMITS };
 

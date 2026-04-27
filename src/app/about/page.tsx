@@ -32,7 +32,7 @@ export default function AboutPage() {
           </Link>
           <nav className="flex items-center gap-6 text-[13px]">
             <Link href="/pricing" className="text-zinc-400 hover:text-zinc-200">Pricing</Link>
-            <Link href="/grader" className="text-zinc-400 hover:text-zinc-200">Free grader</Link>
+            <Link href="/compare" className="text-zinc-400 hover:text-zinc-200">Compare</Link>
             <Link href="/signin" className="text-zinc-400 hover:text-zinc-200">Sign in</Link>
             <Link
               href="/signup"
@@ -175,13 +175,13 @@ export default function AboutPage() {
         {/* CTA */}
         <section className="rounded-2xl border border-[#7CB342]/30 bg-gradient-to-br from-[#7CB342]/[0.06] to-zinc-900/40 p-8 text-center space-y-4">
           <h2 className="text-2xl font-bold">See where you stand</h2>
-          <p className="text-[14px] text-zinc-400">Free 60-second AI visibility check — no signup.</p>
+          <p className="text-[14px] text-zinc-400">Sign up, add your projects, and run a comprehensive scan against your real portfolio.</p>
           <div className="flex items-center justify-center gap-3">
             <Link
-              href="/grader"
+              href="/signup"
               className="inline-flex items-center gap-2 bg-[#7CB342] hover:bg-[#8BC34A] text-zinc-950 font-semibold px-5 py-2.5 rounded-lg text-[14px]"
             >
-              Run free grader <ArrowRight size={14} />
+              Start your scan <ArrowRight size={14} />
             </Link>
             <Link
               href="/pricing"

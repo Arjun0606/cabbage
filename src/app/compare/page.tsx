@@ -175,12 +175,11 @@ export default function ComparePage() {
           <nav className="flex items-center gap-6 text-[13px]">
             <Link href="/about" className="text-zinc-400 hover:text-zinc-200">About</Link>
             <Link href="/pricing" className="text-zinc-400 hover:text-zinc-200">Pricing</Link>
-            <Link href="/grader" className="text-zinc-400 hover:text-zinc-200">Free grader</Link>
             <Link
               href="/signup"
               className="bg-[#7CB342] hover:bg-[#8BC34A] text-zinc-950 font-semibold px-3 py-1.5 rounded-md text-[12px]"
             >
-              Start free trial
+              Start your scan
             </Link>
           </nav>
         </div>
@@ -258,26 +257,18 @@ export default function ComparePage() {
                 editorial team for brand-voice review on the highest-stakes content.
               </p>
             </div>
-            <div className="rounded-xl border border-white/[0.06] bg-zinc-900/40 p-5">
-              <div className="text-[14px] font-semibold text-zinc-100 mb-1">Top-30 developer (DLF / Prestige / Lodha / Godrej / Sobha)</div>
-              <p className="text-[13px] text-zinc-400 leading-relaxed">
-                Cabbge Enterprise (₹5,99,999/month) layers on top of an existing in-house team and replaces the
-                premium agency retainer. Unlimited projects/cities, 500 articles/month, dedicated CSM, and custom
-                integrations with whatever stack the team already runs.
-              </p>
-            </div>
           </div>
         </section>
 
         <section className="rounded-2xl border border-[#7CB342]/30 bg-gradient-to-br from-[#7CB342]/[0.06] to-zinc-900/40 p-8 text-center space-y-4">
-          <h2 className="text-2xl font-bold">See your AI visibility in 60 seconds</h2>
-          <p className="text-[14px] text-zinc-400">No signup. Brand name + city. Confirms which competitors are getting cited instead.</p>
+          <h2 className="text-2xl font-bold">See your AI visibility against your real portfolio</h2>
+          <p className="text-[14px] text-zinc-400">Sign up, add your projects, and run a comprehensive scan. Pricing matches what your portfolio needs.</p>
           <div className="flex items-center justify-center gap-3">
             <Link
-              href="/grader"
+              href="/signup"
               className="inline-flex items-center gap-2 bg-[#7CB342] hover:bg-[#8BC34A] text-zinc-950 font-semibold px-5 py-2.5 rounded-lg text-[14px]"
             >
-              Run free grader <ArrowRight size={14} />
+              Start your scan <ArrowRight size={14} />
             </Link>
             <Link
               href="/pricing"

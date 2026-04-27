@@ -48,10 +48,47 @@ const ARTICLE_TYPE_INSTRUCTIONS: Record<ArticleType, string> = {
     "Write a 'moving from X to Y' or 'upgrading from X to Y' guide — useful when a buyer is shifting from renting to owning, from one locality to another, or from a smaller config to a larger one. Cover: (1) why buyers make this move, (2) what to expect at each stage (loan, RERA check, site visit, allotment, registration), (3) cost comparison, (4) timeline, (5) checklist. Draws the reader who is mid-journey — higher intent, higher conversion.",
 };
 
+/**
+ * Cron-actor auth: when the bulk article worker self-calls this route,
+ * it carries `Authorization: Bearer ${CRON_SECRET}` plus an
+ * `x-cron-actor` header naming the owner the job belongs to. We bypass
+ * requireActiveSubscription on that path because the worker has already
+ * gated by tier (claimNext only fires while remaining quota > 0) and
+ * already verified ownership of the company. Treat the cron-issued
+ * call as a Pro-equivalent gate so the brand-context-score check still
+ * runs but the article cap is left to the worker.
+ */
+type Gate =
+  | { ok: true; userId: string; plan: string; limits: { articlesPerMonth: number } }
+  | { ok: false };
+
+async function resolveGate(req: NextRequest): Promise<{
+  gate: Gate;
+  response?: NextResponse;
+  isCron: boolean;
+}> {
+  const authHeader = req.headers.get("authorization");
+  if (process.env.CRON_SECRET && authHeader === `Bearer ${process.env.CRON_SECRET}`) {
+    const actor = req.headers.get("x-cron-actor") || "cron";
+    return {
+      gate: { ok: true, userId: actor, plan: "pro", limits: { articlesPerMonth: 9999 } },
+      isCron: true,
+    };
+  }
+  const sub = await requireActiveSubscription(req);
+  if (!sub.ok) return { gate: { ok: false }, response: sub.response, isCron: false };
+  return {
+    gate: { ok: true, userId: sub.userId, plan: sub.plan, limits: { articlesPerMonth: sub.limits.articlesPerMonth } },
+    isCron: false,
+  };
+}
+
 export async function POST(req: NextRequest) {
   try {
-    const gate = await requireActiveSubscription(req);
-    if (!gate.ok) return gate.response;
+    const resolved = await resolveGate(req);
+    if (!resolved.gate.ok) return resolved.response!;
+    const gate = resolved.gate;
+    const isCron = resolved.isCron;
 
     const body = await req.json();
     const {
@@ -72,10 +109,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Tier-gated monthly article cap. Starter 20, Pro 60, Enterprise 200.
+    // Tier-gated monthly article cap. Starter 30, Growth 80, Scale 200.
     // We count by calendar month of generated_at on tracked_articles so
     // the counter resets the first of each month without cron work.
-    if (companyId && gate.plan !== "demo") {
+    // Cron path skips this — the bulk worker enforces the cap before
+    // claiming a job, so a second gate here would just double-block.
+    if (!isCron && companyId && gate.plan !== "demo") {
       const start = new Date();
       start.setDate(1);
       start.setHours(0, 0, 0, 0);

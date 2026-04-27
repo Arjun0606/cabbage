@@ -25,7 +25,7 @@ const WINDOW_MS: Record<"weekly" | "daily", number> = {
  */
 export async function canRunScan(
   companyId: string | null | undefined,
-  scanType: "audit" | "technical" | "ai_visibility" | "backlinks",
+  scanType: "audit" | "technical" | "ai_visibility" | "backlinks" | "review_monitor",
   cadence: "weekly" | "daily",
 ): Promise<{ ok: true } | { ok: false; nextAllowedAt: string; hint: string }> {
   if (!companyId) return { ok: true };

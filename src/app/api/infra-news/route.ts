@@ -21,17 +21,6 @@ export async function POST(req: NextRequest) {
     const gate = await requireActiveSubscription(req);
     if (!gate.ok) return gate.response;
 
-    if (!gate.limits.features.infraNews) {
-      return NextResponse.json(
-        {
-          error: "Infrastructure news is available on Pro and Enterprise plans.",
-          needsUpgrade: true,
-          feature: "infraNews",
-        },
-        { status: 402 }
-      );
-    }
-
     const body = await req.json();
     const { localities, companyId } = body;
 

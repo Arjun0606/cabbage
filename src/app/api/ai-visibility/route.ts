@@ -75,41 +75,11 @@ export async function POST(req: NextRequest) {
     const cityClean = typeof city === "string" ? city.trim() : "";
     const normalizedSaved = normalizeSavedQueries(savedQueries, cityClean);
 
-    // Per-city AI visibility is a Scale+ feature. For lower tiers, restrict
-    // projectDetails to projects whose location matches the primary city —
-    // so the query generator doesn't generate Bangalore queries for a
-    // Growth-tier Hyderabad customer who happens to have one Bangalore
-    // project.
-    let scopedProjectDetails = projectDetails;
-    let cityRestrictionApplied: { reason: string; restrictedTo: string; ignoredCities: string[] } | null = null;
-    if (
-      Array.isArray(projectDetails) &&
-      projectDetails.length > 0 &&
-      cityClean &&
-      !gate.limits.features.perCityAIVisibility
-    ) {
-      const inPrimary: typeof projectDetails = [];
-      const otherCities = new Set<string>();
-      const cityLower = cityClean.toLowerCase();
-      for (const p of projectDetails) {
-        const loc = String((p as any)?.location || "").toLowerCase();
-        if (!loc || loc.includes(cityLower)) {
-          inPrimary.push(p);
-        } else {
-          // Try to extract a city token after the comma
-          const tail = loc.split(",").pop()?.trim();
-          if (tail) otherCities.add(tail);
-        }
-      }
-      if (otherCities.size > 0 && inPrimary.length > 0) {
-        scopedProjectDetails = inPrimary;
-        cityRestrictionApplied = {
-          reason: "Per-city AI visibility is a Scale+ feature. Projects outside your primary city were excluded from this scan.",
-          restrictedTo: cityClean,
-          ignoredCities: Array.from(otherCities).slice(0, 10),
-        };
-      }
-    }
+    // Per-city AI visibility is universal — every tier scans the full
+    // project set, including projects outside the primary city. The
+    // credit pool is the natural ceiling on multi-city scan volume.
+    const scopedProjectDetails = projectDetails;
+    const cityRestrictionApplied: { reason: string; restrictedTo: string; ignoredCities: string[] } | null = null;
 
     if (!cityClean && !normalizedSaved) {
       // Fail loudly instead of falling back to "the market" — that produces
@@ -177,6 +147,11 @@ export async function POST(req: NextRequest) {
     // Parse aliases + exclusions from the brandContext payload. They
     // arrive as comma-separated strings (what the user typed) and get
     // normalised to trimmed arrays for the agent.
+    //
+    // Brand disambiguation is universal — every tier benefits from
+    // suppressing collisions (Godrej Properties vs Godrej Consumer)
+    // when the customer has configured aliases / exclusions on their
+    // company doc. No tier gate.
     const parseList = (raw: unknown): string[] => {
       if (!raw || typeof raw !== "string") return [];
       return raw.split(",").map((s) => s.trim()).filter((s) => s.length >= 2).slice(0, 15);

@@ -65,7 +65,7 @@ export async function enforceCredits(
       .eq("company_id", companyId)
       .maybeSingle();
     const planRaw = sub?.plan as string | undefined;
-    const plan: PlanTier = planRaw === "starter" || planRaw === "pro" || planRaw === "enterprise"
+    const plan: PlanTier = planRaw === "starter" || planRaw === "pro" || planRaw === "scale"
       ? (planRaw as PlanTier)
       : "pro"; // default legacy + demo-mode companies to pro's pool
     monthlyPool = TIERS[plan].limits.creditsPerMonth;

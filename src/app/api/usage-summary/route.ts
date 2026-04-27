@@ -32,7 +32,7 @@ interface UsageResponse {
   nextTierPriceInr: number | null;
 }
 
-const TIER_ORDER: PlanTier[] = ["starter", "pro", "scale", "enterprise"];
+const TIER_ORDER: PlanTier[] = ["starter", "pro", "scale"];
 
 function nextTier(current: PlanTier | "trial" | "demo"): PlanTier | null {
   if (current === "demo" || current === "trial") return "pro";

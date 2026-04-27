@@ -19,7 +19,7 @@ import { isDemoRequest } from "@/lib/demo";
  * tier, no nudge. If they're below, we surface the gap with reasons.
  */
 
-const TIER_ORDER: PlanTier[] = ["starter", "pro", "scale", "enterprise"];
+const TIER_ORDER: PlanTier[] = ["starter", "pro", "scale"];
 
 interface PlanReason {
   signal: string;
@@ -60,7 +60,9 @@ function smallestFittingTier(signals: PlanRecommendation["signals"]): PlanTier {
   for (const t of TIER_ORDER) {
     if (fitsTier(t, signals)) return t;
   }
-  return "enterprise";
+  // Nothing fits even Scale's caps — recommend Scale anyway and let the
+  // sales conversation handle anything bigger as a custom contract.
+  return "scale";
 }
 
 function reasonFor(

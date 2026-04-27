@@ -1,56 +1,37 @@
 "use client";
 
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+/**
+ * Marketing home page.
+ *
+ * The previous version embedded a free brand-grader (POST /api/grader)
+ * directly on the homepage so any visitor could type a brand + city and
+ * see an AI-visibility score in 60 seconds. We pulled that surface
+ * 2026-04-27 because:
+ *
+ *  1. The /demo flow already covers "see the product in action" for
+ *     prospects (sales-team-only, password-gated). Two free-look surfaces
+ *     diluted the funnel.
+ *  2. Grader bandwidth was a real cost line — every random visitor was
+ *     burning OpenAI tokens with no commercial intent.
+ *  3. The intended onboarding is signup → input details → run a real
+ *     scan → see results → paywall + plan recommendation. The free
+ *     grader on the home page short-circuited that intent ladder.
+ *
+ * /api/grader is kept (still used by /api/cron/benchmark) but no public
+ * page calls it. /grader the route is removed.
+ */
+
 import {
   ArrowRight,
-  Zap,
-  Loader2,
-  CheckCircle2,
-  XCircle,
-  AlertTriangle,
 } from "lucide-react";
 import Link from "next/link";
 import { JsonLd, organizationSchema, softwareApplicationSchema, homepageFaqSchema } from "@/components/seo/JsonLd";
 
 export default function Home() {
-  const [brand, setBrand] = useState("");
-  const [city, setCity] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [grade, setGrade] = useState<any>(null);
-
-  const handleGrade = async () => {
-    if (!brand.trim() || !city.trim()) return;
-    setIsLoading(true);
-    setGrade(null);
-    try {
-      const res = await fetch("/api/grader", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ brand: brand.trim(), city: city.trim() }),
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      setGrade(data);
-    } catch (err) {
-      setGrade({ error: err instanceof Error ? err.message : "Scan failed" });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const scoreColor = (score: number) =>
-    score >= 80 ? "text-[#7CB342]" :
-    score >= 60 ? "text-yellow-400" :
-    score >= 40 ? "text-orange-400" :
-    "text-red-400";
-
   return (
     <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center px-4">
       <JsonLd schema={[organizationSchema(), softwareApplicationSchema(), homepageFaqSchema()]} />
+
       {/* Logo + headline */}
       <div className="mb-10 flex flex-col items-center gap-3 text-center">
         <img src="/logo.png" alt="Cabbge" className="w-14 h-14 object-contain" />
@@ -65,170 +46,42 @@ export default function Home() {
           deploys and measures the content you need to win them. Your SEO agency won&apos;t do this.
           Your in-house team can&apos;t do this alone.
         </p>
-        <div className="flex items-center gap-2 mt-2">
-          <Link
-            href="/pricing"
-            className="h-9 px-4 rounded-lg bg-[#7CB342] text-zinc-950 text-[13px] font-semibold hover:bg-[#8BC34A] active:scale-[0.97] flex items-center gap-1.5"
-          >
-            Get started <ArrowRight size={13} />
-          </Link>
-          <Link
-            href="/signin"
-            className="h-9 px-4 rounded-lg text-[13px] text-zinc-300 hover:text-zinc-100 hover:bg-zinc-900 flex items-center gap-1.5"
-          >
-            Sign in
-          </Link>
-        </div>
       </div>
 
-      {/* Free report divider */}
-      <div className="w-full max-w-lg flex items-center gap-3 mb-4 text-[11px] text-zinc-600 uppercase tracking-wide">
-        <div className="h-px flex-1 bg-zinc-800" />
-        <span>Grade your AI visibility free</span>
-        <div className="h-px flex-1 bg-zinc-800" />
-      </div>
-
-      {/* Input — brand + city, runs the AI visibility grader */}
-      <div className="w-full max-w-lg flex flex-col sm:flex-row items-stretch gap-2 bg-zinc-900 border border-zinc-800 rounded-lg p-1.5">
-        <Input
-          placeholder="Your brand (e.g. Prestige)"
-          value={brand}
-          onChange={(e) => setBrand(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleGrade()}
-          className="border-0 bg-transparent focus-visible:ring-0 text-sm text-zinc-100 placeholder:text-zinc-600 flex-1"
-        />
-        <Input
-          placeholder="City (e.g. Bangalore)"
-          value={city}
-          onChange={(e) => setCity(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleGrade()}
-          className="border-0 bg-transparent focus-visible:ring-0 text-sm text-zinc-100 placeholder:text-zinc-600 sm:w-40"
-        />
-        <Button
-          onClick={handleGrade}
-          disabled={!brand.trim() || !city.trim() || isLoading}
-          className="bg-[#7CB342] text-zinc-950 hover:bg-[#8BC34A] text-sm px-4 rounded-md"
+      {/* Primary CTAs */}
+      <div className="flex items-center gap-2 mb-10">
+        <Link
+          href="/signup"
+          className="h-10 px-5 rounded-lg bg-[#7CB342] text-zinc-950 text-[13px] font-semibold hover:bg-[#8BC34A] active:scale-[0.97] flex items-center gap-1.5"
         >
-          {isLoading ? (
-            <><Loader2 size={14} className="animate-spin mr-1.5" /> Grading...</>
-          ) : (
-            <>Grade Now <ArrowRight size={14} className="ml-1.5" /></>
-          )}
-        </Button>
+          Start your scan <ArrowRight size={13} />
+        </Link>
+        <Link
+          href="/pricing"
+          className="h-10 px-4 rounded-lg text-[13px] text-zinc-300 hover:text-zinc-100 hover:bg-zinc-900 flex items-center gap-1.5"
+        >
+          See pricing
+        </Link>
+        <Link
+          href="/signin"
+          className="h-10 px-4 rounded-lg text-[13px] text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900 flex items-center gap-1.5"
+        >
+          Sign in
+        </Link>
       </div>
 
-      <p className="mt-3 text-xs text-zinc-600">
-        6 live queries to ChatGPT &amp; Gemini. Instant result. No signup required.
+      <p className="text-xs text-zinc-600 max-w-md text-center leading-relaxed">
+        Sign up, add your projects + brand voice, and we&apos;ll run a comprehensive AI-visibility, SEO,
+        and RERA scan. You see your real numbers before you commit to a plan.
       </p>
 
-      {/* Grader result */}
-      {grade && !grade.error && (
-        <div className="w-full max-w-lg mt-8 space-y-4">
-          <Card className="bg-zinc-900 border-zinc-800">
-            <CardContent className="p-5">
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <h3 className="text-sm font-medium text-zinc-300">
-                    AI Visibility for <span className="text-zinc-100">{grade.brand}</span> in {grade.city}
-                  </h3>
-                  <p className="text-xs text-zinc-600 mt-0.5">
-                    Mentioned in {grade.mentionedCount} of {grade.totalQueries} buyer queries
-                  </p>
-                </div>
-                <div className={`text-4xl font-bold ${scoreColor(grade.score)}`}>
-                  {grade.score}
-                  <span className="text-sm text-zinc-600 font-normal">/100</span>
-                </div>
-              </div>
-              <p className="text-[13px] text-zinc-300 leading-relaxed">{grade.verdict}</p>
-            </CardContent>
-          </Card>
-
-          {grade.results?.length > 0 && (
-            <Card className="bg-zinc-900 border-zinc-800">
-              <CardContent className="p-5 space-y-2">
-                <h3 className="text-sm font-medium text-zinc-300 mb-3">Per-query breakdown</h3>
-                {grade.results.map((r: any, i: number) => (
-                  <div key={i} className="flex items-start gap-2 text-sm py-1">
-                    {r.mentioned ? (
-                      <CheckCircle2 size={14} className="text-[#7CB342] flex-shrink-0 mt-0.5" />
-                    ) : (
-                      <XCircle size={14} className="text-red-400 flex-shrink-0 mt-0.5" />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <div className="text-zinc-300 text-[13px]">&ldquo;{r.query}&rdquo;</div>
-                      <div className="text-[11px] text-zinc-500 mt-0.5">
-                        {r.platform}
-                        {r.mentioned && r.competitors?.length > 0 && " \u2014 alongside "}
-                        {r.mentioned && r.competitors?.length > 0 && (
-                          <span className="text-zinc-400">{r.competitors.slice(0, 3).join(", ")}</span>
-                        )}
-                        {!r.mentioned && r.competitors?.length > 0 && (
-                          <>recommended: <span className="text-red-400">{r.competitors.slice(0, 3).join(", ")}</span></>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          )}
-
-          {grade.competitors?.length > 0 && (
-            <Card className="bg-zinc-900 border-zinc-800">
-              <CardContent className="p-5">
-                <h3 className="text-sm font-medium text-zinc-300 mb-2">Who AI recommends in {grade.city}</h3>
-                <div className="flex flex-wrap gap-1.5">
-                  {grade.competitors.map((c: string, i: number) => (
-                    <Badge key={i} variant="outline" className="text-[11px] border-zinc-700 text-zinc-300">
-                      {c}
-                    </Badge>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          <Card className="bg-[#7CB342]/[0.04] border-[#7CB342]/20">
-            <CardContent className="p-5 text-center space-y-3">
-              <p className="text-sm text-zinc-300">
-                The full product tests <strong className="text-zinc-100">20+ hyper-local queries</strong> across your projects, tracks AI visibility daily,
-                and auto-generates the content you need to win queries you&apos;re invisible on.
-              </p>
-              <div className="flex items-center justify-center gap-2">
-                <Link
-                  href="/pricing"
-                  className="h-10 px-5 rounded-lg bg-[#7CB342] text-zinc-950 text-[13px] font-semibold hover:bg-[#8BC34A] active:scale-[0.97] flex items-center gap-1.5"
-                >
-                  <Zap size={13} /> Get started
-                </Link>
-                <Link
-                  href="/signin"
-                  className="h-10 px-4 rounded-lg text-[13px] text-zinc-400 hover:text-zinc-200 flex items-center gap-1.5"
-                >
-                  Sign in
-                </Link>
-              </div>
-              <p className="text-[10px] text-zinc-500">Monthly subscription. Cancel anytime.</p>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {grade?.error && (
-        <Card className="w-full max-w-lg mt-8 bg-zinc-900 border-red-900/50">
-          <CardContent className="p-4 flex items-center gap-3">
-            <AlertTriangle size={16} className="text-red-400" />
-            <span className="text-sm text-red-300">{grade.error}</span>
-          </CardContent>
-        </Card>
-      )}
-
       {/* Footer */}
-      <div className="mt-12 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs text-zinc-700">
+      <div className="mt-16 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs text-zinc-700">
         <Link href="/pricing" className="hover:text-zinc-400 transition-colors">Pricing</Link>
         <span>&bull;</span>
-        <Link href="/signup" className="hover:text-zinc-400 transition-colors">Full setup</Link>
+        <Link href="/compare" className="hover:text-zinc-400 transition-colors">Compare</Link>
+        <span>&bull;</span>
+        <Link href="/about" className="hover:text-zinc-400 transition-colors">About</Link>
         <span>&bull;</span>
         <Link href="/terms" className="hover:text-zinc-400 transition-colors">Terms</Link>
         <span>&bull;</span>

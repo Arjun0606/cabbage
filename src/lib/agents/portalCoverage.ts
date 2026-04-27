@@ -30,6 +30,10 @@ export interface PortalCoverageEntry {
   listingHint?: string;
   /** One-line reason when status is "missing" or "unknown". */
   note?: string;
+  /** Sample project names the portal lists for this brand. Used to backfill
+   *  the dashboard's project list when the brand's own site doesn't render
+   *  projects in HTML (common with Next.js SPAs). */
+  sampleProjects?: string[];
   checkedAt: string;
 }
 
@@ -52,7 +56,11 @@ export interface PortalCoverageResult {
 }
 
 async function checkOne(portal: PropertyPortal, brand: string, city: string): Promise<PortalCoverageEntry> {
-  const query = `Search the web. Does the property portal ${portal.domain} have any current listings for the Indian residential real-estate developer "${brand}"${city ? ` in ${city}` : ""}? If yes, give me the canonical page URL on ${portal.domain} that lists their projects and an approximate count (e.g. "8 projects listed"). If no, say so explicitly.`;
+  const query = `Search the web. Does the property portal ${portal.domain} have any current listings for the Indian residential real-estate developer "${brand}"${city ? ` in ${city}` : ""}? If yes, give me:
+1. The canonical page URL on ${portal.domain} that lists their projects
+2. An approximate count (e.g. "8 projects listed")
+3. The names of up to 5 projects visible on that page (just the project names, e.g. "Aparna Sarovar Grande", "Aparna Cyberzon")
+If no, say so explicitly.`;
 
   const { text, source } = await queryForVisibility("openai", query);
   const checkedAt = new Date().toISOString();
@@ -81,14 +89,16 @@ Return ONLY JSON:
   "status": "listed" | "missing" | "unknown",
   "citationUrl": "<a URL on ${portal.domain} that proves the listing, empty string if none>",
   "listingHint": "<short phrase like '8 projects' or '50+ listings', empty string if not stated>",
-  "note": "<one short sentence summary; under 120 chars>"
+  "note": "<one short sentence summary; under 120 chars>",
+  "sampleProjects": ["<up to 5 specific project names visible in the answer; empty array if none stated>"]
 }
 
 Rules:
 - "listed" ONLY if the answer explicitly confirms at least one current ${brand} listing AND provides a URL that contains "${portal.domain}".
 - "missing" if the answer says no listings were found or the brand is absent.
 - "unknown" if the answer is evasive, hallucinated, or didn't actually search.
-- citationUrl must be a real URL visible in the answer. If uncertain, leave empty and set status to "unknown".`;
+- citationUrl must be a real URL visible in the answer. If uncertain, leave empty and set status to "unknown".
+- sampleProjects must be names that explicitly appear in the answer text — do not invent or guess. Strip generic suffixes like "by ${brand}". Skip generic terms like "luxury apartments" that aren't project names.`;
 
   try {
     const raw = await aiLight("Extract structured data from a web-search answer. Return only JSON.", parsePrompt, 400);
@@ -107,6 +117,7 @@ Rules:
       citationUrl?: string;
       listingHint?: string;
       note?: string;
+      sampleProjects?: unknown;
     };
 
     let status: PortalCoverageEntry["status"] =
@@ -120,6 +131,14 @@ Rules:
       status = "unknown";
     }
 
+    const sampleProjects = Array.isArray(parsed.sampleProjects)
+      ? (parsed.sampleProjects as unknown[])
+          .filter((n): n is string => typeof n === "string")
+          .map((n) => n.trim())
+          .filter((n) => n.length >= 3 && n.length <= 80)
+          .slice(0, 5)
+      : [];
+
     return {
       portal: portal.name,
       domain: portal.domain,
@@ -129,6 +148,7 @@ Rules:
         ? parsed.listingHint.trim().slice(0, 80)
         : undefined,
       note: typeof parsed.note === "string" ? parsed.note.trim().slice(0, 160) : undefined,
+      sampleProjects: sampleProjects.length > 0 ? sampleProjects : undefined,
       checkedAt,
     };
   } catch {

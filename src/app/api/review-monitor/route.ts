@@ -4,6 +4,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { runReviewMonitor } from "@/lib/agents/reviewMonitor";
 import { requireActiveSubscription } from "@/lib/db/supabase-server";
 import { enforceCredits } from "@/lib/credits";
+import { canRunScan } from "@/lib/cadence";
+import { getServiceClient } from "@/lib/db/supabase";
 
 /**
  * POST /api/review-monitor
@@ -42,6 +44,24 @@ export async function POST(req: NextRequest) {
         })).filter((p) => p.name)
       : [];
 
+    // DB-backed cadence enforcement. Process-local cache in the agent
+    // is only effective within one Lambda; on serverless cold starts a
+    // Starter customer could re-trigger weekly-cadence work in minutes.
+    // Querying scan_history makes the cadence durable across invocations.
+    if (companyId && gate.plan !== "demo") {
+      const cadenceCheck = await canRunScan(companyId, "review_monitor", gate.limits.reviewMonitorFrequency);
+      if (!cadenceCheck.ok) {
+        return NextResponse.json(
+          {
+            error: cadenceCheck.hint,
+            nextAllowedAt: cadenceCheck.nextAllowedAt,
+            needsUpgrade: gate.limits.reviewMonitorFrequency === "weekly",
+          },
+          { status: 429 }
+        );
+      }
+    }
+
     // Review monitor is web-search heavy; charge a proper credit so
     // it aligns with AI visibility in cost.
     await enforceCredits(companyId, "ai_visibility");
@@ -54,6 +74,26 @@ export async function POST(req: NextRequest) {
         brandCity: typeof city === "string" && city.trim() ? city.trim() : null,
       }
     );
+
+    // Stamp scan_history so the cadence gate above sees this run on
+    // the next request. Score = positive% out of total mentions, capped
+    // at 100. Lets the dashboard's trend panel chart sentiment over
+    // time without a second pass.
+    if (companyId && gate.plan !== "demo") {
+      try {
+        const svc = getServiceClient();
+        const total = result.totalMentions || 0;
+        const positive = result.counts?.bySentiment?.positive ?? 0;
+        const score = total > 0 ? Math.round((positive / total) * 100) : 0;
+        await svc.from("scan_history").insert({
+          company_id: companyId,
+          scan_type: "review_monitor",
+          score,
+          results: { mentions: total },
+          triggered_by: "manual",
+        });
+      } catch { /* non-fatal — the agent already returned */ }
+    }
 
     return NextResponse.json(result);
   } catch (error) {

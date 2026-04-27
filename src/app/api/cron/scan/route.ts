@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/db/supabase";
 import { captureCompetitorSignals, signalsHash, diffSnapshots } from "@/lib/agents/competitorWatch";
+import { isPaidTier } from "@/lib/tiers";
 
 /**
  * Automated Cron — runs daily at 02:30 IST (21:00 UTC).
@@ -34,7 +35,7 @@ export async function GET(req: NextRequest) {
     // via the ascending order (oldest first, newest last).
     const { data: companies, error } = await supabase
       .from("companies")
-      .select("id, name, website, sites, city, description, product_info, brand_voice")
+      .select("id, owner_id, name, website, sites, city, description, product_info, brand_voice")
       .order("created_at", { ascending: true })
       .limit(50);
 
@@ -43,8 +44,29 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ message: "No companies to scan", results: [] });
     }
 
+    // Resolve which owners hold an active paid subscription. Volume-only
+    // pricing means every paid tier gets cron-driven daily auto-scans —
+    // their credit pool is what governs how much they consume. We still
+    // skip companies whose owner isn't on a paid plan so we don't burn
+    // OpenAI on a free trial that lapsed.
+    const ownerIds = Array.from(new Set(companies.map((c) => c.owner_id).filter(Boolean) as string[]));
+    const { data: subRows } = ownerIds.length
+      ? await supabase
+          .from("subscriptions")
+          .select("user_id, plan, status")
+          .in("user_id", ownerIds)
+      : { data: [] as Array<{ user_id: string; plan: string; status: string }> };
+    const activePaidOwners = new Set<string>();
+    for (const s of subRows || []) {
+      if (s.status === "active" && isPaidTier(s.plan)) activePaidOwners.add(s.user_id);
+    }
+
     for (const company of companies) {
       if (!company.website) continue;
+      if (!company.owner_id || !activePaidOwners.has(company.owner_id)) {
+        // Skip companies whose owner doesn't have an active paid plan.
+        continue;
+      }
 
       const companyResult = { company: company.name, scans: [] as string[], content: [] as string[], errors: [] as string[] };
 

@@ -18,10 +18,15 @@ import { JsonLd, organizationSchema, pricingFaqSchema } from "@/components/seo/J
  * Positioning per tier:
  *   Starter     — Single-city developer, <10 projects. The "prove
  *                 Cabbge works for us" tier.
- *   Pro         — Multi-city developer, 10-40 projects. Sweet spot
- *                 for regional developers + mid-size national brands.
- *   Enterprise  — DLF / Prestige / Lodha / Godrej scale. Unlimited
- *                 projects + cities + priority support.
+ *   Growth      — Multi-city developer, 10-40 projects. Sweet spot
+ *                 for regional developers.
+ *   Scale       — National multi-city builder, 40-100 projects across
+ *                 5-10 cities. Top tier on the pricing page.
+ *
+ * No higher tier: the previous Enterprise SKU (₹5,99,999, 500 articles/mo,
+ * 10K-page crawl, unlimited projects) was removed because the underlying
+ * infrastructure couldn't reliably deliver those headline volumes.
+ * Anything past Scale is a custom contract + build-out conversation.
  *
  * Annual prepay: 20% off (10 months cost, 12 months product).
  */
@@ -39,16 +44,13 @@ const TIERS = [
     subtitle: "Single-city developer · 5-10 projects",
     anchor: "Replaces a small agency retainer at the same price with 10× the output.",
     features: [
-      "2,000 credits per month",
-      "Up to 10 projects · 1 city",
       "30 articles generated per month",
-      "Daily AI visibility scans",
-      "Weekly full scan (every surface, every project)",
+      "Up to 10 projects · 1 city",
+      "2,000 credits per month",
       "500 pages per full-site crawl",
       "7 competitors tracked",
-      "Portal Optimizer + submission tracker",
-      "RERA + possession tracking",
-      "Hallucination audit on every scan",
+      "Daily AI visibility · weekly full scan",
+      "Full Cabbge feature set (see note below)",
       "Email support (24h)",
     ],
   },
@@ -65,17 +67,13 @@ const TIERS = [
     subtitle: "Regional developer · 10-40 projects · 2-3 cities",
     anchor: "Replaces a ₹3-5L/mo agency retainer. The sweet spot.",
     features: [
-      "5,000 credits per month",
-      "Up to 40 projects · 3 cities",
       "80 articles generated per month",
-      "Daily full scan (every surface, every microsite)",
+      "Up to 40 projects · 3 cities",
+      "5,000 credits per month",
       "1,500 pages per full-site crawl",
-      "20 competitors · per-locality map",
-      "Daily AI visibility + citation drift + query fanout",
-      "Daily review monitor across every platform",
-      "CMO monthly digest (CEO-ready)",
-      "Infrastructure news → content pipeline",
-      "NRI track (UAE / UK / US / SG)",
+      "20 competitors tracked",
+      "Daily full scan (every surface, every microsite)",
+      "Full Cabbge feature set (see note below)",
       "Priority email + WhatsApp (4h)",
     ],
   },
@@ -91,43 +89,14 @@ const TIERS = [
     subtitle: "National developer · 40-100 projects · 5-10 cities",
     anchor: "Replaces a 3-person in-house marketing team. Multi-city operational depth.",
     features: [
-      "15,000 credits per month",
-      "Up to 100 projects · 10 cities",
       "200 articles generated per month",
-      "Daily full scan on every project microsite",
+      "Up to 100 projects · 10 cities",
+      "15,000 credits per month",
       "3,000 pages per full-site crawl",
-      "50 competitors · per-locality + per-city map",
-      "Per-city AI visibility across every metro",
-      "Multi-state RERA tracking + 30/60-day expiry alerts",
-      "Custom report templates",
-      "Hallucination audit on every scan",
+      "50 competitors tracked",
+      "Daily full scan on every project microsite",
+      "Full Cabbge feature set (see note below)",
       "Priority WhatsApp (2h) + monthly strategy call",
-    ],
-  },
-  {
-    key: "enterprise",
-    name: "Enterprise",
-    usd: 7200,
-    inr: 599999,
-    credits: 40000,
-    articles: 500,
-    projects: -1,
-    cities: -1,
-    subtitle: "DLF · Prestige · Lodha · Godrej · Sobha scale",
-    anchor: "One CMO + Cabbge = a 5-person digital team. Replaces a ₹15-25L/mo in-house stack.",
-    features: [
-      "40,000 credits per month",
-      "Unlimited projects · unlimited cities",
-      "500 articles generated per month",
-      "Daily full scan on every microsite + brand-level",
-      "10,000 pages per full-site crawl",
-      "Unlimited competitors",
-      "Per-city AI visibility across every metro",
-      "Multi-state RERA tracking + 30-day expiry alerts",
-      "Brand disambiguation (Godrej Properties vs Consumer)",
-      "Dedicated success manager + 2h WhatsApp SLA",
-      "Custom integrations (Ahrefs, GSC, CRM, DMS)",
-      "Early access to new features",
     ],
   },
 ];
@@ -153,7 +122,7 @@ const AGENCY_COMPARE = [
   { label: "Review monitor (Housing / 99acres / Google)", agency: "Manual / spreadsheet", cabbge: "Automated, prioritised" },
   { label: "Portal submission tracker", agency: "In your team's head", cabbge: "Per project × portal matrix" },
   { label: "Ramp / onboarding time", agency: "4-8 weeks", cabbge: "15 minutes" },
-  { label: "Price (multi-city developer)", agency: "₹3-10 L/mo", cabbge: "₹79,999/mo (Growth)" },
+  { label: "Price (multi-city developer)", agency: "₹3-10 L/mo", cabbge: "₹99,999/mo (Growth)" },
 ];
 
 export default function PricingPage() {
@@ -270,7 +239,7 @@ export default function PricingPage() {
         </div>
 
         {/* Tier cards — 4 tiers, responsive: 1→2→4 columns */}
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-16">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-16">
           {TIERS.map((tier) => (
             <div
               key={tier.key}
@@ -339,6 +308,38 @@ export default function PricingPage() {
               </div>
             </div>
           ))}
+        </div>
+
+        {/* Universal feature note — the volume-only pricing story.
+            Every tier above promises "Full Cabbge feature set"; this
+            block lays out exactly what that includes so prospects don't
+            have to compare checklists. */}
+        <div className="rounded-2xl bg-zinc-900/40 border border-[#7CB342]/15 p-5 mb-8">
+          <div className="flex items-center gap-2 mb-2">
+            <Check size={14} className="text-[#7CB342]" />
+            <h3 className="text-[14px] font-semibold text-zinc-200">Every tier includes the full Cabbge feature set</h3>
+          </div>
+          <p className="text-[12px] text-zinc-400 leading-relaxed mb-3">
+            Tiers differ on volume — articles per month, projects, cities, credits, crawl depth, scan cadence — not on which features you can use. Every paid plan unlocks:
+          </p>
+          <div className="grid sm:grid-cols-2 gap-x-6 gap-y-1 text-[11.5px] text-zinc-300">
+            <div className="flex items-start gap-1.5"><Check size={11} className="text-[#7CB342] mt-0.5 flex-shrink-0" /><span>SEO + technical site audit</span></div>
+            <div className="flex items-start gap-1.5"><Check size={11} className="text-[#7CB342] mt-0.5 flex-shrink-0" /><span>AI visibility (ChatGPT + Gemini)</span></div>
+            <div className="flex items-start gap-1.5"><Check size={11} className="text-[#7CB342] mt-0.5 flex-shrink-0" /><span>Per-city AI visibility</span></div>
+            <div className="flex items-start gap-1.5"><Check size={11} className="text-[#7CB342] mt-0.5 flex-shrink-0" /><span>GEO improvements + llms.txt + schema</span></div>
+            <div className="flex items-start gap-1.5"><Check size={11} className="text-[#7CB342] mt-0.5 flex-shrink-0" /><span>Hallucination audit + correction outreach drafts</span></div>
+            <div className="flex items-start gap-1.5"><Check size={11} className="text-[#7CB342] mt-0.5 flex-shrink-0" /><span>Brand disambiguation (multi-brand families)</span></div>
+            <div className="flex items-start gap-1.5"><Check size={11} className="text-[#7CB342] mt-0.5 flex-shrink-0" /><span>CMO monthly digest (CEO-ready)</span></div>
+            <div className="flex items-start gap-1.5"><Check size={11} className="text-[#7CB342] mt-0.5 flex-shrink-0" /><span>Custom report templates (board · agency · weekly · CMO monthly)</span></div>
+            <div className="flex items-start gap-1.5"><Check size={11} className="text-[#7CB342] mt-0.5 flex-shrink-0" /><span>Infrastructure news → content pipeline</span></div>
+            <div className="flex items-start gap-1.5"><Check size={11} className="text-[#7CB342] mt-0.5 flex-shrink-0" /><span>Multi-state RERA tracking + expiry alerts</span></div>
+            <div className="flex items-start gap-1.5"><Check size={11} className="text-[#7CB342] mt-0.5 flex-shrink-0" /><span>Portal optimiser + submission tracker</span></div>
+            <div className="flex items-start gap-1.5"><Check size={11} className="text-[#7CB342] mt-0.5 flex-shrink-0" /><span>Daily review monitor (Housing · 99acres · Google · Reddit)</span></div>
+            <div className="flex items-start gap-1.5"><Check size={11} className="text-[#7CB342] mt-0.5 flex-shrink-0" /><span>100 golden prompts tracked</span></div>
+            <div className="flex items-start gap-1.5"><Check size={11} className="text-[#7CB342] mt-0.5 flex-shrink-0" /><span>Citation drift + query fanout</span></div>
+            <div className="flex items-start gap-1.5"><Check size={11} className="text-[#7CB342] mt-0.5 flex-shrink-0" /><span>NRI track (UAE / UK / US / SG)</span></div>
+            <div className="flex items-start gap-1.5"><Check size={11} className="text-[#7CB342] mt-0.5 flex-shrink-0" /><span>Hosted dashboard + scan history</span></div>
+          </div>
         </div>
 
         {/* Per-tier spec comparison — scannable in 10 seconds */}
@@ -492,7 +493,7 @@ export default function PricingPage() {
             <div className="grid grid-cols-[1fr_1fr_1fr] px-5 py-2.5 bg-zinc-900/80 text-[10px] uppercase tracking-wide text-zinc-500 font-semibold">
               <div>Dimension</div>
               <div>Digital agency</div>
-              <div>Cabbge Growth (₹79,999/mo)</div>
+              <div>Cabbge Growth (₹99,999/mo)</div>
             </div>
             {AGENCY_COMPARE.map((row) => (
               <div key={row.label} className="grid grid-cols-[1fr_1fr_1fr] px-5 py-3 text-[13px]">

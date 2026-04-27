@@ -7,30 +7,36 @@
  * "you've hit the limit" nudges, the /api/billing/status response).
  *
  * Tier selection is driven by `subscriptions.plan` in Supabase. Values:
- *   "starter" | "pro" | "enterprise"    active paid tiers
- *   "demo"                                demo cookie — unlimited
+ *   "starter" | "pro" | "scale"    active paid tiers
+ *   "demo"                          demo cookie — unlimited
  *   anything else (including "none", null) → no access (paywall)
  */
 
 /**
- * Four-tier ladder sized so the product fits a serious single-city
- * developer all the way up to DLF / Lodha scale. Every tier is designed
- * for >92% gross margin — the credit pool is sized so a typical
- * customer's real COGS (OpenAI web_search + article writing) stays well
- * under 10% of list price.
+ * Three-tier ladder sized so the product fits a serious single-city
+ * developer all the way up to a regional multi-city builder. Every
+ * tier is designed for >92% gross margin — the credit pool is sized
+ * so a typical customer's real COGS (OpenAI web_search + article
+ * writing) stays well under 10% of list price.
  *
  * Starter (₹49,999) is the floor: this is a paid tool for serious
  * marketing teams, not a freemium hobby SKU. Anyone smaller than
  * Starter isn't our ICP — they don't pay for marketing services.
  *
- * Legacy keys kept for backward compatibility with existing Supabase
- * `subscriptions.plan` rows:
- *   "starter"      existing — unchanged
- *   "pro"          existing — display label "Growth"
- *   "enterprise"   existing — unchanged
- *   "scale"        NEW — regional/national, fits between pro and enterprise
+ * The previous Enterprise tier (₹5,99,999, 500 articles/mo, 10K-page
+ * crawl) was removed 2026-04-26 because the underlying infrastructure
+ * (single-click article generation, 5-min Vercel function timeout
+ * crawler) couldn't reliably deliver those headline volumes. Top tier
+ * is Scale; anything beyond is a custom contract + build-out, not a
+ * pricing-page SKU.
+ *
+ * Legacy keys retained for backward compatibility with existing
+ * Supabase `subscriptions.plan` rows:
+ *   "starter"   unchanged
+ *   "pro"       display label "Growth"
+ *   "scale"     national / multi-city builder
  */
-export type PlanTier = "starter" | "pro" | "scale" | "enterprise";
+export type PlanTier = "starter" | "pro" | "scale";
 export type PlanBilled = "monthly" | "annual";
 
 export interface TierLimits {
@@ -54,15 +60,20 @@ export interface TierLimits {
   fullScanCadence: "weekly" | "daily";
   /** AI visibility scan cadence. "weekly" blocks re-scans within 7 days. */
   aiVisibilityCadence: "weekly" | "daily";
-  /** Feature flags — simple on/off per tier. */
-  features: {
-    cmoDigest: boolean;
-    infraNews: boolean;
-    perCityAIVisibility: boolean;
-    customReportTemplates: boolean;
-    prioritySupport: boolean;
-  };
 }
+
+/**
+ * Cabbge's pricing model is volume-only. Every paid tier gets the
+ * full feature surface (CMO digest, infra news, per-city AI vis,
+ * custom report templates, brand disambiguation, hallucination
+ * correction outreach, scheduled auto-scans, expanded golden prompts).
+ * What differs between tiers is HOW MUCH the customer can do —
+ * articlesPerMonth, maxProjects, creditsPerMonth, scan cadence, etc.
+ *
+ * If you're tempted to add a per-tier feature flag, don't. Either
+ * make it universal across all paid tiers, or scale its cost via
+ * the credit pool (the soft ceiling that already encodes volume).
+ */
 
 export interface TierDef {
   key: PlanTier;
@@ -108,13 +119,6 @@ export const TIERS: Record<PlanTier, TierDef> = {
       reviewMonitorFrequency: "weekly",
       fullScanCadence: "weekly",
       aiVisibilityCadence: "daily",
-      features: {
-        cmoDigest: false,
-        infraNews: false,
-        perCityAIVisibility: false,
-        customReportTemplates: false,
-        prioritySupport: false,
-      },
     },
   },
   // ------- Growth (pro key, ₹99,999/mo) -------
@@ -142,13 +146,6 @@ export const TIERS: Record<PlanTier, TierDef> = {
       reviewMonitorFrequency: "daily",
       fullScanCadence: "daily",
       aiVisibilityCadence: "daily",
-      features: {
-        cmoDigest: true,
-        infraNews: true,
-        perCityAIVisibility: true,
-        customReportTemplates: false,
-        prioritySupport: true,
-      },
     },
   },
   // ------- Scale (₹2,49,999/mo) -------
@@ -176,57 +173,21 @@ export const TIERS: Record<PlanTier, TierDef> = {
       reviewMonitorFrequency: "daily",
       fullScanCadence: "daily",
       aiVisibilityCadence: "daily",
-      features: {
-        cmoDigest: true,
-        infraNews: true,
-        perCityAIVisibility: true,
-        customReportTemplates: true,
-        prioritySupport: true,
-      },
-    },
-  },
-  // ------- Enterprise (₹5,99,999/mo) -------
-  // Top-30 Indian developer — DLF / Prestige / Lodha / Godrej / Sobha /
-  // Macrotech / Oberoi. Unlimited everything, daily scans on every
-  // microsite, 500 articles, dedicated CSM, custom integrations.
-  // Typical COGS: ~$550/mo → ~91% margin.
-  enterprise: {
-    key: "enterprise",
-    label: "Enterprise",
-    usd: 7200,
-    inr: 599999,
-    dodoProductEnv: {
-      monthly: "DODO_PRODUCT_ENTERPRISE_MONTHLY",
-      annual: "DODO_PRODUCT_ENTERPRISE_ANNUAL",
-    },
-    limits: {
-      creditsPerMonth: 40000,
-      maxProjects: -1,
-      maxCities: -1,
-      maxPagesPerCrawl: 10000,
-      articlesPerMonth: 500,
-      maxCompetitors: -1,
-      reviewMonitorFrequency: "daily",
-      fullScanCadence: "daily",
-      aiVisibilityCadence: "daily",
-      features: {
-        cmoDigest: true,
-        infraNews: true,
-        perCityAIVisibility: true,
-        customReportTemplates: true,
-        prioritySupport: true,
-      },
     },
   },
 };
 
 /**
  * Demo-mode limits — the sales demo cookie grants unrestricted access
- * so prospects see the full product. We mirror Enterprise caps.
+ * so prospects see the full product. We mirror Scale (the top tier)
+ * but lift the volume caps so demos never hit a "limit reached" wall.
  */
 export const DEMO_LIMITS: TierLimits = {
-  ...TIERS.enterprise.limits,
+  ...TIERS.scale.limits,
   creditsPerMonth: 999999, // demo has no credit ceiling
+  maxProjects: 9999,
+  maxCities: 9999,
+  maxCompetitors: 9999,
   // demo also bypasses cadence gates so the sales pitch never shows
   // "wait 7 days to re-scan" during a live demo
   fullScanCadence: "daily",
@@ -266,5 +227,5 @@ export function limitsForPlan(plan: string | null | undefined): TierLimits | nul
 }
 
 export function isPaidTier(plan: string | null | undefined): plan is PlanTier {
-  return !!plan && (plan === "starter" || plan === "pro" || plan === "enterprise");
+  return !!plan && (plan === "starter" || plan === "pro" || plan === "scale");
 }

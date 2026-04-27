@@ -343,19 +343,65 @@ function auditPage(url: string, html: string, statusCode: number, loadTimeMs: nu
   };
 }
 
-export async function runSiteCrawl(startUrl: string, maxPages: number = DEFAULT_MAX_PAGES): Promise<SiteCrawlResult> {
+/**
+ * Resumable crawl state. Persisted between cron ticks for chunked
+ * crawls so a 3000-page Scale-tier scan finishes across multiple
+ * Vercel-function invocations instead of dying at the 5-minute wall.
+ */
+export interface CrawlState {
+  visited: string[];
+  queue: string[];
+  pages: CrawledPage[];
+}
+
+export interface ChunkedCrawlResult {
+  /** Partial or final result rendered from whatever's been crawled so far. */
+  result: SiteCrawlResult;
+  /** Resumable state. Pass back via `prevState` on the next chunk. */
+  state: CrawlState;
+  /** True when the crawl is finished (queue drained or maxPages reached). */
+  done: boolean;
+}
+
+interface ChunkOptions {
+  /** Hard cap on total pages across the WHOLE crawl. */
+  maxPages: number;
+  /** Max pages to process inside THIS invocation. Defaults to maxPages —
+   *  i.e. single-shot, the existing behaviour. Pass a smaller number
+   *  (e.g. 1500) to split across multiple invocations. */
+  chunkSize?: number;
+  /** Resume from a previous chunk's saved state. */
+  prevState?: CrawlState;
+  /** Override the per-invocation deadline. Defaults to CRAWL_TIMEOUT_MS. */
+  invocationTimeoutMs?: number;
+}
+
+/**
+ * Chunked variant of runSiteCrawl. The single-shot wrapper below
+ * (runSiteCrawl) preserves the original signature; everything chunked
+ * goes through this. Inline crawls call it once with chunkSize=maxPages,
+ * which is functionally identical to the previous implementation.
+ */
+export async function runSiteCrawlChunk(
+  startUrl: string,
+  options: ChunkOptions,
+): Promise<ChunkedCrawlResult> {
   const { valid, url: safeUrl, error } = sanitizeUrl(startUrl);
   if (!valid) throw new Error(error || "Invalid URL");
 
+  const maxPages = options.maxPages;
+  const chunkSize = Math.min(options.chunkSize ?? maxPages, maxPages);
   const startTime = Date.now();
+  const deadline = startTime + (options.invocationTimeoutMs ?? CRAWL_TIMEOUT_MS);
   const origin = new URL(safeUrl).origin;
   const rootUrl = normalizeLink(safeUrl, safeUrl, origin) || safeUrl;
-  const deadline = startTime + CRAWL_TIMEOUT_MS;
 
-  const visited = new Set<string>();
-  const queued = new Set<string>();
-  const queue: string[] = [];
-  const pages: CrawledPage[] = [];
+  // Hydrate from prevState if resuming. Sets are rebuilt from arrays
+  // since JSON can't ship Set instances directly.
+  const visited = new Set<string>(options.prevState?.visited || []);
+  const pages: CrawledPage[] = options.prevState?.pages ? [...options.prevState.pages] : [];
+  const queued = new Set<string>(options.prevState?.queue || []);
+  const queue: string[] = options.prevState?.queue ? [...options.prevState.queue] : [];
 
   const enqueue = (url: string) => {
     if (!url || visited.has(url) || queued.has(url)) return;
@@ -364,21 +410,29 @@ export async function runSiteCrawl(startUrl: string, maxPages: number = DEFAULT_
     queued.add(url);
   };
 
-  // Always try the root first.
-  enqueue(rootUrl);
+  // First-tick seeding only — once we're resuming, the queue + visited
+  // sets carry every URL we know about.
+  if (!options.prevState) {
+    enqueue(rootUrl);
+    const seeds = await seedFromSitemap(origin, maxPages);
+    for (const s of seeds) enqueue(s);
+  }
 
-  // Sitemap seeding — for big developer sites (Prestige, Lodha, DLF)
-  // the XML sitemap already lists every project + locality + blog URL
-  // they want indexed. Link-walking alone would take forever on a
-  // 2000-page site; seeding fills the queue in seconds.
-  const seeds = await seedFromSitemap(origin, maxPages);
-  for (const s of seeds) enqueue(s);
+  const pagesAtStart = pages.length;
+  const chunkBudget = pagesAtStart + chunkSize;
 
-  // Main crawl loop — batches of `CONCURRENCY` fetches at a time.
-  while (queue.length > 0 && pages.length < maxPages) {
-    if (Date.now() > deadline) break; // hard cap — never let a crawl run >8 min
+  // Main crawl loop. Stops when:
+  //  - the queue is empty (crawl genuinely finished)
+  //  - we've hit the global maxPages cap
+  //  - we've hit the per-chunk pages budget (more ticks coming)
+  //  - we're 5 seconds from the per-invocation deadline (Vercel safety)
+  while (queue.length > 0 && pages.length < maxPages && pages.length < chunkBudget) {
+    if (Date.now() > deadline - 5_000) break;
     const batch = queue.splice(0, CONCURRENCY).filter((u) => !visited.has(u));
-    batch.forEach((u) => visited.add(u));
+    batch.forEach((u) => {
+      visited.add(u);
+      queued.delete(u);
+    });
 
     const results = await Promise.all(
       batch.map(async (url) => {
@@ -388,21 +442,21 @@ export async function runSiteCrawl(startUrl: string, maxPages: number = DEFAULT_
     );
 
     for (const page of results) {
-      if (pages.length >= maxPages) break;
+      if (pages.length >= maxPages || pages.length >= chunkBudget) break;
       pages.push(page);
-      // Discover new URLs from this page's internal links. Sitemap
-      // already seeded most; this fills in any dynamic pages the
-      // sitemap missed.
       for (const link of page.internalLinks) enqueue(link);
     }
   }
 
-  // Site-wide summary
+  const done = queue.length === 0 || pages.length >= maxPages;
+
+  // Site-wide summary computed from whatever we have so far. Same shape
+  // every chunk; downstream consumers (the dashboard) render with the
+  // partial set when `done` is false.
   const titles = new Map<string, number>();
   pages.forEach((p) => { if (p.title) titles.set(p.title, (titles.get(p.title) || 0) + 1); });
   const duplicateTitleCount = Array.from(titles.values()).filter((n) => n > 1).reduce((a, b) => a + b, 0);
 
-  // Orphan detection — pages with zero inbound internal links (excluding root)
   const inboundCounts = new Map<string, number>();
   pages.forEach((p) => {
     p.internalLinks.forEach((link) => {
@@ -424,7 +478,7 @@ export async function runSiteCrawl(startUrl: string, maxPages: number = DEFAULT_
     imagesWithoutAlt: pages.reduce((sum, p) => sum + p.images.withoutAlt, 0),
   };
 
-  return {
+  const result: SiteCrawlResult = {
     startUrl: safeUrl,
     origin,
     crawledAt: new Date().toISOString(),
@@ -434,4 +488,27 @@ export async function runSiteCrawl(startUrl: string, maxPages: number = DEFAULT_
     pages,
     summary,
   };
+
+  return {
+    result,
+    state: {
+      visited: Array.from(visited),
+      queue,
+      pages,
+    },
+    done,
+  };
+}
+
+/**
+ * Single-shot crawl. Preserved for callers (Starter / Growth tiers,
+ * inline scans) that fit inside one invocation. Internally a thin
+ * wrapper around runSiteCrawlChunk with chunkSize=maxPages.
+ */
+export async function runSiteCrawl(
+  startUrl: string,
+  maxPages: number = DEFAULT_MAX_PAGES,
+): Promise<SiteCrawlResult> {
+  const { result } = await runSiteCrawlChunk(startUrl, { maxPages });
+  return result;
 }

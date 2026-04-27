@@ -32,6 +32,7 @@ import { GSCPanel } from "./GSCPanel";
 import { SiteCrawlPanel } from "./SiteCrawlPanel";
 import { InternalLinkingPanel } from "./InternalLinkingPanel";
 import { ContentQueue } from "./ContentQueue";
+import { BulkArticleWriter } from "./BulkArticleWriter";
 import { LocalityRollup } from "./LocalityRollup";
 import { ProjectRollup } from "./ProjectRollup";
 import { ProjectScorecard } from "./ProjectScorecard";
@@ -125,6 +126,7 @@ interface Props {
       citationUrl?: string;
       listingHint?: string;
       note?: string;
+      sampleProjects?: string[];
     }>;
     listed: number;
     total: number;
@@ -161,7 +163,9 @@ interface Props {
   onRunReraVerification?: () => void;
   reportResult: any;
   isGeneratingReport: boolean;
-  onRunMarketingReport: () => void;
+  /** Optional templateKey selects between report templates — Scale+ feature.
+   *  Lower tiers only get "default"; the panel hides the picker for them. */
+  onRunMarketingReport: (templateKey?: string) => void;
   // CMO digest (CEO-ready monthly summary). Optional so older mounts
   // without the handler still render the tab cleanly.
   cmoDigestResult?: { digest?: string } | null;
@@ -207,6 +211,10 @@ interface Props {
   siteCrawlResult?: any;
   isCrawling?: boolean;
   onRunSiteCrawl?: () => void;
+  /** Called when the chunked-crawl poller has fresh job state. The
+   *  parent swaps siteCrawlResult so the panel re-renders with the
+   *  updated pages_done count. */
+  onSiteCrawlUpdate?: (next: any) => void;
   // Keyword research
   keywordResearchResult?: any;
   isResearchingKeywords?: boolean;
@@ -299,6 +307,80 @@ function EmptyState({ icon: Icon, title, subtitle }: { icon: any; title: string;
   );
 }
 
+/**
+ * Report template picker.
+ *
+ * Fetches templates from /api/marketing-report (GET) and renders a dropdown.
+ * Lower tiers get a single "Default" entry and the picker collapses to a
+ * read-only badge. Scale+ tiers see all 4 templates with descriptions.
+ *
+ * Lifted into its own component so the state (selectedKey + templates list)
+ * doesn't bloat AnalyticsPanel's already heavy state surface.
+ */
+function ReportTemplatePicker({
+  isGenerating,
+  onRun,
+}: {
+  isGenerating: boolean;
+  onRun: (templateKey?: string) => void;
+}) {
+  type TemplateOption = { key: string; label: string; description: string };
+  const [templates, setTemplates] = useState<TemplateOption[]>([]);
+  const [selectedKey, setSelectedKey] = useState<string>("default");
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/marketing-report", { method: "GET" })
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (cancelled || !data) { setLoaded(true); return; }
+        if (Array.isArray(data.templates)) setTemplates(data.templates);
+        setLoaded(true);
+      })
+      .catch(() => setLoaded(true));
+    return () => { cancelled = true; };
+  }, []);
+
+  const selected = templates.find((t) => t.key === selectedKey) ?? templates[0];
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-[11px] uppercase tracking-wide text-zinc-500 font-semibold">Report template</span>
+        {!loaded && (
+          <span className="text-[11px] text-zinc-600"><Loader2 size={11} className="inline animate-spin mr-1" />loading templates</span>
+        )}
+        {loaded && templates.length > 1 && (
+          <select
+            value={selectedKey}
+            onChange={(e) => setSelectedKey(e.target.value)}
+            className="bg-zinc-800/60 border border-white/[0.06] rounded-md px-2 py-1 text-[12px] text-zinc-200 focus:outline-none focus:border-white/[0.1]"
+          >
+            {templates.map((t) => (
+              <option key={t.key} value={t.key}>{t.label}</option>
+            ))}
+          </select>
+        )}
+      </div>
+      {loaded && selected?.description && (
+        <p className="text-[11px] text-zinc-500 leading-relaxed">{selected.description}</p>
+      )}
+      <Button
+        onClick={() => onRun(selectedKey)}
+        disabled={isGenerating}
+        className="w-full bg-zinc-700 hover:bg-zinc-600 h-10 text-[13px] font-medium rounded-lg"
+      >
+        {isGenerating ? (
+          <><Loader2 size={15} className="animate-spin mr-2" />Generating report...</>
+        ) : (
+          <><BarChart3 size={15} className="mr-2" />Generate {selected?.label || "Marketing"} Report</>
+        )}
+      </Button>
+    </div>
+  );
+}
+
 export function AnalyticsPanel({
   activeTab, onTabChange,
   auditResult, aiVisResult, backlinkResult, technicalResult,
@@ -330,7 +412,7 @@ export function AnalyticsPanel({
   isFixingGeo,
   onRunGbpPosts, gbpResult, isGeneratingGbp,
   gscData,
-  siteCrawlResult, isCrawling, onRunSiteCrawl,
+  siteCrawlResult, isCrawling, onRunSiteCrawl, onSiteCrawlUpdate,
   keywordResearchResult, isResearchingKeywords, onRunKeywordResearch,
   internalLinkingResult, isAnalyzingLinks, onRunInternalLinking,
   contentDecayReport, snapshotCount = 0,
@@ -668,7 +750,7 @@ export function AnalyticsPanel({
 
           {/* Full-site crawler — visits every page, per-URL audit */}
           {onRunSiteCrawl && (siteCrawlResult || isCrawling) ? (
-            <SiteCrawlPanel data={siteCrawlResult} isRunning={isCrawling} onRunCrawl={onRunSiteCrawl} />
+            <SiteCrawlPanel data={siteCrawlResult} isRunning={isCrawling} onRunCrawl={onRunSiteCrawl} onJobUpdate={onSiteCrawlUpdate} />
           ) : onRunSiteCrawl ? (
             <SiteCrawlPanel data={null} onRunCrawl={onRunSiteCrawl} />
           ) : null}
@@ -1254,6 +1336,8 @@ export function AnalyticsPanel({
               defensible. Quiet by default when nothing is wrong. */}
           <HallucinationAudit
             aiVisResult={aiVisResult}
+            brand={companyName}
+            brandUrl={websiteUrl}
             onFixHallucination={onGeoFixQuery ? (issue) => {
               // Construct a corrective-article brief from the hallucination
               // payload and hand it to the existing geo-fix pipeline. The
@@ -1360,6 +1444,16 @@ export function AnalyticsPanel({
                       {trends.ai_visibility.direction === "improving" && " Keep going — consistency compounds."}
                       {trends.ai_visibility.direction === "stable" && " Publish more content to push higher."}
                     </div>
+                    {/* Score is a 40/60 blend of technical readiness and AI mention rate.
+                        Without the breakdown, "score 28 + 0% mentions" reads as a contradiction
+                        — show the math so the CMO can see what each side contributes. */}
+                    {aiVisResult?.scores && (
+                      <div className="text-[11px] text-zinc-600 mt-1">
+                        Today: {aiVisResult.scores.readiness ?? 0}% AI readiness × 0.4 +{" "}
+                        {aiVisResult.scores.mentions ?? 0}% mention rate × 0.6 ={" "}
+                        <span className="text-zinc-400 font-medium">{aiVisResult.scores.overall}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </CardContent>
@@ -1926,7 +2020,9 @@ export function AnalyticsPanel({
                           ? "All RERA records confirmed by state portal"
                           : `${reraVerification.total - reraVerification.verified} unverified`
                         : projects.length === 0
-                        ? "Add projects to track"
+                        ? portalCoverage && portalCoverage.listed > 0
+                          ? `Portals list this brand — add project list to verify RERA`
+                          : "Add projects to track"
                         : multiState
                         ? `${stateBreakdown.length} state authorities`
                         : reraProjects === projects.length
@@ -2471,33 +2567,49 @@ export function AnalyticsPanel({
                 </SectionCard>
               )}
 
-              {backlinkResult.unlinkedHighValueDomains?.length > 0 && (
-                <SectionCard>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-[13px] font-semibold">Outreach targets — not yet linking to you</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-[11px] text-zinc-500 mb-3">
-                      High-authority Indian real-estate domains that aren&apos;t linking to you yet. Each one earned would move your DA measurably.
-                    </p>
-                    <div className="space-y-1">
-                      {backlinkResult.unlinkedHighValueDomains.slice(0, 10).map((d: any, i: number) => (
-                        <div key={i} className="flex items-center justify-between py-1 text-[12px]">
-                          <span className="text-zinc-300">{d.domain}</span>
-                          <div className="flex items-center gap-2">
-                            <Badge className="text-[9px] h-4 px-1.5 rounded bg-zinc-800 text-zinc-500 border-0">
-                              {d.type}
-                            </Badge>
-                            <Badge variant="outline" className="text-[10px] border-zinc-700/50 rounded-md">
-                              DA {d.authority}
-                            </Badge>
+              {(() => {
+                // Reconcile with portal coverage: a portal that already lists
+                // the brand's projects is, in practice, also a backlink source
+                // (project pages link to the developer's site). Showing it as
+                // both "listed" above and "missing outreach target" below reads
+                // as contradictory, so drop those domains here.
+                const listedPortalDomains = new Set(
+                  (portalCoverage?.entries || [])
+                    .filter((e) => e.status === "listed")
+                    .map((e) => e.domain.toLowerCase())
+                );
+                const outreachTargets = (backlinkResult.unlinkedHighValueDomains || []).filter(
+                  (d: any) => !listedPortalDomains.has(String(d.domain || "").toLowerCase())
+                );
+                if (outreachTargets.length === 0) return null;
+                return (
+                  <SectionCard>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-[13px] font-semibold">Outreach targets — not yet linking to you</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-[11px] text-zinc-500 mb-3">
+                        High-authority Indian real-estate domains that aren&apos;t linking to you yet. Each one earned would move your DA measurably.
+                      </p>
+                      <div className="space-y-1">
+                        {outreachTargets.slice(0, 10).map((d: any, i: number) => (
+                          <div key={i} className="flex items-center justify-between py-1 text-[12px]">
+                            <span className="text-zinc-300">{d.domain}</span>
+                            <div className="flex items-center gap-2">
+                              <Badge className="text-[9px] h-4 px-1.5 rounded bg-zinc-800 text-zinc-500 border-0">
+                                {d.type}
+                              </Badge>
+                              <Badge variant="outline" className="text-[10px] border-zinc-700/50 rounded-md">
+                                DA {d.authority}
+                              </Badge>
+                            </div>
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </SectionCard>
-              )}
+                        ))}
+                      </div>
+                    </CardContent>
+                  </SectionCard>
+                );
+              })()}
 
               {backlinkResult.recommendations?.length > 0 && (
                 <SectionCard>
@@ -2542,6 +2654,37 @@ export function AnalyticsPanel({
         {/* picks what to write, we handle the writing.                      */}
         {/* ================================================================ */}
         <TabsContent value="content" className="space-y-4">
+          {(() => {
+            // Assemble the set of buyer queries the bulk worker should
+            // burn through. Pulled from blind spots (queries we lost or
+            // never won), competitor-alert losses (queries competitors
+            // are owning), and decaying-page refresh recs. Deduped at
+            // the source so we don't double-enqueue the same query.
+            const seen = new Set<string>();
+            const out: string[] = [];
+            const push = (q: unknown) => {
+              if (typeof q !== "string") return;
+              const k = q.trim().toLowerCase();
+              if (k.length < 4 || seen.has(k)) return;
+              seen.add(k);
+              out.push(q.trim());
+            };
+            for (const q of (geoProgress?.newlyLost as string[] | undefined) || []) push(q);
+            for (const q of (geoProgress?.missingQueries as string[] | undefined) || []) push(q);
+            for (const a of (geoProgress?.competitorAlerts as Array<{ query?: string }> | undefined) || []) push(a?.query);
+            for (const d of (contentDecayReport?.decayingPages as Array<{ url?: string }> | undefined) || []) {
+              if (d?.url) push(`refresh content for ${d.url}`);
+            }
+            const isDemoMode = (companyId || "") === "" || companyId === "demo";
+            return (
+              <BulkArticleWriter
+                companyId={companyId || null}
+                candidateQueries={out}
+                isDemo={isDemoMode}
+              />
+            );
+          })()}
+
           <ContentQueue
             city={city}
             selectedCity={selectedCity}
@@ -2597,37 +2740,34 @@ export function AnalyticsPanel({
         {/* -------- REPORT TAB -------- */}
         {/* ================================================================ */}
         <TabsContent value="report" className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-            <Button
-              onClick={onRunMarketingReport}
-              disabled={isGeneratingReport}
-              className="w-full bg-zinc-700 hover:bg-zinc-600 h-10 text-[13px] font-medium rounded-lg"
-            >
-              {isGeneratingReport ? (
-                <><Loader2 size={15} className="animate-spin mr-2" />Generating report...</>
-              ) : (
-                <><BarChart3 size={15} className="mr-2" />Generate Monthly Marketing Report</>
+          <SectionCard>
+            <CardContent className="p-4 space-y-3">
+              <ReportTemplatePicker
+                isGenerating={isGeneratingReport}
+                onRun={onRunMarketingReport}
+              />
+              {onRunCmoDigest && (
+                <Button
+                  onClick={onRunCmoDigest}
+                  disabled={isGeneratingCmoDigest}
+                  variant="outline"
+                  className="w-full border-zinc-700 text-zinc-200 hover:bg-zinc-800 h-10 text-[13px] font-medium rounded-lg"
+                >
+                  {isGeneratingCmoDigest ? (
+                    <><Loader2 size={15} className="animate-spin mr-2" />Writing digest…</>
+                  ) : (
+                    <><FileText size={15} className="mr-2" />CEO-ready monthly digest</>
+                  )}
+                </Button>
               )}
-            </Button>
-            {onRunCmoDigest && (
-              <Button
-                onClick={onRunCmoDigest}
-                disabled={isGeneratingCmoDigest}
-                variant="outline"
-                className="w-full border-zinc-700 text-zinc-200 hover:bg-zinc-800 h-10 text-[13px] font-medium rounded-lg"
-              >
-                {isGeneratingCmoDigest ? (
-                  <><Loader2 size={15} className="animate-spin mr-2" />Writing digest…</>
-                ) : (
-                  <><FileText size={15} className="mr-2" />CEO-ready monthly digest</>
-                )}
-              </Button>
-            )}
-            {/* Markdown brief — bundles everything we know about the
-                customer (mention rates, hallucinations, audit gaps,
-                published content) into a one-page doc they can forward
-                internally. The browser handles the download via the
-                Content-Disposition header on /api/export-md. */}
+            </CardContent>
+          </SectionCard>
+          {/* Markdown brief — bundles everything we know about the
+              customer (mention rates, hallucinations, audit gaps,
+              published content) into a one-page doc they can forward
+              internally. The browser handles the download via the
+              Content-Disposition header on /api/export-md. */}
+          <div>
             <Button
               onClick={() => {
                 if (typeof window === "undefined") return;
@@ -2668,24 +2808,59 @@ export function AnalyticsPanel({
             <>
               <SectionCard>
                 <CardContent className="p-5">
-                  <h4 className="text-[13px] font-semibold text-zinc-200 mb-2">Executive Summary</h4>
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <h4 className="text-[13px] font-semibold text-zinc-200">Executive Summary</h4>
+                    {reportResult.template?.label && (
+                      <Badge className="text-[10px] h-5 px-1.5 rounded-md border-0 bg-zinc-800 text-zinc-400">
+                        {reportResult.template.label}
+                      </Badge>
+                    )}
+                  </div>
                   <p className="text-[13px] text-zinc-300 leading-relaxed">{reportResult.executiveSummary}</p>
                 </CardContent>
               </SectionCard>
 
-              {[
-                { key: "seoSection", label: "SEO Performance" },
-                { key: "aiGeoSection", label: "AI / GEO Visibility" },
-                { key: "contentSection", label: "Content Performance" },
-                { key: "competitiveSection", label: "Competitive Intelligence" },
-              ].map(({ key, label }) => reportResult[key] && (
-                <SectionCard key={key}>
-                  <CardContent className="p-5">
-                    <h4 className="text-[13px] font-semibold text-zinc-200 mb-2">{label}</h4>
-                    <p className="text-[13px] text-zinc-400 leading-relaxed whitespace-pre-wrap">{reportResult[key]}</p>
-                  </CardContent>
-                </SectionCard>
-              ))}
+              {(() => {
+                // Render any "*Section" key the API returned. Templates beyond
+                // the default ship their own section keys (trajectorySection,
+                // marketPositionSection, etc.) so a hardcoded list would drop
+                // their content. Humanise the key for the heading by stripping
+                // the "Section" suffix and Title-Casing the camelCase.
+                const sectionKeys = Object.keys(reportResult)
+                  .filter((k) => k.endsWith("Section") && typeof reportResult[k] === "string" && reportResult[k].trim());
+                return sectionKeys.map((key) => {
+                  const labelKnown: Record<string, string> = {
+                    seoSection: "SEO Performance",
+                    aiGeoSection: "AI / GEO Visibility",
+                    contentSection: "Content Performance",
+                    competitiveSection: "Competitive Intelligence",
+                    trajectorySection: "90-day Trajectory",
+                    marketPositionSection: "Market Position",
+                    regulatoryExposureSection: "Regulatory Exposure",
+                    strategicSection: "Strategic Outlook",
+                    deliverablesSection: "Deliverables this month",
+                    vsAgencySection: "Vs. typical agency retainer",
+                    blindSpotsSection: "What we couldn't deliver",
+                    nextSowSection: "Next month's SOW",
+                    biggestShiftSection: "Biggest shift this week",
+                    wonSection: "Won this week",
+                    lostSection: "Lost / at risk",
+                  };
+                  const label = labelKnown[key] || key
+                    .replace(/Section$/, "")
+                    .replace(/([A-Z])/g, " $1")
+                    .replace(/^./, (c) => c.toUpperCase())
+                    .trim();
+                  return (
+                    <SectionCard key={key}>
+                      <CardContent className="p-5">
+                        <h4 className="text-[13px] font-semibold text-zinc-200 mb-2">{label}</h4>
+                        <p className="text-[13px] text-zinc-400 leading-relaxed whitespace-pre-wrap">{reportResult[key]}</p>
+                      </CardContent>
+                    </SectionCard>
+                  );
+                });
+              })()}
 
               {reportResult.recommendations?.length > 0 && (
                 <SectionCard>

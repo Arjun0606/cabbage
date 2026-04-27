@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   Globe, CheckCircle2, XCircle, AlertTriangle, Link as LinkIcon, FileText, Image,
-  ChevronDown, ChevronRight, ExternalLink, Activity,
+  ChevronDown, ChevronRight, ExternalLink, Activity, Loader2,
 } from "lucide-react";
 
 interface CrawledPage {
@@ -49,6 +49,12 @@ interface SiteCrawlResult {
     orphanPages: number;
     imagesWithoutAlt: number;
   };
+  // Chunked-crawl tracking. Set when a crawl was big enough to be
+  // split across multiple invocations; the panel polls for progress
+  // until crawlComplete flips true.
+  crawlJobId?: string | null;
+  crawlChunked?: boolean;
+  crawlComplete?: boolean;
 }
 
 interface Props {
@@ -57,6 +63,9 @@ interface Props {
   isRunning?: boolean;
   /** Optional handler: user clicks "Fix" on a specific page */
   onFixPage?: (url: string, issues: CrawledPage["issues"]) => void;
+  /** Called with fresh poll data when a chunked crawl progresses or
+   *  finishes, so the parent can swap stale `data` for the new state. */
+  onJobUpdate?: (next: SiteCrawlResult) => void;
 }
 
 function severityColor(s: "high" | "medium" | "low"): string {
@@ -65,9 +74,44 @@ function severityColor(s: "high" | "medium" | "low"): string {
     : "bg-zinc-700/40 text-zinc-400 border-zinc-700/50";
 }
 
-export function SiteCrawlPanel({ data, onRunCrawl, isRunning, onFixPage }: Props) {
+export function SiteCrawlPanel({ data, onRunCrawl, isRunning, onFixPage, onJobUpdate }: Props) {
   const [expandedUrl, setExpandedUrl] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "issues" | "errors">("issues");
+
+  // Poll the chunked-crawl job endpoint while a crawl is in flight.
+  // Stops once crawlComplete is true. Single-shot crawls (no
+  // crawlJobId) skip this entirely.
+  useEffect(() => {
+    if (!data?.crawlJobId || data.crawlComplete || !onJobUpdate) return;
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const res = await fetch(`/api/site-crawl/job?id=${encodeURIComponent(data.crawlJobId!)}`);
+        if (!res.ok) return;
+        const j = await res.json();
+        if (cancelled) return;
+        const status = j.status as string;
+        const done = status === "done";
+        const failed = status === "failed";
+        // Build a fresh SiteCrawlResult shape from the job payload so
+        // the parent can swap state without rebuilding.
+        onJobUpdate({
+          ...data,
+          totalPages: j.pagesDone ?? data.totalPages,
+          pages: Array.isArray(j.pages) && j.pages.length > 0 ? j.pages : data.pages,
+          maxPagesReached: done && (j.pagesDone ?? 0) >= (j.maxPages ?? data.totalPages),
+          crawlJobId: j.id,
+          crawlChunked: true,
+          crawlComplete: done || failed,
+        });
+      } catch {
+        // Polling failure is non-fatal — try again on next tick.
+      }
+    };
+    tick();
+    const id = setInterval(tick, 30_000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [data, onJobUpdate]);
 
   if (!data && !isRunning) {
     return (
@@ -155,13 +199,21 @@ export function SiteCrawlPanel({ data, onRunCrawl, isRunning, onFixPage }: Props
               </div>
             ))}
           </div>
+          {data.crawlChunked && !data.crawlComplete && (
+            <div className="mt-3 p-3 rounded-lg bg-blue-500/[0.06] border border-blue-500/20 flex items-center gap-2.5">
+              <Loader2 size={12} className="text-blue-400 animate-spin flex-shrink-0" />
+              <div className="text-[12px] text-blue-300 leading-relaxed">
+                Chunked crawl in progress &mdash; {data.totalPages.toLocaleString()} pages indexed so far. The worker continues every 30 minutes; this panel updates automatically when more pages come back.
+              </div>
+            </div>
+          )}
           {data.maxPagesReached && (
             <div className="mt-3 p-3 rounded-lg bg-amber-500/[0.04] border border-amber-500/20 flex items-center justify-between gap-3">
               <div className="flex items-start gap-2 min-w-0">
                 <AlertTriangle size={12} className="text-amber-400 flex-shrink-0 mt-0.5" />
                 <div className="text-[12px] text-amber-400 leading-relaxed">
                   Hit the crawl cap of {data.totalPages.toLocaleString()} pages.
-                  <span className="text-zinc-400"> Your site has more URLs — Starter crawls 500, Pro 1,500, Enterprise 3,000 per scan.</span>
+                  <span className="text-zinc-400"> Your site has more URLs &mdash; Starter crawls 500, Growth 1,500, Scale 3,000 per scan.</span>
                 </div>
               </div>
               <a
