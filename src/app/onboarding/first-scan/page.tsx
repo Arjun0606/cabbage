@@ -89,6 +89,12 @@ export default function FirstScanPage() {
     const url = companyData.website;
     const brand = companyData.name;
     const city = companyData.city;
+    // Multi-city: prefer the cities[] array set during onboarding step 2.
+    // Falls back to wrapping the legacy single-city field. The AI vis
+    // query generator scopes per-city when this array has > 1 entry.
+    const cities: string[] = Array.isArray(companyData.cities) && companyData.cities.length > 0
+      ? companyData.cities
+      : (city ? [city] : []);
     const projects = companyData.projects || [];
 
     // Wave 1 already animated as 'running'; mark done immediately because
@@ -122,7 +128,7 @@ export default function FirstScanPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          websiteUrl: url, brand, city,
+          websiteUrl: url, brand, city, cities,
           projects: projects.map((p: any) => p.name),
           projectDetails,
           industry: "real_estate",
@@ -131,6 +137,12 @@ export default function FirstScanPage() {
             productInfo: companyData.documents?.productInfo || "",
             brandVoice: companyData.documents?.brandVoice || "",
             targetAudience: companyData.documents?.targetAudience || "",
+            vision: companyData.documents?.brandVision || "",
+            values: companyData.documents?.brandValues || "",
+            marketingStrategy: companyData.documents?.marketingStrategy || "",
+            competitorAnalysis: companyData.documents?.competitorAnalysis || "",
+            aliases: companyData.documents?.brandAliases || "",
+            exclusions: companyData.documents?.brandExclusions || "",
           },
         }),
       });

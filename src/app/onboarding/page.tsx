@@ -37,6 +37,9 @@ interface Project {
   reraNumber: string;
   amenities: string;
   status: string;
+  /** Possession date — free text ("Q3 2026" / "Dec 2025"). Used by the
+   *  hallucination auditor + article writer's "ready-to-move" copy. */
+  possessionDate?: string;
 }
 
 export default function OnboardingPage() {
@@ -141,7 +144,13 @@ function OnboardingInner() {
 
       // Populate fields from auto-discover
       if (data.companyDescription) setDescription(data.companyDescription);
-      if (data.city) setCities([data.city]);
+      // Multi-city — auto-discover now returns an array. Falls back to
+      // wrapping the single city for backward compat with cached
+      // responses.
+      const discoveredCities = Array.isArray(data.cities) && data.cities.length > 0
+        ? data.cities.filter((c: unknown): c is string => typeof c === "string" && c.trim().length > 0)
+        : (data.city ? [data.city] : []);
+      if (discoveredCities.length > 0) setCities(discoveredCities);
 
       // Populate projects (filter out placeholders)
       const placeholders = /^(unknown|featured|project\s*\d*|placeholder|n\/?a|not\s+specified|tbd)/i;
@@ -158,6 +167,7 @@ function OnboardingInner() {
           reraNumber: p.reraNumber || "",
           amenities: p.amenities || "",
           status: p.status || "Active",
+          possessionDate: p.possessionDate || "",
         })));
 
         // Extract unique cities from project locations
@@ -228,11 +238,18 @@ function OnboardingInner() {
     const primaryCity = cities.filter(Boolean)[0] || "";
     setSavingFinish(true);
 
+    // Multi-city: filter empties and dedupe. Primary stays at index 0.
+    const cleanedCities = cities
+      .map((c) => c.trim())
+      .filter((c) => c.length > 0)
+      .filter((c, i, arr) => arr.findIndex((x) => x.toLowerCase() === c.toLowerCase()) === i);
+
     const data = {
       name: name.trim(),
       description,
       website,
       city: primaryCity,
+      cities: cleanedCities,
       industry,
       sites: extraSites.map((s) => ({ url: s.url, label: s.label, type: s.type || "other" })),
       projects: projects.length > 0 ? projects : [],
@@ -245,6 +262,11 @@ function OnboardingInner() {
         targetAudience: targetAudience.trim(),
         marketingStrategy: marketingStrategy.trim(),
         competitorAnalysis: competitorAnalysisDoc.trim(),
+        // Persist cities inside documents JSONB too — the dashboard
+        // and AI-vis path read from documents.cities as the canonical
+        // source on hydration. Saved at both top-level and nested so
+        // legacy + new code paths both find it.
+        cities: cleanedCities,
       },
     };
     localStorage.setItem("cabbge_company", JSON.stringify(data));
@@ -272,7 +294,7 @@ function OnboardingInner() {
   };
 
   const addProject = () => {
-    setProjects([...projects, { name: "", location: "", configurations: "", priceRange: "", website: "", reraNumber: "", amenities: "", status: "Active" }]);
+    setProjects([...projects, { name: "", location: "", configurations: "", priceRange: "", website: "", reraNumber: "", amenities: "", status: "Active", possessionDate: "" }]);
   };
 
   const updateProject = (idx: number, field: keyof Project, value: string) => {
@@ -594,22 +616,86 @@ function OnboardingInner() {
                   </button>
                 </div>
               )}
-              {projects.map((p, i) => (
+              {projects.map((p, i) => {
+                const missingRera = !p.reraNumber?.trim();
+                return (
                 <div key={i} className="p-4 rounded-lg bg-zinc-900/60 border border-white/[0.04] space-y-2.5">
                   <div className="flex items-center justify-between">
-                    <span className="text-[11px] text-zinc-500 uppercase tracking-wide">Project {i + 1}</span>
+                    <span className="text-[11px] text-zinc-500 uppercase tracking-wide flex items-center gap-2">
+                      Project {i + 1}
+                      {missingRera && (
+                        <Badge className="text-[9px] h-4 px-1.5 rounded bg-amber-500/15 text-amber-300 border-0">
+                          RERA missing
+                        </Badge>
+                      )}
+                    </span>
                     <button onClick={() => removeProject(i)} className="text-zinc-600 hover:text-red-400">
                       <X size={14} />
                     </button>
                   </div>
+                  {/* Core fields — what auto-discover usually gets right
+                      and what AI-vis query generation always needs. */}
                   <div className="grid grid-cols-2 gap-2">
                     <Input placeholder="Project name" value={p.name} onChange={(e) => updateProject(i, "name", e.target.value)} className="bg-zinc-800/60 border-white/[0.04] text-[12px] h-8" />
                     <Input placeholder="Location (e.g. Gachibowli, Hyderabad)" value={p.location} onChange={(e) => updateProject(i, "location", e.target.value)} className="bg-zinc-800/60 border-white/[0.04] text-[12px] h-8" />
                     <Input placeholder="Configurations (e.g. 2BHK, 3BHK, Villa)" value={p.configurations} onChange={(e) => updateProject(i, "configurations", e.target.value)} className="bg-zinc-800/60 border-white/[0.04] text-[12px] h-8" />
                     <Input placeholder="Price range (e.g. ₹80L - 1.5Cr)" value={p.priceRange} onChange={(e) => updateProject(i, "priceRange", e.target.value)} className="bg-zinc-800/60 border-white/[0.04] text-[12px] h-8" />
                   </div>
+                  {/* RERA + status + possession + microsite — the fields
+                      the article-writer + RERA-verify agents need to
+                      ground every output. The UX is hidden behind a
+                      details/summary so projects auto-discover got fully
+                      right don't add visual noise — but they're always
+                      one click away. */}
+                  <details className="group [&[open]_summary_svg.chevron]:rotate-90">
+                    <summary className="text-[11px] text-zinc-500 hover:text-zinc-300 cursor-pointer select-none flex items-center gap-1.5 mt-1">
+                      <ArrowRight size={11} className="chevron transition-transform" />
+                      RERA, possession, microsite, amenities
+                      {missingRera && (
+                        <span className="text-amber-400 font-medium">— RERA recommended</span>
+                      )}
+                    </summary>
+                    <div className="grid grid-cols-2 gap-2 mt-2.5">
+                      <Input
+                        placeholder="RERA number (e.g. P02400000123)"
+                        value={p.reraNumber}
+                        onChange={(e) => updateProject(i, "reraNumber", e.target.value)}
+                        className="bg-zinc-800/60 border-white/[0.04] text-[12px] h-8"
+                      />
+                      <select
+                        value={p.status || "Active"}
+                        onChange={(e) => updateProject(i, "status", e.target.value)}
+                        className="bg-zinc-800/60 border border-white/[0.04] rounded-md px-2 text-[12px] h-8 text-zinc-200"
+                      >
+                        <option value="Active">Active</option>
+                        <option value="Pre-launch">Pre-launch</option>
+                        <option value="Under Construction">Under Construction</option>
+                        <option value="Ready to Move">Ready to Move</option>
+                        <option value="Sold Out">Sold Out</option>
+                      </select>
+                      <Input
+                        placeholder="Possession date (e.g. Q3 2026)"
+                        value={(p as any).possessionDate || ""}
+                        onChange={(e) => updateProject(i, "possessionDate" as keyof Project, e.target.value)}
+                        className="bg-zinc-800/60 border-white/[0.04] text-[12px] h-8"
+                      />
+                      <Input
+                        placeholder="Microsite URL (leave blank if on main site)"
+                        value={p.website}
+                        onChange={(e) => updateProject(i, "website", e.target.value)}
+                        className="bg-zinc-800/60 border-white/[0.04] text-[12px] h-8"
+                      />
+                    </div>
+                    <Textarea
+                      placeholder="Amenities (clubhouse, pool, gym, sky lounge, etc.) — comma separated"
+                      value={p.amenities}
+                      onChange={(e) => updateProject(i, "amenities", e.target.value)}
+                      className="bg-zinc-800/60 border-white/[0.04] text-[12px] min-h-[60px] mt-2"
+                    />
+                  </details>
                 </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* Competitors */}
@@ -711,6 +797,31 @@ function OnboardingInner() {
               </div>
             ))}
 
+            {/* Optional integrations — surfaced before the finish
+                button so customers see what's available without it
+                blocking onboarding. Each one's an OAuth flow that
+                pulls real data we use to sharpen scans and decay
+                detection. PSI is API-key based and runs automatically
+                on every audit, no setup needed. */}
+            <div className="rounded-lg border border-white/[0.06] bg-zinc-900/40 p-4 space-y-2.5">
+              <div className="flex items-center gap-2">
+                <Sparkles size={13} className="text-zinc-500" />
+                <h3 className="text-[12.5px] font-semibold text-zinc-300">Optional: connect Google (you can do this after)</h3>
+              </div>
+              <p className="text-[11px] text-zinc-500 leading-relaxed">
+                Connect Google Search Console so we can detect content decay (pages losing rankings) and prioritise refreshes. Page speed (Google PSI) runs automatically on every audit — no setup needed.
+              </p>
+              <div className="flex flex-wrap gap-2 pt-1">
+                <a
+                  href="/settings"
+                  className="text-[11px] font-medium px-2.5 py-1.5 rounded-md bg-zinc-800 text-zinc-200 hover:bg-zinc-700 border border-zinc-700/50"
+                >
+                  Open Settings → Integrations
+                </a>
+                <span className="text-[10.5px] text-zinc-600 self-center">or skip and connect from the dashboard later</span>
+              </div>
+            </div>
+
             {/* Nav buttons */}
             <div className="flex gap-3 pt-2">
               <Button
@@ -728,7 +839,7 @@ function OnboardingInner() {
                 {savingFinish ? (
                   <><Loader2 size={16} className="animate-spin mr-2" /> Saving...</>
                 ) : (
-                  <><Sparkles size={16} className="mr-2" />Launch Dashboard<ArrowRight size={16} className="ml-2" /></>
+                  <><Sparkles size={16} className="mr-2" />Run my first scan<ArrowRight size={16} className="ml-2" /></>
                 )}
               </Button>
             </div>
