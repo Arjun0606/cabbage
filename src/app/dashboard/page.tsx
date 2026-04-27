@@ -1208,6 +1208,15 @@ export default function DashboardPage() {
       if (raw) writingInstructions = JSON.parse(raw);
     } catch { /* non-fatal */ }
 
+    // Auto-discover stores brand fields as `brandVision`, `brandValues`
+    // on company.documents. The article-writer's brand-context score
+    // expects them as `vision`, `values`, plus `targetAudience`,
+    // `marketingStrategy`, and `competitorAnalysis` separately. We
+    // expand all of them here so every content generator (article
+    // writer, schema generator, GBP, etc.) sees the full surface and
+    // the brand-context gate passes for any customer who completed
+    // auto-discover.
+    const docs = company.documents as Record<string, string | undefined> | undefined;
     return {
       projectName: p?.name || company.name,
       developerName: company.name,
@@ -1220,9 +1229,27 @@ export default function DashboardPage() {
       amenities: (p as any)?.amenities || "",
       website: p?.website || company.website,
       status: (p as any)?.status || "",
-      // Brand context — this is what makes content genuinely relevant
-      brandVoice: company.documents?.brandVoice || "",
-      productInfo: company.documents?.productInfo || "",
+      // Brand context — this is what makes content genuinely relevant.
+      // Required-for-score fields:
+      brandVoice: docs?.brandVoice || "",
+      productInfo: docs?.productInfo || "",
+      vision: docs?.brandVision || "",
+      targetAudience: docs?.targetAudience || "",
+      competitorAnalysis: docs?.competitorAnalysis || "",
+      // Optional fields the score acknowledges as polish:
+      values: docs?.brandValues || "",
+      marketingStrategy: docs?.marketingStrategy || "",
+      // Disambiguation lists for the AI vis path; harmless on article-
+      // writer since it reads from brandContext as a fallback only.
+      brandContext: {
+        vision: docs?.brandVision || "",
+        values: docs?.brandValues || "",
+        targetAudience: docs?.targetAudience || "",
+        marketingStrategy: docs?.marketingStrategy || "",
+        competitorAnalysis: docs?.competitorAnalysis || "",
+        aliases: docs?.brandAliases || "",
+        exclusions: docs?.brandExclusions || "",
+      },
       // All projects summary for cross-referencing
       allProjects: (company.projects || []).map((proj: any) => ({
         name: proj.name, location: proj.location, configurations: proj.configurations,
