@@ -119,6 +119,14 @@ export default function DemoPage() {
           productInfo: discovered.documents?.productInfo || "",
           brandVoice: discovered.documents?.brandVoice || "",
           competitorAnalysis: discovered.documents?.competitorAnalysis || "",
+          // Carry the auto-discover-populated brand fields through to
+          // the demo dashboard so the article-writer's brand-context
+          // gate passes during sales pitches. Without these the bulk
+          // worker would 412 on every article.
+          brandVision: discovered.documents?.brandVision || "",
+          brandValues: discovered.documents?.brandValues || "",
+          targetAudience: discovered.documents?.targetAudience || "",
+          marketingStrategy: discovered.documents?.marketingStrategy || "",
         },
       };
 

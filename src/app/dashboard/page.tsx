@@ -39,7 +39,20 @@ export default function DashboardPage() {
     sites: [] as { url: string; label: string }[],
     projects: [] as { name: string; website: string; location: string; configurations?: string; priceRange?: string; reraNumber?: string; amenities?: string; status?: string; phase?: string; possessionDate?: string }[],
     competitors: [] as { name: string; website: string }[],
-    documents: { productInfo: "", brandVoice: "", competitorAnalysis: "", brandAliases: "", brandExclusions: "" },
+    documents: {
+      productInfo: "",
+      brandVoice: "",
+      competitorAnalysis: "",
+      // Auto-discover populates these on signup; editable in the
+      // CompanyPanel so the customer can refine guesses. Article-writer
+      // reads them via getProjectContext's expansion path.
+      brandVision: "",
+      brandValues: "",
+      targetAudience: "",
+      marketingStrategy: "",
+      brandAliases: "",
+      brandExclusions: "",
+    },
   });
 
   const [auditResult, setAuditResult] = useState<any>(null);
@@ -239,9 +252,15 @@ export default function DashboardPage() {
                   productInfo: dbCompany.product_info || localData.documents?.productInfo || "",
                   brandVoice: dbCompany.brand_voice || localData.documents?.brandVoice || "",
                   competitorAnalysis: dbCompany.competitor_analysis || localData.documents?.competitorAnalysis || "",
-                  // Aliases + exclusions live inside the documents JSONB
-                  // blob (no dedicated columns needed — they're single-
-                  // line comma lists).
+                  // The auto-discover-populated brand fields live inside
+                  // the documents JSONB blob — no dedicated columns. The
+                  // article-writer reads them via getProjectContext's
+                  // mapping (brandVision → vision etc.).
+                  brandVision: dbCompany.documents?.brandVision || localData.documents?.brandVision || "",
+                  brandValues: dbCompany.documents?.brandValues || localData.documents?.brandValues || "",
+                  targetAudience: dbCompany.documents?.targetAudience || localData.documents?.targetAudience || "",
+                  marketingStrategy: dbCompany.documents?.marketingStrategy || localData.documents?.marketingStrategy || "",
+                  // Aliases + exclusions are single-line comma lists.
                   brandAliases: dbCompany.documents?.brandAliases || localData.documents?.brandAliases || "",
                   brandExclusions: dbCompany.documents?.brandExclusions || localData.documents?.brandExclusions || "",
                 },

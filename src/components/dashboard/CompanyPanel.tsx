@@ -31,6 +31,16 @@ interface Company {
     productInfo: string;
     brandVoice: string;
     competitorAnalysis: string;
+    /** Auto-discover populates these; the article-writer's brand-context
+     *  score reads them under different key names (vision / values /
+     *  targetAudience / marketingStrategy). They're editable here so a
+     *  customer can refine what auto-discover guessed — or fill them in
+     *  by hand if they skipped auto-discover. Always strings (defaulting
+     *  to "") so React's setCompany type round-trips cleanly. */
+    brandVision: string;
+    brandValues: string;
+    targetAudience: string;
+    marketingStrategy: string;
     /** Comma-separated alternate spellings (e.g. "Prestige Group, PEPL"). */
     brandAliases: string;
     /** Comma-separated unrelated brands to suppress ("Godrej Consumer, Godrej Agrovet"). */
@@ -137,10 +147,21 @@ export function CompanyPanel({ company, setCompany }: Props) {
     }
   };
 
+  // Brand-context fields the article-writer reads. Auto-discover fills
+  // these from the prospect's website on signup; surfacing them as
+  // editable rows lets the customer fix guesses, or fill them by hand
+  // when auto-discover skipped a field. The article-writer's
+  // brand-context score requires productInfo + brandVoice + brandVision
+  // + targetAudience + competitorAnalysis to be filled before any
+  // article will generate.
   const documents = [
-    { key: "productInfo", label: "Product Information", icon: FileText, hint: "What you sell, key features, target buyer, USPs" },
-    { key: "brandVoice", label: "Brand Voice & Positioning", icon: Building2, hint: "How your brand speaks + values + vision — all in one" },
-    { key: "competitorAnalysis", label: "Competitor Analysis", icon: Users, hint: "Key competitors, their strengths, your differentiation" },
+    { key: "productInfo", label: "Product Information", icon: FileText, hint: "What you sell — config range, price segments, signature features, target buyer (first-time / NRI / families / IT). Required for article generation." },
+    { key: "brandVoice", label: "Brand Voice", icon: Building2, hint: "How your brand actually speaks. Luxury / affordable-aspirational / family-focused / tech-forward / heritage-traditional / contemporary-minimal — and how that shows up in copy. Required for article generation." },
+    { key: "brandVision", label: "Vision / Positioning", icon: Building2, hint: "Where the brand is going. Long-term promise to buyers. Drives editorial angle on every piece. Required for article generation." },
+    { key: "targetAudience", label: "Target Audience", icon: Users, hint: "Who buys from you. Config, price band, locality, age, family stage, NRI segments. Steers article tone, evidence, and CTAs. Required for article generation." },
+    { key: "competitorAnalysis", label: "Competitor Analysis", icon: Users, hint: "Key competitors, their strengths, your differentiation. Required for article generation — drives 'alternatives to X' comparison pieces." },
+    { key: "brandValues", label: "Brand Values (optional)", icon: FileText, hint: "Quality / safety / innovation / trust / sustainability / community — the 3-4 your brand actually leans into. Optional but improves hallucination-fix articles." },
+    { key: "marketingStrategy", label: "Marketing Strategy (optional)", icon: FileText, hint: "Your current digital approach — YT walkthroughs, RERA-compliant content, NRI pages, broker portals. Optional, shapes GBP and portal copy variants." },
     // Disambiguation — the important one for multi-brand names like
     // "Godrej" (FMCG vs Properties) or "Prestige" (hotel chain vs the
     // Bangalore developer). Aliases widen mention detection; exclusions
