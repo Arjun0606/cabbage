@@ -24,6 +24,10 @@ interface Company {
   description: string;
   website: string;
   city: string;
+  /** Multi-city array. Primary city is also stored at `city` (first
+   *  entry); extras live here. AI visibility scans run per-city only
+   *  when the city appears in this list. */
+  cities: string[];
   sites: { url: string; label: string }[];
   projects: { name: string; website: string; location: string; configurations?: string; priceRange?: string; reraNumber?: string; amenities?: string; status?: string; phase?: string; possessionDate?: string }[];
   competitors: { name: string; website: string }[];
@@ -202,9 +206,71 @@ export function CompanyPanel({ company, setCompany }: Props) {
           />
           <CityAutocomplete
             value={company.city}
-            onChange={(city) => setCompany({ ...company, city })}
-            placeholder="Primary city"
+            onChange={(city) => {
+              // Keep the cities array in sync — primary city always
+              // appears first. Adding/changing primary doesn't drop
+              // any other cities the brand operates in.
+              const others = (company.cities || []).filter(
+                (c) => c.toLowerCase().trim() !== city.toLowerCase().trim() &&
+                       c.toLowerCase().trim() !== (company.city || "").toLowerCase().trim(),
+              );
+              setCompany({
+                ...company,
+                city,
+                cities: city ? [city, ...others] : others,
+              });
+            }}
+            placeholder="Primary city / HQ"
           />
+
+          {/* Multi-city editor. Brands like Urbanrise / Lodha / Prestige
+              operate across 3+ cities; per-city AI visibility scans only
+              fire when those cities are listed here. The primary city
+              above is always the first entry — extras live in this row. */}
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2 flex-wrap">
+              {(company.cities || []).slice(1).map((c, i) => (
+                <Badge
+                  key={`${c}-${i}`}
+                  className="bg-zinc-800 text-zinc-300 border-0 rounded-md h-7 px-2 text-[11.5px] flex items-center gap-1.5"
+                >
+                  {c}
+                  <button
+                    onClick={() => {
+                      const next = (company.cities || []).filter((x) => x !== c);
+                      setCompany({ ...company, cities: next });
+                    }}
+                    className="text-zinc-500 hover:text-red-400"
+                    title="Remove city"
+                  >
+                    <X size={11} />
+                  </button>
+                </Badge>
+              ))}
+              <CityAutocomplete
+                value=""
+                onChange={(newCity) => {
+                  const trimmed = newCity.trim();
+                  if (!trimmed) return;
+                  const exists = (company.cities || []).some(
+                    (c) => c.toLowerCase() === trimmed.toLowerCase(),
+                  );
+                  if (exists) return;
+                  setCompany({
+                    ...company,
+                    cities: [...(company.cities || []), trimmed],
+                  });
+                }}
+                placeholder="+ Add another city you operate in"
+              />
+            </div>
+            {(company.cities || []).length <= 1 && (
+              <p className="text-[10.5px] text-zinc-500 leading-relaxed">
+                Multi-city builders: add every city you operate in. AI visibility scans run per-city, RERA tracks per-state, and per-locality articles target each market separately.
+              </p>
+            )}
+          </div>
+
           <Textarea
             placeholder="About the company..."
             value={company.description}

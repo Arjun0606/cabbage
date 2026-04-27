@@ -36,6 +36,12 @@ export default function DashboardPage() {
     description: "",
     website: "",
     city: "",
+    // Multi-city array. Auto-discover now populates this with every
+    // city the brand operates in (in priority order). The single
+    // `city` field above is kept as the primary/HQ city for backward
+    // compat. AI vis query generation reads `cities` when present so
+    // multi-city brands like Urbanrise get per-city query scopes.
+    cities: [] as string[],
     sites: [] as { url: string; label: string }[],
     projects: [] as { name: string; website: string; location: string; configurations?: string; priceRange?: string; reraNumber?: string; amenities?: string; status?: string; phase?: string; possessionDate?: string }[],
     competitors: [] as { name: string; website: string }[],
@@ -230,6 +236,15 @@ export default function DashboardPage() {
                 description: dbCompany.description || localData.description,
                 website: dbCompany.website || localData.website,
                 city: dbCompany.city || localData.city,
+                // Cities array — DB stores it as documents.cities or a
+                // dedicated jsonb column when migrated. Fall back to
+                // wrapping the single city for any company onboarded
+                // before the multi-city change.
+                cities: Array.isArray((dbCompany.documents as any)?.cities)
+                  ? ((dbCompany.documents as any).cities as string[])
+                  : Array.isArray(localData.cities) && localData.cities.length > 0
+                    ? localData.cities
+                    : (dbCompany.city ? [dbCompany.city] : localData.city ? [localData.city] : []),
                 projects: dbCompany.projects?.map((p: any) => ({
                   name: p.name, website: p.website, location: p.location,
                   configurations: p.configurations, priceRange: p.price_range,
@@ -1044,8 +1059,16 @@ export default function DashboardPage() {
         : "";
       const scopeNote = [projectNote, selectedLocality, selectedCity].filter(Boolean).join(" / ");
       addLog(`> Payload: brand="${company.name}" city="${scanCity || "(EMPTY!)"}" projects=${scopedProjects.length}${scopeNote ? ` (scoped to ${scopeNote})` : ""}`);
+      // Multi-city payload — when no specific city is selected and the
+      // brand operates in multiple cities, send the full cities array
+      // so the query generator scopes per-city ("best 3BHK Chennai",
+      // "best 3BHK Bengaluru") instead of collapsing to one.
+      const allCities = (company.cities && company.cities.length > 0)
+        ? company.cities
+        : (company.city ? [company.city] : []);
+      const citiesForScan = selectedCity ? [selectedCity] : allCities;
       const res = await fetch("/api/ai-visibility", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
-        websiteUrl: activeSiteUrl || company.website, brand: company.name, city: scanCity, savedQueries: existingQueries,
+        websiteUrl: activeSiteUrl || company.website, brand: company.name, city: scanCity, cities: citiesForScan, savedQueries: existingQueries,
         projects: scopedProjects.map(p => p.name),
         // Full structured project details so the query generator can
         // produce the buyer-query matrix (config + locality + price +

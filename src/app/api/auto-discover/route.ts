@@ -319,6 +319,7 @@ Generate this JSON:
 {
   "companyDescription": "2-3 sentence description of what the company does, inferred from their website",
   "city": "Primary city they operate in (inferred from content, addresses, project locations)",
+  "cities": ["EVERY city this brand operates in. Inferred from project locations, address headers, regional pages. Order with the primary city first. Multi-city brands like Urbanrise, Lodha, Prestige operate across Chennai/Bengaluru/Hyderabad/Mumbai etc — never collapse them to one. If single-city, return an array with one entry."],
 
   "documents": {
     "productInfo": "200-word summary: what they build (configurations, price segments, signature features) + target buyer (first-time / investor / NRI / families / IT / age / income bracket). Combine product + buyer in one block.",

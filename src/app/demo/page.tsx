@@ -95,11 +95,23 @@ export default function DemoPage() {
         if (nameFromDesc && nameFromDesc.length > 2 && nameFromDesc.length < 60) name = nameFromDesc;
       }
 
+      // Cities — auto-discover now returns an array. Falls back to the
+      // single `city` field for backward compat with any cached
+      // responses or older auto-discover paths. Multi-city brands like
+      // Urbanrise (Chennai + Bengaluru + Hyderabad) need every city in
+      // scope so the AI vis query generator scopes per-city instead of
+      // collapsing to one. The first entry is treated as primary.
+      const citiesArray = Array.isArray(discovered.cities) && discovered.cities.length > 0
+        ? discovered.cities.filter((c: unknown): c is string => typeof c === "string" && c.trim().length > 0)
+        : (discovered.city ? [discovered.city] : []);
+      const primaryCity = citiesArray[0] || "";
+
       const companyData = {
         name,
         description: discovered.companyDescription || "",
         website: normalized,
-        city: discovered.city || "",
+        city: primaryCity,
+        cities: citiesArray,
         industry: "real_estate",
         sites: [] as { url: string; label: string }[],
         projects: validProjects.map((p: any) => ({
