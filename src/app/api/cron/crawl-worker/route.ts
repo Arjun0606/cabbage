@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
   // unprocessed jobs roll into the next tick.
   const { data: jobs } = await svc
     .from("crawl_jobs")
-    .select("id, url, max_pages, state, pages_done, status, last_tick_at")
+    .select("id, company_id, url, max_pages, state, pages_done, status, last_tick_at")
     .or(`status.eq.queued,and(status.eq.running,last_tick_at.lt.${stuckCutoff})`)
     .order("enqueued_at", { ascending: true })
     .limit(3);
@@ -75,6 +75,30 @@ export async function GET(req: NextRequest) {
           completed_at: done ? new Date().toISOString() : null,
         })
         .eq("id", job.id);
+
+      // Append broken pages from this chunk to broken_links so the
+      // dashboard panel reflects the latest crawl state without waiting
+      // for the whole crawl to finish. Each chunk's rows share a single
+      // crawled_at timestamp so the panel can group by recency.
+      const broken = result.pages.filter((p) => p.statusCode >= 400 || p.statusCode === 0);
+      if (broken.length > 0) {
+        const chunkAt = new Date().toISOString();
+        const rows = broken.slice(0, 500).map((p) => ({
+          company_id: job.company_id as string,
+          url: p.url,
+          status_code: p.statusCode,
+          fetch_error: p.fetchError || null,
+          crawled_at: chunkAt,
+        }));
+        try {
+          await svc.from("broken_links").insert(rows);
+        } catch (err) {
+          console.warn(
+            "broken_links persist (cron) failed:",
+            err instanceof Error ? err.message : err,
+          );
+        }
+      }
 
       summary.push({
         id: job.id as string,

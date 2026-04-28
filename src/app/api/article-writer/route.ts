@@ -6,6 +6,9 @@ import { enforceCredits } from "@/lib/credits";
 import { requireActiveSubscription } from "@/lib/db/supabase-server";
 import { getServiceClient } from "@/lib/db/supabase";
 import { scoreBrandContext, READY_THRESHOLD } from "@/lib/brandContext";
+import { detectCannibalization } from "@/lib/seo/cannibalization";
+import { findRelatedArticles, renderRelatedReadingMarkdown } from "@/lib/seo/relatedArticles";
+import { buildAndValidateArticleSchemas } from "@/lib/seo/articleSchema";
 
 type ArticleType =
   | "locality_guide"
@@ -146,6 +149,36 @@ export async function POST(req: NextRequest) {
 
     // Track credit usage (always allows — upsell model)
     await enforceCredits(body.companyId, "article");
+
+    // Cannibalization check — at 80-200 articles a month, two articles
+    // for the same target query split signal between themselves and
+    // neither ranks. Block exact-match writes unless the caller passes
+    // `override: true`. Near-matches (≥0.6 jaccard) get returned as a
+    // warning the UI can surface but don't block. Cron path skips —
+    // the bulk worker is just executing what the user already queued,
+    // and the queue's own dedup (unique on company_id, query) prevents
+    // exact-match enqueues. Demo bypasses.
+    let cannibal: Awaited<ReturnType<typeof detectCannibalization>> | null = null;
+    if (!isCron && companyId && gate.plan !== "demo" && targetKeyword && body.override !== true) {
+      try {
+        cannibal = await detectCannibalization(companyId, targetKeyword);
+        if (cannibal.exact) {
+          return NextResponse.json(
+            {
+              error: `An article for this query already exists in your library — generating another would split your AI signal between the two.`,
+              hint: `Edit the existing article instead, or pass override: true if you intentionally want a fresh draft.`,
+              cannibalization: cannibal,
+              existingArticleId: cannibal.exact.id,
+            },
+            { status: 409 },
+          );
+        }
+      } catch (err) {
+        // Cannibalization check is best-effort — never block a write on
+        // an infra hiccup; just log and skip.
+        console.warn("cannibalization check failed:", err instanceof Error ? err.message : err);
+      }
+    }
 
     if (!articleType || !ARTICLE_TYPE_INSTRUCTIONS[articleType as ArticleType]) {
       return NextResponse.json(
@@ -417,6 +450,40 @@ Return ONLY valid JSON. No markdown code blocks around the JSON.`;
       finalContent += `\n\n---\n*Last updated: ${todayIso}*`;
     }
 
+    // Internal linking — pull up to 4 topically-related articles from
+    // this company's existing library and append a "Related reading"
+    // block before the freshness line. At 80-200 articles a month this
+    // is how we keep the topic graph dense — every new article links
+    // backward into the existing corpus, every existing article gets
+    // mentioned by a relevant new one, and AI crawlers see a real
+    // cluster instead of orphan pages.
+    let relatedArticles: Awaited<ReturnType<typeof findRelatedArticles>> = [];
+    if (companyId && targetKeyword) {
+      try {
+        relatedArticles = await findRelatedArticles(
+          companyId,
+          targetKeyword,
+          parsed.title || "",
+          { limit: 4 },
+        );
+        if (relatedArticles.length > 0) {
+          const block = renderRelatedReadingMarkdown(relatedArticles);
+          // Insert before any trailing freshness footer so the freshness
+          // line stays at the very end of the article.
+          if (/\n\n---\n\*Last updated:/.test(finalContent)) {
+            finalContent = finalContent.replace(
+              /(\n\n---\n\*Last updated:)/,
+              `${block}$1`,
+            );
+          } else {
+            finalContent += block;
+          }
+        }
+      } catch (err) {
+        console.warn("related articles lookup failed:", err instanceof Error ? err.message : err);
+      }
+    }
+
     // -----------------------------------------------------------------
     // QA pass — second-pass LLM review catches what rule-based scoring
     // can't: fabricated landmarks, made-up RERA numbers, off-brand voice,
@@ -491,6 +558,28 @@ Return JSON:
       console.warn("article QA pass failed:", err instanceof Error ? err.message : err);
     }
 
+    // JSON-LD schema bundle. Generated and validated server-side so the
+    // customer can copy the schemas straight into their CMS without
+    // hand-writing JSON-LD. Article + FAQPage (when faqs are present)
+    // schemas are emitted; both pass our validator before we ship them
+    // (missing required fields, malformed FAQ shape, non-serialisable
+    // values all get caught here, not at customer-deploy time when AI
+    // crawlers would silently downgrade the page).
+    const company = developerName || projectName;
+    const fakePublishUrl = `https://example.com/${(parsed.title || targetKeyword).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "")}`;
+    const schemaBundle = buildAndValidateArticleSchemas({
+      article: {
+        title: parsed.title || targetKeyword,
+        metaDescription: parsed.metaDescription || "",
+        publishUrl: fakePublishUrl,
+        authorName: `${company} editorial team`,
+        publisherName: company,
+        publishedDate: todayIso,
+        modifiedDate: todayIso,
+      },
+      faqs: Array.isArray(parsed.faqs) ? parsed.faqs : [],
+    });
+
     return NextResponse.json({
       title: parsed.title || "",
       metaDescription: parsed.metaDescription || "",
@@ -505,6 +594,10 @@ Return JSON:
       geoScore,
       missingGeoSignals,
       qa,
+      cannibalization: cannibal,
+      relatedArticles,
+      schema: schemaBundle.schemas,
+      schemaValidation: schemaBundle.validation,
     });
   } catch (error) {
     console.error("Article writer error:", error);

@@ -58,6 +58,37 @@ export async function POST(req: NextRequest) {
 
     await enforceCredits(companyId, "audit");
 
+    // Helper: extract broken pages from a crawl result and write them
+    // into broken_links so the dashboard can surface them stably across
+    // crawls. Skips quietly when there's no companyId (anonymous crawl)
+    // or when no broken pages exist (still write a noop row count to
+    // tell the panel "we checked, all good").
+    async function persistBrokenLinks(
+      svc: ReturnType<typeof getServiceClient>,
+      cid: string,
+      pages: import("@/lib/agents/siteCrawler").CrawledPage[],
+    ): Promise<void> {
+      const broken = pages.filter((p) => p.statusCode >= 400 || p.statusCode === 0);
+      if (broken.length === 0) return;
+      const crawledAt = new Date().toISOString();
+      // Cap per-crawl rows so a totally broken site doesn't dump 5K rows.
+      const rows = broken.slice(0, 500).map((p) => ({
+        company_id: cid,
+        url: p.url,
+        status_code: p.statusCode,
+        fetch_error: p.fetchError || null,
+        crawled_at: crawledAt,
+      }));
+      try {
+        await svc.from("broken_links").insert(rows);
+      } catch (err) {
+        console.warn(
+          "broken_links persist failed:",
+          err instanceof Error ? err.message : err,
+        );
+      }
+    }
+
     const requested = Math.max(Number(maxPages) || DEFAULT_PAGES, 1);
     const limit = Math.min(requested, tierCap);
 
@@ -66,6 +97,9 @@ export async function POST(req: NextRequest) {
     // smaller crawl on Scale.
     if (limit <= INLINE_THRESHOLD) {
       const { result } = await runSiteCrawlChunk(url, { maxPages: limit });
+      if (companyId && typeof companyId === "string") {
+        await persistBrokenLinks(getServiceClient(), companyId, result.pages);
+      }
       return NextResponse.json({
         ...result,
         tierCap,
@@ -110,6 +144,12 @@ export async function POST(req: NextRequest) {
       })
       .select("id")
       .single();
+
+    // Persist broken links from THIS chunk. Subsequent chunks (run by
+    // the cron worker) will append more rows under their own crawled_at
+    // timestamp, so the dashboard reads "most recent crawled_at" to get
+    // the latest snapshot.
+    await persistBrokenLinks(svc, companyId, result.pages);
 
     return NextResponse.json({
       ...result,

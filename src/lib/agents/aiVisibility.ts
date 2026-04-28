@@ -66,6 +66,14 @@ interface LLMResult {
    *  Empty array means checked-and-clean. Absent / undefined means not
    *  audited (no ground-truth projects supplied, or brand not mentioned). */
   hallucinations?: import("./hallucinationCheck").Hallucination[];
+  /** Trimmed raw text of the AI response (≤ 2500 chars). Surfaced in
+   *  the dashboard as evidence so customers can read exactly what
+   *  ChatGPT / Gemini said when asked the buyer query. The full
+   *  response can be much longer; we trim to keep storage modest while
+   *  preserving the part that actually contains the citation context.
+   *  Optional for backward compat with scans persisted before this
+   *  field existed. */
+  rawResponse?: string;
 }
 
 interface AIReadinessCheck {
@@ -543,6 +551,13 @@ export async function runAIVisibility(
         ])
       : [undefined, undefined];
 
+    // Capture trimmed raw responses as evidence. Cap at 2500 chars per
+    // platform — long enough to retain the full citation paragraph and
+    // surrounding context, short enough that 50 queries × 2 platforms
+    // fits comfortably in a JSONB column without bloating scan_history.
+    const RAW_MAX = 2500;
+    const trim = (s: string) => (s && typeof s === "string" ? s.slice(0, RAW_MAX) : "");
+
     queryResults.push({
       query: qm.query,
       level: qm.level,
@@ -550,8 +565,16 @@ export async function runAIVisibility(
       config: qm.config,
       priceTier: qm.priceTier,
       intent: qm.intent,
-      chatgpt: { ...chatgptAnalysis, hallucinations: chatgptHallucinations },
-      gemini: { ...geminiAnalysis, hallucinations: geminiHallucinations },
+      chatgpt: {
+        ...chatgptAnalysis,
+        hallucinations: chatgptHallucinations,
+        rawResponse: trim(chatgptRes.text),
+      },
+      gemini: {
+        ...geminiAnalysis,
+        hallucinations: geminiHallucinations,
+        rawResponse: trim(geminiRes.text),
+      },
       claude: emptyResult,
       perplexity: emptyResult,
     });

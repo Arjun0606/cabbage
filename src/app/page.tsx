@@ -83,6 +83,8 @@ export default function Home() {
         <span>&bull;</span>
         <Link href="/about" className="hover:text-zinc-400 transition-colors">About</Link>
         <span>&bull;</span>
+        <Link href="/methodology" className="hover:text-zinc-400 transition-colors">Methodology</Link>
+        <span>&bull;</span>
         <Link href="/terms" className="hover:text-zinc-400 transition-colors">Terms</Link>
         <span>&bull;</span>
         <Link href="/privacy" className="hover:text-zinc-400 transition-colors">Privacy</Link>

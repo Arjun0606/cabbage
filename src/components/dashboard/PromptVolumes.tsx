@@ -106,6 +106,18 @@ export function PromptVolumes({
     setExpandedFanout(next);
   };
 
+  // Per-query "evidence" expanded state — surfaces the actual AI
+  // response text we captured during the scan. Keyed by query index in
+  // the queryResults array so two queries with the same text in
+  // different positions can be expanded independently.
+  const [expandedEvidence, setExpandedEvidence] = useState<Set<number>>(new Set());
+  const toggleEvidence = (i: number) => {
+    const next = new Set(expandedEvidence);
+    if (next.has(i)) next.delete(i);
+    else next.add(i);
+    setExpandedEvidence(next);
+  };
+
   // Fast lookups used throughout the render tree
   const pinnedSet = useMemo(() => new Set(goldenPrompts.map((q) => q.trim().toLowerCase())), [goldenPrompts]);
   const volatilityByQuery = useMemo(() => {
@@ -456,29 +468,92 @@ export function PromptVolumes({
                 const mentioned = qr.chatgpt?.mentioned || qr.gemini?.mentioned;
                 const pinned = isPinned(q);
                 const v = volatilityByQuery.get(q.trim().toLowerCase());
+                const chatgptRaw: string = typeof qr.chatgpt?.rawResponse === "string" ? qr.chatgpt.rawResponse : "";
+                const geminiRaw: string = typeof qr.gemini?.rawResponse === "string" ? qr.gemini.rawResponse : "";
+                const hasEvidence = chatgptRaw.length > 0 || geminiRaw.length > 0;
+                const isExpanded = expandedEvidence.has(i);
                 return (
-                  <div key={i} className="flex items-center gap-2 px-3.5 py-2 hover:bg-white/[0.02] transition-colors">
-                    <span className={`text-[10px] tabular-nums w-5 flex-shrink-0 ${mentioned ? "text-[#7CB342]/60" : "text-red-500/60"}`}>
-                      {mentioned ? "●" : "○"}
-                    </span>
-                    <span className="text-[12px] text-zinc-300 flex-1 truncate" title={q}>&ldquo;{q}&rdquo;</span>
-                    {v && v.history.length >= 2 && (
-                      <Sparkline points={v.history.map((h) => h.score)} label={v.label} />
+                  <div key={i} className="border-b border-white/[0.04] last:border-b-0">
+                    <div className="flex items-center gap-2 px-3.5 py-2 hover:bg-white/[0.02] transition-colors">
+                      <span className={`text-[10px] tabular-nums w-5 flex-shrink-0 ${mentioned ? "text-[#7CB342]/60" : "text-red-500/60"}`}>
+                        {mentioned ? "●" : "○"}
+                      </span>
+                      <span className="text-[12px] text-zinc-300 flex-1 truncate" title={q}>&ldquo;{q}&rdquo;</span>
+                      {v && v.history.length >= 2 && (
+                        <Sparkline points={v.history.map((h) => h.score)} label={v.label} />
+                      )}
+                      {hasEvidence && (
+                        <button
+                          onClick={() => toggleEvidence(i)}
+                          className="p-1 rounded text-zinc-500 hover:text-zinc-200 hover:bg-white/[0.04] flex-shrink-0"
+                          title={isExpanded ? "Hide AI response" : "Show what ChatGPT and Gemini actually said"}
+                        >
+                          {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                        </button>
+                      )}
+                      <button
+                        onClick={() => (pinned ? onUnpinQuery?.(q) : onPinQuery(q))}
+                        disabled={!pinned && !canPinMore}
+                        className={`p-1 rounded transition-colors flex-shrink-0 ${
+                          pinned
+                            ? "text-[#7CB342] hover:bg-[#7CB342]/10"
+                            : canPinMore
+                            ? "text-zinc-500 hover:text-zinc-200 hover:bg-white/[0.04]"
+                            : "text-zinc-700 cursor-not-allowed"
+                        }`}
+                        title={pinned ? "Unpin" : canPinMore ? "Pin to Golden prompts" : `Max ${GOLDEN_MAX} pinned — unpin one first`}
+                      >
+                        {pinned ? <Pin size={12} /> : <Pin size={12} />}
+                      </button>
+                    </div>
+                    {hasEvidence && isExpanded && (
+                      <div className="px-3.5 pb-3 pt-1 bg-zinc-950/40 space-y-2.5">
+                        <p className="text-[10px] uppercase tracking-wider text-zinc-500">
+                          What the AI actually said
+                        </p>
+                        {chatgptRaw && (
+                          <div>
+                            <div className="flex items-center gap-1.5 mb-1">
+                              <span className="text-[10px] font-semibold text-zinc-400">ChatGPT</span>
+                              {qr.chatgpt?.mentioned ? (
+                                <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-[#7CB342]/10 text-[#7CB342]">
+                                  mentioned · pos {qr.chatgpt.position || "?"}
+                                </span>
+                              ) : (
+                                <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-red-500/10 text-red-400">
+                                  not mentioned
+                                </span>
+                              )}
+                            </div>
+                            <pre className="whitespace-pre-wrap text-[11px] leading-relaxed text-zinc-300 bg-zinc-900/50 border border-white/[0.04] rounded-md p-2.5 font-sans max-h-[180px] overflow-y-auto">
+                              {chatgptRaw}
+                            </pre>
+                          </div>
+                        )}
+                        {geminiRaw && (
+                          <div>
+                            <div className="flex items-center gap-1.5 mb-1">
+                              <span className="text-[10px] font-semibold text-zinc-400">Gemini</span>
+                              {qr.gemini?.mentioned ? (
+                                <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-[#7CB342]/10 text-[#7CB342]">
+                                  mentioned · pos {qr.gemini.position || "?"}
+                                </span>
+                              ) : (
+                                <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-red-500/10 text-red-400">
+                                  not mentioned
+                                </span>
+                              )}
+                            </div>
+                            <pre className="whitespace-pre-wrap text-[11px] leading-relaxed text-zinc-300 bg-zinc-900/50 border border-white/[0.04] rounded-md p-2.5 font-sans max-h-[180px] overflow-y-auto">
+                              {geminiRaw}
+                            </pre>
+                          </div>
+                        )}
+                        <p className="text-[10px] text-zinc-600 italic">
+                          Captured during the latest scan. Trimmed to ~2,500 chars per platform.
+                        </p>
+                      </div>
                     )}
-                    <button
-                      onClick={() => (pinned ? onUnpinQuery?.(q) : onPinQuery(q))}
-                      disabled={!pinned && !canPinMore}
-                      className={`p-1 rounded transition-colors flex-shrink-0 ${
-                        pinned
-                          ? "text-[#7CB342] hover:bg-[#7CB342]/10"
-                          : canPinMore
-                          ? "text-zinc-500 hover:text-zinc-200 hover:bg-white/[0.04]"
-                          : "text-zinc-700 cursor-not-allowed"
-                      }`}
-                      title={pinned ? "Unpin" : canPinMore ? "Pin to Golden prompts" : `Max ${GOLDEN_MAX} pinned — unpin one first`}
-                    >
-                      {pinned ? <Pin size={12} /> : <Pin size={12} />}
-                    </button>
                   </div>
                 );
               })}

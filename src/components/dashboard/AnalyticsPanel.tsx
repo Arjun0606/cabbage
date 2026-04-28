@@ -46,6 +46,9 @@ import { ProgressDashboard } from "./ProgressDashboard";
 import { NextActionBanner } from "./NextActionBanner";
 import { BrandContextRefreshNudge } from "./BrandContextRefreshNudge";
 import { PendingProjectsBanner } from "./PendingProjectsBanner";
+import { CWVRegressionPanel } from "./CWVRegressionPanel";
+import { BrokenLinksPanel } from "./BrokenLinksPanel";
+import { KnowledgeGraphPanel } from "./KnowledgeGraphPanel";
 import { ProjectCompare } from "./ProjectCompare";
 import { DelayRiskPanel } from "./DelayRiskPanel";
 import { ReviewMonitor } from "./ReviewMonitor";
@@ -959,6 +962,18 @@ export function AnalyticsPanel({
                   </CardContent>
                 </SectionCard>
               )}
+
+              {/* CWV trend across recent audits — surfaces regressions
+                  the snapshot above can't show. */}
+              <CWVRegressionPanel companyId={companyId} />
+
+              {/* Broken-link monitor — populated from the most recent
+                  site crawl. Hides when nothing's broken. */}
+              <BrokenLinksPanel companyId={companyId} />
+
+              {/* Brand knowledge graph — connected JSON-LD for
+                  Organization → cities → projects → listings. */}
+              <KnowledgeGraphPanel companyId={companyId} />
 
               {auditResult.seoHealth?.length > 0 && (
                 <SectionCard>
