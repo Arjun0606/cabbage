@@ -1901,6 +1901,43 @@ export default function DashboardPage() {
         {isDemoMode && (
           <DemoBanner prospectName={company.name} prospectUrl={company.website} />
         )}
+        {/* GSC connect prompt — shows when the customer hasn't OAuth'd
+            Google Search Console yet. GSC data is what unlocks click +
+            impression tracking, content decay detection, and "queries
+            you already rank for" insights. The prompt is dismissible
+            (we set cabbge_gsc_dismissed in localStorage). For demo
+            mode we hide it because demo prospects can't OAuth. */}
+        {!isDemoMode && !gscData && billing?.canAccess && (() => {
+          if (typeof window !== "undefined" && localStorage.getItem("cabbge_gsc_dismissed") === "true") return null;
+          return (
+            <div className="px-5 py-2.5 bg-blue-500/[0.06] border-b border-blue-500/20 flex items-center gap-3">
+              <div className="flex-1 text-[12px] text-blue-200">
+                <span className="font-semibold">Connect Google Search Console</span> — see which buyer queries already drive clicks to your site, detect pages losing Google rankings, and prioritise refreshes. PageSpeed runs automatically; GSC needs a one-time OAuth.
+              </div>
+              <a
+                href="/settings"
+                className="text-[11px] font-medium px-3 py-1.5 rounded-md bg-blue-500/15 text-blue-200 hover:bg-blue-500/25 border border-blue-500/30 flex-shrink-0"
+              >
+                Connect
+              </a>
+              <button
+                onClick={() => {
+                  if (typeof window !== "undefined") {
+                    localStorage.setItem("cabbge_gsc_dismissed", "true");
+                    // Force re-render by forcing a state update — dashboard
+                    // re-reads localStorage on its next render anyway, but we
+                    // hide the banner immediately for snappy UX.
+                    window.dispatchEvent(new Event("storage"));
+                  }
+                }}
+                className="text-zinc-500 hover:text-zinc-300 text-[14px] flex-shrink-0"
+                title="Hide"
+              >
+                ×
+              </button>
+            </div>
+          );
+        })()}
         {/* Terminal + Agent bar */}
         <TerminalHeader
           logs={terminalLogs}

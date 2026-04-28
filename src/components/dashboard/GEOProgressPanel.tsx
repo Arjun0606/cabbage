@@ -126,7 +126,26 @@ export function GEOProgressPanel({ progress, onWriteArticleForQuery, onFixAllBli
                 <span className="text-4xl font-bold text-zinc-100 tabular-nums">{currentScan.mentionedCount}</span>
                 <span className="text-lg text-zinc-500">/ {currentScan.totalQueries}</span>
               </div>
-              <p className="text-[13px] text-zinc-400 mt-1">queries mention your brand in AI search</p>
+              <p className="text-[13px] text-zinc-400 mt-1">buyer queries mention your brand on ChatGPT + Gemini</p>
+              {/* Business-impact line. Each missed query is a buyer
+                  who got recommended to a competitor — the math the
+                  CMO actually cares about. We show the gap count and
+                  frame it as lost share-of-voice instead of a neutral
+                  "X of N mentioned" stat. */}
+              {currentScan.totalQueries > 0 && (
+                <p className="text-[12px] text-zinc-500 mt-1.5 leading-relaxed">
+                  {currentScan.totalQueries - currentScan.mentionedCount > 0 ? (
+                    <>
+                      <span className="text-amber-300 font-medium">
+                        {currentScan.totalQueries - currentScan.mentionedCount} {currentScan.totalQueries - currentScan.mentionedCount === 1 ? "query" : "queries"}
+                      </span>{" "}
+                      get answered with a competitor instead of you. Every one of those is a buyer who never sees your brand.
+                    </>
+                  ) : (
+                    <>You appear in <span className="text-[#7CB342] font-medium">every tracked query</span> — keep this lead by publishing weekly to the same topics competitors target.</>
+                  )}
+                </p>
+              )}
               {previousScan && (
                 <div className="flex items-center gap-1.5 mt-2">
                   <span className={`text-[13px] font-medium ${mentionRateChange > 0 ? "text-[#7CB342]" : mentionRateChange < 0 ? "text-red-400" : "text-zinc-500"}`}>
