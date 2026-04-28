@@ -34,6 +34,26 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ authenticated: false, canAccess: false, needsUpgrade: false });
     }
 
+    // Paywall bypass — DISABLE_PAYWALL=true on Vercel grants every
+    // signed-in user full Pro-tier access. Used during design-partner
+    // testing (Makuta etc.) before payments are wired up. Auth still
+    // required (the no-user branch above stays intact).
+    if (process.env.DISABLE_PAYWALL === "true") {
+      return NextResponse.json({
+        authenticated: true,
+        email: user.email,
+        plan: "pro",
+        status: "active",
+        canAccess: true,
+        needsUpgrade: false,
+        isTrialing: false,
+        trialEndsAt: null,
+        trialDaysLeft: null,
+        limits: TIERS.pro.limits,
+        paywallBypassed: true,
+      });
+    }
+
     const service = getServiceClient();
     const { data: sub } = await service
       .from("subscriptions")

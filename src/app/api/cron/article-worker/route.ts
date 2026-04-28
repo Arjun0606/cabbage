@@ -86,6 +86,11 @@ async function articlesUsedThisMonth(companyId: string): Promise<number> {
 }
 
 async function ownerPlan(ownerId: string): Promise<PlanTier | null> {
+  // Paywall-bypass mode: every authenticated user gets Pro-tier
+  // worker processing during the design-partner testing window.
+  // Mirrors requireActiveSubscription's bypass branch so the dashboard
+  // and the cron treat the customer the same way.
+  if (process.env.DISABLE_PAYWALL === "true") return "pro";
   const svc = getServiceClient();
   const { data } = await svc
     .from("subscriptions")

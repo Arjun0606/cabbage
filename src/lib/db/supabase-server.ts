@@ -89,6 +89,22 @@ export async function requireActiveSubscription(
     };
   }
 
+  // Paywall bypass — DISABLE_PAYWALL=true grants every authenticated
+  // user Pro-tier access without checking their subscription row.
+  // Used during the design-partner phase (Makuta etc.) where we want
+  // real customers exercising the full product end-to-end before the
+  // payments gateway is wired up. Auth is still required — random
+  // unauthenticated requests still hit the 401 path above.
+  // Flip back to false / unset to restore normal subscription gating.
+  if (process.env.DISABLE_PAYWALL === "true") {
+    return {
+      ok: true,
+      userId: user.id,
+      plan: "pro",
+      limits: TIERS.pro.limits,
+    };
+  }
+
   try {
     const svc = getServiceClient();
     const { data: sub } = await svc

@@ -49,6 +49,12 @@ export async function GET(req: NextRequest) {
     // their credit pool is what governs how much they consume. We still
     // skip companies whose owner isn't on a paid plan so we don't burn
     // OpenAI on a free trial that lapsed.
+    //
+    // Paywall-bypass mode (DISABLE_PAYWALL=true): every authenticated
+    // owner is treated as a paid customer, mirroring the dashboard
+    // and worker behaviour. Used during the design-partner phase
+    // before payments wire up.
+    const bypass = process.env.DISABLE_PAYWALL === "true";
     const ownerIds = Array.from(new Set(companies.map((c) => c.owner_id).filter(Boolean) as string[]));
     const { data: subRows } = ownerIds.length
       ? await supabase
@@ -63,7 +69,7 @@ export async function GET(req: NextRequest) {
 
     for (const company of companies) {
       if (!company.website) continue;
-      if (!company.owner_id || !activePaidOwners.has(company.owner_id)) {
+      if (!bypass && (!company.owner_id || !activePaidOwners.has(company.owner_id))) {
         // Skip companies whose owner doesn't have an active paid plan.
         continue;
       }
