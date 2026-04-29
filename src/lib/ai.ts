@@ -26,6 +26,46 @@ export const MODEL_HEAVY = "gpt-5.4";       // Flagship — best quality for ana
 export const MODEL_LIGHT = "gpt-5.4-nano";  // Cheapest — chat, quick checks, simple tasks
 
 /**
+ * Retry wrapper for OpenAI calls. Retries on 429 (rate limit) and 5xx
+ * (transient infra) with exponential backoff. Does NOT retry on 4xx
+ * other than 429 — those are real errors (bad request, auth, not found)
+ * that won't fix themselves.
+ *
+ * Default: 3 attempts with 1s / 2s / 4s waits between them. Total max
+ * delay before giving up = ~7s, well under any reasonable function
+ * timeout. Honors Retry-After header when present (OpenAI sends it on
+ * 429s and we respect it instead of our default backoff).
+ */
+async function withRetry<T>(fn: () => Promise<T>, opts?: { maxAttempts?: number; label?: string }): Promise<T> {
+  const maxAttempts = opts?.maxAttempts ?? 3;
+  const label = opts?.label || "OpenAI";
+  let lastErr: unknown;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      const e = err as { status?: number; code?: string; headers?: Record<string, string>; message?: string };
+      const status = e?.status;
+      const isRetryable =
+        status === 429 || status === 500 || status === 502 || status === 503 || status === 504;
+      if (!isRetryable || attempt === maxAttempts) {
+        throw err;
+      }
+      // Honor Retry-After header (seconds) if OpenAI sent one.
+      const retryAfterRaw = e?.headers?.["retry-after"];
+      const retryAfterSec = retryAfterRaw ? parseInt(retryAfterRaw, 10) : NaN;
+      const waitMs = Number.isFinite(retryAfterSec) && retryAfterSec > 0
+        ? Math.min(retryAfterSec * 1000, 10_000)
+        : Math.min(1000 * Math.pow(2, attempt - 1), 4000);
+      console.warn(`${label}: retryable error (status ${status}), attempt ${attempt}/${maxAttempts}, waiting ${waitMs}ms`);
+      await new Promise((resolve) => setTimeout(resolve, waitMs));
+    }
+  }
+  throw lastErr;
+}
+
+/**
  * Run a completion with the heavy model.
  * Used for: audit analysis, content generation, competitor insights, locality intelligence.
  */
@@ -36,14 +76,18 @@ export async function aiComplete(
 ): Promise<string> {
   try {
     const client = getClient();
-    const res = await client.chat.completions.create({
-      model: MODEL_HEAVY,
-      max_completion_tokens: maxTokens,
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: prompt },
-      ],
-    });
+    const res = await withRetry(
+      () =>
+        client.chat.completions.create({
+          model: MODEL_HEAVY,
+          max_completion_tokens: maxTokens,
+          messages: [
+            { role: "system", content: system },
+            { role: "user", content: prompt },
+          ],
+        }),
+      { label: `aiComplete(${MODEL_HEAVY})` },
+    );
     const content = res.choices[0]?.message?.content || "";
     if (!content) {
       console.error("aiComplete: empty response from model", MODEL_HEAVY);
@@ -66,14 +110,18 @@ export async function aiLight(
 ): Promise<string> {
   try {
     const client = getClient();
-    const res = await client.chat.completions.create({
-      model: MODEL_LIGHT,
-      max_completion_tokens: maxTokens,
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: prompt },
-      ],
-    });
+    const res = await withRetry(
+      () =>
+        client.chat.completions.create({
+          model: MODEL_LIGHT,
+          max_completion_tokens: maxTokens,
+          messages: [
+            { role: "system", content: system },
+            { role: "user", content: prompt },
+          ],
+        }),
+      { label: `aiLight(${MODEL_LIGHT})` },
+    );
     const content = res.choices[0]?.message?.content || "";
     if (!content) {
       console.error("aiLight: empty response from model", MODEL_LIGHT);
@@ -95,14 +143,18 @@ export async function aiChat(
 ): Promise<string> {
   try {
     const client = getClient();
-    const res = await client.chat.completions.create({
-      model: MODEL_LIGHT,
-      max_completion_tokens: maxTokens,
-      messages: [
-        { role: "system", content: system },
-        ...messages,
-      ],
-    });
+    const res = await withRetry(
+      () =>
+        client.chat.completions.create({
+          model: MODEL_LIGHT,
+          max_completion_tokens: maxTokens,
+          messages: [
+            { role: "system", content: system },
+            ...messages,
+          ],
+        }),
+      { label: `aiChat(${MODEL_LIGHT})` },
+    );
     return res.choices[0]?.message?.content || "";
   } catch (err) {
     console.error("aiChat failed:", err instanceof Error ? err.message : err);
@@ -157,17 +209,24 @@ export async function queryForVisibility(
     let webSearchError: string | undefined;
     try {
       const client = getClient();
-      // Responses API with web_search tool — matches ChatGPT consumer behavior
-      const response = await (client as unknown as {
-        responses: {
-          create: (args: unknown) => Promise<unknown>;
-        };
-      }).responses.create({
-        model: MODEL_HEAVY,
-        input: query,
-        tools: [{ type: "web_search" }],
-        max_output_tokens: 1500,
-      });
+      // Responses API with web_search tool — matches ChatGPT consumer behavior.
+      // Wrapped in withRetry so 429s + transient 5xx don't break the
+      // entire scan; before this wrapper, a single rate-limit on one
+      // query was killing the whole AI visibility run for that platform.
+      const response = await withRetry(
+        () =>
+          (client as unknown as {
+            responses: {
+              create: (args: unknown) => Promise<unknown>;
+            };
+          }).responses.create({
+            model: MODEL_HEAVY,
+            input: query,
+            tools: [{ type: "web_search" }],
+            max_output_tokens: 1500,
+          }),
+        { label: `web_search(${MODEL_HEAVY})` },
+      );
 
       // Extract text from response
       const output = (response as { output?: unknown[] }).output || [];
