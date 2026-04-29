@@ -7,6 +7,8 @@ import {
   Settings,
   PlusCircle,
   LogOut,
+  MessageSquare,
+  Send,
 } from "lucide-react";
 import Image from "next/image";
 
@@ -18,7 +20,9 @@ export function Sidebar({ companyName }: Props) {
   const pathname = usePathname();
 
   const navItems = [
-    { href: "/dashboard", label: "CMO", icon: Bot, active: pathname === "/dashboard" },
+    { href: "/dashboard", label: "Brand", icon: Bot, active: pathname === "/dashboard" },
+    { href: "/dashboard/mentions", label: "Mentions", icon: MessageSquare, active: pathname?.startsWith("/dashboard/mentions") },
+    { href: "/dashboard/outreach", label: "Outreach", icon: Send, active: pathname?.startsWith("/dashboard/outreach") },
     { href: "/settings", label: "Settings", icon: Settings, active: pathname === "/settings" },
   ];
 
