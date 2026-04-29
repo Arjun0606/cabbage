@@ -26,6 +26,9 @@ export interface AIVisibilityResult {
   scores: {
     chatgpt: number;
     gemini: number;
+    perplexity?: number;
+    claude?: number;
+    grok?: number;
     overall: number;
     readiness: number;
     mentions: number;
@@ -36,6 +39,9 @@ export interface AIVisibilityResult {
   platformHealth: {
     chatgpt: PlatformHealth;
     gemini: PlatformHealth;
+    perplexity?: PlatformHealth;
+    claude?: PlatformHealth;
+    grok?: PlatformHealth;
   };
 }
 
@@ -50,9 +56,9 @@ interface QueryResult {
   intent?: QueryWithMeta["intent"];
   chatgpt: LLMResult;
   gemini: LLMResult;
-  // Keep claude/perplexity fields for backward compat with stored scans
   claude: LLMResult;
   perplexity: LLMResult;
+  grok: LLMResult;
 }
 
 interface LLMResult {
@@ -506,9 +512,19 @@ export async function runAIVisibility(
   // Run AI readiness checks
   const aiReadiness = await checkAIReadiness(websiteUrl);
 
-  // Only scan ChatGPT + Gemini — the two platforms real buyers use
+  // Five engines fire in parallel per query when their API keys are set.
+  // Each engine degrades cleanly when its key is missing (the scan still
+  // returns; that engine's score is just 0 and platform_health is omitted).
+  const hasGemini = !!process.env.GOOGLE_GEMINI_API_KEY;
+  const hasPerplexity = !!process.env.PERPLEXITY_API_KEY;
+  const hasClaude = !!process.env.ANTHROPIC_API_KEY;
+  const hasGrok = !!process.env.XAI_API_KEY;
+
   const configuredLLMs: string[] = ["ChatGPT"];
-  if (process.env.GOOGLE_GEMINI_API_KEY) configuredLLMs.push("Gemini");
+  if (hasGemini) configuredLLMs.push("Gemini");
+  if (hasPerplexity) configuredLLMs.push("Perplexity");
+  if (hasClaude) configuredLLMs.push("Claude");
+  if (hasGrok) configuredLLMs.push("Grok");
 
   const emptyResult: LLMResult = { mentioned: false, position: 0, context: "", sentiment: "absent", coCitations: [], citationSources: [] };
   const queryResults: QueryResult[] = [];
@@ -516,8 +532,14 @@ export async function runAIVisibility(
   // Track per-platform health so we can tell live vs degraded vs broken in the UI.
   const chatgptSources: VisibilitySource[] = [];
   const geminiSources: VisibilitySource[] = [];
+  const perplexitySources: VisibilitySource[] = [];
+  const claudeSources: VisibilitySource[] = [];
+  const grokSources: VisibilitySource[] = [];
   let chatgptLastError: string | undefined;
   let geminiLastError: string | undefined;
+  let perplexityLastError: string | undefined;
+  let claudeLastError: string | undefined;
+  let grokLastError: string | undefined;
 
   // Run every query in parallel. Previously sequential — for 5 queries
   // with 25-30s per call under retry pressure that meant 125-150s
@@ -530,26 +552,51 @@ export async function runAIVisibility(
   const trim = (s: string) => (s && typeof s === "string" ? s.slice(0, RAW_MAX) : "");
   const shouldAudit = !!projectGroundTruth && projectGroundTruth.length > 0;
 
+  type EngineCallResult = { text: string; source: VisibilitySource; error?: string };
+  const safeCall = (p: Promise<EngineCallResult>): Promise<EngineCallResult> =>
+    p.catch((err): EngineCallResult => ({
+      text: "",
+      source: "failed",
+      error: err instanceof Error ? err.message : String(err),
+    }));
+  const missingKey = (): EngineCallResult => ({ text: "", source: "missing_key" });
+
+  type PerQueryRow = QueryResult & {
+    _chatgptSource: VisibilitySource;
+    _geminiSource: VisibilitySource;
+    _perplexitySource: VisibilitySource;
+    _claudeSource: VisibilitySource;
+    _grokSource: VisibilitySource;
+    _chatgptError?: string;
+    _geminiError?: string;
+    _perplexityError?: string;
+    _claudeError?: string;
+    _grokError?: string;
+  };
+
   const perQueryResults = await Promise.all(
-    queries.map(async (qm): Promise<QueryResult & { _chatgptSource: VisibilitySource; _geminiSource: VisibilitySource; _chatgptError?: string; _geminiError?: string }> => {
-      const [chatgptRes, geminiRes] = await Promise.all([
-        queryForVisibility("openai", qm.query).catch((err): { text: string; source: VisibilitySource; error?: string } => ({
-          text: "",
-          source: "failed",
-          error: err instanceof Error ? err.message : String(err),
-        })),
-        queryForVisibility("gemini", qm.query).catch((err): { text: string; source: VisibilitySource; error?: string } => ({
-          text: "",
-          source: "failed",
-          error: err instanceof Error ? err.message : String(err),
-        })),
+    queries.map(async (qm): Promise<PerQueryRow> => {
+      const [chatgptRes, geminiRes, perplexityRes, claudeRes, grokRes] = await Promise.all([
+        safeCall(queryForVisibility("openai", qm.query)),
+        hasGemini ? safeCall(queryForVisibility("gemini", qm.query)) : Promise.resolve(missingKey()),
+        hasPerplexity ? safeCall(queryForVisibility("perplexity", qm.query)) : Promise.resolve(missingKey()),
+        hasClaude ? safeCall(queryForVisibility("claude", qm.query)) : Promise.resolve(missingKey()),
+        hasGrok ? safeCall(queryForVisibility("grok", qm.query)) : Promise.resolve(missingKey()),
       ]);
 
-      const [chatgptAnalysis, geminiAnalysis] = await Promise.all([
+      const [chatgptAnalysis, geminiAnalysis, perplexityAnalysis, claudeAnalysis, grokAnalysis] = await Promise.all([
         analyzeMention(chatgptRes.text, brand, projects, disambiguation),
-        analyzeMention(geminiRes.text, brand, projects, disambiguation),
+        hasGemini ? analyzeMention(geminiRes.text, brand, projects, disambiguation) : Promise.resolve(emptyResult),
+        hasPerplexity ? analyzeMention(perplexityRes.text, brand, projects, disambiguation) : Promise.resolve(emptyResult),
+        hasClaude ? analyzeMention(claudeRes.text, brand, projects, disambiguation) : Promise.resolve(emptyResult),
+        hasGrok ? analyzeMention(grokRes.text, brand, projects, disambiguation) : Promise.resolve(emptyResult),
       ]);
 
+      // Hallucination audit only runs against ChatGPT + Gemini for now —
+      // those have the longest production history and the audit is RE-
+      // grounded (tied to projectGroundTruth which only exists for
+      // Cabbage's RE customers, currently). Will become engine-agnostic
+      // once the pivot fully strips the RE coupling.
       const [chatgptHallucinations, geminiHallucinations] = shouldAudit
         ? await Promise.all([
             chatgptAnalysis.mentioned
@@ -582,12 +629,19 @@ export async function runAIVisibility(
         intent: qm.intent,
         chatgpt: { ...chatgptAnalysis, hallucinations: chatgptHallucinations, rawResponse: trim(chatgptRes.text) },
         gemini: { ...geminiAnalysis, hallucinations: geminiHallucinations, rawResponse: trim(geminiRes.text) },
-        claude: emptyResult,
-        perplexity: emptyResult,
+        perplexity: { ...perplexityAnalysis, rawResponse: trim(perplexityRes.text) },
+        claude: { ...claudeAnalysis, rawResponse: trim(claudeRes.text) },
+        grok: { ...grokAnalysis, rawResponse: trim(grokRes.text) },
         _chatgptSource: chatgptRes.source,
         _geminiSource: geminiRes.source,
+        _perplexitySource: perplexityRes.source,
+        _claudeSource: claudeRes.source,
+        _grokSource: grokRes.source,
         _chatgptError: chatgptRes.error,
         _geminiError: geminiRes.error,
+        _perplexityError: perplexityRes.error,
+        _claudeError: claudeRes.error,
+        _grokError: grokRes.error,
       };
     }),
   );
@@ -596,11 +650,21 @@ export async function runAIVisibility(
   for (const r of perQueryResults) {
     chatgptSources.push(r._chatgptSource);
     geminiSources.push(r._geminiSource);
+    perplexitySources.push(r._perplexitySource);
+    claudeSources.push(r._claudeSource);
+    grokSources.push(r._grokSource);
     if (r._chatgptError) chatgptLastError = r._chatgptError;
     if (r._geminiError) geminiLastError = r._geminiError;
-    // Strip the per-row tracking fields before persisting.
-    const { _chatgptSource, _geminiSource, _chatgptError, _geminiError, ...clean } = r;
-    void _chatgptSource; void _geminiSource; void _chatgptError; void _geminiError;
+    if (r._perplexityError) perplexityLastError = r._perplexityError;
+    if (r._claudeError) claudeLastError = r._claudeError;
+    if (r._grokError) grokLastError = r._grokError;
+    const {
+      _chatgptSource, _geminiSource, _perplexitySource, _claudeSource, _grokSource,
+      _chatgptError, _geminiError, _perplexityError, _claudeError, _grokError,
+      ...clean
+    } = r;
+    void _chatgptSource; void _geminiSource; void _perplexitySource; void _claudeSource; void _grokSource;
+    void _chatgptError; void _geminiError; void _perplexityError; void _claudeError; void _grokError;
     queryResults.push(clean);
   }
 
@@ -614,20 +678,50 @@ export async function runAIVisibility(
       "broken";
     return { status, liveQueries, fallbackQueries, failedQueries, lastError };
   };
-  const platformHealth = {
+  const platformHealth: AIVisibilityResult["platformHealth"] = {
     chatgpt: summarize(chatgptSources, chatgptLastError),
     gemini: summarize(geminiSources, geminiLastError),
   };
+  if (hasPerplexity) platformHealth.perplexity = summarize(perplexitySources, perplexityLastError);
+  if (hasClaude) platformHealth.claude = summarize(claudeSources, claudeLastError);
+  if (hasGrok) platformHealth.grok = summarize(grokSources, grokLastError);
 
-  const mentionScores = {
+  const mentionScores: Record<string, number> = {
     chatgpt: calculateScore(queryResults, "chatgpt"),
-    gemini: calculateScore(queryResults, "gemini"),
+    gemini: hasGemini ? calculateScore(queryResults, "gemini") : 0,
+    perplexity: hasPerplexity ? calculateScore(queryResults, "perplexity") : 0,
+    claude: hasClaude ? calculateScore(queryResults, "claude") : 0,
+    grok: hasGrok ? calculateScore(queryResults, "grok") : 0,
   };
 
-  // Weighted: 60% ChatGPT (most used by buyers) + 40% Gemini (Google AI proxy)
-  const mentionScore = process.env.GOOGLE_GEMINI_API_KEY
-    ? Math.round(mentionScores.chatgpt * 0.6 + mentionScores.gemini * 0.4)
-    : mentionScores.chatgpt;
+  // Engine-weighted blend. Ideal weights when an engine is configured:
+  //   ChatGPT 0.30, Gemini 0.20, Perplexity 0.20, Claude 0.15, Grok 0.15.
+  // Re-normalized over the engines actually configured so degenerate
+  // configs (only ChatGPT) still land in [0, 100].
+  const present: Record<string, boolean> = {
+    chatgpt: true,
+    gemini: hasGemini,
+    perplexity: hasPerplexity,
+    claude: hasClaude,
+    grok: hasGrok,
+  };
+  const ideal: Record<string, number> = {
+    chatgpt: 0.3,
+    gemini: 0.2,
+    perplexity: 0.2,
+    claude: 0.15,
+    grok: 0.15,
+  };
+  let weightSum = 0;
+  for (const e of Object.keys(present)) if (present[e]) weightSum += ideal[e];
+  let mentionScore = 0;
+  if (weightSum > 0) {
+    for (const e of Object.keys(present)) {
+      if (!present[e]) continue;
+      mentionScore += mentionScores[e] * (ideal[e] / weightSum);
+    }
+  }
+  mentionScore = Math.round(mentionScore);
 
   // Readiness score — based on website checks (like Okara's "AI Readiness Score")
   const passedChecks = aiReadiness.filter(c => c.passed).length;
@@ -637,16 +731,21 @@ export async function runAIVisibility(
   // This way a site with good structure but no mentions still shows ~30-40
   const overallScore = Math.round(readinessScore * 0.4 + mentionScore * 0.6);
 
+  const scores: AIVisibilityResult["scores"] = {
+    chatgpt: mentionScores.chatgpt,
+    gemini: mentionScores.gemini,
+    overall: overallScore,
+    readiness: readinessScore,
+    mentions: mentionScore,
+  };
+  if (hasPerplexity) scores.perplexity = mentionScores.perplexity;
+  if (hasClaude) scores.claude = mentionScores.claude;
+  if (hasGrok) scores.grok = mentionScores.grok;
+
   return {
     brand,
     projects,
-    scores: {
-      chatgpt: mentionScores.chatgpt,
-      gemini: mentionScores.gemini,
-      overall: overallScore,
-      readiness: readinessScore,
-      mentions: mentionScore,
-    },
+    scores,
     queryResults,
     aiReadiness,
     configuredLLMs,
