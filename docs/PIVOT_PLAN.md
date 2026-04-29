@@ -246,11 +246,11 @@ rewrite.
 | 10 | `pivot.10: programmatic SEO` | /best, /best/[category], /brands, /vs, /vs/[slug], /press |
 | 11 | `pivot.11: cold-outreach kit` | port /dashboard/outreach |
 | 12 | `pivot.12: cron-seed brand catalog` | port /api/cron/seed + lib/seedBrands.ts (rewritten for SaaS / ecom / app brands, not Indian developers) |
-| 13 | `pivot.13: Reddit mention tracker` | new agent + dashboard panel |
-| 14 | `pivot.14: HN mention tracker` | new agent + dashboard panel |
-| 15 | `pivot.15: X mention tracker` | new agent + dashboard panel |
-| 16 | `pivot.16: YouTube mention tracker` | new agent + dashboard panel |
-| 17 | `pivot.17: weekly mention digest email` | cron + Resend integration |
+| 13 | `pivot.13: cold-outreach kit` | /dashboard/outreach (already shipped) |
+| 14 | `pivot.14: 4 mention trackers + weekly cron` | Reddit + HN + YouTube + X (via Grok); /dashboard/mentions; /api/cron/refresh-mentions |
+| 15 | `pivot.15: pricing/about/methodology rewrites` | strip RE copy from marketing surfaces |
+| 16 | `pivot.16: weekly digest email` | Resend integration on top of the brand_mentions table |
+| 17 | `pivot.17: reserved` | (folded into 14) |
 | 18 | `pivot.18: dashboard surface unification` | strip remaining RE narrative panels, replace project/locality language across dashboard |
 | 19 | `pivot.19: distribution playbook + press` | port DISTRIBUTION.md, /press kit |
 | 20 | `pivot.20: production cutover` | merge to main, deploy, verify, watch errors |

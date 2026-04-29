@@ -31,6 +31,8 @@ export const CREDIT_COSTS: Record<string, number> = {
   gbp_posts: 3,
   prompt_volumes: 3,
   free_report: 0,
+  outreach_grade: 1,
+  mention_scan: 1,
 };
 
 /** Fallback when we can't resolve a tier — matches old behaviour. */
