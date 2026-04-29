@@ -196,6 +196,38 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Library differentiation context — pull the most recent ~10 article
+    // titles for this company so the writer knows what's already in
+    // their corpus and can frame the new piece with a distinctly
+    // different angle. Cannibalization gate already blocks duplicate
+    // queries; this is the structural-uniqueness layer that prevents
+    // every locality_guide from reading like the last one. Cheap query
+    // (indexed on company_id, generated_at), best-effort, never blocks.
+    let recentLibrary: Array<{ title: string; query: string; type: string | null }> = [];
+    if (companyId) {
+      try {
+        const svc = getServiceClient();
+        const { data: recent } = await svc
+          .from("tracked_articles")
+          .select("title, query, generated_at")
+          .eq("company_id", companyId)
+          .order("generated_at", { ascending: false })
+          .limit(10);
+        recentLibrary = (recent || [])
+          .filter((r) => r && (r.title || r.query))
+          .map((r) => ({
+            title: r.title || r.query,
+            query: r.query,
+            type: null,
+          }));
+      } catch (err) {
+        console.warn(
+          "library fetch failed:",
+          err instanceof Error ? err.message : err,
+        );
+      }
+    }
+
     // Brand-context completion gate. Generic articles produced from an
     // empty brand context are the #1 reason customers cancel — they
     // can't publish them, so they stop seeing value, so they churn.
@@ -292,6 +324,8 @@ INDIAN-RE HYPERLOCAL RULES — buyer queries here are compound and specific:
 
 24. COMPARATIVE LISTICLE BIAS. Comparative / alternative / best-of formats account for ~32.5% of all LLM citations. Where the article type is best_of_list, alternatives_to, or comparison: include ≥5 clearly-numbered entries, a comparison table, and an "how do I choose?" section. Where the article type is locality_guide / project_showcase / landing_page: include at least one comparative block ("How does ${projectName} compare to other ${configurations || "projects"} in ${location}?") so the article still participates in comparative-query retrieval.
 
+25. LIBRARY DIFFERENTIATION. If the user prompt lists this brand's existing library, the new article MUST have a distinctly different framing — different opening hook, different H2 question structure, different middle-section emphasis. Same brand + same project + slightly different query is NOT a license to recycle the previous article. Buyers searching the new query expect a new angle. AI search engines de-rank near-duplicate corpus pages. If you can't find a genuinely different angle, lean into what makes THIS query specifically different (a different config, a different price band, a different intent — investor vs end-user, NRI vs local, ready-to-move vs under-construction, single-bedroom vs family-sized).
+
 Return valid JSON (no markdown fences):
 {
   "title": "Question-format title including target keyword (50-60 chars)",
@@ -337,6 +371,10 @@ ${(writingInstructions?.articles || writingInstructions?.general) ? `**Writing I
 ${writingInstructions?.general ? `General: ${String(writingInstructions.general).substring(0, 2000)}` : ""}
 ${writingInstructions?.articles ? `Article-specific: ${String(writingInstructions.articles).substring(0, 2000)}` : ""}
 These override any generic tone — match the voice, phrasing rules, dos/donts listed above.` : ""}
+
+${recentLibrary.length > 0 ? `**Existing library — DIFFERENTIATE from these.** This brand already has ${recentLibrary.length} article${recentLibrary.length === 1 ? "" : "s"} in their corpus. Read the titles below; the new article must have a distinctly different angle, H2 structure, or hook. Do not repeat the framing of any existing piece. The point of generating more content is differentiated coverage, not the same article retold.
+
+${recentLibrary.map((r, i) => `${i + 1}. "${r.title}" (target: "${r.query}")`).join("\n")}` : ""}
 
 **SEO Details:**
 - Topic: ${topic || articleType.replace(/_/g, " ")}
