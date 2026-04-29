@@ -77,12 +77,56 @@ export default function DemoPage() {
       const hostname = normalized.replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0];
       const inferredName = hostname.split(".")[0].charAt(0).toUpperCase() + hostname.split(".")[0].slice(1);
 
-      const discoverRes = await fetch("/api/auto-discover", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: normalized, companyName: inferredName, industry: "real_estate" }),
-      });
-      const discovered = await discoverRes.json();
+      // Auto-discover with one automatic retry on failure. The LLM
+      // backend can rate-limit during heavy demo testing, return 500,
+      // or come back with an empty body. Without this retry, the demo
+      // would drop the user into an empty dashboard (no city, no
+      // projects) which then fails every downstream scan with
+      // "City required". Two attempts buys us through transient infra
+      // hiccups; if both fail, we surface a clear error and let the
+      // user try again themselves.
+      const callDiscover = async () => {
+        const r = await fetch("/api/auto-discover", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: normalized, companyName: inferredName, industry: "real_estate" }),
+        });
+        const j = await r.json().catch(() => ({} as Record<string, unknown>));
+        return { ok: r.ok, status: r.status, body: j as Record<string, unknown> };
+      };
+
+      let attempt = await callDiscover();
+      const looksEmpty = (b: Record<string, unknown>) =>
+        !b.companyDescription && (!Array.isArray(b.cities) || b.cities.length === 0) && !b.city;
+      if (!attempt.ok || (attempt.body as { error?: string }).error || looksEmpty(attempt.body)) {
+        // Brief breather to let any rate-limit cool, then one retry.
+        await new Promise((resolve) => setTimeout(resolve, 4000));
+        attempt = await callDiscover();
+      }
+
+      if (!attempt.ok || (attempt.body as { error?: string }).error) {
+        const errMsg = (attempt.body as { error?: string }).error;
+        setError(
+          errMsg && errMsg.toLowerCase().includes("rate")
+            ? "AI provider is rate-limited. Wait 60 seconds and try again — your URL is fine."
+            : errMsg
+              ? `Auto-discover failed: ${errMsg}. Try again.`
+              : `Auto-discover failed (HTTP ${attempt.status}). Try again.`,
+        );
+        setPhase("url");
+        return;
+      }
+
+      const discovered = attempt.body as any;
+      // If we got a non-error response but it has no usable signal,
+      // bail out before pushing the user into an empty dashboard.
+      if (looksEmpty(discovered)) {
+        setError(
+          "Auto-discover came back empty — the site might block scrapers, or the AI provider hiccupped. Try the URL again or use a different prospect site.",
+        );
+        setPhase("url");
+        return;
+      }
 
       const placeholders = /^(unknown|featured|project\s*\d*|placeholder|n\/?a|not\s+specified|tbd)/i;
       const validProjects = (discovered.inferredProjects || []).filter(
