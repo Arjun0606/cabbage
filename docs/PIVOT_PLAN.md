@@ -59,12 +59,44 @@ Net result: the depth of cabbge_RE × the breadth of cabbge_global.
 
 | Before | After |
 |---|---|
-| AI visibility for premium Indian + ME real-estate developers | AI visibility + brand-mention tracking for any business that wants to be recommended by AI and humans |
-| ₹49,999 / ₹99,999 / ₹2,49,999 INR | $49 / $199 / $599 USD |
+| AI visibility for premium Indian + ME real-estate developers | A nifty AI visibility + brand-mention tool individuals use to win in AI search |
+| ₹49,999 / ₹99,999 / ₹2,49,999 INR | $49 / $199 / $599 USD, all self-serve |
 | 30 named outbound targets, sales-led | Self-serve, free public grader as the wedge |
-| Custom Enterprise tier ($5–25k USD) | Same Scale tier ($599) carries enterprise features (white-label, API, priority) |
+| Custom Enterprise tier ($5–25k USD) | **No enterprise tier.** Scale ($599) is for agencies + high-volume power users. Even folks at large corporates pay $49 on a personal card and use the tool unofficially. |
 | Buyer language: "CAC reduction for premium developers" | Buyer language: "Be the brand AI recommends" |
 | Comparable to Profound (enterprise) | Comparable to Otterly + Knowatoa at the SMB tier, deeper than both |
+
+## Who actually buys this
+
+Three concrete personas. Everything we ship is judged against
+whether one of these buys it on a credit card without asking
+anyone's permission.
+
+1. **Indie SaaS founder** ($5k–$200k MRR, 1–10 people). Often
+   technical. Cares about every channel because there's no team
+   behind any of them. Pays $49 personally, treats it as a tool
+   like Linear / Vercel / Tally. **Primary ICP.**
+
+2. **Shopify or independent ecom store owner** ($10k–$500k/mo GMV).
+   Watching paid-ad costs rise, hearing "AI shopping is coming",
+   nervous about being invisible to ChatGPT shoppers. **Primary ICP.**
+
+3. **Marketing person at a 50–500-person SaaS** who uses cabbge
+   personally on a $49 plan to do their own AI-search audit work.
+   No procurement involved. They show colleagues, the team
+   eventually upgrades to Growth. **Bottom-up adoption.** This is
+   the lever that gets us into bigger orgs without a sales team.
+
+Explicitly NOT our buyer:
+- Enterprise marketing teams with $5k+/mo SaaS budgets — that's
+  Profound's market, not ours
+- Real estate developers (the original cabbge_RE pivot)
+- Anyone whose primary marketing channel is paid ads + billboards
+- Anyone who needs SOC 2 / SSO / dedicated CSM to sign up
+
+The product feels like Linear / Tally / Vercel, not Salesforce /
+Hubspot. Polish > breadth. Speed > depth. Self-serve > sales call.
+Embed + share-link > big-ticket pitch deck.
 
 ## What we keep from cabbge_RE
 
@@ -252,15 +284,35 @@ isolated work stays referenceable. No active development.
 
 ## Decisions deliberately deferred
 
-- **Multi-language content generation** — English only for v1,
-  same as cabbge_RE today.
+- **Multi-language content generation** — English only for v1.
 - **Multi-currency pricing** — USD only for v1. INR-equivalent
   shown as fyi but charged USD via Dodo.
 - **Team / RBAC** — single user per workspace.
+- **Enterprise tier (custom pricing, SOC 2, SSO, dedicated CSM)**
+  — not on the roadmap. The premise of the company is "you don't
+  need to talk to sales to buy this." Scale at $599 is the ceiling.
 - **White-label agency tier** — defer until 50+ paying customers
-  validate that demand exists.
+  validate the demand exists. Could become a Scale add-on later.
 - **iOS / Android companion apps** — defer. Web-first.
 - **AppSumo lifetime deal** — defer. Monthly economics first.
+
+## Design north stars
+
+When in doubt about a UX call, optimize for these in order:
+
+1. **Five-minute first win.** Paste URL → see your real AI
+   visibility score in under five minutes, on a desktop or phone,
+   without an account. Anything that delays this loses.
+2. **Shareable everything.** Every score, every artifact, every
+   comparison should ship with a public-link / copy / embed
+   affordance by default.
+3. **Self-serve all the way.** No "talk to sales" CTAs anywhere.
+   No demo calls required. No procurement gates.
+4. **Polish over breadth.** Four features that feel like Linear
+   beats twelve that feel like Hubspot.
+5. **Founder taste.** The product should feel like one thoughtful
+   person made it for one specific user — not like a committee of
+   PMs scoped it for a market segment.
 
 ---
 
