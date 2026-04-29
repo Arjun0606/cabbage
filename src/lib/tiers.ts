@@ -29,9 +29,10 @@
  * semantically:
  *   maxProjects   ≡ max tracked SITES per workspace
  *   maxCities     ≡ effectively unlimited geos (no longer gates)
- * These will be cleaned up in a later pass — for now the shape is
- * preserved so /api/plan-recommendation, /api/companies, etc. keep
- * compiling without a touch.
+ * These will be cleaned up in pivot.21 alongside the schema rename
+ * (companies+projects → sites). For now the shape is preserved so
+ * surviving routes (e.g. /api/plan-recommendation) keep compiling
+ * without a touch.
  *
  * Legacy keys retained:
  *   "starter"   unchanged
