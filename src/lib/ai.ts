@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import Anthropic from "@anthropic-ai/sdk";
 
 /**
  * Shared AI client — all agents use this.
@@ -7,18 +8,41 @@ import OpenAI from "openai";
  * - gpt-5.4: flagship for complex reasoning. Used for audits, content gen, insights.
  * - gpt-5.4-nano: cheapest for chat, simple checks, high-volume tasks.
  *
- * We query:
- * - ChatGPT (OpenAI) via Responses API with web_search tool (matches ChatGPT consumer UX)
- * - Gemini (Google) via generateContent with google_search grounding (matches AI Overviews)
+ * Visibility query engines (each fires only when its API key is set):
+ * - ChatGPT via OpenAI Responses API + web_search tool
+ *   (matches ChatGPT consumer UX — names actual brands)
+ * - Gemini via generateContent + google_search grounding
+ *   (matches Google AI Overviews behavior)
+ * - Perplexity via the sonar model on /chat/completions
+ * - Claude via Anthropic Messages API + web_search server tool
+ *   (Brave-backed retrieval, matches Claude.ai web search)
+ * - Grok via X.AI's OpenAI-compatible endpoint + live search
  */
 
 let _client: OpenAI | null = null;
+let _anthropic: Anthropic | null = null;
+let _grok: OpenAI | null = null;
 
 function getClient(): OpenAI {
   if (!_client) {
     _client = new OpenAI();
   }
   return _client;
+}
+
+function getAnthropic(): Anthropic {
+  if (!_anthropic) _anthropic = new Anthropic();
+  return _anthropic;
+}
+
+function getGrok(): OpenAI {
+  if (!_grok) {
+    _grok = new OpenAI({
+      apiKey: process.env.XAI_API_KEY,
+      baseURL: "https://api.x.ai/v1",
+    });
+  }
+  return _grok;
 }
 
 // Model constants
@@ -196,11 +220,138 @@ export interface VisibilityResponse {
  *
  * Gemini: uses google_search grounding — matches Google AI Overviews behavior.
  * Falls back through model versions on 429/404/503.
+ *
+ * Perplexity: sonar model with built-in live search.
+ *
+ * Claude: web_search_20250305 server tool. Brave-backed.
+ *
+ * Grok: X.AI's OpenAI-compatible endpoint with search_parameters.
  */
 export async function queryForVisibility(
-  provider: "openai" | "gemini",
+  provider: "openai" | "gemini" | "perplexity" | "claude" | "grok",
   query: string
 ): Promise<VisibilityResponse> {
+  if (provider === "perplexity") {
+    const apiKey = process.env.PERPLEXITY_API_KEY;
+    if (!apiKey) {
+      return { text: "", source: "missing_key", error: "PERPLEXITY_API_KEY not set" };
+    }
+    try {
+      const res = await fetch("https://api.perplexity.ai/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "sonar",
+          messages: [{ role: "user", content: query }],
+        }),
+        signal: AbortSignal.timeout(30_000),
+      });
+      let data: unknown;
+      try {
+        data = await res.json();
+      } catch {
+        return { text: "", source: "failed", error: `parse_error_${res.status}` };
+      }
+      if (!res.ok) {
+        const errMsg =
+          (data as { error?: { message?: string } })?.error?.message || `HTTP ${res.status}`;
+        console.error(`Perplexity error (${res.status}): ${errMsg}`);
+        return { text: "", source: "failed", error: errMsg };
+      }
+      const text =
+        (data as { choices?: Array<{ message?: { content?: string } }> })
+          ?.choices?.[0]?.message?.content?.trim() || "";
+      if (text) return { text, source: "web_search" };
+      return { text: "", source: "failed", error: "empty Perplexity response" };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "fetch error";
+      console.error("Perplexity fetch failed:", msg);
+      return { text: "", source: "failed", error: msg };
+    }
+  }
+
+  if (provider === "claude") {
+    if (!process.env.ANTHROPIC_API_KEY) {
+      return { text: "", source: "missing_key", error: "ANTHROPIC_API_KEY not set" };
+    }
+    try {
+      const client = getAnthropic();
+      const message = await client.messages.create({
+        model: "claude-sonnet-4-6",
+        max_tokens: 1500,
+        tools: [
+          {
+            type: "web_search_20250305",
+            name: "web_search",
+            max_uses: 3,
+          } as unknown as Anthropic.Tool,
+        ],
+        messages: [{ role: "user", content: query }],
+      });
+      const text = message.content
+        .filter((c): c is Extract<typeof c, { type: "text" }> => c.type === "text")
+        .map((c) => c.text)
+        .join("\n")
+        .trim();
+      if (text) return { text, source: "web_search" };
+      return { text: "", source: "failed", error: "empty Claude response" };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Claude error";
+      console.error("Claude failed:", msg);
+      // Fallback: plain message with no tools so we at least get an answer.
+      try {
+        const client = getAnthropic();
+        const fallback = await client.messages.create({
+          model: "claude-haiku-4-5-20251001",
+          max_tokens: 1000,
+          messages: [{ role: "user", content: query }],
+        });
+        const text = fallback.content
+          .filter((c): c is Extract<typeof c, { type: "text" }> => c.type === "text")
+          .map((c) => c.text)
+          .join("\n")
+          .trim();
+        if (text) return { text, source: "fallback_chat", error: msg };
+        return { text: "", source: "failed", error: msg };
+      } catch (err2) {
+        return {
+          text: "",
+          source: "failed",
+          error: err2 instanceof Error ? err2.message : msg,
+        };
+      }
+    }
+  }
+
+  if (provider === "grok") {
+    if (!process.env.XAI_API_KEY) {
+      return { text: "", source: "missing_key", error: "XAI_API_KEY not set" };
+    }
+    try {
+      const client = getGrok();
+      // X.AI's OpenAI-compatible endpoint accepts a search_parameters bag for
+      // live web grounding. The OpenAI typings don't know about it, so cast.
+      const res = (await client.chat.completions.create({
+        model: "grok-3-latest",
+        max_completion_tokens: 1500,
+        messages: [{ role: "user", content: query }],
+        ...({
+          search_parameters: { mode: "auto" },
+        } as unknown as Record<string, unknown>),
+      })) as OpenAI.Chat.Completions.ChatCompletion;
+      const text = res.choices[0]?.message?.content?.trim() || "";
+      if (text) return { text, source: "web_search" };
+      return { text: "", source: "failed", error: "empty Grok response" };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Grok error";
+      console.error("Grok failed:", msg);
+      return { text: "", source: "failed", error: msg };
+    }
+  }
+
   if (provider === "openai") {
     if (!process.env.OPENAI_API_KEY) {
       return { text: "", source: "missing_key", error: "OPENAI_API_KEY not set" };
