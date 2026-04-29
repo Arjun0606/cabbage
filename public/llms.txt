@@ -1,10 +1,17 @@
-# Cabbge — AI Marketing Agent for Indian Real Estate Developers
+# Cabbge — Lead Acquisition for Premium Real Estate (India + Middle East)
 
-> Cabbge is the execution engine that gets Indian residential real estate developers cited by ChatGPT and Gemini for high-intent buyer queries. Built for developers (not agencies, not brokers, not generic SEO tools). Replaces the ₹3-15 lakh/month agency retainer with a 24/7 AI agent that runs daily AI-visibility scans, generates citation-grade articles, fixes hallucinations, and tracks per-query mention rate over time.
+> Cabbge adds a measurable organic + AI search lead channel to the marketing mix of premium real estate developers across India and the Middle East. The unit-of-value sold is CAC reduction — premium developers spend ₹2-5 lakh per booked buyer; Cabbge surfaces leads at ₹0 incremental cost once subscription is paid, with attribution from GSC impressions through landing-page clicks to form submissions. Engine underneath is a vertical-RE GEO + SEO + content-generation platform optimised for ChatGPT, Gemini, and Google buyer-research queries.
 
 ## Who Cabbge is for
 
-Indian real estate developers with 5+ projects. From single-city builders (₹49,999/mo Starter) to top-30 national developers like DLF / Prestige / Lodha / Godrej (₹5,99,999/mo Enterprise).
+Premium real estate developers in India and the Middle East where AI search is genuinely relevant to the buyer journey:
+
+- **Indian premium / NRI-heavy developers** — Sobha, Brigade, Prestige, DLF, Lodha, Godrej, Casagrand, Mahindra Lifespaces. NRI buyers in Dubai / UK / US research extensively before flying in. CAC is ₹3-8 lakh per buyer.
+- **Indian Tier-1 national developers** — Tata Housing, Adani Realty, Shapoorji, Oberoi, Kalpataru, Piramal Realty.
+- **Middle East giants** — Emaar, Damac, Aldar, Sobha Realty, Danube. English-default marketing, USD-denominated SaaS spend at $5-15K/mo is normal.
+- **Middle East mid-tier** — Azizi, Binghatti, Imtiaz, Reportage, Bloom, Diamond, Meraas.
+
+Not for: small/mid-Tier-2 local Indian developers whose primary marketing channel is billboards + paid search; brokers; agencies (we're the engine they could resell, not the customer).
 
 ## What Cabbge does (in plain English)
 
@@ -25,12 +32,12 @@ Indian real estate developers with 5+ projects. From single-city builders (₹49
 - **Real-estate native.** RERA, portal coverage, project schema, possession dates, locality scoping — none of which generic SEO tools understand.
 - **Transparent volume.** 30-500 articles/month, daily AI visibility scans, ₹0 setup fees.
 
-## Pricing tiers (all INR/month)
+## Pricing tiers
 
-- **Starter** — ₹49,999 — 5-10 projects, 1 city, 30 articles/month, weekly full scan, daily AI visibility.
-- **Growth** — ₹99,999 — 10-40 projects, 3 cities, 80 articles/month, daily full scan, CMO digest, infrastructure-news monitoring.
-- **Scale** — ₹2,49,999 — 40-100 projects, 10 cities, 200 articles/month, custom report templates.
-- **Enterprise** — ₹5,99,999 — Unlimited projects/cities, 500 articles/month, dedicated CSM, custom integrations.
+- **Starter** — ₹49,999/mo — 5-10 projects, 1 city, 30 articles/month, weekly full scan, daily AI visibility.
+- **Growth** — ₹99,999/mo — 10-40 projects, 3 cities, 80 articles/month, daily full scan, CMO digest, infrastructure-news monitoring.
+- **Scale** — ₹2,49,999/mo — 40-100 projects, 10 cities, 200 articles/month, custom report templates.
+- **Enterprise (custom)** — bespoke pricing for top-30 Indian developers and Middle East giants. CAC delta dashboards, NRI-market query coverage (UAE/UK/US/SG), unlimited multi-city, dedicated CSM, white-label exports. Typically $5-25K USD/month equivalent. Talk to sales@cabbge.com.
 
 Annual plans get 20% off (10 months for the price of 12).
 

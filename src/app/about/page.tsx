@@ -51,24 +51,25 @@ export default function AboutPage() {
             <Sparkles size={12} /> What Cabbge is
           </span>
           <h1 className="text-4xl md:text-5xl font-bold tracking-tight leading-[1.1]">
-            The execution engine that gets your projects cited by ChatGPT and Gemini.
+            A measurable lead channel for real estate developers.
           </h1>
           <p className="text-[16px] text-zinc-400 leading-relaxed">
-            When a buyer asks <span className="text-zinc-200">&quot;best 3 BHK in Gachibowli under 2 crore&quot;</span> on ChatGPT, the AI
-            names three developers. If you&apos;re not one of them, you don&apos;t exist for that buyer. Cabbge is
-            the system that puts you in the shortlist — by writing the right pages, fixing the right schema,
-            and surfacing the right hallucinations to correct.
+            Premium developers in India and the Middle East spend ₹2–5 lakh per booked buyer.
+            Most of that is paid media. Cabbge adds a parallel lead channel — organic search and
+            AI search visibility — that costs ₹0 incremental once subscription is paid. Every lead
+            is attributed, every rupee saved on blended CAC shows up in the dashboard.
           </p>
         </section>
 
         {/* The shift */}
         <section className="space-y-4">
-          <h2 className="text-2xl font-bold">The shift you&apos;re already losing to</h2>
+          <h2 className="text-2xl font-bold">The shift in how buyers find you</h2>
           <p className="text-[15px] text-zinc-400 leading-relaxed">
             High-intent buyer research moved from Google to ChatGPT and Gemini in under 18 months.
-            They don&apos;t scroll 10 blue links — they ask a question, get three names, and call those
-            three developers. SEO agencies are still optimising for blue links. We&apos;re built for the
-            new surface.
+            NRI buyers in Dubai, US, UK research developers extensively before flying in. Premium
+            buyers under-3-cr-budget tech-corridor families read three articles before booking a
+            site visit. Most developers&apos; SEO agencies are still optimising for blue links —
+            Cabbge is built for the new surface, with attribution into the funnel.
           </p>
           <div className="grid sm:grid-cols-3 gap-3 mt-6">
             {[
@@ -142,32 +143,34 @@ export default function AboutPage() {
         <section className="space-y-4">
           <h2 className="text-2xl font-bold">Who it&apos;s for</h2>
           <p className="text-[15px] text-zinc-400 leading-relaxed">
-            Indian real estate developers — single-city builders with 5–10 projects up to national
-            developers running 100+. Not for agencies, not for brokers, not for individual realtors.
-            Built for the team responsible for brand + lead generation: the head of marketing, CMO,
-            or founder doing both.
+            Premium real estate developers in India and the Middle East. Indian developers like Sobha,
+            Brigade, Prestige, DLF, Lodha, Godrej — anyone with NRI buyer flow or a premium / luxury
+            book. Middle East developers like Emaar, Damac, Aldar, Sobha Realty, Danube — where buyers
+            are remote, English-default, and research-driven. Not for agencies, not for brokers,
+            not for tier-3 single-project local builders. Built for the team responsible for lead
+            acquisition: the CMO, head of digital, or founder running both.
           </p>
         </section>
 
         {/* Why us */}
         <section className="space-y-4">
-          <h2 className="text-2xl font-bold">Why we&apos;re different from your SEO agency</h2>
+          <h2 className="text-2xl font-bold">Why this changes your CAC</h2>
           <ul className="space-y-3 text-[14px] text-zinc-300">
             <li className="flex gap-3">
               <span className="text-[#7CB342] flex-shrink-0">→</span>
-              <span><b className="text-zinc-100">We optimise for AI, not Google.</b> AI overviews are the new top result. Every article, every schema deploy is built to be cited by ChatGPT and Gemini specifically.</span>
+              <span><b className="text-zinc-100">Lead channel that doesn&apos;t scale with media spend.</b> Once subscription is paid, every additional organic + AI-search lead is incremental at zero variable cost. Add 50-200 leads a month without raising your media budget.</span>
             </li>
             <li className="flex gap-3">
               <span className="text-[#7CB342] flex-shrink-0">→</span>
-              <span><b className="text-zinc-100">Execution, not reporting.</b> Most tools tell you what&apos;s wrong. Cabbge writes the page that fixes it, in the same dashboard.</span>
+              <span><b className="text-zinc-100">Attribution your CFO can defend.</b> GSC impressions → landing page clicks → form submissions → CRM-ready leads. Every step measurable, every lead source-tagged. CAC delta vs paid baseline rendered weekly.</span>
             </li>
             <li className="flex gap-3">
               <span className="text-[#7CB342] flex-shrink-0">→</span>
-              <span><b className="text-zinc-100">Real estate native.</b> RERA, portal coverage, project schema, possession dates, locality scoping — none of which generic SEO tools understand.</span>
+              <span><b className="text-zinc-100">Real estate native.</b> RERA, portal coverage (99acres / Housing / MagicBricks), project schema, possession dates, NRI-segment query targeting, locality scoping — none of which generic horizontal SEO tools understand.</span>
             </li>
             <li className="flex gap-3">
               <span className="text-[#7CB342] flex-shrink-0">→</span>
-              <span><b className="text-zinc-100">10× cheaper than the agency you&apos;re comparing us to.</b> ₹50K–₹6L/month replaces a ₹5L–₹15L retainer with more output and faster cadence.</span>
+              <span><b className="text-zinc-100">Replaces the ₹5-15 lakh agency retainer.</b> Same volume of articles, same audit work, faster cadence, daily AI-search measurement on top. One platform, one bill, one dashboard.</span>
             </li>
           </ul>
         </section>
@@ -195,7 +198,7 @@ export default function AboutPage() {
 
       <footer className="border-t border-white/[0.06] mt-16">
         <div className="max-w-5xl mx-auto px-6 py-8 flex items-center justify-between text-[12px] text-zinc-500">
-          <span>© Cabbge · Built for Indian real estate</span>
+          <span>© Cabbge · Built for premium real estate · India + Middle East</span>
           <div className="flex items-center gap-4">
             <Link href="/privacy" className="hover:text-zinc-300">Privacy</Link>
             <Link href="/terms" className="hover:text-zinc-300">Terms</Link>

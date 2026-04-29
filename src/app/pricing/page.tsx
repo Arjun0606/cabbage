@@ -528,6 +528,44 @@ export default function PricingPage() {
           ))}
         </div>
 
+        {/* Enterprise / Custom — for premium Indian + ME developers
+            (Sobha, Brigade, DLF, Lodha, Emaar, Damac, Aldar etc.)
+            where the published Starter / Growth / Scale tiers don't
+            fit. Anchored on outcomes (CAC math, attribution, dedicated
+            support), not feature counts. */}
+        <div id="enterprise" className="rounded-2xl border border-[#7CB342]/30 bg-gradient-to-br from-[#7CB342]/[0.07] to-zinc-900/40 p-8 mt-2">
+          <div className="grid md:grid-cols-[1.4fr_1fr] gap-6 items-center">
+            <div className="space-y-3">
+              <div className="text-[10.5px] uppercase tracking-[0.2em] text-[#7CB342] font-semibold">Enterprise · India + Middle East</div>
+              <h3 className="text-2xl font-bold tracking-tight">Premium developers · custom pricing</h3>
+              <p className="text-[14px] text-zinc-400 leading-relaxed">
+                For top-30 Indian developers and Middle East giants: dedicated CAC modelling,
+                multi-country query coverage (NRI markets — Dubai / UK / US / Singapore), per-project
+                attribution dashboards, white-label exports for your CMO / board, and direct CSM access.
+                Annual contracts. Pricing is bespoke and tied to your project portfolio + lead-volume
+                targets, typically $5–25K/month USD equivalent.
+              </p>
+              <ul className="grid sm:grid-cols-2 gap-x-5 gap-y-1.5 text-[12px] text-zinc-400 mt-3">
+                <li className="flex items-center gap-2"><span className="text-[#7CB342]">✓</span> CAC delta dashboards vs paid baseline</li>
+                <li className="flex items-center gap-2"><span className="text-[#7CB342]">✓</span> NRI-market query coverage (UAE/UK/US/SG)</li>
+                <li className="flex items-center gap-2"><span className="text-[#7CB342]">✓</span> Unlimited multi-city + multi-project</li>
+                <li className="flex items-center gap-2"><span className="text-[#7CB342]">✓</span> Dedicated CSM + onboarding</li>
+                <li className="flex items-center gap-2"><span className="text-[#7CB342]">✓</span> Custom report templates + exports</li>
+                <li className="flex items-center gap-2"><span className="text-[#7CB342]">✓</span> SLA on scan freshness + support</li>
+              </ul>
+            </div>
+            <div className="flex flex-col items-start md:items-end gap-3">
+              <a
+                href="mailto:sales@cabbge.com?subject=Enterprise%20pricing%20enquiry"
+                className="inline-flex items-center gap-2 bg-[#7CB342] hover:bg-[#8BC34A] text-zinc-950 font-semibold px-5 h-11 rounded-lg text-[14px]"
+              >
+                Talk to sales
+              </a>
+              <span className="text-[11px] text-zinc-500">sales@cabbge.com · 24h response</span>
+            </div>
+          </div>
+        </div>
+
         {/* FAQ / trust row */}
         <div className="text-center text-[12px] text-zinc-500 space-y-1">
           <div>GST extra as applicable. No free trial — Cabbge is a paid product.</div>
