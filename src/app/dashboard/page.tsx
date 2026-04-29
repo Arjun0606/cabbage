@@ -1,7 +1,8 @@
-import Link from "next/link";
 import { getCurrentUser } from "@/lib/db/supabase-server";
 import { getServiceClient } from "@/lib/db/supabase";
 import { lookupGrade } from "@/lib/agents/grader";
+import { buildPlaybook, type PlaybookAction } from "@/lib/agents/playbook";
+import { gradeToScan } from "@/lib/outreach";
 import { DashboardClient } from "./dashboard-client";
 
 // Auth gate runs in app/dashboard/layout.tsx, so by the time this
@@ -58,6 +59,7 @@ export default async function DashboardPage() {
   const tracked = (trackedRaw || []) as TrackedRow[];
 
   const grades: Record<string, GradeSummary | null> = {};
+  const playbooks: Record<string, PlaybookAction[]> = {};
   for (const row of tracked) {
     const grade = await lookupGrade(row.brand_slug).catch(() => null);
     grades[row.brand_slug] = grade
@@ -69,6 +71,15 @@ export default async function DashboardPage() {
           scores: grade.scores,
         }
       : null;
+    if (grade) {
+      // buildPlaybook needs an AIVisibilityResult shape; gradeToScan
+      // adapts the persisted PublicGrade. We slice to top 6 actions
+      // so the dashboard panel stays scannable.
+      playbooks[row.brand_slug] = buildPlaybook(
+        gradeToScan(grade),
+        grade.brand,
+      ).slice(0, 6);
+    }
   }
 
   const mentions: Record<string, MentionTally> = {};
@@ -135,6 +146,7 @@ export default async function DashboardPage() {
           }))}
           grades={grades}
           mentions={mentions}
+          playbooks={playbooks}
         />
       </div>
     </main>

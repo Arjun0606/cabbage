@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import type { PlaybookAction } from "@/lib/agents/playbook";
 
 interface Tracked {
   brandSlug: string;
@@ -61,10 +62,12 @@ export function DashboardClient({
   tracked,
   grades,
   mentions,
+  playbooks,
 }: {
   tracked: Tracked[];
   grades: Record<string, GradeSummary | null>;
   mentions: Record<string, MentionTally>;
+  playbooks: Record<string, PlaybookAction[]>;
 }) {
   const [activeSlug, setActiveSlug] = useState<string | null>(
     tracked[0]?.brandSlug ?? null,
@@ -75,6 +78,7 @@ export function DashboardClient({
 
   const grade = activeSlug ? grades[activeSlug] : null;
   const mention = activeSlug ? mentions[activeSlug] : null;
+  const playbook = activeSlug ? playbooks[activeSlug] || [] : [];
 
   async function addBrand(e: React.FormEvent) {
     e.preventDefault();
@@ -427,24 +431,69 @@ export function DashboardClient({
               </div>
             )}
 
-            <div className="rounded-lg border border-zinc-800 bg-zinc-950/60 p-5">
-              <div className="text-[11px] uppercase tracking-widest text-zinc-500 mb-2">
-                Action playbook
+            {playbook.length > 0 ? (
+              <div className="rounded-lg border border-zinc-800 bg-zinc-950/60 p-5 space-y-3">
+                <div className="flex items-baseline justify-between gap-3">
+                  <div>
+                    <div className="text-[11px] uppercase tracking-widest text-zinc-500">
+                      Action playbook
+                    </div>
+                    <p className="text-xs text-zinc-500 mt-1">
+                      Per-engine plays ranked by impact. Each fix
+                      targets a specific engine&apos;s ranking signals.
+                    </p>
+                  </div>
+                  <Link
+                    href={`/visibility/${grade.slug}`}
+                    className="text-xs text-zinc-400 hover:text-zinc-200 shrink-0"
+                  >
+                    Full scorecard →
+                  </Link>
+                </div>
+                <ul className="space-y-2">
+                  {playbook.map((a, i) => (
+                    <li
+                      key={i}
+                      className="rounded-md border border-zinc-800 bg-zinc-950/40 p-3 space-y-1.5"
+                    >
+                      <div className="flex items-start gap-2 flex-wrap">
+                        <span
+                          className={`text-[10px] uppercase tracking-widest px-1.5 py-0.5 rounded shrink-0 ${
+                            a.engine === "all"
+                              ? "bg-zinc-800 text-zinc-200"
+                              : "bg-emerald-900/40 text-emerald-300"
+                          }`}
+                        >
+                          {a.engine}
+                        </span>
+                        <span
+                          className={`text-[10px] uppercase tracking-widest px-1.5 py-0.5 rounded shrink-0 ${
+                            a.priority === "high"
+                              ? "bg-rose-900/40 text-rose-300"
+                              : a.priority === "medium"
+                                ? "bg-amber-900/40 text-amber-300"
+                                : "bg-zinc-800 text-zinc-400"
+                          }`}
+                        >
+                          {a.priority}
+                        </span>
+                        <span className="text-sm text-zinc-100 font-medium min-w-0">
+                          {a.title}
+                        </span>
+                      </div>
+                      <p className="text-xs text-zinc-400 leading-relaxed">
+                        {a.rationale}
+                      </p>
+                      {a.estimatedLift && (
+                        <div className="text-[10px] text-zinc-500">
+                          Estimated lift: {a.estimatedLift}
+                        </div>
+                      )}
+                    </li>
+                  ))}
+                </ul>
               </div>
-              <p className="text-xs text-zinc-500">
-                The full per-engine playbook lives on the public
-                scorecard at{" "}
-                <Link
-                  href={`/visibility/${grade.slug}`}
-                  className="underline hover:text-zinc-300"
-                >
-                  /visibility/{grade.slug}
-                </Link>
-                . Each fix is engine-specific and ranked by impact —
-                ChatGPT, Gemini, Perplexity, Claude, and Grok each
-                weight different signals.
-              </p>
-            </div>
+            ) : null}
           </>
         )}
       </section>
