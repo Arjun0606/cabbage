@@ -301,7 +301,15 @@ export async function generateSearchQueries(
   // Multi-level GEO: locality (micro) + city (metro) + country (macro)
   // This ensures we track visibility at every level a buyer searches.
 
-  const system = "Return a JSON array of English strings. No other text.";
+  const system = `You generate buyer-search queries and return them as a JSON array of objects.
+
+OUTPUT CONTRACT — non-negotiable:
+- Output ONLY the JSON array. The very first character must be "[" and the very last must be "]".
+- No prose before, no prose after, no markdown code fences, no comments inside the JSON.
+- Every array element is an OBJECT with this exact shape:
+  { "query": string, "level": "locality"|"city"|"country", "city": string|null, "config": string|null, "priceTier": string|null, "intent": "research"|"comparison"|"shortlist"|"investment"|"rental" }
+- If a field doesn't apply, use null (not "null" the string, not absent — actual JSON null).
+- Do NOT wrap the response in another object. Do NOT include explanations. The whole response is parseable by JSON.parse.`;
 
   const loc = locality || city;
   const country = "India"; // Can be parameterized later
@@ -523,52 +531,113 @@ Classify each query:
   const validLevels = new Set(["locality", "city", "country"]);
   const validIntents = new Set(["research", "comparison", "shortlist", "investment", "rental"]);
 
-  const jsonMatch = text.match(/\[[\s\S]*\]/);
-  if (jsonMatch) {
-    // Handle truncated JSON arrays — try to salvage partial results
-    let jsonStr = jsonMatch[0];
-    try { JSON.parse(jsonStr); } catch {
-      const lastObj = jsonStr.lastIndexOf("}");
-      if (lastObj > 0) jsonStr = jsonStr.slice(0, lastObj + 1) + "]";
-    }
+  /**
+   * Extract a JSON array from free-form LLM output. The simple
+   * `/\[[\s\S]*\]/` regex was failing on long outputs that contained
+   * "[locality]" placeholders in surrounding prose, prose preambles,
+   * or markdown fences. This walker:
+   *   1. Strips markdown fences if present.
+   *   2. Tries direct JSON.parse on the whole thing.
+   *   3. Walks the string brace-balanced from the first `[` to find a
+   *      structurally complete top-level array, ignoring brackets
+   *      inside JSON strings (with escape handling).
+   *   4. Falls back to truncation salvage when the walker doesn't
+   *      find a balanced match (model cut off mid-array).
+   * Returns `null` when nothing parseable is found.
+   */
+  function extractJsonArray(input: string): unknown[] | null {
+    if (!input) return null;
+
+    // 1. Strip markdown fences. Handles both ```json and bare ``` blocks.
+    let s = input.trim();
+    s = s.replace(/^```(?:json|JSON)?\s*\n?/, "").replace(/\n?```\s*$/, "");
+
+    // 2. Direct parse — happens when the model behaves and returns pure JSON.
     try {
-      const parsed = JSON.parse(jsonStr);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        const queries: QueryWithMeta[] = [];
-        for (const item of parsed) {
-          // Tolerate two shapes: bare string (legacy) or {query, level, city, ...}
-          if (typeof item === "string") {
-            queries.push({ query: item, level: "locality", city });
-            AI_QUERY_LEVELS.set(item.toLowerCase(), "locality");
-            AI_QUERY_CITIES.set(item.toLowerCase(), city);
-          } else if (item?.query && typeof item.query === "string") {
-            const level: "locality" | "city" | "country" = validLevels.has(item.level)
-              ? item.level
-              : "locality";
-            const tagCity = typeof item.city === "string" && item.city ? item.city : (level === "country" ? undefined : city);
-            const config = typeof item.config === "string" && item.config && item.config !== "null" ? item.config : undefined;
-            const priceTier = typeof item.priceTier === "string" && item.priceTier && item.priceTier !== "null" ? item.priceTier : undefined;
-            const intent = typeof item.intent === "string" && validIntents.has(item.intent) ? item.intent : undefined;
-            queries.push({ query: item.query, level, city: tagCity, config, priceTier, intent: intent as QueryWithMeta["intent"] });
-            const qLower = item.query.toLowerCase();
-            AI_QUERY_LEVELS.set(qLower, level);
-            if (tagCity) AI_QUERY_CITIES.set(qLower, tagCity);
-          }
-        }
-        if (queries.length > 0) return { queries, usedFallback: false };
+      const parsed = JSON.parse(s);
+      if (Array.isArray(parsed)) return parsed;
+    } catch { /* fall through */ }
+
+    // 3. Brace-balanced walk from the first `[`. Critical: skip
+    // brackets that appear inside JSON strings, and respect
+    // backslash escapes inside those strings. Without this, prose
+    // like "['locality']" or `"label": "[NEW]"` wrecks the count.
+    const firstOpen = s.indexOf("[");
+    if (firstOpen < 0) return null;
+
+    let depth = 0;
+    let inString = false;
+    let escape = false;
+    let end = -1;
+    for (let i = firstOpen; i < s.length; i++) {
+      const ch = s[i];
+      if (escape) { escape = false; continue; }
+      if (ch === "\\" && inString) { escape = true; continue; }
+      if (ch === '"') { inString = !inString; continue; }
+      if (inString) continue;
+      if (ch === "[") depth++;
+      else if (ch === "]") {
+        depth--;
+        if (depth === 0) { end = i; break; }
       }
-    } catch (err) {
-      console.error(
-        "generateSearchQueries: JSON.parse failed —",
-        err instanceof Error ? err.message : err,
-        "raw:",
-        jsonMatch[0].slice(0, 400)
-      );
     }
-  } else if (text) {
+
+    if (end > firstOpen) {
+      const candidate = s.slice(firstOpen, end + 1);
+      try {
+        const parsed = JSON.parse(candidate);
+        if (Array.isArray(parsed)) return parsed;
+      } catch { /* fall through to truncation salvage */ }
+    }
+
+    // 4. Truncation salvage — model output was cut off mid-array.
+    // Walk from the first `[` to the last complete `}` we can find,
+    // close the array there.
+    const remaining = s.slice(firstOpen);
+    const lastBrace = remaining.lastIndexOf("}");
+    if (lastBrace > 0) {
+      const candidate = remaining.slice(0, lastBrace + 1) + "]";
+      try {
+        const parsed = JSON.parse(candidate);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch { /* nothing more we can do */ }
+    }
+
+    return null;
+  }
+
+  const parsedArr = extractJsonArray(text);
+  if (parsedArr && parsedArr.length > 0) {
+    const queries: QueryWithMeta[] = [];
+    for (const item of parsedArr) {
+      // Tolerate two shapes: bare string (legacy) or {query, level, city, ...}
+      if (typeof item === "string" && item.trim()) {
+        queries.push({ query: item, level: "locality", city });
+        AI_QUERY_LEVELS.set(item.toLowerCase(), "locality");
+        AI_QUERY_CITIES.set(item.toLowerCase(), city);
+      } else if (item && typeof item === "object" && typeof (item as { query?: unknown }).query === "string") {
+        const obj = item as Record<string, unknown>;
+        const level: "locality" | "city" | "country" = validLevels.has(obj.level as string)
+          ? (obj.level as "locality" | "city" | "country")
+          : "locality";
+        const tagCity = typeof obj.city === "string" && obj.city ? obj.city : (level === "country" ? undefined : city);
+        const config = typeof obj.config === "string" && obj.config && obj.config !== "null" ? obj.config : undefined;
+        const priceTier = typeof obj.priceTier === "string" && obj.priceTier && obj.priceTier !== "null" ? obj.priceTier : undefined;
+        const intent = typeof obj.intent === "string" && validIntents.has(obj.intent) ? obj.intent : undefined;
+        const q = obj.query as string;
+        queries.push({ query: q, level, city: tagCity, config, priceTier, intent: intent as QueryWithMeta["intent"] });
+        const qLower = q.toLowerCase();
+        AI_QUERY_LEVELS.set(qLower, level);
+        if (tagCity) AI_QUERY_CITIES.set(qLower, tagCity);
+      }
+    }
+    if (queries.length > 0) return { queries, usedFallback: false };
+  }
+
+  if (text) {
     console.error(
-      "generateSearchQueries: no JSON array found in aiLight output. Raw:",
-      text.slice(0, 400)
+      "generateSearchQueries: failed to extract usable JSON array from aiLight output. Raw (first 600 chars):",
+      text.slice(0, 600),
     );
   }
 
