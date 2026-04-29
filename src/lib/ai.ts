@@ -215,15 +215,14 @@ export async function queryForVisibility(
       // query was killing the whole AI visibility run for that platform.
       // Tighter retry budget on web_search than aiComplete/aiLight.
       // Web_search calls are 10-15s each and we fire up to 2 per query
-      // (one OpenAI, one Gemini) × N queries. A full 3-attempt × 4s
-      // backoff cycle could add ~21s per call × 50 calls = 17 minutes
-      // of pure waiting on a rate-limited scan, blowing past the 300s
-      // function timeout. 2 attempts with faster backoff caps the
-      // worst-case wait at ~3s per call. If web_search still fails
-      // after that, the surrounding fallback to ungrounded chat (lower
-      // quota tier) takes over.
-      const response = await withRetry(
-        () =>
+      // (one OpenAI, one Gemini) × N queries. Without a per-call
+      // timeout, a single hung Responses-API call could block the
+      // whole scan past Vercel's 300s ceiling. 35s per attempt (3x
+      // p99 latency) bounds the worst case to ~70s per query. The
+      // surrounding fallback to ungrounded chat handles persistent
+      // failures.
+      const callWebSearch = () =>
+        Promise.race([
           (client as unknown as {
             responses: {
               create: (args: unknown) => Promise<unknown>;
@@ -234,8 +233,14 @@ export async function queryForVisibility(
             tools: [{ type: "web_search" }],
             max_output_tokens: 1500,
           }),
-        { label: `web_search(${MODEL_HEAVY})`, maxAttempts: 2 },
-      );
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error("web_search timed out after 35s")), 35_000),
+          ),
+        ]);
+      const response = await withRetry(callWebSearch, {
+        label: `web_search(${MODEL_HEAVY})`,
+        maxAttempts: 2,
+      });
 
       // Extract text from response
       const output = (response as { output?: unknown[] }).output || [];

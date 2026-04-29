@@ -285,8 +285,29 @@ async function checkAIReadiness(url: string): Promise<AIReadinessCheck[]> {
   let llmsOk = false;
   let sitemapOk = false;
 
+  /**
+   * Hard-bound every customer-site fetch with an AbortController. Without
+   * a timeout, a single slow CDN or hung TCP connection on the customer's
+   * domain can block the entire AI visibility scan past Vercel's 300s
+   * function ceiling — manifests as a 504 with no logged cause. 8s per
+   * fetch is generous enough for a slow Indian-CDN homepage but caps the
+   * worst-case readiness check at ~32s for all four fetches combined.
+   */
+  const fetchWithTimeout = async (target: string, timeoutMs = 8000) => {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), timeoutMs);
+    try {
+      return await fetch(target, {
+        headers: { "User-Agent": "Cabbge/1.0" },
+        signal: ctrl.signal,
+      });
+    } finally {
+      clearTimeout(t);
+    }
+  };
+
   try {
-    const res = await fetch(url, { headers: { "User-Agent": "Cabbge/1.0" } });
+    const res = await fetchWithTimeout(url);
     if (res.ok) html = await res.text();
     else console.error(`AI readiness: main page fetch failed (${res.status}) ${url}`);
   } catch (err) {
@@ -297,7 +318,7 @@ async function checkAIReadiness(url: string): Promise<AIReadinessCheck[]> {
 
   // robots.txt — strict validation (HTTP 200 + text content-type + valid directives)
   try {
-    const res = await fetch(`${baseUrl}/robots.txt`, { headers: { "User-Agent": "Cabbge/1.0" } });
+    const res = await fetchWithTimeout(`${baseUrl}/robots.txt`);
     if (res.ok && res.headers.get("content-type")?.includes("text")) {
       robotsTxt = await res.text();
       robotsOk = /^\s*(user-agent|disallow|allow|sitemap)\s*:/im.test(robotsTxt);
@@ -308,7 +329,7 @@ async function checkAIReadiness(url: string): Promise<AIReadinessCheck[]> {
 
   // llms.txt — strict validation (HTTP 200 + text/plain or text/markdown + markdown structure)
   try {
-    const res = await fetch(`${baseUrl}/llms.txt`, { headers: { "User-Agent": "Cabbge/1.0" } });
+    const res = await fetchWithTimeout(`${baseUrl}/llms.txt`);
     if (res.ok) {
       const contentType = res.headers.get("content-type") || "";
       if (contentType.includes("text/plain") || contentType.includes("text/markdown")) {
@@ -322,7 +343,7 @@ async function checkAIReadiness(url: string): Promise<AIReadinessCheck[]> {
 
   // sitemap.xml — strict validation (HTTP 200 + xml content-type + XML structure)
   try {
-    const res = await fetch(`${baseUrl}/sitemap.xml`, { headers: { "User-Agent": "Cabbge/1.0" } });
+    const res = await fetchWithTimeout(`${baseUrl}/sitemap.xml`);
     if (res.ok) {
       const contentType = res.headers.get("content-type") || "";
       if (contentType.includes("xml")) {
