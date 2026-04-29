@@ -1,6 +1,11 @@
 import { queryForVisibility, aiLight, type VisibilitySource } from "@/lib/ai";
 import type { QueryWithMeta } from "@/lib/agents/localityEngine";
 import { checkHallucinations } from "@/lib/agents/hallucinationCheck";
+import {
+  runOffDomainCoverage,
+  offDomainCoverageScore,
+  type OffDomainItem,
+} from "@/lib/agents/offDomain";
 
 // ---------- Types ----------
 
@@ -32,9 +37,11 @@ export interface AIVisibilityResult {
     overall: number;
     readiness: number;
     mentions: number;
+    offDomain?: number;
   };
   queryResults: QueryResult[];
   aiReadiness: AIReadinessCheck[];
+  offDomainCoverage?: OffDomainItem[];
   configuredLLMs: string[];
   platformHealth: {
     chatgpt: PlatformHealth;
@@ -509,8 +516,15 @@ export async function runAIVisibility(
   disambiguation?: BrandDisambiguation,
   projectGroundTruth?: import("./hallucinationCheck").ProjectGroundTruth[],
 ): Promise<AIVisibilityResult> {
-  // Run AI readiness checks
-  const aiReadiness = await checkAIReadiness(websiteUrl);
+  // Run AI readiness checks + off-domain coverage in parallel.
+  // Off-domain coverage probes Wikipedia / Wikidata / Trustpilot / G2 /
+  // Reddit to measure earned-media presence — 82-89% of AI citations
+  // come from third-party authoritative sources, not the brand's site.
+  const [aiReadiness, offDomainCoverage] = await Promise.all([
+    checkAIReadiness(websiteUrl),
+    runOffDomainCoverage(brand, websiteUrl).catch(() => [] as OffDomainItem[]),
+  ]);
+  const offDomainScoreValue = offDomainCoverageScore(offDomainCoverage);
 
   // Five engines fire in parallel per query when their API keys are set.
   // Each engine degrades cleanly when its key is missing (the scan still
@@ -741,6 +755,7 @@ export async function runAIVisibility(
   if (hasPerplexity) scores.perplexity = mentionScores.perplexity;
   if (hasClaude) scores.claude = mentionScores.claude;
   if (hasGrok) scores.grok = mentionScores.grok;
+  if (offDomainCoverage.length > 0) scores.offDomain = offDomainScoreValue;
 
   return {
     brand,
@@ -748,6 +763,7 @@ export async function runAIVisibility(
     scores,
     queryResults,
     aiReadiness,
+    offDomainCoverage,
     configuredLLMs,
     platformHealth,
   };
