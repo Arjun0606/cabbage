@@ -301,14 +301,19 @@ export async function queryForVisibility(
           body.tools = [{ google_search: {} }];
         }
 
+        // Hard 25s timeout per Gemini call. Without this, a slow or
+        // hung Gemini fetch could block the parallel scan loop.
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), 25_000);
         const res = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(body),
-          }
-        );
+            signal: ctrl.signal,
+          },
+        ).finally(() => clearTimeout(t));
 
         // Always parse the body — but handle error responses explicitly
         let data: unknown;

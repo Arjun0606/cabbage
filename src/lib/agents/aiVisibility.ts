@@ -519,88 +519,89 @@ export async function runAIVisibility(
   let chatgptLastError: string | undefined;
   let geminiLastError: string | undefined;
 
-  for (const qm of queries) {
-    const [chatgptRes, geminiRes] = await Promise.all([
-      queryForVisibility("openai", qm.query).catch((err): { text: string; source: VisibilitySource; error?: string } => ({
-        text: "",
-        source: "failed",
-        error: err instanceof Error ? err.message : String(err),
-      })),
-      queryForVisibility("gemini", qm.query).catch((err): { text: string; source: VisibilitySource; error?: string } => ({
-        text: "",
-        source: "failed",
-        error: err instanceof Error ? err.message : String(err),
-      })),
-    ]);
+  // Run every query in parallel. Previously sequential — for 5 queries
+  // with 25-30s per call under retry pressure that meant 125-150s
+  // minimum, breaching Vercel's 300s ceiling under any load. Going
+  // parallel cuts wall time to roughly max(query) instead of
+  // sum(queries), so 5 queries finish in ~30s instead of ~150s.
+  // OpenAI and Gemini both handle 5-10 simultaneous requests fine at
+  // the tier the customer is on.
+  const RAW_MAX = 2500;
+  const trim = (s: string) => (s && typeof s === "string" ? s.slice(0, RAW_MAX) : "");
+  const shouldAudit = !!projectGroundTruth && projectGroundTruth.length > 0;
 
-    chatgptSources.push(chatgptRes.source);
-    geminiSources.push(geminiRes.source);
-    if (chatgptRes.error) chatgptLastError = chatgptRes.error;
-    if (geminiRes.error) geminiLastError = geminiRes.error;
+  const perQueryResults = await Promise.all(
+    queries.map(async (qm): Promise<QueryResult & { _chatgptSource: VisibilitySource; _geminiSource: VisibilitySource; _chatgptError?: string; _geminiError?: string }> => {
+      const [chatgptRes, geminiRes] = await Promise.all([
+        queryForVisibility("openai", qm.query).catch((err): { text: string; source: VisibilitySource; error?: string } => ({
+          text: "",
+          source: "failed",
+          error: err instanceof Error ? err.message : String(err),
+        })),
+        queryForVisibility("gemini", qm.query).catch((err): { text: string; source: VisibilitySource; error?: string } => ({
+          text: "",
+          source: "failed",
+          error: err instanceof Error ? err.message : String(err),
+        })),
+      ]);
 
-    // AI-powered analysis of each response (sentiment + co-citations done by LLM)
-    const [chatgptAnalysis, geminiAnalysis] = await Promise.all([
-      analyzeMention(chatgptRes.text, brand, projects, disambiguation),
-      analyzeMention(geminiRes.text, brand, projects, disambiguation),
-    ]);
+      const [chatgptAnalysis, geminiAnalysis] = await Promise.all([
+        analyzeMention(chatgptRes.text, brand, projects, disambiguation),
+        analyzeMention(geminiRes.text, brand, projects, disambiguation),
+      ]);
 
-    // Hallucination audit — compare AI's factual claims against the
-    // scraped ground-truth projects. Only run when the brand was
-    // actually mentioned (no point auditing absence) and we have
-    // ground-truth data to compare against.
-    const shouldAudit = !!projectGroundTruth && projectGroundTruth.length > 0;
-    const [chatgptHallucinations, geminiHallucinations] = shouldAudit
-      ? await Promise.all([
-          chatgptAnalysis.mentioned
-            ? checkHallucinations(
-                brand,
-                disambiguation?.aliases || [],
-                disambiguation?.exclusions || [],
-                projectGroundTruth!,
-                chatgptRes.text,
-              ).then((r) => r.hallucinations).catch(() => [])
-            : Promise.resolve([]),
-          geminiAnalysis.mentioned
-            ? checkHallucinations(
-                brand,
-                disambiguation?.aliases || [],
-                disambiguation?.exclusions || [],
-                projectGroundTruth!,
-                geminiRes.text,
-              ).then((r) => r.hallucinations).catch(() => [])
-            : Promise.resolve([]),
-        ])
-      : [undefined, undefined];
+      const [chatgptHallucinations, geminiHallucinations] = shouldAudit
+        ? await Promise.all([
+            chatgptAnalysis.mentioned
+              ? checkHallucinations(
+                  brand,
+                  disambiguation?.aliases || [],
+                  disambiguation?.exclusions || [],
+                  projectGroundTruth!,
+                  chatgptRes.text,
+                ).then((r) => r.hallucinations).catch(() => [])
+              : Promise.resolve([]),
+            geminiAnalysis.mentioned
+              ? checkHallucinations(
+                  brand,
+                  disambiguation?.aliases || [],
+                  disambiguation?.exclusions || [],
+                  projectGroundTruth!,
+                  geminiRes.text,
+                ).then((r) => r.hallucinations).catch(() => [])
+              : Promise.resolve([]),
+          ])
+        : [undefined, undefined];
 
-    // Capture trimmed raw responses as evidence. Cap at 2500 chars per
-    // platform — long enough to retain the full citation paragraph and
-    // surrounding context, short enough that 50 queries × 2 platforms
-    // fits comfortably in a JSONB column without bloating scan_history.
-    const RAW_MAX = 2500;
-    const trim = (s: string) => (s && typeof s === "string" ? s.slice(0, RAW_MAX) : "");
+      return {
+        query: qm.query,
+        level: qm.level,
+        city: qm.city,
+        config: qm.config,
+        priceTier: qm.priceTier,
+        intent: qm.intent,
+        chatgpt: { ...chatgptAnalysis, hallucinations: chatgptHallucinations, rawResponse: trim(chatgptRes.text) },
+        gemini: { ...geminiAnalysis, hallucinations: geminiHallucinations, rawResponse: trim(geminiRes.text) },
+        claude: emptyResult,
+        perplexity: emptyResult,
+        _chatgptSource: chatgptRes.source,
+        _geminiSource: geminiRes.source,
+        _chatgptError: chatgptRes.error,
+        _geminiError: geminiRes.error,
+      };
+    }),
+  );
 
-    queryResults.push({
-      query: qm.query,
-      level: qm.level,
-      city: qm.city,
-      config: qm.config,
-      priceTier: qm.priceTier,
-      intent: qm.intent,
-      chatgpt: {
-        ...chatgptAnalysis,
-        hallucinations: chatgptHallucinations,
-        rawResponse: trim(chatgptRes.text),
-      },
-      gemini: {
-        ...geminiAnalysis,
-        hallucinations: geminiHallucinations,
-        rawResponse: trim(geminiRes.text),
-      },
-      claude: emptyResult,
-      perplexity: emptyResult,
-    });
-
-    await new Promise((r) => setTimeout(r, 500));
+  // Stitch sources / errors back into the per-platform health buckets.
+  for (const r of perQueryResults) {
+    chatgptSources.push(r._chatgptSource);
+    geminiSources.push(r._geminiSource);
+    if (r._chatgptError) chatgptLastError = r._chatgptError;
+    if (r._geminiError) geminiLastError = r._geminiError;
+    // Strip the per-row tracking fields before persisting.
+    const { _chatgptSource, _geminiSource, _chatgptError, _geminiError, ...clean } = r;
+    void _chatgptSource; void _geminiSource; void _chatgptError; void _geminiError;
+    queryResults.push(clean);
   }
 
   const summarize = (sources: VisibilitySource[], lastError?: string): PlatformHealth => {
