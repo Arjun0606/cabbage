@@ -60,7 +60,7 @@ export default function SignUpPage() {
             <span className="text-2xl font-bold tracking-tight">Cabbge</span>
           </Link>
           <h1 className="text-2xl font-bold mb-1">Create your workspace</h1>
-          <p className="text-[13px] text-zinc-500">After signup you&apos;ll be taken to pricing to activate access.</p>
+          <p className="text-[13px] text-zinc-500">Next we&apos;ll capture your projects, brand, and AI-search context — about 5 minutes.</p>
         </div>
 
         {success ? (
@@ -131,7 +131,7 @@ export default function SignUpPage() {
             </Button>
 
             <p className="text-[11px] text-zinc-500 text-center">
-              By signing up you agree to our terms. Cabbge is a paid product — you&apos;ll pick a plan next.
+              By signing up you agree to our terms.
             </p>
           </div>
         )}

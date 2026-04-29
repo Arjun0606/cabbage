@@ -797,29 +797,84 @@ function OnboardingInner() {
               </div>
             ))}
 
-            {/* Optional integrations — surfaced before the finish
-                button so customers see what's available without it
-                blocking onboarding. Each one's an OAuth flow that
-                pulls real data we use to sharpen scans and decay
-                detection. PSI is API-key based and runs automatically
-                on every audit, no setup needed. */}
-            <div className="rounded-lg border border-white/[0.06] bg-zinc-900/40 p-4 space-y-2.5">
+            {/* Google Search Console — single biggest data input we
+                can ask for. Decay detection, refresh prioritisation,
+                and the freshness cron all consume GSC data. Surfaced
+                as a recommended (not optional-flavoured) action with a
+                direct OAuth-trigger button. Customers who skip get the
+                same prompt as a banner on the dashboard. */}
+            <div className="rounded-lg border border-[#7CB342]/30 bg-[#7CB342]/[0.04] p-4 space-y-2.5">
               <div className="flex items-center gap-2">
-                <Sparkles size={13} className="text-zinc-500" />
-                <h3 className="text-[12.5px] font-semibold text-zinc-300">Optional: connect Google (you can do this after)</h3>
+                <Sparkles size={13} className="text-[#7CB342]" />
+                <h3 className="text-[13px] font-semibold text-zinc-100">Connect Google Search Console</h3>
+                <span className="ml-auto text-[10px] uppercase tracking-wider text-[#7CB342]">recommended</span>
               </div>
-              <p className="text-[11px] text-zinc-500 leading-relaxed">
-                Connect Google Search Console so we can detect content decay (pages losing rankings) and prioritise refreshes. Page speed (Google PSI) runs automatically on every audit — no setup needed.
+              <p className="text-[11.5px] text-zinc-400 leading-relaxed">
+                We use your real GSC data to spot pages losing rankings (content decay), prioritise which articles to refresh, and validate that the content we ship moves your impressions and clicks. Without it, scoring is based only on what we crawl publicly. Takes 30 seconds.
               </p>
-              <div className="flex flex-wrap gap-2 pt-1">
-                <a
-                  href="/settings"
-                  className="text-[11px] font-medium px-2.5 py-1.5 rounded-md bg-zinc-800 text-zinc-200 hover:bg-zinc-700 border border-zinc-700/50"
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    // Persist current onboarding state first — the GSC
+                    // OAuth callback needs an existing company row to
+                    // attach the integration to. Without this save, the
+                    // callback fails with no_company and the integration
+                    // never lands. Brand-context fields can be empty;
+                    // user fills them later from the Company panel.
+                    const cleanedCities = cities
+                      .map((c) => c.trim())
+                      .filter((c) => c.length > 0)
+                      .filter((c, i, arr) => arr.findIndex((x) => x.toLowerCase() === c.toLowerCase()) === i);
+                    const payload = {
+                      name: name.trim(),
+                      description,
+                      website,
+                      city: cleanedCities[0] || "",
+                      cities: cleanedCities,
+                      industry,
+                      sites: extraSites.map((s) => ({ url: s.url, label: s.label, type: s.type || "other" })),
+                      projects: projects.length > 0 ? projects : [],
+                      competitors: competitors.map((c) => ({ name: c, website: "" })),
+                      documents: {
+                        productInfo: productInfo.trim(),
+                        brandVoice: brandVoice.trim(),
+                        brandValues: brandValues.trim(),
+                        brandVision: brandVision.trim(),
+                        targetAudience: targetAudience.trim(),
+                        marketingStrategy: marketingStrategy.trim(),
+                        competitorAnalysis: competitorAnalysisDoc.trim(),
+                        cities: cleanedCities,
+                      },
+                    };
+                    try {
+                      await fetch("/api/companies", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(payload),
+                      });
+                    } catch { /* non-fatal — try OAuth anyway */ }
+                    try {
+                      const res = await fetch("/api/integrations/gsc");
+                      const data = await res.json();
+                      if (data?.authUrl) {
+                        window.location.href = data.authUrl;
+                      } else {
+                        window.location.href = "/settings";
+                      }
+                    } catch {
+                      window.location.href = "/settings";
+                    }
+                  }}
+                  className="text-[11.5px] font-semibold px-3 py-1.5 rounded-md bg-[#7CB342] text-zinc-950 hover:bg-[#8BC34A] active:scale-[0.97]"
                 >
-                  Open Settings → Integrations
-                </a>
-                <span className="text-[10.5px] text-zinc-600 self-center">or skip and connect from the dashboard later</span>
+                  Connect GSC now
+                </button>
+                <span className="text-[10.5px] text-zinc-500 self-center">or skip — we&apos;ll prompt again from the dashboard</span>
               </div>
+              <p className="text-[10px] text-zinc-600">
+                Google PageSpeed Insights runs automatically on every audit — no setup. Google Business Profile + GA4 connectors live in Settings → Integrations.
+              </p>
             </div>
 
             {/* Nav buttons */}
