@@ -85,7 +85,7 @@ function linkedinFor(grade: PublicGrade, baseUrl: string): string {
  * only use the fields the rule engine reads — readiness, off-domain,
  * scores. No queryResults needed.
  */
-function gradeToScan(grade: PublicGrade): AIVisibilityResult {
+export function gradeToScan(grade: PublicGrade): AIVisibilityResult {
   return {
     brand: grade.brand,
     projects: [],
