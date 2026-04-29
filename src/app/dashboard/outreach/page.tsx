@@ -1,25 +1,14 @@
-import Link from "next/link";
-import { redirect } from "next/navigation";
-import { getCurrentUser } from "@/lib/db/supabase-server";
 import { OutreachKit } from "./outreach-kit";
 
 export const dynamic = "force-dynamic";
 
-export default async function OutreachPage() {
-  const user = await getCurrentUser();
-  if (!user) redirect("/signin?next=/dashboard/outreach");
-
+// Auth gate runs in app/dashboard/layout.tsx.
+export default function OutreachPage() {
   return (
-    <main className="min-h-screen bg-zinc-950 text-zinc-100 px-6 py-10">
+    <main className="px-6 py-10">
       <div className="max-w-4xl mx-auto space-y-8">
         <div>
-          <Link
-            href="/dashboard"
-            className="text-xs uppercase tracking-widest text-zinc-500 hover:text-zinc-300"
-          >
-            ← Dashboard
-          </Link>
-          <h1 className="text-2xl font-semibold text-zinc-100 mt-3">
+          <h1 className="text-2xl font-semibold text-zinc-100">
             Outreach kit
           </h1>
           <p className="text-sm text-zinc-400 mt-2 max-w-2xl">

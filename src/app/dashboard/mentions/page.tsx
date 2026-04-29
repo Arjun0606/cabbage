@@ -1,5 +1,3 @@
-import Link from "next/link";
-import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/db/supabase-server";
 import { getServiceClient } from "@/lib/db/supabase";
 import { MentionsClient } from "./mentions-client";
@@ -7,8 +5,9 @@ import { MentionsClient } from "./mentions-client";
 export const dynamic = "force-dynamic";
 
 export default async function MentionsPage() {
+  // Auth gate runs in app/dashboard/layout.tsx.
   const user = await getCurrentUser();
-  if (!user) redirect("/signin?next=/dashboard/mentions");
+  if (!user) return null;
 
   const svc = getServiceClient();
   const { data: tracked } = await svc
@@ -18,16 +17,10 @@ export default async function MentionsPage() {
     .order("created_at", { ascending: false });
 
   return (
-    <main className="min-h-screen bg-zinc-950 text-zinc-100 px-6 py-10">
+    <main className="px-6 py-10">
       <div className="max-w-5xl mx-auto space-y-8">
         <div>
-          <Link
-            href="/dashboard"
-            className="text-xs uppercase tracking-widest text-zinc-500 hover:text-zinc-300"
-          >
-            ← Dashboard
-          </Link>
-          <h1 className="text-2xl font-semibold text-zinc-100 mt-3">
+          <h1 className="text-2xl font-semibold text-zinc-100">
             Mention tracking
           </h1>
           <p className="text-sm text-zinc-400 mt-2 max-w-2xl">

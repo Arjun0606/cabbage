@@ -1,10 +1,13 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/db/supabase-server";
 import { getServiceClient } from "@/lib/db/supabase";
 import { lookupGrade } from "@/lib/agents/grader";
 import { DashboardClient } from "./dashboard-client";
 
+// Auth gate runs in app/dashboard/layout.tsx, so by the time this
+// renders we know there's a user. We re-fetch it here only because
+// the layout's value isn't passed through to children — could be
+// hoisted later via a context or a cached server helper.
 export const dynamic = "force-dynamic";
 
 interface TrackedRow {
@@ -42,8 +45,7 @@ interface MentionTally {
 
 export default async function DashboardPage() {
   const user = await getCurrentUser();
-  if (!user) redirect("/signin?next=/dashboard");
-
+  if (!user) return null;
   const svc = getServiceClient();
 
   const { data: trackedRaw } = await svc
@@ -107,29 +109,20 @@ export default async function DashboardPage() {
   }
 
   return (
-    <main className="min-h-screen bg-zinc-950 text-zinc-100 px-6 py-10">
+    <main className="px-6 py-10">
       <div className="max-w-6xl mx-auto space-y-8">
-        <div className="flex items-baseline justify-between gap-4">
-          <div>
-            <div className="text-[11px] uppercase tracking-widest text-zinc-500">
-              Cabbge
-            </div>
-            <h1 className="text-2xl font-semibold text-zinc-100 mt-1">
-              Your brands
-            </h1>
-            <p className="text-sm text-zinc-400 mt-2 max-w-2xl">
-              Five engines scanned, four mention sources tracked.
-              Pick a brand to see the playbook, or grade something
-              new from the home page.
-            </p>
+        <div>
+          <div className="text-[11px] uppercase tracking-widest text-zinc-500">
+            Cabbge
           </div>
-          <Link
-            href="/dashboard/legacy"
-            className="text-[11px] text-zinc-600 hover:text-zinc-400"
-            title="Pre-pivot dashboard view"
-          >
-            legacy view
-          </Link>
+          <h1 className="text-2xl font-semibold text-zinc-100 mt-1">
+            Your brands
+          </h1>
+          <p className="text-sm text-zinc-400 mt-2 max-w-2xl">
+            Five engines scanned, four mention sources tracked. Pick
+            a brand to see the playbook, or grade something new from
+            the home page.
+          </p>
         </div>
 
         <DashboardClient

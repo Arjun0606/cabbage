@@ -13,7 +13,9 @@ import {
 import Image from "next/image";
 
 interface Props {
-  companyName: string;
+  /** Avatar label fallback. Pass the user's email or display name; we
+   *  use the first letter. Optional so server layouts can omit it. */
+  companyName?: string;
 }
 
 export function Sidebar({ companyName }: Props) {
