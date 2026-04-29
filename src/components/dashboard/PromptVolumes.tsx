@@ -200,6 +200,43 @@ export function PromptVolumes({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Platform health warning — when ChatGPT or Gemini ran in
+            fallback or broken mode, the score below is unreliable. We
+            surface this BEFORE the score so a 0% reading caused by
+            tool-failure isn't read as honest "you're invisible"
+            data. The mention number is still rendered so the user
+            can see the run actually happened, but with the explicit
+            caveat that the underlying engine wasn't healthy. */}
+        {(() => {
+          const ph = aiVisResult?.platformHealth;
+          if (!ph) return null;
+          const issues: string[] = [];
+          for (const [name, key] of [["ChatGPT", "chatgpt"], ["Gemini", "gemini"]] as const) {
+            const h = ph[key];
+            if (!h || h.status === "live") continue;
+            if (h.status === "broken") {
+              issues.push(`${name} scan failed (${h.failedQueries}/${h.failedQueries + h.liveQueries + h.fallbackQueries} queries) — mention rate is unreliable for this run.`);
+            } else if (h.status === "degraded") {
+              issues.push(`${name} ran in fallback mode (web search unavailable) — answers came from training data, not live web. Re-scan to retry grounded.`);
+            }
+          }
+          if (issues.length === 0) return null;
+          return (
+            <div className="p-3 rounded-lg bg-amber-500/[0.05] border border-amber-500/25 space-y-1.5">
+              <div className="flex items-center gap-2">
+                <AlertCircle size={13} className="text-amber-400 flex-shrink-0" />
+                <span className="text-[12px] font-semibold text-amber-300">Scan ran with platform issues</span>
+              </div>
+              {issues.map((msg, i) => (
+                <div key={i} className="text-[11px] text-amber-200/80 leading-relaxed pl-5">{msg}</div>
+              ))}
+              <div className="text-[10.5px] text-zinc-500 pl-5 pt-0.5">
+                The numbers below reflect what we got — but treat as advisory until the next clean re-scan.
+              </div>
+            </div>
+          );
+        })()}
+
         {/* Stale scan warning — re-engagement trigger */}
         {isVeryStale && (
           <div className="p-3 rounded-lg bg-red-500/[0.04] border border-red-500/20 flex items-start gap-2.5">
