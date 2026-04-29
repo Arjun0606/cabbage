@@ -254,6 +254,53 @@ rewrite.
 | 18 | `pivot.18: dashboard surface unification` | strip remaining RE narrative panels, replace project/locality language across dashboard |
 | 19 | `pivot.19: distribution playbook + press` | port DISTRIBUTION.md, /press kit |
 | 20 | `pivot.20: production cutover` | merge to main, deploy, verify, watch errors |
+| 21 | `pivot.21: supabase revamp` | drop RE-coupled tables, rebuild schema around the new SMB shape (sites, scans, mentions, subscribers, artifacts) |
+
+## pivot.21 — supabase revamp (post-cutover)
+
+Once the code pivot is shipped, the schema needs the same surgery
+the codebase got. Today's schema carries RE assumptions throughout:
+
+- `companies` is the tenant boundary, with sites + projects nested
+  inside as JSONB columns. Post-pivot the right shape is sites at
+  the top with no projects layer.
+- `projects` table is RE-specific (configurations, rera_number,
+  possession_date). Drop entirely.
+- `gsc_snapshots`, `scan_history.results` jsonb shapes carry RE
+  query metadata (city, config, priceTier). Post-pivot these are
+  generic AI visibility scans without locality scaffolding.
+- `golden_prompts` is fine. Per-customer pinned queries are
+  vertical-agnostic.
+- `tracked_articles` carries RE query column. Generalize to
+  target_keyword + article_type + content + meta jsonb.
+- `competitor_snapshots` + `competitor_alerts` — keep, slightly
+  generalize. Already work for any vertical.
+- `deployed_content` + `deployed_schemas` — generic, keep.
+- `integrations` — generic, keep.
+- `crawl_jobs` + `broken_links` — generic, keep.
+
+New tables for the post-pivot product:
+
+- `sites` — replaces companies+projects. (id, owner_id, url, brand,
+  brand_aliases, brand_exclusions, vertical, category, classification,
+  created_at). Onboarding writes one row per tracked site.
+- `mentions` — Reddit + HN + X + YouTube mention tracker output. One
+  row per (site_id, source, source_url) with sentiment, content,
+  detected_at, last_seen_at.
+- `subscribers` (already shipped as global_subscribers) — keep.
+- `public_grades` (already shipped) — keep.
+
+Migration sequence:
+- 016: introduce sites table; backfill from companies (1:1)
+- 017: rewrite api routes to read sites instead of companies
+- 018: drop projects, RE-specific columns from scan_history.results
+- 019: drop companies once cutover is verified
+- 020: trim subscriptions table to the SMB plan shape
+
+This is a real ~3-day project, so it sits behind the codebase
+cutover (pivot.20). Doing it before would block the pivot on
+schema work; doing it after lets the pivot ship and validate
+before we touch persistent data.
 
 Estimated work: ~5–10 days of solid focus depending on customer-
 support load.
