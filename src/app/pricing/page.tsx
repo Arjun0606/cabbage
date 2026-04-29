@@ -5,129 +5,102 @@ import { useRouter } from "next/navigation";
 import { Check, Loader2, Sparkles, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { JsonLd, organizationSchema, pricingFaqSchema } from "@/components/seo/JsonLd";
+import { TIERS, tierPrice, type PlanTier } from "@/lib/tiers";
 
 /**
- * Three-tier pricing, anchored against agency retainers + in-house
- * teams (the real competitors), not self-serve content-SaaS tools.
+ * Three-tier USD pricing for indie founders, bootstrapped SaaS,
+ * Shopify and independent ecom operators, and small marketing teams.
  *
- * Margin discipline: every tier keeps COGS (mostly OpenAI web_search +
- * article writing) under 5% of list price. Hard caps on the two
- * levers that actually move COGS — site-crawl pages per scan and
- * articles generated per month — let us size and upsell cleanly.
- *
- * Positioning per tier:
- *   Starter     — Single-city developer, <10 projects. The "prove
- *                 Cabbge works for us" tier.
- *   Growth      — Multi-city developer, 10-40 projects. Sweet spot
- *                 for regional developers.
- *   Scale       — National multi-city builder, 40-100 projects across
- *                 5-10 cities. Top tier on the pricing page.
- *
- * No higher tier: the previous Enterprise SKU (₹5,99,999, 500 articles/mo,
- * 10K-page crawl, unlimited projects) was removed because the underlying
- * infrastructure couldn't reliably deliver those headline volumes.
- * Anything past Scale is a custom contract + build-out conversation.
+ * Self-serve only. No demo call. No enterprise tier. Even people
+ * inside larger orgs can drop $49 on a personal card and use Cabbge
+ * unofficially — that pattern (Linear / Tally / Vercel) is the GTM.
  *
  * Annual prepay: 20% off (10 months cost, 12 months product).
  */
 
-const TIERS = [
+const TIER_DEFS: Array<{
+  key: PlanTier;
+  subtitle: string;
+  anchor: string;
+  highlight?: boolean;
+  features: string[];
+}> = [
   {
     key: "starter",
-    name: "Starter",
-    usd: 600,
-    inr: 49999,
-    credits: 2000,
-    articles: 30,
-    projects: 10,
-    cities: 1,
-    subtitle: "Single-city developer · 5-10 projects",
-    anchor: "Replaces a small agency retainer at the same price with 10× the output.",
+    subtitle: "Indie founder · single brand · personal card",
+    anchor: "Cheaper than a single agency hour. The $49 'is AI even seeing me' tier.",
     features: [
-      "30 articles generated per month",
-      "Up to 10 projects · 1 city",
-      "2,000 credits per month",
-      "500 pages per full-site crawl",
-      "7 competitors tracked",
-      "Daily AI visibility · weekly full scan",
-      "Full Cabbge feature set (see note below)",
-      "Email support (24h)",
+      "5-engine AI visibility scan (ChatGPT, Gemini, Perplexity, Claude, Grok)",
+      "Up to 3 tracked brands",
+      "Mention tracking on Reddit, HN, YouTube, X — refreshed weekly",
+      "Per-engine playbook: exact fix to ship for each AI engine",
+      "15 articles generated per month",
+      "Cold-outreach kit (up to 100 URLs per batch)",
+      "Public visibility scorecard + embeddable badge",
+      "Email support",
     ],
   },
   {
     key: "pro",
-    name: "Growth",
-    usd: 1200,
-    inr: 99999,
-    credits: 5000,
-    articles: 80,
-    projects: 40,
-    cities: 3,
+    subtitle: "Small SaaS / ecom team · 5-10 brand SKUs · the sweet spot",
     highlight: true,
-    subtitle: "Regional developer · 10-40 projects · 2-3 cities",
-    anchor: "Replaces a ₹3-5L/mo agency retainer. The sweet spot.",
+    anchor: "Replaces a $2-5K/mo content-marketing retainer at a fifth the price.",
     features: [
+      "Everything in Starter, plus:",
+      "Up to 10 tracked brands",
       "80 articles generated per month",
-      "Up to 40 projects · 3 cities",
-      "5,000 credits per month",
-      "1,500 pages per full-site crawl",
-      "20 competitors tracked",
-      "Daily full scan (every surface, every microsite)",
-      "Full Cabbge feature set (see note below)",
-      "Priority email + WhatsApp (4h)",
+      "Daily AI visibility scans (vs weekly on Starter)",
+      "Mention tracker refreshed daily on demand",
+      "20 competitors tracked across all engines",
+      "Priority outreach + email support",
     ],
   },
   {
     key: "scale",
-    name: "Scale",
-    usd: 3000,
-    inr: 249999,
-    credits: 15000,
-    articles: 200,
-    projects: 100,
-    cities: 10,
-    subtitle: "National developer · 40-100 projects · 5-10 cities",
-    anchor: "Replaces a 3-person in-house marketing team. Multi-city operational depth.",
+    subtitle: "Agencies, multi-brand operators, power users",
+    anchor: "Volume tier for content shops, freelance consultants serving SMBs.",
     features: [
-      "200 articles generated per month",
-      "Up to 100 projects · 10 cities",
-      "15,000 credits per month",
-      "3,000 pages per full-site crawl",
-      "50 competitors tracked",
-      "Daily full scan on every project microsite",
-      "Full Cabbge feature set (see note below)",
-      "Priority WhatsApp (2h) + monthly strategy call",
+      "Everything in Growth, plus:",
+      "Up to 50 tracked brands",
+      "300 articles generated per month",
+      "100 competitors tracked",
+      "Bulk CSV exports + API access (when shipped)",
+      "Dedicated support channel",
     ],
   },
 ];
 
-// What each scan action deducts from the monthly credit pool.
-// Shown on the pricing page so prospects can do the math themselves.
-const CREDIT_COSTS_DISPLAY: Array<{ action: string; cost: number }> = [
-  { action: "Full scan (main site)", cost: 16 },
-  { action: "Full scan (+ each microsite)", cost: 3 },
-  { action: "AI visibility (ChatGPT + Gemini)", cost: 4 },
-  { action: "Article writer", cost: 5 },
-  { action: "Portal coverage audit", cost: 4 },
-  { action: "RERA state-portal verification", cost: 3 },
-  { action: "Query fanout (per query)", cost: 4 },
-  { action: "Hallucination audit", cost: 0 },
-  { action: "Review monitor", cost: 3 },
+const VS_AGENCY = [
+  { dim: "Articles per month", agency: "4-8", cabbge: "15-300" },
+  { dim: "AI visibility tracked", agency: "Not measured", cabbge: "5 engines, daily" },
+  { dim: "Reddit / HN / X / YouTube mentions", agency: "Manual / spreadsheet", cabbge: "Automated, weekly digest" },
+  { dim: "Cold outreach drafts", agency: "Templates", cabbge: "Personalized off live grade" },
+  { dim: "Onboarding time", agency: "2-4 weeks", cabbge: "5 minutes" },
+  { dim: "Monthly cost (small team)", agency: "$2,000-$5,000", cabbge: "$199 (Growth)" },
 ];
 
-const AGENCY_COMPARE = [
-  { label: "Articles shipped per month", agency: "4-8", cabbge: "20-200" },
-  { label: "Scan cadence", agency: "Monthly", cabbge: "Daily" },
-  { label: "AI visibility measurement (ChatGPT + Gemini)", agency: "Not measured", cabbge: "Tracked daily per city" },
-  { label: "Review monitor (Housing / 99acres / Google)", agency: "Manual / spreadsheet", cabbge: "Automated, prioritised" },
-  { label: "Portal submission tracker", agency: "In your team's head", cabbge: "Per project × portal matrix" },
-  { label: "Ramp / onboarding time", agency: "4-8 weeks", cabbge: "15 minutes" },
-  { label: "Price (multi-city developer)", agency: "₹3-10 L/mo", cabbge: "₹99,999/mo (Growth)" },
+const FAQS = [
+  {
+    q: "Is there a free trial?",
+    a: "There's a free public grader at the home page — paste any URL and get a real 5-engine score. No signup. The paid tiers add scheduled re-scans, mention tracking, the playbook, articles, and the outreach kit.",
+  },
+  {
+    q: "What happens if I exceed credits?",
+    a: "Credits are a soft ceiling. We surface a 'you're over' notice in the dashboard and queue overages instead of hard-blocking. If you're routinely over, that's the upsell signal — bumping a tier costs less than the friction of re-running everything.",
+  },
+  {
+    q: "Can I cancel anytime?",
+    a: "Yes — Settings → Billing → Cancel. We don't lock annual prepays into multi-year terms; if you cancel inside the annual period the unused months are refunded pro-rated.",
+  },
+  {
+    q: "Do you have an enterprise plan?",
+    a: "No. Cabbge is self-serve, top to bottom. The deliberate choice: tools that ship enterprise sales motions slow down for the indie founder we're built for. If your usage outgrows Scale, ping support and we'll size something — but no SDR will call you.",
+  },
 ];
 
 export default function PricingPage() {
   const router = useRouter();
-  const [subscribing, setSubscribing] = useState<string | null>(null);
+  const [subscribing, setSubscribing] = useState<PlanTier | null>(null);
   const [authed, setAuthed] = useState<boolean | null>(null);
   const [inDemoMode, setInDemoMode] = useState(false);
   const [billed, setBilled] = useState<"monthly" | "annual">("annual");
@@ -135,11 +108,14 @@ export default function PricingPage() {
   useEffect(() => {
     fetch("/api/billing/status")
       .then((r) => r.json())
-      .then((d) => { setAuthed(!!d.authenticated); setInDemoMode(!!d.demoMode); })
+      .then((d) => {
+        setAuthed(!!d.authenticated);
+        setInDemoMode(!!d.demoMode);
+      })
       .catch(() => setAuthed(false));
   }, []);
 
-  const handleSubscribe = async (tierKey: string) => {
+  const handleSubscribe = async (tierKey: PlanTier) => {
     if (!authed && !inDemoMode) {
       router.push(`/signup?next=/pricing&plan=${tierKey}`);
       return;
@@ -155,19 +131,15 @@ export default function PricingPage() {
       if (data.error) throw new Error(data.error);
 
       if (data.demoMode) {
-        alert(`Demo mode — in a real session Dodo Payments Checkout would open for the ${tierKey} plan.`);
+        alert(`Demo mode — Dodo Payments Checkout would open for ${tierKey}.`);
         router.push("/dashboard?upgraded=demo");
         return;
       }
 
-      // Dodo returns a hosted checkout URL. Full-page redirect — the
-      // Dodo page handles card / upi / wallet / international methods
-      // end-to-end and sends the customer back to /dashboard on success.
       if (data.checkoutUrl) {
         window.location.href = data.checkoutUrl;
         return;
       }
-
       throw new Error("Checkout endpoint didn't return a URL");
     } catch (err) {
       alert(err instanceof Error ? err.message : "Checkout failed");
@@ -175,12 +147,10 @@ export default function PricingPage() {
     }
   };
 
-  const priceFor = (tier: typeof TIERS[number]) =>
-    billed === "annual" ? Math.round(tier.inr * 0.8) : tier.inr;
-
   return (
     <div className="min-h-screen bg-[#0a0a0b] text-zinc-100">
       <JsonLd schema={[organizationSchema(), pricingFaqSchema()]} />
+
       <div className="border-b border-white/[0.06] px-6 py-4">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
@@ -189,7 +159,10 @@ export default function PricingPage() {
             </div>
             <span className="text-[15px] font-semibold">Cabbge</span>
           </Link>
-          <Link href={authed ? "/dashboard" : "/signin"} className="text-[13px] text-zinc-400 hover:text-zinc-200">
+          <Link
+            href={authed ? "/dashboard" : "/signin"}
+            className="text-[13px] text-zinc-400 hover:text-zinc-200"
+          >
             {authed ? "Dashboard" : "Sign in"}
           </Link>
         </div>
@@ -197,8 +170,8 @@ export default function PricingPage() {
 
       {inDemoMode && (
         <div className="bg-amber-500/[0.08] border-b border-amber-500/30 px-5 py-2 text-center text-[12px] text-amber-200">
-          <span className="font-semibold text-amber-400">Sales Demo · </span>
-          Checkout buttons won&apos;t charge — they simulate the full flow.
+          <span className="font-semibold text-amber-400">Demo · </span>
+          Checkout buttons won&apos;t charge — they simulate the flow.
         </div>
       )}
 
@@ -208,20 +181,25 @@ export default function PricingPage() {
             Pricing
           </div>
           <h1 className="text-3xl sm:text-5xl font-bold tracking-tight mb-4">
-            From a single-city developer to DLF. One product.
+            Be the brand AI recommends.
           </h1>
           <p className="text-zinc-400 text-[15px] max-w-2xl mx-auto leading-relaxed">
-            Credit-based pricing that scales with your portfolio. Every tier does the work — audit, AI visibility, article writing, portal coverage, RERA verification. Starts at ₹49,999/mo because Cabbge is built for serious marketing teams, not hobbyists.
+            One product, three sizes. Every tier ships the full
+            5-engine GEO scan, mention tracking across Reddit / HN /
+            YouTube / X, the per-engine playbook, articles, and the
+            cold-outreach kit. Tiers differ on volume, not features.
+            Start at $49, cancel anytime.
           </p>
         </div>
 
-        {/* Billing toggle */}
         <div className="flex items-center justify-center gap-2 mb-10">
           <div className="inline-flex items-center gap-1 p-1 rounded-lg bg-zinc-900 border border-white/[0.06]">
             <button
               onClick={() => setBilled("monthly")}
               className={`px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors ${
-                billed === "monthly" ? "bg-zinc-800 text-zinc-100" : "text-zinc-500 hover:text-zinc-300"
+                billed === "monthly"
+                  ? "bg-zinc-800 text-zinc-100"
+                  : "text-zinc-500 hover:text-zinc-300"
               }`}
             >
               Monthly
@@ -229,7 +207,9 @@ export default function PricingPage() {
             <button
               onClick={() => setBilled("annual")}
               className={`px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors flex items-center gap-1.5 ${
-                billed === "annual" ? "bg-zinc-800 text-zinc-100" : "text-zinc-500 hover:text-zinc-300"
+                billed === "annual"
+                  ? "bg-zinc-800 text-zinc-100"
+                  : "text-zinc-500 hover:text-zinc-300"
               }`}
             >
               Annual
@@ -238,266 +218,109 @@ export default function PricingPage() {
           </div>
         </div>
 
-        {/* Tier cards — 4 tiers, responsive: 1→2→4 columns */}
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-16">
-          {TIERS.map((tier) => (
-            <div
-              key={tier.key}
-              className={`rounded-2xl p-5 flex flex-col ${
-                tier.highlight
-                  ? "bg-[#7CB342]/[0.06] border border-[#7CB342]/30 shadow-[0_0_48px_rgba(124,179,66,0.08)]"
-                  : "bg-zinc-900/60 border border-white/[0.06]"
-              }`}
-            >
-              <div className="mb-5">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-[11px] uppercase tracking-wide text-[#7CB342] font-semibold">
-                    {tier.name}
-                  </span>
-                  {tier.highlight && (
-                    <span className="text-[9px] uppercase tracking-wide bg-[#7CB342]/15 text-[#7CB342] px-1.5 py-0.5 rounded">
-                      Most popular
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-baseline gap-1.5 flex-wrap">
-                  <span className="text-3xl font-bold tabular-nums">₹{priceFor(tier).toLocaleString("en-IN")}</span>
-                  <span className="text-[12px] text-zinc-400">/ mo</span>
-                </div>
-                <div className="text-[10px] text-zinc-500 mt-1">
-                  ~${Math.round(tier.usd * (billed === "annual" ? 0.8 : 1))}/mo · {billed === "annual" ? "annual" : "monthly"} · GST extra
-                </div>
-                <div className="mt-3 py-2 px-2.5 rounded-lg bg-zinc-800/60 border border-white/[0.04] flex items-center justify-between">
-                  <span className="text-[10px] uppercase tracking-wide text-zinc-500 font-semibold">Credits / mo</span>
-                  <span className="text-[14px] font-bold text-[#7CB342] tabular-nums">{tier.credits.toLocaleString("en-IN")}</span>
-                </div>
-                <p className="text-[11px] text-zinc-400 mt-3 leading-relaxed">
-                  {tier.subtitle}
-                </p>
-                <p className="text-[10px] text-[#7CB342]/80 mt-2 leading-relaxed">
-                  {tier.anchor}
-                </p>
-              </div>
-
-              <button
-                onClick={() => handleSubscribe(tier.key)}
-                disabled={subscribing === tier.key}
-                className={`w-full h-10 rounded-lg text-[13px] font-semibold mb-4 flex items-center justify-center gap-1.5 transition-all ${
-                  tier.highlight
-                    ? "bg-[#7CB342] text-zinc-950 hover:bg-[#8BC34A] active:scale-[0.98]"
-                    : "bg-zinc-800 text-zinc-100 border border-white/[0.08] hover:bg-zinc-700 active:scale-[0.98]"
-                } disabled:opacity-60`}
+          {TIER_DEFS.map((def) => {
+            const tier = TIERS[def.key];
+            const price = tierPrice(tier, billed);
+            return (
+              <div
+                key={def.key}
+                className={`rounded-2xl p-5 flex flex-col ${
+                  def.highlight
+                    ? "bg-[#7CB342]/[0.06] border border-[#7CB342]/30 shadow-[0_0_48px_rgba(124,179,66,0.08)]"
+                    : "bg-zinc-900/60 border border-white/[0.06]"
+                }`}
               >
-                {subscribing === tier.key ? (
-                  <Loader2 size={13} className="animate-spin" />
-                ) : (
-                  <>
-                    {authed ? "Subscribe" : "Get started"}
-                    <ArrowRight size={13} />
-                  </>
-                )}
-              </button>
-
-              <div className="space-y-1.5">
-                {tier.features.map((f, i) => (
-                  <div key={i} className="flex items-start gap-1.5 text-[11.5px] text-zinc-300">
-                    <Check size={12} className="text-[#7CB342] flex-shrink-0 mt-0.5" />
-                    <span className="leading-relaxed">{f}</span>
+                <div className="mb-5">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-[11px] uppercase tracking-wide text-[#7CB342] font-semibold">
+                      {tier.label}
+                    </span>
+                    {def.highlight && (
+                      <span className="text-[9px] uppercase tracking-wide bg-[#7CB342]/15 text-[#7CB342] px-1.5 py-0.5 rounded">
+                        Most popular
+                      </span>
+                    )}
                   </div>
-                ))}
+                  <div className="flex items-baseline gap-1.5 flex-wrap">
+                    <span className="text-3xl font-bold tabular-nums">
+                      ${price}
+                    </span>
+                    <span className="text-[12px] text-zinc-400">/ mo</span>
+                  </div>
+                  <div className="text-[10px] text-zinc-500 mt-1">
+                    {billed === "annual"
+                      ? `billed annually · $${price * 12}/yr`
+                      : "billed monthly"}
+                  </div>
+                  <p className="text-[11px] text-zinc-400 mt-3 leading-relaxed">
+                    {def.subtitle}
+                  </p>
+                  <p className="text-[10px] text-[#7CB342]/80 mt-2 leading-relaxed">
+                    {def.anchor}
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => handleSubscribe(def.key)}
+                  disabled={subscribing === def.key}
+                  className={`w-full h-10 rounded-lg text-[13px] font-semibold mb-4 flex items-center justify-center gap-1.5 transition-all ${
+                    def.highlight
+                      ? "bg-[#7CB342] text-zinc-950 hover:bg-[#8BC34A] active:scale-[0.98]"
+                      : "bg-zinc-800 text-zinc-100 border border-white/[0.08] hover:bg-zinc-700 active:scale-[0.98]"
+                  } disabled:opacity-60`}
+                >
+                  {subscribing === def.key ? (
+                    <Loader2 size={13} className="animate-spin" />
+                  ) : (
+                    <>
+                      {authed ? "Subscribe" : "Get started"}
+                      <ArrowRight size={13} />
+                    </>
+                  )}
+                </button>
+
+                <div className="space-y-1.5">
+                  {def.features.map((f, i) => (
+                    <div
+                      key={i}
+                      className="flex items-start gap-1.5 text-[11.5px] text-zinc-300"
+                    >
+                      <Check
+                        size={12}
+                        className="text-[#7CB342] flex-shrink-0 mt-0.5"
+                      />
+                      <span className="leading-relaxed">{f}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
-        {/* Universal feature note — the volume-only pricing story.
-            Every tier above promises "Full Cabbge feature set"; this
-            block lays out exactly what that includes so prospects don't
-            have to compare checklists. */}
-        <div className="rounded-2xl bg-zinc-900/40 border border-[#7CB342]/15 p-5 mb-8">
-          <div className="flex items-center gap-2 mb-2">
-            <Check size={14} className="text-[#7CB342]" />
-            <h3 className="text-[14px] font-semibold text-zinc-200">Every tier includes the full Cabbge feature set</h3>
-          </div>
-          <p className="text-[12px] text-zinc-400 leading-relaxed mb-3">
-            Tiers differ on volume — articles per month, projects, cities, credits, crawl depth, scan cadence — not on which features you can use. Every paid plan unlocks:
-          </p>
-          <div className="grid sm:grid-cols-2 gap-x-6 gap-y-1 text-[11.5px] text-zinc-300">
-            <div className="flex items-start gap-1.5"><Check size={11} className="text-[#7CB342] mt-0.5 flex-shrink-0" /><span>SEO + technical site audit</span></div>
-            <div className="flex items-start gap-1.5"><Check size={11} className="text-[#7CB342] mt-0.5 flex-shrink-0" /><span>AI visibility (ChatGPT + Gemini)</span></div>
-            <div className="flex items-start gap-1.5"><Check size={11} className="text-[#7CB342] mt-0.5 flex-shrink-0" /><span>Per-city AI visibility</span></div>
-            <div className="flex items-start gap-1.5"><Check size={11} className="text-[#7CB342] mt-0.5 flex-shrink-0" /><span>GEO improvements + llms.txt + schema</span></div>
-            <div className="flex items-start gap-1.5"><Check size={11} className="text-[#7CB342] mt-0.5 flex-shrink-0" /><span>Hallucination audit + correction outreach drafts</span></div>
-            <div className="flex items-start gap-1.5"><Check size={11} className="text-[#7CB342] mt-0.5 flex-shrink-0" /><span>Brand disambiguation (multi-brand families)</span></div>
-            <div className="flex items-start gap-1.5"><Check size={11} className="text-[#7CB342] mt-0.5 flex-shrink-0" /><span>CMO monthly digest (CEO-ready)</span></div>
-            <div className="flex items-start gap-1.5"><Check size={11} className="text-[#7CB342] mt-0.5 flex-shrink-0" /><span>Custom report templates (board · agency · weekly · CMO monthly)</span></div>
-            <div className="flex items-start gap-1.5"><Check size={11} className="text-[#7CB342] mt-0.5 flex-shrink-0" /><span>Infrastructure news → content pipeline</span></div>
-            <div className="flex items-start gap-1.5"><Check size={11} className="text-[#7CB342] mt-0.5 flex-shrink-0" /><span>Multi-state RERA tracking + expiry alerts</span></div>
-            <div className="flex items-start gap-1.5"><Check size={11} className="text-[#7CB342] mt-0.5 flex-shrink-0" /><span>Portal optimiser + submission tracker</span></div>
-            <div className="flex items-start gap-1.5"><Check size={11} className="text-[#7CB342] mt-0.5 flex-shrink-0" /><span>Daily review monitor (Housing · 99acres · Google · Reddit)</span></div>
-            <div className="flex items-start gap-1.5"><Check size={11} className="text-[#7CB342] mt-0.5 flex-shrink-0" /><span>100 golden prompts tracked</span></div>
-            <div className="flex items-start gap-1.5"><Check size={11} className="text-[#7CB342] mt-0.5 flex-shrink-0" /><span>Citation drift + query fanout</span></div>
-            <div className="flex items-start gap-1.5"><Check size={11} className="text-[#7CB342] mt-0.5 flex-shrink-0" /><span>NRI track (UAE / UK / US / SG)</span></div>
-            <div className="flex items-start gap-1.5"><Check size={11} className="text-[#7CB342] mt-0.5 flex-shrink-0" /><span>Hosted dashboard + scan history</span></div>
-          </div>
-        </div>
-
-        {/* Per-tier spec comparison — scannable in 10 seconds */}
         <div className="rounded-2xl bg-zinc-900/60 border border-white/[0.06] overflow-hidden mb-12">
           <div className="p-5 border-b border-white/[0.06]">
-            <h2 className="text-[20px] font-bold">Tier specs at a glance</h2>
+            <h2 className="text-[20px] font-bold">vs a content-marketing retainer</h2>
             <p className="text-[12px] text-zinc-500 mt-1">
-              Match your project count and city footprint to the right tier. Every tier includes every feature — the numbers scale with your portfolio.
-            </p>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-[12px]">
-              <thead>
-                <tr className="bg-zinc-900/80 border-b border-white/[0.04]">
-                  <th className="text-left px-4 py-2.5 text-[10px] uppercase tracking-wide text-zinc-500 font-semibold">Spec</th>
-                  {TIERS.map((t) => (
-                    <th key={t.key} className={`text-center px-3 py-2.5 text-[11px] uppercase tracking-wide font-semibold ${t.highlight ? "text-[#7CB342]" : "text-zinc-400"}`}>
-                      {t.name}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/[0.04]">
-                <tr>
-                  <td className="px-4 py-2.5 text-zinc-500">Price / month</td>
-                  {TIERS.map((t) => (
-                    <td key={t.key} className={`text-center px-3 py-2.5 tabular-nums ${t.highlight ? "text-[#7CB342] font-semibold" : "text-zinc-300"}`}>
-                      ₹{priceFor(t).toLocaleString("en-IN")}
-                    </td>
-                  ))}
-                </tr>
-                <tr>
-                  <td className="px-4 py-2.5 text-zinc-500">Credits / month</td>
-                  {TIERS.map((t) => (
-                    <td key={t.key} className="text-center px-3 py-2.5 text-zinc-200 font-semibold tabular-nums">
-                      {t.credits.toLocaleString("en-IN")}
-                    </td>
-                  ))}
-                </tr>
-                <tr>
-                  <td className="px-4 py-2.5 text-zinc-500">Projects</td>
-                  {TIERS.map((t) => (
-                    <td key={t.key} className="text-center px-3 py-2.5 text-zinc-300 tabular-nums">
-                      {t.projects === -1 ? "Unlimited" : `Up to ${t.projects}`}
-                    </td>
-                  ))}
-                </tr>
-                <tr>
-                  <td className="px-4 py-2.5 text-zinc-500">Cities</td>
-                  {TIERS.map((t) => (
-                    <td key={t.key} className="text-center px-3 py-2.5 text-zinc-300 tabular-nums">
-                      {t.cities === -1 ? "Unlimited" : t.cities}
-                    </td>
-                  ))}
-                </tr>
-                <tr>
-                  <td className="px-4 py-2.5 text-zinc-500">Articles / month</td>
-                  {TIERS.map((t) => (
-                    <td key={t.key} className="text-center px-3 py-2.5 text-zinc-300 tabular-nums">
-                      {t.articles}
-                    </td>
-                  ))}
-                </tr>
-                <tr>
-                  <td className="px-4 py-2.5 text-zinc-500">Full scan cadence</td>
-                  <td className="text-center px-3 py-2.5 text-zinc-300">Weekly</td>
-                  <td className="text-center px-3 py-2.5 text-[#7CB342]">Daily</td>
-                  <td className="text-center px-3 py-2.5 text-zinc-300">Daily</td>
-                  <td className="text-center px-3 py-2.5 text-zinc-300">Daily</td>
-                </tr>
-                <tr>
-                  <td className="px-4 py-2.5 text-zinc-500">AI visibility scans</td>
-                  <td className="text-center px-3 py-2.5 text-zinc-300">Daily</td>
-                  <td className="text-center px-3 py-2.5 text-[#7CB342]">Daily</td>
-                  <td className="text-center px-3 py-2.5 text-zinc-300">Daily, per city</td>
-                  <td className="text-center px-3 py-2.5 text-zinc-300">Daily, every metro</td>
-                </tr>
-                <tr>
-                  <td className="px-4 py-2.5 text-zinc-500">Review monitor</td>
-                  <td className="text-center px-3 py-2.5 text-zinc-300">Weekly</td>
-                  <td className="text-center px-3 py-2.5 text-[#7CB342]">Daily</td>
-                  <td className="text-center px-3 py-2.5 text-zinc-300">Daily</td>
-                  <td className="text-center px-3 py-2.5 text-zinc-300">Daily</td>
-                </tr>
-                <tr>
-                  <td className="px-4 py-2.5 text-zinc-500">Site crawl pages</td>
-                  <td className="text-center px-3 py-2.5 text-zinc-300 tabular-nums">500</td>
-                  <td className="text-center px-3 py-2.5 text-[#7CB342] tabular-nums">1,500</td>
-                  <td className="text-center px-3 py-2.5 text-zinc-300 tabular-nums">3,000</td>
-                  <td className="text-center px-3 py-2.5 text-zinc-300 tabular-nums">10,000</td>
-                </tr>
-                <tr>
-                  <td className="px-4 py-2.5 text-zinc-500">Competitors tracked</td>
-                  <td className="text-center px-3 py-2.5 text-zinc-300 tabular-nums">7</td>
-                  <td className="text-center px-3 py-2.5 text-[#7CB342] tabular-nums">20</td>
-                  <td className="text-center px-3 py-2.5 text-zinc-300 tabular-nums">50</td>
-                  <td className="text-center px-3 py-2.5 text-zinc-300">Unlimited</td>
-                </tr>
-                <tr>
-                  <td className="px-4 py-2.5 text-zinc-500">CMO monthly digest</td>
-                  <td className="text-center px-3 py-2.5 text-zinc-600">—</td>
-                  <td className="text-center px-3 py-2.5 text-[#7CB342]">✓</td>
-                  <td className="text-center px-3 py-2.5 text-[#7CB342]">✓</td>
-                  <td className="text-center px-3 py-2.5 text-[#7CB342]">✓ Weekly</td>
-                </tr>
-                <tr>
-                  <td className="px-4 py-2.5 text-zinc-500">Infrastructure news pipeline</td>
-                  <td className="text-center px-3 py-2.5 text-zinc-600">—</td>
-                  <td className="text-center px-3 py-2.5 text-[#7CB342]">✓</td>
-                  <td className="text-center px-3 py-2.5 text-[#7CB342]">✓</td>
-                  <td className="text-center px-3 py-2.5 text-[#7CB342]">✓</td>
-                </tr>
-                <tr>
-                  <td className="px-4 py-2.5 text-zinc-500">Custom report templates</td>
-                  <td className="text-center px-3 py-2.5 text-zinc-600">—</td>
-                  <td className="text-center px-3 py-2.5 text-zinc-600">—</td>
-                  <td className="text-center px-3 py-2.5 text-[#7CB342]">✓</td>
-                  <td className="text-center px-3 py-2.5 text-[#7CB342]">✓</td>
-                </tr>
-                <tr>
-                  <td className="px-4 py-2.5 text-zinc-500">Dedicated success manager</td>
-                  <td className="text-center px-3 py-2.5 text-zinc-600">—</td>
-                  <td className="text-center px-3 py-2.5 text-zinc-600">—</td>
-                  <td className="text-center px-3 py-2.5 text-zinc-300">Monthly call</td>
-                  <td className="text-center px-3 py-2.5 text-[#7CB342]">✓</td>
-                </tr>
-                <tr>
-                  <td className="px-4 py-2.5 text-zinc-500">Support SLA</td>
-                  <td className="text-center px-3 py-2.5 text-zinc-300">24h email</td>
-                  <td className="text-center px-3 py-2.5 text-[#7CB342]">4h WhatsApp</td>
-                  <td className="text-center px-3 py-2.5 text-zinc-300">2h WhatsApp</td>
-                  <td className="text-center px-3 py-2.5 text-zinc-300">2h + CSM</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <div className="px-5 py-3 border-t border-white/[0.04] text-[11px] text-zinc-500 leading-relaxed">
-            Credits roll over 0% month-to-month. Overages billed at ₹4/credit so a 500-credit overage on Growth is ₹2,000. Need a custom plan? <a href="mailto:sales@cabbge.com" className="text-[#7CB342]">sales@cabbge.com</a>.
-          </div>
-        </div>
-
-        {/* Agency comparison table */}
-        <div className="rounded-2xl bg-zinc-900/60 border border-white/[0.06] overflow-hidden mb-12">
-          <div className="p-5 border-b border-white/[0.06]">
-            <h2 className="text-[20px] font-bold">vs a digital agency retainer</h2>
-            <p className="text-[12px] text-zinc-500 mt-1">
-              Most Indian residential developers pay an agency ₹3-10L/mo and still have content and GEO gaps. Same budget → Cabbge replaces the retainer + ships 15× the work.
+              Most indie SaaS / Shopify operators pay an agency $2-5K/mo
+              and still have GEO and mention-tracking gaps. Same budget →
+              Cabbge replaces the retainer + ships an order-of-magnitude
+              more work.
             </p>
           </div>
           <div className="divide-y divide-white/[0.04]">
             <div className="grid grid-cols-[1fr_1fr_1fr] px-5 py-2.5 bg-zinc-900/80 text-[10px] uppercase tracking-wide text-zinc-500 font-semibold">
               <div>Dimension</div>
-              <div>Digital agency</div>
-              <div>Cabbge Growth (₹99,999/mo)</div>
+              <div>Agency retainer</div>
+              <div>Cabbge Growth ($199/mo)</div>
             </div>
-            {AGENCY_COMPARE.map((row) => (
-              <div key={row.label} className="grid grid-cols-[1fr_1fr_1fr] px-5 py-3 text-[13px]">
-                <div className="text-zinc-400">{row.label}</div>
+            {VS_AGENCY.map((row) => (
+              <div
+                key={row.dim}
+                className="grid grid-cols-[1fr_1fr_1fr] px-5 py-3 text-[13px]"
+              >
+                <div className="text-zinc-400">{row.dim}</div>
                 <div className="text-zinc-500">{row.agency}</div>
                 <div className="text-[#7CB342] font-medium">{row.cabbge}</div>
               </div>
@@ -505,84 +328,77 @@ export default function PricingPage() {
           </div>
         </div>
 
-        {/* Moat / why-Cabbge */}
         <div className="grid md:grid-cols-3 gap-5 mb-12">
           {[
             {
-              title: "The GEO layer nobody else has",
-              body: "Digital agencies don't measure AI visibility — they still think in Google rankings. Cabbge tracks how ChatGPT and Gemini answer buyer queries about your projects daily, catches negative-sentiment mentions, and auto-drafts response content. This one capability is worth the whole subscription.",
+              title: "Five engines, not two",
+              body: "Most GEO tools track ChatGPT and maybe Gemini. Cabbge runs the same prompt set across ChatGPT, Gemini, Perplexity, Claude, and Grok — because your buyer is using whichever one fits their habit, not the one your tool happens to support.",
             },
             {
-              title: "Indian real estate depth",
-              body: "RERA state split. Locality query matrix (Kukatpally / Gachibowli / Whitefield level). Per-country NRI content (UAE / UK / US / SG). Possession date + delay-risk tracking. Review monitor across Housing / 99acres / MagicBricks. No generic SEO tool has this depth.",
+              title: "Mentions on top of GEO",
+              body: "AI visibility is half the picture. Cabbge also pulls every Reddit thread, HN comment, YouTube review, and X post mentioning your brand — surfaced in one panel, refreshed weekly. The combo most tools sell separately, in one product.",
             },
             {
               title: "Execution, not reporting",
-              body: "Agencies deliver a dashboard. Freelancers deliver a spreadsheet. Cabbge ships articles, deploys landing pages to your site, submits portal copy, drafts review responses. Every feature ends in a concrete thing a buyer sees.",
+              body: "Other tools tell you your AI visibility score and stop there. Cabbge ships the article that fixes it, drafts the outreach DM, and points to the exact site change for each engine. Every feature ends in a concrete thing you ship.",
             },
           ].map((b) => (
-            <div key={b.title} className="rounded-xl bg-zinc-900/40 border border-white/[0.04] p-5">
-              <div className="text-[13px] font-semibold text-zinc-100 mb-2">{b.title}</div>
-              <p className="text-[12px] text-zinc-400 leading-relaxed">{b.body}</p>
+            <div
+              key={b.title}
+              className="rounded-xl bg-zinc-900/40 border border-white/[0.04] p-5"
+            >
+              <div className="text-[13px] font-semibold text-zinc-100 mb-2">
+                {b.title}
+              </div>
+              <p className="text-[12px] text-zinc-400 leading-relaxed">
+                {b.body}
+              </p>
             </div>
           ))}
         </div>
 
-        {/* Enterprise / Custom — for premium Indian + ME developers
-            (Sobha, Brigade, DLF, Lodha, Emaar, Damac, Aldar etc.)
-            where the published Starter / Growth / Scale tiers don't
-            fit. Anchored on outcomes (CAC math, attribution, dedicated
-            support), not feature counts. */}
-        <div id="enterprise" className="rounded-2xl border border-[#7CB342]/30 bg-gradient-to-br from-[#7CB342]/[0.07] to-zinc-900/40 p-8 mt-2">
-          <div className="grid md:grid-cols-[1.4fr_1fr] gap-6 items-center">
-            <div className="space-y-3">
-              <div className="text-[10.5px] uppercase tracking-[0.2em] text-[#7CB342] font-semibold">Enterprise · India + Middle East</div>
-              <h3 className="text-2xl font-bold tracking-tight">Premium developers · custom pricing</h3>
-              <p className="text-[14px] text-zinc-400 leading-relaxed">
-                For top-30 Indian developers and Middle East giants: dedicated CAC modelling,
-                multi-country query coverage (NRI markets — Dubai / UK / US / Singapore), per-project
-                attribution dashboards, white-label exports for your CMO / board, and direct CSM access.
-                Annual contracts. Pricing is bespoke and tied to your project portfolio + lead-volume
-                targets, typically $5–25K/month USD equivalent.
-              </p>
-              <ul className="grid sm:grid-cols-2 gap-x-5 gap-y-1.5 text-[12px] text-zinc-400 mt-3">
-                <li className="flex items-center gap-2"><span className="text-[#7CB342]">✓</span> CAC delta dashboards vs paid baseline</li>
-                <li className="flex items-center gap-2"><span className="text-[#7CB342]">✓</span> NRI-market query coverage (UAE/UK/US/SG)</li>
-                <li className="flex items-center gap-2"><span className="text-[#7CB342]">✓</span> Unlimited multi-city + multi-project</li>
-                <li className="flex items-center gap-2"><span className="text-[#7CB342]">✓</span> Dedicated CSM + onboarding</li>
-                <li className="flex items-center gap-2"><span className="text-[#7CB342]">✓</span> Custom report templates + exports</li>
-                <li className="flex items-center gap-2"><span className="text-[#7CB342]">✓</span> SLA on scan freshness + support</li>
-              </ul>
-            </div>
-            <div className="flex flex-col items-start md:items-end gap-3">
-              <a
-                href="mailto:sales@cabbge.com?subject=Enterprise%20pricing%20enquiry"
-                className="inline-flex items-center gap-2 bg-[#7CB342] hover:bg-[#8BC34A] text-zinc-950 font-semibold px-5 h-11 rounded-lg text-[14px]"
-              >
-                Talk to sales
-              </a>
-              <span className="text-[11px] text-zinc-500">sales@cabbge.com · 24h response</span>
-            </div>
+        <div className="rounded-2xl bg-zinc-900/40 border border-white/[0.04] p-5 mb-12">
+          <h2 className="text-[16px] font-semibold mb-4">FAQ</h2>
+          <div className="space-y-4">
+            {FAQS.map((f) => (
+              <div key={f.q}>
+                <div className="text-[13px] text-zinc-100 font-medium mb-1">
+                  {f.q}
+                </div>
+                <p className="text-[12px] text-zinc-400 leading-relaxed">
+                  {f.a}
+                </p>
+              </div>
+            ))}
           </div>
         </div>
 
-        {/* FAQ / trust row */}
         <div className="text-center text-[12px] text-zinc-500 space-y-1">
-          <div>GST extra as applicable. No free trial — Cabbge is a paid product.</div>
+          <div>Cancel anytime from Settings. Self-serve, top to bottom.</div>
           <div>
-            Cancel anytime from Settings. Need something custom?{" "}
-            <a href="mailto:sales@cabbge.com" className="text-[#7CB342] hover:text-[#8BC34A]">
-              sales@cabbge.com
-            </a>.
+            Questions?{" "}
+            <a
+              href="mailto:hi@cabbge.com"
+              className="text-[#7CB342] hover:text-[#8BC34A]"
+            >
+              hi@cabbge.com
+            </a>
           </div>
         </div>
 
-        {/* Legal footer — every marketing page links to the trust surface. */}
         <div className="mt-12 pt-6 border-t border-white/[0.04] flex flex-wrap justify-center gap-x-6 gap-y-2 text-[11px] text-zinc-500">
-          <Link href="/terms" className="hover:text-zinc-300">Terms of Service</Link>
-          <Link href="/privacy" className="hover:text-zinc-300">Privacy Policy</Link>
-          <Link href="/dpa" className="hover:text-zinc-300">Data Processing Agreement</Link>
-          <Link href="/legal" className="hover:text-zinc-300">Security and trust</Link>
+          <Link href="/terms" className="hover:text-zinc-300">
+            Terms of Service
+          </Link>
+          <Link href="/privacy" className="hover:text-zinc-300">
+            Privacy Policy
+          </Link>
+          <Link href="/dpa" className="hover:text-zinc-300">
+            Data Processing Agreement
+          </Link>
+          <Link href="/legal" className="hover:text-zinc-300">
+            Security and trust
+          </Link>
         </div>
       </div>
     </div>

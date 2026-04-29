@@ -259,20 +259,19 @@ Rules:
 // ---------- Verified Referrer Discovery ----------
 
 /**
- * Uses ChatGPT web_search to VERIFY whether specific high-value Indian
- * real-estate domains link to the target URL. Only returns referrers
- * the web search could confirm with a specific page URL. Much slower
- * than fabrication but every result is real and auditable.
- *
- * Why we check these specific domains: every Indian RE buyer discovers
- * developers through the property portals and major news sites. If
- * you're linked from these, you're visible. If not, that's your #1 gap.
- *
- * The list is discovered LIVE (marketKnowledge.ts → ChatGPT web search)
- * rather than hardcoded — so when a new portal rises or an old one
- * fades, the check updates automatically.
+ * Stubbed during the SMB pivot. The previous implementation walked a
+ * vertical-specific list of Indian-RE high-authority domains
+ * (Housing.com, 99acres, MagicBricks, …) from lib/marketKnowledge.ts
+ * and asked ChatGPT to confirm which actually link to the target URL.
+ * marketKnowledge.ts has been removed; until a vertical-aware
+ * replacement ships, the function returns an empty result so callers
+ * keep compiling.
  */
-import { getHighAuthorityIndianRealEstateDomains, type HighAuthorityDomain } from "@/lib/marketKnowledge";
+export interface HighAuthorityDomain {
+  domain: string;
+  authority: number;
+  type: string;
+}
 
 export interface VerifiedReferrer {
   domain: string;
@@ -282,90 +281,13 @@ export interface VerifiedReferrer {
   citationUrl?: string;
 }
 
-export async function findVerifiedReferrers(url: string): Promise<{
+export async function findVerifiedReferrers(_url: string): Promise<{
   verified: VerifiedReferrer[];
   checked: number;
   source: "web_search" | "unavailable";
   highValueDomains: HighAuthorityDomain[];
 }> {
-  try {
-    const domain = new URL(url).hostname.replace(/^www\./, "");
-    const brand = domain.split(".")[0];
-
-    // Live list — replaces the old hardcoded HIGH_VALUE_RE_DOMAINS.
-    const highValueDomains = await getHighAuthorityIndianRealEstateDomains();
-    if (highValueDomains.length === 0) {
-      return { verified: [], checked: 0, source: "unavailable", highValueDomains: [] };
-    }
-
-    const domainList = highValueDomains.map((d) => d.domain).join(", ");
-    const { text, source } = await queryForVisibility(
-      "openai",
-      `Search the web to find which of these Indian real estate sites have a page that links to or mentions "${domain}" (brand: ${brand}):
-${domainList}
-
-For each one you confirm with a real visible URL, return JSON. If you can't confirm any, return an empty array. Respond ONLY with valid JSON, no prose:
-
-{"matches": [{"domain": "example.com", "url": "https://example.com/..."}]}
-
-Only include domains where you can see an actual linking/mentioning page URL. Never guess.`
-    );
-
-    if (!text || (source !== "web_search" && source !== "grounded")) {
-      return { verified: [], checked: highValueDomains.length, source: "unavailable", highValueDomains };
-    }
-
-    const verified: VerifiedReferrer[] = [];
-    const seen = new Set<string>();
-    const jsonMatch = text.match(/\{[\s\S]*"matches"[\s\S]*\}/);
-    if (jsonMatch) {
-      try {
-        const parsed = JSON.parse(jsonMatch[0]);
-        for (const m of parsed.matches || []) {
-          const cand = highValueDomains.find((d) => d.domain === m.domain);
-          if (!cand || seen.has(cand.domain)) continue;
-          if (typeof m.url === "string" && m.url.startsWith("http") && m.url.includes(cand.domain)) {
-            verified.push({
-              domain: cand.domain,
-              authority: cand.authority,
-              type: cand.type,
-              verifiedAt: new Date().toISOString(),
-              citationUrl: m.url,
-            });
-            seen.add(cand.domain);
-          }
-        }
-      } catch { /* fall through to regex */ }
-    }
-
-    if (verified.length === 0) {
-      for (const cand of highValueDomains) {
-        if (seen.has(cand.domain)) continue;
-        const mentionRegex = new RegExp(`https?://(?:[\\w-]+\\.)?${cand.domain.replace(/\./g, "\\.")}[^\\s)"']*`, "i");
-        const urlMatch = text.match(mentionRegex);
-        if (urlMatch) {
-          verified.push({
-            domain: cand.domain,
-            authority: cand.authority,
-            type: cand.type,
-            verifiedAt: new Date().toISOString(),
-            citationUrl: urlMatch[0],
-          });
-          seen.add(cand.domain);
-        }
-      }
-    }
-
-    return {
-      verified,
-      checked: highValueDomains.length,
-      source: "web_search",
-      highValueDomains,
-    };
-  } catch (err) {
-    console.error("findVerifiedReferrers failed:", err instanceof Error ? err.message : err);
-    return { verified: [], checked: 0, source: "unavailable", highValueDomains: [] };
-  }
+  return { verified: [], checked: 0, source: "unavailable", highValueDomains: [] };
 }
 
 // ---------- Main Function ----------

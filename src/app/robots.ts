@@ -1,44 +1,79 @@
 import type { MetadataRoute } from "next";
 
 /**
- * robots.txt — explicitly invites the AI crawlers we want to be cited by.
+ * robots.txt — explicitly invites the AI crawlers we want to be
+ * cited by. The 12 must-handle bots split between retrieval bots
+ * (cite live to answer questions) and training bots. Both get an
+ * explicit allow for our marketing surface.
  *
- * Default Next.js policy is to allow everything, but explicit > implicit
- * for AI crawlers since some operators check for an explicit allow before
- * indexing for training. Disallowed: dashboard / settings / API routes —
- * customer-data surfaces that should never be indexed.
+ * Default policy disallows /dashboard /settings /api/ /auth/
+ * /onboarding — customer-data surfaces that should never be indexed.
  */
+function baseUrl(): string {
+  return (
+    process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "") ||
+    "https://cabbge.com"
+  );
+}
+
+const PUBLIC_ALLOW = [
+  "/",
+  "/about",
+  "/pricing",
+  "/best",
+  "/brands",
+  "/vs",
+  "/press",
+  "/methodology",
+  "/visibility/",
+  "/badge/",
+  "/og/",
+  "/llms.txt",
+];
+
+const PRIVATE_DISALLOW = [
+  "/dashboard",
+  "/settings",
+  "/api/",
+  "/auth/",
+  "/onboarding",
+];
+
+const RETRIEVAL_BOTS = [
+  "OAI-SearchBot",
+  "ChatGPT-User",
+  "Claude-SearchBot",
+  "Claude-User",
+  "PerplexityBot",
+  "Perplexity-User",
+];
+
+const TRAINING_BOTS = [
+  "GPTBot",
+  "ClaudeBot",
+  "anthropic-ai",
+  "Google-Extended",
+  "GoogleOther",
+  "Applebot-Extended",
+  "Meta-ExternalAgent",
+  "CCBot",
+];
+
 export default function robots(): MetadataRoute.Robots {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://cabbge.com";
-
-  const aiCrawlers = [
-    "GPTBot",
-    "ChatGPT-User",
-    "OAI-SearchBot",
-    "Google-Extended",
-    "GoogleOther",
-    "anthropic-ai",
-    "ClaudeBot",
-    "Claude-Web",
-    "PerplexityBot",
-    "CCBot",
-    "Applebot-Extended",
-  ];
-
   return {
     rules: [
       {
         userAgent: "*",
         allow: "/",
-        disallow: ["/dashboard", "/settings", "/api/", "/auth/", "/onboarding"],
+        disallow: PRIVATE_DISALLOW,
       },
-      ...aiCrawlers.map((agent) => ({
+      ...[...RETRIEVAL_BOTS, ...TRAINING_BOTS].map((agent) => ({
         userAgent: agent,
-        allow: ["/", "/about", "/pricing", "/compare", "/benchmark", "/methodology", "/llms.txt"],
-        disallow: ["/dashboard", "/settings", "/api/", "/auth/", "/onboarding"],
+        allow: PUBLIC_ALLOW,
+        disallow: PRIVATE_DISALLOW,
       })),
     ],
-    sitemap: `${baseUrl}/sitemap.xml`,
-    host: baseUrl,
+    sitemap: `${baseUrl()}/sitemap.xml`,
+    host: baseUrl(),
   };
 }

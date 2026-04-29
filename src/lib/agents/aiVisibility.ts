@@ -1,6 +1,11 @@
 import { queryForVisibility, aiLight, type VisibilitySource } from "@/lib/ai";
 import type { QueryWithMeta } from "@/lib/agents/localityEngine";
 import { checkHallucinations } from "@/lib/agents/hallucinationCheck";
+import {
+  runOffDomainCoverage,
+  offDomainCoverageScore,
+  type OffDomainItem,
+} from "@/lib/agents/offDomain";
 
 // ---------- Types ----------
 
@@ -26,16 +31,24 @@ export interface AIVisibilityResult {
   scores: {
     chatgpt: number;
     gemini: number;
+    perplexity?: number;
+    claude?: number;
+    grok?: number;
     overall: number;
     readiness: number;
     mentions: number;
+    offDomain?: number;
   };
   queryResults: QueryResult[];
   aiReadiness: AIReadinessCheck[];
+  offDomainCoverage?: OffDomainItem[];
   configuredLLMs: string[];
   platformHealth: {
     chatgpt: PlatformHealth;
     gemini: PlatformHealth;
+    perplexity?: PlatformHealth;
+    claude?: PlatformHealth;
+    grok?: PlatformHealth;
   };
 }
 
@@ -50,9 +63,9 @@ interface QueryResult {
   intent?: QueryWithMeta["intent"];
   chatgpt: LLMResult;
   gemini: LLMResult;
-  // Keep claude/perplexity fields for backward compat with stored scans
   claude: LLMResult;
   perplexity: LLMResult;
+  grok: LLMResult;
 }
 
 interface LLMResult {
@@ -276,6 +289,189 @@ function calculateScore(results: QueryResult[], llmKey: keyof Omit<QueryResult, 
 
 // ---------- AI Readiness Checks ----------
 
+/**
+ * AI bots whose presence/absence in robots.txt rules we audit.
+ *
+ *   retrieval bots — fetch live to answer user questions. Blocking
+ *                    these = no citations. Highest priority audit.
+ *   training bots  — train on the page. Sites have stronger reasons
+ *                    to block these (data licensing); less critical
+ *                    for citation outcomes.
+ */
+const AI_BOTS_RETRIEVAL = [
+  "OAI-SearchBot",
+  "ChatGPT-User",
+  "Claude-SearchBot",
+  "Claude-User",
+  "PerplexityBot",
+  "Perplexity-User",
+];
+
+const AI_BOTS_TRAINING = [
+  "GPTBot",
+  "ClaudeBot",
+  "Google-Extended",
+  "anthropic-ai",
+  "Applebot-Extended",
+  "Meta-ExternalAgent",
+];
+
+interface RobotsAudit {
+  retrievalBlocked: string[];
+  trainingBlocked: string[];
+}
+
+function auditRobotsForAiBots(robotsTxt: string): RobotsAudit {
+  if (!robotsTxt) return { retrievalBlocked: [], trainingBlocked: [] };
+  const lines = robotsTxt.split(/\r?\n/);
+  let currentUAs: string[] = [];
+  const ruleByUA = new Map<string, string[]>();
+  for (const raw of lines) {
+    const line = raw.replace(/#.*$/, "").trim();
+    if (!line) {
+      currentUAs = [];
+      continue;
+    }
+    const m = line.match(/^([a-zA-Z-]+)\s*:\s*(.*)$/);
+    if (!m) continue;
+    const key = m[1].toLowerCase();
+    const value = m[2].trim();
+    if (key === "user-agent") {
+      currentUAs = currentUAs.length === 0 ? [value] : [...currentUAs, value];
+    } else if (key === "disallow") {
+      for (const ua of currentUAs) {
+        const arr = ruleByUA.get(ua.toLowerCase()) || [];
+        arr.push(value);
+        ruleByUA.set(ua.toLowerCase(), arr);
+      }
+    }
+  }
+  const isBlocked = (botName: string): boolean => {
+    const rules = ruleByUA.get(botName.toLowerCase());
+    if (!rules) return false;
+    return rules.some((r) => r === "/" || r === "");
+  };
+  return {
+    retrievalBlocked: AI_BOTS_RETRIEVAL.filter(isBlocked),
+    trainingBlocked: AI_BOTS_TRAINING.filter(isBlocked),
+  };
+}
+
+interface JsRenderAudit {
+  bodyWordCount: number;
+  scriptCount: number;
+  hasSpaShell: boolean;
+  shellMarkers: string[];
+  likelyJsRendered: boolean;
+}
+
+function auditJsRendering(html: string): JsRenderAudit {
+  if (!html) {
+    return {
+      bodyWordCount: 0,
+      scriptCount: 0,
+      hasSpaShell: false,
+      shellMarkers: [],
+      likelyJsRendered: false,
+    };
+  }
+  const bodyMatch = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+  const bodyHtml = bodyMatch?.[1] ?? html;
+  const visible = bodyHtml
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, " ")
+    .replace(/<noscript[^>]*>[\s\S]*?<\/noscript>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const bodyWordCount = visible.split(/\s+/).filter((w) => w.length > 1).length;
+  const scriptCount = (html.match(/<script[\s>]/gi) || []).length;
+  const markers: string[] = [];
+  const checks: Array<{ re: RegExp; label: string }> = [
+    { re: /<div[^>]+id=["']__next["']/i, label: '<div id="__next">' },
+    { re: /<div[^>]+id=["']root["']/i, label: '<div id="root">' },
+    { re: /<div[^>]+id=["']app["']/i, label: '<div id="app">' },
+    { re: /<div[^>]+id=["']___gatsby["']/i, label: '<div id="___gatsby">' },
+    { re: /data-reactroot/i, label: "data-reactroot" },
+    { re: /ng-version=/i, label: "ng-version" },
+    { re: /<noscript>[\s\S]{0,400}(enable\s+javascript|require[s]?\s+javascript)/i, label: '<noscript>"requires JavaScript"' },
+  ];
+  for (const c of checks) if (c.re.test(html)) markers.push(c.label);
+  const hasSpaShell = markers.length > 0;
+  const likelyJsRendered = hasSpaShell && bodyWordCount < 200 && scriptCount >= 2;
+  return { bodyWordCount, scriptCount, hasSpaShell, shellMarkers: markers, likelyJsRendered };
+}
+
+function auditEntityGrounding(html: string): {
+  hasOrgSchema: boolean;
+  sameAsCount: number;
+  trustAnchors: string[];
+} {
+  const trustHostPatterns = [
+    /wikipedia\.org/i,
+    /wikidata\.org/i,
+    /linkedin\.com/i,
+    /crunchbase\.com/i,
+    /github\.com/i,
+    /twitter\.com|x\.com/i,
+    /producthunt\.com/i,
+  ];
+  const blocks =
+    html.match(
+      /<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi,
+    ) || [];
+  let hasOrgSchema = false;
+  const sameAs = new Set<string>();
+  for (const block of blocks) {
+    try {
+      const json = block
+        .replace(/<script[^>]*>/i, "")
+        .replace(/<\/script>/i, "")
+        .trim();
+      const parsed = JSON.parse(json);
+      const items: Array<Record<string, unknown>> = [];
+      if (Array.isArray(parsed)) items.push(...parsed);
+      else items.push(parsed);
+      const graph = (parsed as { "@graph"?: Record<string, unknown>[] })["@graph"];
+      if (Array.isArray(graph)) items.push(...graph);
+      for (const item of items) {
+        const t = item["@type"];
+        const types = Array.isArray(t) ? t : [t];
+        if (
+          types.includes("Organization") ||
+          types.includes("LocalBusiness") ||
+          types.includes("Corporation")
+        ) {
+          hasOrgSchema = true;
+          const sas = item.sameAs;
+          if (Array.isArray(sas)) for (const u of sas) sameAs.add(String(u));
+          else if (typeof sas === "string") sameAs.add(sas);
+        }
+      }
+    } catch {
+      /* skip */
+    }
+  }
+  const trustAnchors: string[] = [];
+  for (const u of sameAs) {
+    for (const re of trustHostPatterns) {
+      if (re.test(u)) {
+        try {
+          trustAnchors.push(new URL(u).hostname);
+        } catch {
+          trustAnchors.push(u);
+        }
+        break;
+      }
+    }
+  }
+  return {
+    hasOrgSchema,
+    sameAsCount: sameAs.size,
+    trustAnchors: Array.from(new Set(trustAnchors)),
+  };
+}
+
 async function checkAIReadiness(url: string): Promise<AIReadinessCheck[]> {
   let html = "";
   let robotsTxt = "";
@@ -483,6 +679,49 @@ async function checkAIReadiness(url: string): Promise<AIReadinessCheck[]> {
           ? "Not enough content to analyze readability"
           : "Paragraphs too long — AI struggles to extract citeable passages. Break into chunks of ~134-167 words.",
     },
+    (() => {
+      const audit = auditJsRendering(html);
+      const passed = !audit.likelyJsRendered;
+      return {
+        check: "Server-rendered content",
+        passed,
+        details: passed
+          ? audit.hasSpaShell
+            ? `SPA framework detected but ${audit.bodyWordCount} words ship in HTML — looks SSR/SSG`
+            : "Substantive content in initial HTML response"
+          : `Looks JavaScript-rendered. AI crawlers (GPTBot, ClaudeBot, PerplexityBot) don't execute JS — they see ${audit.bodyWordCount} words and a ${audit.shellMarkers[0] ?? "shell"}, while real visitors see the full page. Switch to SSR/SSG or pre-render specifically for AI bots.`,
+      };
+    })(),
+    (() => {
+      const audit = auditRobotsForAiBots(robotsTxt);
+      return {
+        check: "AI crawler access",
+        passed: audit.retrievalBlocked.length === 0,
+        details:
+          audit.retrievalBlocked.length > 0
+            ? `Blocking AI retrieval bots in robots.txt: ${audit.retrievalBlocked.join(", ")}. These are the bots that fetch live to answer user questions — blocking them = no citations.`
+            : audit.trainingBlocked.length > 0
+              ? `Training bots blocked (${audit.trainingBlocked.join(", ")}) but retrieval bots are allowed — citations still possible.`
+              : "All AI bots allowed in robots.txt.",
+      };
+    })(),
+    (() => {
+      const audit = auditEntityGrounding(html);
+      const passed = audit.hasOrgSchema && audit.trustAnchors.length >= 2;
+      return {
+        check: "Entity grounding (sameAs)",
+        passed,
+        details: !audit.hasOrgSchema
+          ? "No Organization schema found. AI engines use sameAs links to Wikipedia / Wikidata / LinkedIn / Crunchbase to confirm you're a real entity — without this, citations drop sharply."
+          : audit.sameAsCount === 0
+            ? "Organization schema present but missing sameAs entries. Add LinkedIn, Crunchbase, GitHub, Wikipedia / Wikidata to lift entity authority."
+            : audit.trustAnchors.length === 0
+              ? `${audit.sameAsCount} sameAs entries found but none point to high-trust authority sources (Wikipedia, Wikidata, LinkedIn, Crunchbase, GitHub).`
+              : audit.trustAnchors.length < 2
+                ? `Only 1 trust anchor (${audit.trustAnchors[0]}). Aim for at least 2 — Wikipedia/Wikidata + LinkedIn/Crunchbase is the canonical pair.`
+                : `${audit.trustAnchors.length} trust anchors: ${audit.trustAnchors.join(", ")}`,
+      };
+    })(),
   ];
 }
 
@@ -503,12 +742,29 @@ export async function runAIVisibility(
   disambiguation?: BrandDisambiguation,
   projectGroundTruth?: import("./hallucinationCheck").ProjectGroundTruth[],
 ): Promise<AIVisibilityResult> {
-  // Run AI readiness checks
-  const aiReadiness = await checkAIReadiness(websiteUrl);
+  // Run AI readiness checks + off-domain coverage in parallel.
+  // Off-domain coverage probes Wikipedia / Wikidata / Trustpilot / G2 /
+  // Reddit to measure earned-media presence — 82-89% of AI citations
+  // come from third-party authoritative sources, not the brand's site.
+  const [aiReadiness, offDomainCoverage] = await Promise.all([
+    checkAIReadiness(websiteUrl),
+    runOffDomainCoverage(brand, websiteUrl).catch(() => [] as OffDomainItem[]),
+  ]);
+  const offDomainScoreValue = offDomainCoverageScore(offDomainCoverage);
 
-  // Only scan ChatGPT + Gemini — the two platforms real buyers use
+  // Five engines fire in parallel per query when their API keys are set.
+  // Each engine degrades cleanly when its key is missing (the scan still
+  // returns; that engine's score is just 0 and platform_health is omitted).
+  const hasGemini = !!process.env.GOOGLE_GEMINI_API_KEY;
+  const hasPerplexity = !!process.env.PERPLEXITY_API_KEY;
+  const hasClaude = !!process.env.ANTHROPIC_API_KEY;
+  const hasGrok = !!process.env.XAI_API_KEY;
+
   const configuredLLMs: string[] = ["ChatGPT"];
-  if (process.env.GOOGLE_GEMINI_API_KEY) configuredLLMs.push("Gemini");
+  if (hasGemini) configuredLLMs.push("Gemini");
+  if (hasPerplexity) configuredLLMs.push("Perplexity");
+  if (hasClaude) configuredLLMs.push("Claude");
+  if (hasGrok) configuredLLMs.push("Grok");
 
   const emptyResult: LLMResult = { mentioned: false, position: 0, context: "", sentiment: "absent", coCitations: [], citationSources: [] };
   const queryResults: QueryResult[] = [];
@@ -516,8 +772,14 @@ export async function runAIVisibility(
   // Track per-platform health so we can tell live vs degraded vs broken in the UI.
   const chatgptSources: VisibilitySource[] = [];
   const geminiSources: VisibilitySource[] = [];
+  const perplexitySources: VisibilitySource[] = [];
+  const claudeSources: VisibilitySource[] = [];
+  const grokSources: VisibilitySource[] = [];
   let chatgptLastError: string | undefined;
   let geminiLastError: string | undefined;
+  let perplexityLastError: string | undefined;
+  let claudeLastError: string | undefined;
+  let grokLastError: string | undefined;
 
   // Run every query in parallel. Previously sequential — for 5 queries
   // with 25-30s per call under retry pressure that meant 125-150s
@@ -530,26 +792,51 @@ export async function runAIVisibility(
   const trim = (s: string) => (s && typeof s === "string" ? s.slice(0, RAW_MAX) : "");
   const shouldAudit = !!projectGroundTruth && projectGroundTruth.length > 0;
 
+  type EngineCallResult = { text: string; source: VisibilitySource; error?: string };
+  const safeCall = (p: Promise<EngineCallResult>): Promise<EngineCallResult> =>
+    p.catch((err): EngineCallResult => ({
+      text: "",
+      source: "failed",
+      error: err instanceof Error ? err.message : String(err),
+    }));
+  const missingKey = (): EngineCallResult => ({ text: "", source: "missing_key" });
+
+  type PerQueryRow = QueryResult & {
+    _chatgptSource: VisibilitySource;
+    _geminiSource: VisibilitySource;
+    _perplexitySource: VisibilitySource;
+    _claudeSource: VisibilitySource;
+    _grokSource: VisibilitySource;
+    _chatgptError?: string;
+    _geminiError?: string;
+    _perplexityError?: string;
+    _claudeError?: string;
+    _grokError?: string;
+  };
+
   const perQueryResults = await Promise.all(
-    queries.map(async (qm): Promise<QueryResult & { _chatgptSource: VisibilitySource; _geminiSource: VisibilitySource; _chatgptError?: string; _geminiError?: string }> => {
-      const [chatgptRes, geminiRes] = await Promise.all([
-        queryForVisibility("openai", qm.query).catch((err): { text: string; source: VisibilitySource; error?: string } => ({
-          text: "",
-          source: "failed",
-          error: err instanceof Error ? err.message : String(err),
-        })),
-        queryForVisibility("gemini", qm.query).catch((err): { text: string; source: VisibilitySource; error?: string } => ({
-          text: "",
-          source: "failed",
-          error: err instanceof Error ? err.message : String(err),
-        })),
+    queries.map(async (qm): Promise<PerQueryRow> => {
+      const [chatgptRes, geminiRes, perplexityRes, claudeRes, grokRes] = await Promise.all([
+        safeCall(queryForVisibility("openai", qm.query)),
+        hasGemini ? safeCall(queryForVisibility("gemini", qm.query)) : Promise.resolve(missingKey()),
+        hasPerplexity ? safeCall(queryForVisibility("perplexity", qm.query)) : Promise.resolve(missingKey()),
+        hasClaude ? safeCall(queryForVisibility("claude", qm.query)) : Promise.resolve(missingKey()),
+        hasGrok ? safeCall(queryForVisibility("grok", qm.query)) : Promise.resolve(missingKey()),
       ]);
 
-      const [chatgptAnalysis, geminiAnalysis] = await Promise.all([
+      const [chatgptAnalysis, geminiAnalysis, perplexityAnalysis, claudeAnalysis, grokAnalysis] = await Promise.all([
         analyzeMention(chatgptRes.text, brand, projects, disambiguation),
-        analyzeMention(geminiRes.text, brand, projects, disambiguation),
+        hasGemini ? analyzeMention(geminiRes.text, brand, projects, disambiguation) : Promise.resolve(emptyResult),
+        hasPerplexity ? analyzeMention(perplexityRes.text, brand, projects, disambiguation) : Promise.resolve(emptyResult),
+        hasClaude ? analyzeMention(claudeRes.text, brand, projects, disambiguation) : Promise.resolve(emptyResult),
+        hasGrok ? analyzeMention(grokRes.text, brand, projects, disambiguation) : Promise.resolve(emptyResult),
       ]);
 
+      // Hallucination audit only runs against ChatGPT + Gemini for now —
+      // those have the longest production history and the audit is RE-
+      // grounded (tied to projectGroundTruth which only exists for
+      // Cabbage's RE customers, currently). Will become engine-agnostic
+      // once the pivot fully strips the RE coupling.
       const [chatgptHallucinations, geminiHallucinations] = shouldAudit
         ? await Promise.all([
             chatgptAnalysis.mentioned
@@ -582,12 +869,19 @@ export async function runAIVisibility(
         intent: qm.intent,
         chatgpt: { ...chatgptAnalysis, hallucinations: chatgptHallucinations, rawResponse: trim(chatgptRes.text) },
         gemini: { ...geminiAnalysis, hallucinations: geminiHallucinations, rawResponse: trim(geminiRes.text) },
-        claude: emptyResult,
-        perplexity: emptyResult,
+        perplexity: { ...perplexityAnalysis, rawResponse: trim(perplexityRes.text) },
+        claude: { ...claudeAnalysis, rawResponse: trim(claudeRes.text) },
+        grok: { ...grokAnalysis, rawResponse: trim(grokRes.text) },
         _chatgptSource: chatgptRes.source,
         _geminiSource: geminiRes.source,
+        _perplexitySource: perplexityRes.source,
+        _claudeSource: claudeRes.source,
+        _grokSource: grokRes.source,
         _chatgptError: chatgptRes.error,
         _geminiError: geminiRes.error,
+        _perplexityError: perplexityRes.error,
+        _claudeError: claudeRes.error,
+        _grokError: grokRes.error,
       };
     }),
   );
@@ -596,11 +890,21 @@ export async function runAIVisibility(
   for (const r of perQueryResults) {
     chatgptSources.push(r._chatgptSource);
     geminiSources.push(r._geminiSource);
+    perplexitySources.push(r._perplexitySource);
+    claudeSources.push(r._claudeSource);
+    grokSources.push(r._grokSource);
     if (r._chatgptError) chatgptLastError = r._chatgptError;
     if (r._geminiError) geminiLastError = r._geminiError;
-    // Strip the per-row tracking fields before persisting.
-    const { _chatgptSource, _geminiSource, _chatgptError, _geminiError, ...clean } = r;
-    void _chatgptSource; void _geminiSource; void _chatgptError; void _geminiError;
+    if (r._perplexityError) perplexityLastError = r._perplexityError;
+    if (r._claudeError) claudeLastError = r._claudeError;
+    if (r._grokError) grokLastError = r._grokError;
+    const {
+      _chatgptSource, _geminiSource, _perplexitySource, _claudeSource, _grokSource,
+      _chatgptError, _geminiError, _perplexityError, _claudeError, _grokError,
+      ...clean
+    } = r;
+    void _chatgptSource; void _geminiSource; void _perplexitySource; void _claudeSource; void _grokSource;
+    void _chatgptError; void _geminiError; void _perplexityError; void _claudeError; void _grokError;
     queryResults.push(clean);
   }
 
@@ -614,20 +918,50 @@ export async function runAIVisibility(
       "broken";
     return { status, liveQueries, fallbackQueries, failedQueries, lastError };
   };
-  const platformHealth = {
+  const platformHealth: AIVisibilityResult["platformHealth"] = {
     chatgpt: summarize(chatgptSources, chatgptLastError),
     gemini: summarize(geminiSources, geminiLastError),
   };
+  if (hasPerplexity) platformHealth.perplexity = summarize(perplexitySources, perplexityLastError);
+  if (hasClaude) platformHealth.claude = summarize(claudeSources, claudeLastError);
+  if (hasGrok) platformHealth.grok = summarize(grokSources, grokLastError);
 
-  const mentionScores = {
+  const mentionScores: Record<string, number> = {
     chatgpt: calculateScore(queryResults, "chatgpt"),
-    gemini: calculateScore(queryResults, "gemini"),
+    gemini: hasGemini ? calculateScore(queryResults, "gemini") : 0,
+    perplexity: hasPerplexity ? calculateScore(queryResults, "perplexity") : 0,
+    claude: hasClaude ? calculateScore(queryResults, "claude") : 0,
+    grok: hasGrok ? calculateScore(queryResults, "grok") : 0,
   };
 
-  // Weighted: 60% ChatGPT (most used by buyers) + 40% Gemini (Google AI proxy)
-  const mentionScore = process.env.GOOGLE_GEMINI_API_KEY
-    ? Math.round(mentionScores.chatgpt * 0.6 + mentionScores.gemini * 0.4)
-    : mentionScores.chatgpt;
+  // Engine-weighted blend. Ideal weights when an engine is configured:
+  //   ChatGPT 0.30, Gemini 0.20, Perplexity 0.20, Claude 0.15, Grok 0.15.
+  // Re-normalized over the engines actually configured so degenerate
+  // configs (only ChatGPT) still land in [0, 100].
+  const present: Record<string, boolean> = {
+    chatgpt: true,
+    gemini: hasGemini,
+    perplexity: hasPerplexity,
+    claude: hasClaude,
+    grok: hasGrok,
+  };
+  const ideal: Record<string, number> = {
+    chatgpt: 0.3,
+    gemini: 0.2,
+    perplexity: 0.2,
+    claude: 0.15,
+    grok: 0.15,
+  };
+  let weightSum = 0;
+  for (const e of Object.keys(present)) if (present[e]) weightSum += ideal[e];
+  let mentionScore = 0;
+  if (weightSum > 0) {
+    for (const e of Object.keys(present)) {
+      if (!present[e]) continue;
+      mentionScore += mentionScores[e] * (ideal[e] / weightSum);
+    }
+  }
+  mentionScore = Math.round(mentionScore);
 
   // Readiness score — based on website checks (like Okara's "AI Readiness Score")
   const passedChecks = aiReadiness.filter(c => c.passed).length;
@@ -637,18 +971,25 @@ export async function runAIVisibility(
   // This way a site with good structure but no mentions still shows ~30-40
   const overallScore = Math.round(readinessScore * 0.4 + mentionScore * 0.6);
 
+  const scores: AIVisibilityResult["scores"] = {
+    chatgpt: mentionScores.chatgpt,
+    gemini: mentionScores.gemini,
+    overall: overallScore,
+    readiness: readinessScore,
+    mentions: mentionScore,
+  };
+  if (hasPerplexity) scores.perplexity = mentionScores.perplexity;
+  if (hasClaude) scores.claude = mentionScores.claude;
+  if (hasGrok) scores.grok = mentionScores.grok;
+  if (offDomainCoverage.length > 0) scores.offDomain = offDomainScoreValue;
+
   return {
     brand,
     projects,
-    scores: {
-      chatgpt: mentionScores.chatgpt,
-      gemini: mentionScores.gemini,
-      overall: overallScore,
-      readiness: readinessScore,
-      mentions: mentionScore,
-    },
+    scores,
     queryResults,
     aiReadiness,
+    offDomainCoverage,
     configuredLLMs,
     platformHealth,
   };

@@ -13,8 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Cabbge — AI Marketing Agent for Real Estate Developers",
-  description: "SEO, AI Visibility, Competitor Intelligence, and Content Generation for Indian residential real estate developers.",
+  title: "Cabbge — Be the brand AI recommends",
+  description:
+    "5-engine AI visibility scoring (ChatGPT, Gemini, Perplexity, Claude, Grok), mention tracking on Reddit / HN / YouTube / X, per-engine playbook, articles, and a personalized cold-outreach kit. Built for indie SaaS, Shopify operators, and small marketing teams.",
 };
 
 export default function RootLayout({
