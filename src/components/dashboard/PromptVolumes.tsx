@@ -317,16 +317,36 @@ export function PromptVolumes({
                 </span>
               )}
             </div>
-            <div className={`text-xl font-bold tabular-nums ${googleAIMentions > 0 ? "text-zinc-200" : "text-zinc-600"}`}>
-              {googleAIMentions > 0 ? `${googleAIMentions}/${totalQueries}` : "—"}
-            </div>
-            {googleAIMentions > 0 ? (
-              <div className="w-full h-1 rounded-full bg-zinc-800 mt-2 overflow-hidden">
-                <div className="h-full rounded-full bg-[#7CB342] transition-all duration-500" style={{ width: `${(googleAIMentions / totalQueries) * 100}%` }} />
-              </div>
-            ) : (
-              <div className="text-[10px] text-zinc-600 mt-1">Add Gemini key to enable</div>
-            )}
+            {(() => {
+              // True signal for "Gemini disabled" is whether the API
+              // included Gemini in configuredLLMs — that's what the
+              // backend actually checked process.env.GOOGLE_GEMINI_API_KEY
+              // against. Falling back to googleAIMentions === 0 (the old
+              // logic) was a false-positive: a brand legitimately not
+              // cited by Gemini looked identical to Gemini being unconfigured.
+              const configured: string[] = Array.isArray(aiVisResult?.configuredLLMs)
+                ? aiVisResult.configuredLLMs
+                : [];
+              const geminiConfigured = configured.includes("Gemini");
+              if (!geminiConfigured) {
+                return (
+                  <>
+                    <div className="text-xl font-bold tabular-nums text-zinc-600">—</div>
+                    <div className="text-[10px] text-zinc-600 mt-1">Add Gemini key to enable</div>
+                  </>
+                );
+              }
+              return (
+                <>
+                  <div className={`text-xl font-bold tabular-nums ${googleAIMentions > 0 ? "text-zinc-200" : "text-zinc-400"}`}>
+                    {googleAIMentions}/{totalQueries}
+                  </div>
+                  <div className="w-full h-1 rounded-full bg-zinc-800 mt-2 overflow-hidden">
+                    <div className="h-full rounded-full bg-[#7CB342] transition-all duration-500" style={{ width: `${(googleAIMentions / totalQueries) * 100}%` }} />
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </div>
 
