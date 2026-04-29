@@ -289,6 +289,189 @@ function calculateScore(results: QueryResult[], llmKey: keyof Omit<QueryResult, 
 
 // ---------- AI Readiness Checks ----------
 
+/**
+ * AI bots whose presence/absence in robots.txt rules we audit.
+ *
+ *   retrieval bots — fetch live to answer user questions. Blocking
+ *                    these = no citations. Highest priority audit.
+ *   training bots  — train on the page. Sites have stronger reasons
+ *                    to block these (data licensing); less critical
+ *                    for citation outcomes.
+ */
+const AI_BOTS_RETRIEVAL = [
+  "OAI-SearchBot",
+  "ChatGPT-User",
+  "Claude-SearchBot",
+  "Claude-User",
+  "PerplexityBot",
+  "Perplexity-User",
+];
+
+const AI_BOTS_TRAINING = [
+  "GPTBot",
+  "ClaudeBot",
+  "Google-Extended",
+  "anthropic-ai",
+  "Applebot-Extended",
+  "Meta-ExternalAgent",
+];
+
+interface RobotsAudit {
+  retrievalBlocked: string[];
+  trainingBlocked: string[];
+}
+
+function auditRobotsForAiBots(robotsTxt: string): RobotsAudit {
+  if (!robotsTxt) return { retrievalBlocked: [], trainingBlocked: [] };
+  const lines = robotsTxt.split(/\r?\n/);
+  let currentUAs: string[] = [];
+  const ruleByUA = new Map<string, string[]>();
+  for (const raw of lines) {
+    const line = raw.replace(/#.*$/, "").trim();
+    if (!line) {
+      currentUAs = [];
+      continue;
+    }
+    const m = line.match(/^([a-zA-Z-]+)\s*:\s*(.*)$/);
+    if (!m) continue;
+    const key = m[1].toLowerCase();
+    const value = m[2].trim();
+    if (key === "user-agent") {
+      currentUAs = currentUAs.length === 0 ? [value] : [...currentUAs, value];
+    } else if (key === "disallow") {
+      for (const ua of currentUAs) {
+        const arr = ruleByUA.get(ua.toLowerCase()) || [];
+        arr.push(value);
+        ruleByUA.set(ua.toLowerCase(), arr);
+      }
+    }
+  }
+  const isBlocked = (botName: string): boolean => {
+    const rules = ruleByUA.get(botName.toLowerCase());
+    if (!rules) return false;
+    return rules.some((r) => r === "/" || r === "");
+  };
+  return {
+    retrievalBlocked: AI_BOTS_RETRIEVAL.filter(isBlocked),
+    trainingBlocked: AI_BOTS_TRAINING.filter(isBlocked),
+  };
+}
+
+interface JsRenderAudit {
+  bodyWordCount: number;
+  scriptCount: number;
+  hasSpaShell: boolean;
+  shellMarkers: string[];
+  likelyJsRendered: boolean;
+}
+
+function auditJsRendering(html: string): JsRenderAudit {
+  if (!html) {
+    return {
+      bodyWordCount: 0,
+      scriptCount: 0,
+      hasSpaShell: false,
+      shellMarkers: [],
+      likelyJsRendered: false,
+    };
+  }
+  const bodyMatch = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+  const bodyHtml = bodyMatch?.[1] ?? html;
+  const visible = bodyHtml
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, " ")
+    .replace(/<noscript[^>]*>[\s\S]*?<\/noscript>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const bodyWordCount = visible.split(/\s+/).filter((w) => w.length > 1).length;
+  const scriptCount = (html.match(/<script[\s>]/gi) || []).length;
+  const markers: string[] = [];
+  const checks: Array<{ re: RegExp; label: string }> = [
+    { re: /<div[^>]+id=["']__next["']/i, label: '<div id="__next">' },
+    { re: /<div[^>]+id=["']root["']/i, label: '<div id="root">' },
+    { re: /<div[^>]+id=["']app["']/i, label: '<div id="app">' },
+    { re: /<div[^>]+id=["']___gatsby["']/i, label: '<div id="___gatsby">' },
+    { re: /data-reactroot/i, label: "data-reactroot" },
+    { re: /ng-version=/i, label: "ng-version" },
+    { re: /<noscript>[\s\S]{0,400}(enable\s+javascript|require[s]?\s+javascript)/i, label: '<noscript>"requires JavaScript"' },
+  ];
+  for (const c of checks) if (c.re.test(html)) markers.push(c.label);
+  const hasSpaShell = markers.length > 0;
+  const likelyJsRendered = hasSpaShell && bodyWordCount < 200 && scriptCount >= 2;
+  return { bodyWordCount, scriptCount, hasSpaShell, shellMarkers: markers, likelyJsRendered };
+}
+
+function auditEntityGrounding(html: string): {
+  hasOrgSchema: boolean;
+  sameAsCount: number;
+  trustAnchors: string[];
+} {
+  const trustHostPatterns = [
+    /wikipedia\.org/i,
+    /wikidata\.org/i,
+    /linkedin\.com/i,
+    /crunchbase\.com/i,
+    /github\.com/i,
+    /twitter\.com|x\.com/i,
+    /producthunt\.com/i,
+  ];
+  const blocks =
+    html.match(
+      /<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi,
+    ) || [];
+  let hasOrgSchema = false;
+  const sameAs = new Set<string>();
+  for (const block of blocks) {
+    try {
+      const json = block
+        .replace(/<script[^>]*>/i, "")
+        .replace(/<\/script>/i, "")
+        .trim();
+      const parsed = JSON.parse(json);
+      const items: Array<Record<string, unknown>> = [];
+      if (Array.isArray(parsed)) items.push(...parsed);
+      else items.push(parsed);
+      const graph = (parsed as { "@graph"?: Record<string, unknown>[] })["@graph"];
+      if (Array.isArray(graph)) items.push(...graph);
+      for (const item of items) {
+        const t = item["@type"];
+        const types = Array.isArray(t) ? t : [t];
+        if (
+          types.includes("Organization") ||
+          types.includes("LocalBusiness") ||
+          types.includes("Corporation")
+        ) {
+          hasOrgSchema = true;
+          const sas = item.sameAs;
+          if (Array.isArray(sas)) for (const u of sas) sameAs.add(String(u));
+          else if (typeof sas === "string") sameAs.add(sas);
+        }
+      }
+    } catch {
+      /* skip */
+    }
+  }
+  const trustAnchors: string[] = [];
+  for (const u of sameAs) {
+    for (const re of trustHostPatterns) {
+      if (re.test(u)) {
+        try {
+          trustAnchors.push(new URL(u).hostname);
+        } catch {
+          trustAnchors.push(u);
+        }
+        break;
+      }
+    }
+  }
+  return {
+    hasOrgSchema,
+    sameAsCount: sameAs.size,
+    trustAnchors: Array.from(new Set(trustAnchors)),
+  };
+}
+
 async function checkAIReadiness(url: string): Promise<AIReadinessCheck[]> {
   let html = "";
   let robotsTxt = "";
@@ -496,6 +679,49 @@ async function checkAIReadiness(url: string): Promise<AIReadinessCheck[]> {
           ? "Not enough content to analyze readability"
           : "Paragraphs too long — AI struggles to extract citeable passages. Break into chunks of ~134-167 words.",
     },
+    (() => {
+      const audit = auditJsRendering(html);
+      const passed = !audit.likelyJsRendered;
+      return {
+        check: "Server-rendered content",
+        passed,
+        details: passed
+          ? audit.hasSpaShell
+            ? `SPA framework detected but ${audit.bodyWordCount} words ship in HTML — looks SSR/SSG`
+            : "Substantive content in initial HTML response"
+          : `Looks JavaScript-rendered. AI crawlers (GPTBot, ClaudeBot, PerplexityBot) don't execute JS — they see ${audit.bodyWordCount} words and a ${audit.shellMarkers[0] ?? "shell"}, while real visitors see the full page. Switch to SSR/SSG or pre-render specifically for AI bots.`,
+      };
+    })(),
+    (() => {
+      const audit = auditRobotsForAiBots(robotsTxt);
+      return {
+        check: "AI crawler access",
+        passed: audit.retrievalBlocked.length === 0,
+        details:
+          audit.retrievalBlocked.length > 0
+            ? `Blocking AI retrieval bots in robots.txt: ${audit.retrievalBlocked.join(", ")}. These are the bots that fetch live to answer user questions — blocking them = no citations.`
+            : audit.trainingBlocked.length > 0
+              ? `Training bots blocked (${audit.trainingBlocked.join(", ")}) but retrieval bots are allowed — citations still possible.`
+              : "All AI bots allowed in robots.txt.",
+      };
+    })(),
+    (() => {
+      const audit = auditEntityGrounding(html);
+      const passed = audit.hasOrgSchema && audit.trustAnchors.length >= 2;
+      return {
+        check: "Entity grounding (sameAs)",
+        passed,
+        details: !audit.hasOrgSchema
+          ? "No Organization schema found. AI engines use sameAs links to Wikipedia / Wikidata / LinkedIn / Crunchbase to confirm you're a real entity — without this, citations drop sharply."
+          : audit.sameAsCount === 0
+            ? "Organization schema present but missing sameAs entries. Add LinkedIn, Crunchbase, GitHub, Wikipedia / Wikidata to lift entity authority."
+            : audit.trustAnchors.length === 0
+              ? `${audit.sameAsCount} sameAs entries found but none point to high-trust authority sources (Wikipedia, Wikidata, LinkedIn, Crunchbase, GitHub).`
+              : audit.trustAnchors.length < 2
+                ? `Only 1 trust anchor (${audit.trustAnchors[0]}). Aim for at least 2 — Wikipedia/Wikidata + LinkedIn/Crunchbase is the canonical pair.`
+                : `${audit.trustAnchors.length} trust anchors: ${audit.trustAnchors.join(", ")}`,
+      };
+    })(),
   ];
 }
 
