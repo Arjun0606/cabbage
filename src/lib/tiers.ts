@@ -13,28 +13,30 @@
  */
 
 /**
- * Three-tier ladder sized so the product fits a serious single-city
- * developer all the way up to a regional multi-city builder. Every
- * tier is designed for >92% gross margin — the credit pool is sized
- * so a typical customer's real COGS (OpenAI web_search + article
- * writing) stays well under 10% of list price.
+ * Three-tier ladder sized for indie SaaS founders, Shopify and
+ * independent ecom store owners, and small marketing teams. Self-
+ * serve only — no enterprise tier, no custom contracts, no demo
+ * call required. Even people inside larger orgs can pay $49 on a
+ * personal card and use the tool unofficially.
  *
- * Starter (₹49,999) is the floor: this is a paid tool for serious
- * marketing teams, not a freemium hobby SKU. Anyone smaller than
- * Starter isn't our ICP — they don't pay for marketing services.
+ * Pricing (post 2026-04-29 pivot from RE-specific INR pricing):
+ *   Starter $49/mo  — indie founder, single Shopify store, freelance marketer
+ *   Growth  $199/mo — small team, multi-product SaaS, 5-10 brand SKUs
+ *   Scale   $599/mo — agencies, multi-brand operators, power users
  *
- * The previous Enterprise tier (₹5,99,999, 500 articles/mo, 10K-page
- * crawl) was removed 2026-04-26 because the underlying infrastructure
- * (single-click article generation, 5-min Vercel function timeout
- * crawler) couldn't reliably deliver those headline volumes. Top tier
- * is Scale; anything beyond is a custom contract + build-out, not a
- * pricing-page SKU.
+ * Limits keep the RE-era field names (maxProjects, maxCities, etc.)
+ * for backward compatibility with downstream enforcement code, but
+ * semantically:
+ *   maxProjects   ≡ max tracked SITES per workspace
+ *   maxCities     ≡ effectively unlimited geos (no longer gates)
+ * These will be cleaned up in a later pass — for now the shape is
+ * preserved so /api/plan-recommendation, /api/companies, etc. keep
+ * compiling without a touch.
  *
- * Legacy keys retained for backward compatibility with existing
- * Supabase `subscriptions.plan` rows:
+ * Legacy keys retained:
  *   "starter"   unchanged
  *   "pro"       display label "Growth"
- *   "scale"     national / multi-city builder
+ *   "scale"     agencies / multi-brand
  */
 export type PlanTier = "starter" | "pro" | "scale";
 export type PlanBilled = "monthly" | "annual";
@@ -95,52 +97,52 @@ export interface TierDef {
 }
 
 export const TIERS: Record<PlanTier, TierDef> = {
-  // ------- Starter (₹49,999/mo) -------
-  // Small single-city developer with 5-10 projects who typically runs
-  // a ₹50k-₹1L agency retainer. We match that retainer and deliver
-  // 10× the output with daily AI visibility scans.
-  // Typical COGS: ~$40/mo → ~93% margin.
+  // ------- Starter ($49/mo) -------
+  // Indie SaaS founder, single Shopify store, freelance marketer.
+  // Pays on a personal card. Wants to know if they're recommended
+  // by AI engines and ship the schema/FAQ/article fixes.
+  // Typical COGS: ~$5/mo → ~90% margin.
   starter: {
     key: "starter",
     label: "Starter",
-    usd: 600,
-    inr: 49999,
+    usd: 49,
+    inr: 4099,
     dodoProductEnv: {
       monthly: "DODO_PRODUCT_STARTER_MONTHLY",
       annual: "DODO_PRODUCT_STARTER_ANNUAL",
     },
     limits: {
-      creditsPerMonth: 2000,
-      maxProjects: 10,
-      maxCities: 1,
-      maxPagesPerCrawl: 500,
-      articlesPerMonth: 30,
-      maxCompetitors: 7,
+      creditsPerMonth: 500,
+      maxProjects: 3,
+      maxCities: 999,
+      maxPagesPerCrawl: 200,
+      articlesPerMonth: 15,
+      maxCompetitors: 5,
       reviewMonitorFrequency: "weekly",
       fullScanCadence: "weekly",
       aiVisibilityCadence: "daily",
     },
   },
-  // ------- Growth (pro key, ₹99,999/mo) -------
-  // Regional multi-city developer (10-40 projects) — the sweet spot.
-  // Priced precisely against the ₹3-5L/mo agency retainer they'd
-  // otherwise pay. Daily full scan on main site + microsites, 80
-  // articles, CMO digest, infrastructure news.
-  // Typical COGS: ~$100/mo → ~92% margin.
+  // ------- Growth ($199/mo) -------
+  // Small marketing team at a Series Seed/A SaaS, multi-product
+  // operator, midsize ecom brand. Wants competitor alerts, push
+  // notifications on visibility drops, deeper monthly content
+  // throughput. The sweet spot.
+  // Typical COGS: ~$20/mo → ~90% margin.
   pro: {
     key: "pro",
     label: "Growth",
-    usd: 1200,
-    inr: 99999,
+    usd: 199,
+    inr: 16599,
     dodoProductEnv: {
       monthly: "DODO_PRODUCT_PRO_MONTHLY",
       annual: "DODO_PRODUCT_PRO_ANNUAL",
     },
     limits: {
-      creditsPerMonth: 5000,
-      maxProjects: 40,
-      maxCities: 3,
-      maxPagesPerCrawl: 1500,
+      creditsPerMonth: 2500,
+      maxProjects: 10,
+      maxCities: 999,
+      maxPagesPerCrawl: 1000,
       articlesPerMonth: 80,
       maxCompetitors: 20,
       reviewMonitorFrequency: "daily",
@@ -148,28 +150,27 @@ export const TIERS: Record<PlanTier, TierDef> = {
       aiVisibilityCadence: "daily",
     },
   },
-  // ------- Scale (₹2,49,999/mo) -------
-  // National builder with 40-100 projects across multiple cities.
-  // Replaces a 3-person in-house marketing team. Daily scan on every
-  // microsite, 200 articles, full portal + RERA coverage, custom
-  // report templates.
-  // Typical COGS: ~$250/mo → ~92% margin.
+  // ------- Scale ($599/mo) -------
+  // Agencies serving SMBs, multi-brand operators, content-driven
+  // teams that publish weekly. Priority execution queue, API access
+  // (when shipped). Not enterprise — no custom pricing above this.
+  // Typical COGS: ~$60/mo → ~90% margin.
   scale: {
     key: "scale",
     label: "Scale",
-    usd: 3000,
-    inr: 249999,
+    usd: 599,
+    inr: 49899,
     dodoProductEnv: {
       monthly: "DODO_PRODUCT_SCALE_MONTHLY",
       annual: "DODO_PRODUCT_SCALE_ANNUAL",
     },
     limits: {
-      creditsPerMonth: 15000,
-      maxProjects: 100,
-      maxCities: 10,
+      creditsPerMonth: 10000,
+      maxProjects: 50,
+      maxCities: 999,
       maxPagesPerCrawl: 3000,
-      articlesPerMonth: 200,
-      maxCompetitors: 50,
+      articlesPerMonth: 300,
+      maxCompetitors: 100,
       reviewMonitorFrequency: "daily",
       fullScanCadence: "daily",
       aiVisibilityCadence: "daily",
@@ -197,10 +198,16 @@ export const DEMO_LIMITS: TierLimits = {
 
 /**
  * Price computation honouring the annual-prepay 20% discount the
- * pricing page advertises.
+ * pricing page advertises. Returns USD by default (the pivot price
+ * surface). Pass currency: "inr" for INR-equivalent display.
  */
-export function tierPrice(tier: TierDef, billed: PlanBilled): number {
-  return billed === "annual" ? Math.round(tier.inr * 0.8) : tier.inr;
+export function tierPrice(
+  tier: TierDef,
+  billed: PlanBilled,
+  currency: "usd" | "inr" = "usd",
+): number {
+  const base = currency === "inr" ? tier.inr : tier.usd;
+  return billed === "annual" ? Math.round(base * 0.8) : base;
 }
 
 /**
