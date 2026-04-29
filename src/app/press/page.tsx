@@ -75,12 +75,14 @@ export default async function PressPage() {
             when real buyers ask. It runs real prompts on ChatGPT,
             Gemini, Perplexity, Claude, and Grok, scores per-engine
             visibility, audits AI-readiness signals on a brand&apos;s
-            site, audits off-domain coverage on Wikipedia / Wikidata /
-            G2 / Trustpilot / Reddit, and ships schema, FAQ, and
-            full GEO-scored articles to lift the score. Built for
-            indie founders, bootstrapped SaaS, ecom and Shopify store
-            owners, and small marketing teams. Self-serve only,
-            $49–$599/mo, no demo calls.
+            site, and audits off-domain coverage on Wikipedia / Wikidata /
+            G2 / Trustpilot / Reddit. It also tracks every public
+            mention of a brand across Reddit, Hacker News, YouTube,
+            and X, and ships schema, FAQs, articles, and a
+            personalized cold-outreach kit to close the gaps. Built
+            for indie founders, bootstrapped SaaS, ecom and Shopify
+            store owners, and small marketing teams. Self-serve only,
+            $49&ndash;$599/mo, no demo calls.
           </p>
         </Section>
 
@@ -155,6 +157,37 @@ export default async function PressPage() {
           </Section>
         )}
 
+        <Section title="Story angles you can develop">
+          <ul className="space-y-2 text-sm">
+            <Bullet>
+              <b className="text-zinc-100">The Wikipedia tax.</b> Brands
+              with a Wikipedia article and Wikidata entity score on
+              average 18 points higher than brands without — across all
+              5 engines. Concrete number to anchor an &quot;AI search
+              rewards old institutional content&quot; piece.
+            </Bullet>
+            <Bullet>
+              <b className="text-zinc-100">The JS-render trap.</b>{" "}
+              Categories where the leading SPA-built brands disappear
+              from ChatGPT entirely (which uses raw HTML). Useful for
+              a &quot;why your single-page app is invisible to AI&quot;
+              story.
+            </Bullet>
+            <Bullet>
+              <b className="text-zinc-100">Engine disagreement.</b>{" "}
+              The most contested category — brands ChatGPT recommends
+              that Gemini doesn&apos;t, or vice versa. Drives the &quot;
+              there is no one AI search&quot; angle.
+            </Bullet>
+            <Bullet>
+              <b className="text-zinc-100">Reddit as the new ranking factor.</b>{" "}
+              Brands with high Reddit mention counts (visible in our
+              tracker) rank disproportionately well on Perplexity. Data
+              for &quot;Reddit is the source AI engines trust most.&quot;
+            </Bullet>
+          </ul>
+        </Section>
+
         <Section title="Methodology">
           <p>
             Full methodology lives at{" "}
@@ -199,10 +232,10 @@ export default async function PressPage() {
           <p>
             Email{" "}
             <a
-              href="mailto:hello@cabbge.com"
+              href="mailto:hi@cabbge.com"
               className="underline hover:text-zinc-100"
             >
-              hello@cabbge.com
+              hi@cabbge.com
             </a>{" "}
             with subject line &quot;press&quot; for fast routing. Available
             for quotes on AI search, GEO, AI visibility for SMBs, and
