@@ -251,10 +251,11 @@ rewrite.
 | 15 | `pivot.15: pricing/about/methodology rewrites` | strip RE copy from marketing surfaces |
 | 16 | `pivot.16: weekly digest email` | Resend integration on top of the brand_mentions table |
 | 17 | `pivot.17: reserved` | (folded into 14) |
-| 18 | `pivot.18: dashboard surface unification` | strip remaining RE narrative panels, replace project/locality language across dashboard |
-| 19 | `pivot.19: distribution playbook + press` | port DISTRIBUTION.md, /press kit |
-| 20 | `pivot.20: production cutover` | merge to main, deploy, verify, watch errors |
-| 21 | `pivot.21: supabase revamp` | drop RE-coupled tables, rebuild schema around the new SMB shape (sites, scans, mentions, subscribers, artifacts) |
+| 18a | `pivot.18 (slice 1): nav for /mentions + /outreach` | shipped — Sidebar surfaces both new pages |
+| 18b | `pivot.18 (slice 2): the big dashboard delete` | NOT YET — needs user steering. AnalyticsPanel + 2000-line dashboard page take 30+ RE-themed props (projects/cities/locality/portal/infra). Decomposition is a session of its own. |
+| 19 | `pivot.19: distribution playbook + press` | shipped — DISTRIBUTION.md ported, press kit reflects pivot.13/14 |
+| 20 | `pivot.20: production cutover` | NEEDS USER — merge to main + deploy is destructive shared-state |
+| 21 | `pivot.21: supabase revamp` | NEEDS USER — schema changes against prod DB need explicit authorization |
 
 ## pivot.21 — supabase revamp (post-cutover)
 
