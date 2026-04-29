@@ -213,6 +213,15 @@ export async function queryForVisibility(
       // Wrapped in withRetry so 429s + transient 5xx don't break the
       // entire scan; before this wrapper, a single rate-limit on one
       // query was killing the whole AI visibility run for that platform.
+      // Tighter retry budget on web_search than aiComplete/aiLight.
+      // Web_search calls are 10-15s each and we fire up to 2 per query
+      // (one OpenAI, one Gemini) × N queries. A full 3-attempt × 4s
+      // backoff cycle could add ~21s per call × 50 calls = 17 minutes
+      // of pure waiting on a rate-limited scan, blowing past the 300s
+      // function timeout. 2 attempts with faster backoff caps the
+      // worst-case wait at ~3s per call. If web_search still fails
+      // after that, the surrounding fallback to ungrounded chat (lower
+      // quota tier) takes over.
       const response = await withRetry(
         () =>
           (client as unknown as {
@@ -225,7 +234,7 @@ export async function queryForVisibility(
             tools: [{ type: "web_search" }],
             max_output_tokens: 1500,
           }),
-        { label: `web_search(${MODEL_HEAVY})` },
+        { label: `web_search(${MODEL_HEAVY})`, maxAttempts: 2 },
       );
 
       // Extract text from response

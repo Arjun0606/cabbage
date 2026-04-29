@@ -1008,7 +1008,15 @@ export default function DashboardPage() {
     addLog(`> Querying ChatGPT with real buyer searches...`);
     addLog(`> Querying Google AI (Gemini) in parallel...`);
     try {
-      const projects = projectsOverride ?? company.projects;
+      // Defensive normalisation. company.projects can come back from
+      // localStorage as a non-array (object, null, undefined) when the
+      // demo flow completes partially or a stale session persists. The
+      // downstream .filter / .map / .length calls would throw
+      // "c.map is not a function" with no meaningful pointer to the
+      // root cause. Normalise to an array up front so the rest of the
+      // function can assume well-formed input.
+      const rawProjects = projectsOverride ?? company.projects;
+      const projects = Array.isArray(rawProjects) ? rawProjects : [];
       // Task C: auto-refresh queries when projects change. If the user added
       // new projects/localities/configs since the last query generation, the
       // saved query set no longer covers the full brand footprint.
@@ -1063,8 +1071,11 @@ export default function DashboardPage() {
       // brand operates in multiple cities, send the full cities array
       // so the query generator scopes per-city ("best 3BHK Chennai",
       // "best 3BHK Bengaluru") instead of collapsing to one.
-      const allCities = (company.cities && company.cities.length > 0)
-        ? company.cities
+      // Same defensive normalisation as projects above. company.cities
+      // can also turn into a non-array via stale localStorage state.
+      const safeCities = Array.isArray(company.cities) ? company.cities : [];
+      const allCities = safeCities.length > 0
+        ? safeCities
         : (company.city ? [company.city] : []);
       const citiesForScan = selectedCity ? [selectedCity] : allCities;
       const res = await fetch("/api/ai-visibility", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
@@ -1110,7 +1121,29 @@ export default function DashboardPage() {
           exclusions: (company.documents as any)?.brandExclusions || "",
         },
       }) });
-      const data = await res.json();
+      // Defensive JSON parse. When the AI vis function times out
+      // (>300s) or hits a 502 at Vercel's edge, the body is the
+      // platform's HTML error page, not our route's JSON envelope.
+      // Without this guard the dashboard logs "Unexpected token 'A',
+      // 'An error o'..." which tells the user nothing actionable.
+      // We translate non-JSON responses into a clear "function timed
+      // out" message and surface the underlying status so they know
+      // whether to retry (5xx) or fix something (4xx).
+      let data: any;
+      try {
+        data = await res.json();
+      } catch (jsonErr) {
+        const text = await res.text().catch(() => "");
+        const looksLikeHtml = /^\s*</.test(text) || /<!doctype/i.test(text);
+        if (res.status >= 500 || looksLikeHtml) {
+          throw new Error(
+            `AI visibility scan timed out or hit infra error (HTTP ${res.status}). OpenAI is usually back within 30-60 seconds — re-run the scan.`,
+          );
+        }
+        throw new Error(
+          `AI visibility scan returned non-JSON response (HTTP ${res.status}). ${jsonErr instanceof Error ? jsonErr.message : "parse failed"}`,
+        );
+      }
       if (data.error) {
         // Hint is included on validation errors (e.g. "City required") so the
         // user knows what to fix instead of seeing a generic "Failed".
