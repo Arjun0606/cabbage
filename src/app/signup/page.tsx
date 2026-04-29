@@ -30,14 +30,14 @@ export default function SignUpPage() {
         email: email.trim(),
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/onboarding`,
+          emailRedirectTo: `${window.location.origin}/dashboard`,
           data: { full_name: fullName.trim() || undefined },
         },
       });
       if (error) throw error;
       // If email confirmation is disabled in Supabase settings, session exists already → dashboard
       if (data.session) {
-        router.push("/onboarding");
+        router.push("/dashboard");
         router.refresh();
       } else {
         setSuccess(true);
