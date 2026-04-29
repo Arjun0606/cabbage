@@ -251,11 +251,18 @@ rewrite.
 | 15 | `pivot.15: pricing/about/methodology rewrites` | strip RE copy from marketing surfaces |
 | 16 | `pivot.16: weekly digest email` | Resend integration on top of the brand_mentions table |
 | 17 | `pivot.17: reserved` | (folded into 14) |
-| 18a | `pivot.18 (slice 1): nav for /mentions + /outreach` | shipped — Sidebar surfaces both new pages |
-| 18b | `pivot.18 (slice 2): the big dashboard delete` | NOT YET — needs user steering. AnalyticsPanel + 2000-line dashboard page take 30+ RE-themed props (projects/cities/locality/portal/infra). Decomposition is a session of its own. |
-| 19 | `pivot.19: distribution playbook + press` | shipped — DISTRIBUTION.md ported, press kit reflects pivot.13/14 |
-| 20 | `pivot.20: production cutover` | NEEDS USER — merge to main + deploy is destructive shared-state |
-| 21 | `pivot.21: supabase revamp` | NEEDS USER — schema changes against prod DB need explicit authorization |
+| 18.1 | `pivot.18 (slice 1): nav for /mentions + /outreach` | shipped (b912246) |
+| 18.2 | `pivot.18 (slice 2): minimalist post-pivot /dashboard` | shipped (bd6317a) |
+| 18.3a | `pivot.18 (slice 3a): layout metadata + signup redirect` | shipped (c889023) |
+| 18.3b | `pivot.18 (slice 3b): delete legacy + onboarding + RE libs` | shipped (0aabe08) — 11,915 LOC removed |
+| 18.4 | `pivot.18 (slice 4): unified /dashboard layout + Sidebar` | shipped (c332626) |
+| 18.5 | `pivot.18 (slice 5): wire per-engine playbook into /dashboard` | shipped (7af04a1) |
+| 18.6 | `pivot.18 (slice 6): sweep 39 orphan dashboard components + projects/pending` | shipped (f5e8efb) — 9,795 LOC removed |
+| 19 | `pivot.19: distribution playbook + press` | shipped (b30b345) |
+| 20 | `pivot.20: production cutover` | DRAFT READY — runbook in `docs/CUTOVER.md`, PR body in `docs/PR_BODY.md`. Operator opens PR + merges + deploys. |
+| 21.0 | `pivot.21 (proposals): migrations 017 + 018 + 019 + 020` | shipped as DRAFT files (d34851d, 254b3ed) |
+| 21.1 | `pivot.21 (apply 017)`: sites + backfill from companies | NEEDS OPERATOR — apply on Supabase staging first |
+| 21.2 | `pivot.21 (apply 018-020)`: drop projects, drop article-pipeline tables, drop companies | NEEDS OPERATOR — sequence preconditions in each file's header |
 
 ## pivot.21 — supabase revamp (post-cutover)
 
