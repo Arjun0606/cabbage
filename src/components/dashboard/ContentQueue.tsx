@@ -363,7 +363,7 @@ export function ContentQueue({
             out.push({
               keyword: stageKw,
               source: "landing-page",
-              reason: `UC buyers search by expected possession year. Dated page becomes the canonical citation when AI answers "possession 2027 Kukatpally".`,
+              reason: `UC buyers search by expected possession year. Dated page becomes the canonical citation when AI answers "possession ${currentYear + 1} ${loc}".`,
               volume: null,
               difficulty: null,
               priority: "high",
