@@ -73,11 +73,13 @@ create policy "owner writes own sites"
   with check (auth.uid() = owner_id);
 
 -- ------------------------------------------------------------
--- 2. Backfill from companies (PLACEHOLDER — review before applying)
+-- 2. Backfill from companies
 -- ------------------------------------------------------------
 -- Strategy: one row per (company.owner_id, company.website).
 -- Skips rows missing either field. Brand defaults to company.name
--- with the trailing TLD stripped if name is missing.
+-- with the trailing TLD stripped if name is missing. Vertical and
+-- category default empty/unknown — the classifier fills them in
+-- next time gradeUrl() runs against the site.
 --
 -- Comment this whole block out if companies table is already
 -- empty (fresh install) or if you want to backfill manually
@@ -97,7 +99,7 @@ begin
       end as url,
       coalesce(nullif(c.name, ''), split_part(c.website, '.', 1)) as brand,
       'unknown' as vertical,
-      coalesce(c.industry, '') as category,
+      '' as category,
       coalesce(c.created_at, now()) as created_at
     from public.companies c
     where c.owner_id is not null
