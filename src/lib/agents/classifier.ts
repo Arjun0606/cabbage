@@ -180,10 +180,10 @@ Classification rules:
 - saas: sells software subscriptions (login, dashboard, free trial, "book a demo", pricing tiers)
 - ecommerce: sells physical or digital products directly (cart, checkout, product pages with prices)
 - app: mobile app landing page (App Store / Play Store badges, download CTAs, feature tour)
-- local_service: serves a geographic area (address, service areas, "book appointment" CTA)
+- local_service: serves customers within a geographic area. Includes real-estate developers / property builders (RERA, projects, BHK, possession, floor plans, "schedule a site visit"), law firms, clinics, restaurants, marketing agencies, contractors, salons, hotels. ANY business whose buyer evaluates by reputation + location + reviews rather than feature comparison.
 - media: content-driven (articles, newsletter, news/blog homepage)
 - marketplace: multi-seller (vendors, listings, "become a seller")
-- unknown: genuinely unclear — use sparingly
+- unknown: ONLY when the homepage genuinely doesn't reveal what the business does. Default to your best guess otherwise.
 
 Be thorough with brandAliases. Include:
 - Domain name minus TLD (e.g. "notion" from notion.so)

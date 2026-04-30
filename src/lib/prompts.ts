@@ -283,11 +283,46 @@ const PACKS: Partial<Record<Vertical, (input: PromptPackInput) => QueryWithMeta[
   media: buildMediaPack,
 };
 
+// Category-string heuristics for when the classifier returns
+// vertical: "unknown" but the category string still tells us what
+// the business is. Caught by Urbanrise — vertical came back unknown
+// but category was "Sustainable Real Estate", which obviously
+// belongs in local_service, not the SaaS fallback.
+function inferVerticalFromCategory(
+  vertical: Vertical,
+  category: string,
+): Vertical {
+  if (vertical !== "unknown") return vertical;
+  const c = category.toLowerCase();
+  if (
+    /\b(real estate|property|properties|developer|builder|construction|homes|apartments|villas|residence|housing|realty)\b/.test(
+      c,
+    )
+  )
+    return "local_service";
+  if (
+    /\b(law firm|lawyers|attorneys|legal services|clinic|hospital|dental|salon|spa|restaurant|cafe|hotel|agency|consulting|consultants)\b/.test(
+      c,
+    )
+  )
+    return "local_service";
+  if (/\b(app|mobile)\b/.test(c)) return "app";
+  if (/\b(magazine|newsletter|blog|publication|media)\b/.test(c))
+    return "media";
+  if (/\b(store|shop|products|goods|marketplace)\b/.test(c)) return "ecommerce";
+  if (/\b(software|saas|platform|tool|api)\b/.test(c)) return "saas";
+  return "unknown";
+}
+
 export function buildPackFor(
   vertical: Vertical,
   input: PromptPackInput,
 ): QueryWithMeta[] {
-  const generator = PACKS[vertical] ?? buildSaasPack;
+  const effectiveVertical = inferVerticalFromCategory(
+    vertical,
+    input.category || "",
+  );
+  const generator = PACKS[effectiveVertical] ?? buildSaasPack;
 
   // Sanitize category — if classifier failed to read the homepage
   // (typical for SPA shells with 0 words in raw HTML) it returns
@@ -298,13 +333,13 @@ export function buildPackFor(
     !input.category ||
     input.category.toLowerCase().trim() === "unknown" ||
     input.category.trim() === ""
-      ? vertical === "ecommerce" || vertical === "marketplace"
+      ? effectiveVertical === "ecommerce" || effectiveVertical === "marketplace"
         ? "products"
-        : vertical === "local_service"
+        : effectiveVertical === "local_service"
           ? "businesses"
-          : vertical === "app"
+          : effectiveVertical === "app"
             ? "apps"
-            : vertical === "media"
+            : effectiveVertical === "media"
               ? "publications"
               : "software"
       : input.category;
