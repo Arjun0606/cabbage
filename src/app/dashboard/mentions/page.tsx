@@ -17,22 +17,24 @@ export default async function MentionsPage() {
     .order("created_at", { ascending: false });
 
   return (
-    <main className="px-6 py-10">
-      <div className="max-w-5xl mx-auto space-y-8">
-        <div>
-          <div className="text-[10px] uppercase tracking-[0.25em] text-[#7CB342] font-semibold">
-            Mentions
-          </div>
-          <h1 className="text-3xl font-bold text-zinc-100 mt-2 tracking-tight">
-            Mention tracking
-          </h1>
-          <p className="text-[14px] text-zinc-400 mt-2 max-w-2xl leading-relaxed">
-            Reddit, Hacker News, X, and YouTube — every public mention
-            of the brands you track. Refreshed weekly; scan on demand
-            for 1 credit. The 5-engine GEO scan tells you how AI sees
-            you. This tells you where humans are talking.
-          </p>
+    <main>
+      <div className="border-b border-white/15 px-6 sm:px-8 py-8">
+        <div className="text-[10px] font-mono uppercase tracking-[0.25em] text-[#7CB342] mb-2">
+          §01 / MENTIONS
         </div>
+        <h1 className="text-4xl sm:text-5xl font-bold tracking-[-0.03em] leading-[0.95]">
+          Where humans
+          <br />
+          are talking.
+        </h1>
+        <p className="mt-3 text-[13px] text-zinc-400 leading-relaxed max-w-2xl">
+          Reddit · Hacker News · YouTube · X. Every public mention of
+          the brands you track. Refreshed weekly; scan on demand for
+          1 credit.
+        </p>
+      </div>
+
+      <div className="px-6 sm:px-8 py-8 max-w-5xl">
 
         <MentionsClient
           initialTracked={(tracked || []).map((r) => ({

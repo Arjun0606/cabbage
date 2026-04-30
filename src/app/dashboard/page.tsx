@@ -120,22 +120,22 @@ export default async function DashboardPage() {
   }
 
   return (
-    <main className="px-6 py-10">
-      <div className="max-w-6xl mx-auto space-y-8">
-        <div>
-          <div className="text-[10px] uppercase tracking-[0.25em] text-[#7CB342] font-semibold">
-            Dashboard
-          </div>
-          <h1 className="text-3xl font-bold text-zinc-100 mt-2 tracking-tight">
-            Your brands
-          </h1>
-          <p className="text-[14px] text-zinc-400 mt-2 max-w-2xl leading-relaxed">
-            Five engines scanned, four mention sources tracked. Pick
-            a brand to see the per-engine playbook, or grade
-            something new from the home page.
-          </p>
+    <main>
+      <div className="border-b border-white/15 px-6 sm:px-8 py-8">
+        <div className="text-[10px] font-mono uppercase tracking-[0.25em] text-[#7CB342] mb-2">
+          §00 / DASHBOARD
         </div>
+        <h1 className="text-4xl sm:text-5xl font-bold tracking-[-0.03em] leading-[0.95]">
+          Your brands.
+        </h1>
+        <p className="mt-3 text-[13px] text-zinc-400 leading-relaxed max-w-2xl">
+          5 engines scanned · 4 mention sources tracked. Pick a
+          brand on the rail to see the per-engine playbook, or grade
+          something new from the home page.
+        </p>
+      </div>
 
+      <div className="px-6 sm:px-8 py-8">
         <DashboardClient
           tracked={tracked.map((t) => ({
             brandSlug: t.brand_slug,

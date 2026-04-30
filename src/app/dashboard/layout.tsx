@@ -24,7 +24,7 @@ export default async function DashboardLayout({
     (user.user_metadata?.full_name as string | undefined) || user.email || "";
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 flex">
+    <div className="min-h-screen bg-black text-white flex selection:bg-[#7CB342] selection:text-black">
       <Sidebar companyName={avatarLabel} />
       <div className="flex-1 min-w-0 overflow-y-auto">{children}</div>
     </div>

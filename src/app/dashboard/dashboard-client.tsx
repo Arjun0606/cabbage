@@ -1,18 +1,21 @@
 "use client";
 
+/**
+ * Dashboard client — brutalist redesign.
+ *
+ * Same vocabulary as the home page: pure black, sharp 90° corners,
+ * Geist Mono for every datum, hard horizontal rules, brand green
+ * #7CB342 used only for live indicators + primary CTAs.
+ *
+ * Layout is a 12-col grid: 3-col tracked-brands rail on the left,
+ * 9-col detail panel on the right. The detail panel is a single
+ * scrollable column with section dividers — the score header, the
+ * engine table, the readiness rollup, the mention tally, the
+ * playbook list. No nested rounded boxes, no gradient mush.
+ */
+
 import Link from "next/link";
 import { useState } from "react";
-import {
-  Plus,
-  RefreshCw,
-  ExternalLink,
-  Send,
-  MessageSquare,
-  X,
-  Loader2,
-  Search,
-  ArrowRight,
-} from "lucide-react";
 import type { PlaybookAction } from "@/lib/agents/playbook";
 
 interface Tracked {
@@ -49,30 +52,24 @@ interface MentionTally {
 }
 
 const ENGINE_LABELS: Array<{ key: keyof GradeSummary["scores"]; label: string }> = [
-  { key: "chatgpt", label: "ChatGPT" },
-  { key: "gemini", label: "Gemini" },
-  { key: "perplexity", label: "Perplexity" },
-  { key: "claude", label: "Claude" },
-  { key: "grok", label: "Grok" },
+  { key: "chatgpt", label: "CHATGPT" },
+  { key: "gemini", label: "GEMINI" },
+  { key: "perplexity", label: "PERPLEXITY" },
+  { key: "claude", label: "CLAUDE" },
+  { key: "grok", label: "GROK" },
 ];
 
 const SOURCE_LABEL: Record<string, string> = {
-  reddit: "Reddit",
+  reddit: "REDDIT",
   hackernews: "HN",
-  youtube: "YouTube",
+  youtube: "YOUTUBE",
   x: "X",
 };
 
 function scoreColor(n: number): string {
   if (n >= 70) return "text-emerald-400";
   if (n >= 40) return "text-amber-300";
-  return "text-rose-300";
-}
-
-function scoreRing(n: number): string {
-  if (n >= 70) return "from-emerald-500/20 to-emerald-500/0 border-emerald-500/30";
-  if (n >= 40) return "from-amber-500/20 to-amber-500/0 border-amber-500/30";
-  return "from-rose-500/20 to-rose-500/0 border-rose-500/30";
+  return "text-rose-400";
 }
 
 export function DashboardClient({
@@ -154,15 +151,12 @@ export function DashboardClient({
   }
 
   async function untrack(slug: string) {
+    if (!confirm(`Stop tracking ${slug}?`)) return;
     setBusy("untrack");
     try {
       await fetch(`/api/mentions?slug=${encodeURIComponent(slug)}`, {
         method: "DELETE",
       });
-      const remaining = tracked.filter((t) => t.brandSlug !== slug);
-      if (activeSlug === slug) {
-        setActiveSlug(remaining[0]?.brandSlug ?? null);
-      }
       window.location.reload();
     } finally {
       setBusy(null);
@@ -171,288 +165,267 @@ export function DashboardClient({
 
   if (tracked.length === 0) {
     return (
-      <div className="rounded-2xl border border-white/[0.06] bg-zinc-900/40 p-8 sm:p-10 max-w-2xl">
-        <div className="text-[10px] uppercase tracking-[0.25em] text-[#7CB342] font-semibold mb-3">
-          Onboarding · 30 seconds
+      <div className="border border-white/15 max-w-2xl">
+        <div className="border-b border-white/15 px-6 py-3 flex items-center justify-between text-[10px] font-mono uppercase tracking-[0.25em] text-[#7CB342]">
+          <span>§ ONBOARDING / 30 SECONDS</span>
         </div>
-        <h2 className="text-2xl font-bold tracking-tight mb-2">
-          Track your first brand
-        </h2>
-        <p className="text-[14px] text-zinc-400 leading-relaxed mb-6">
-          Paste a domain. We&apos;ll run the 5-engine grade, start the
-          mention tracker on Reddit / HN / YouTube / X, and pin it
-          here so you can come back to the playbook anytime.
-        </p>
+        <div className="px-6 py-8">
+          <h2 className="text-3xl sm:text-4xl font-bold tracking-[-0.025em] leading-[1.05] mb-4">
+            Track your first brand.
+          </h2>
+          <p className="text-[14px] text-zinc-400 leading-relaxed mb-7 max-w-lg">
+            Paste a domain. We&apos;ll run the 5-engine grade, start
+            the mention tracker on Reddit / HN / YouTube / X, and
+            pin it here so you can come back to the playbook anytime.
+          </p>
 
-        {err && (
-          <div className="mb-4 rounded-lg border border-red-500/20 bg-red-500/[0.06] px-4 py-2.5 text-[12px] text-red-300">
-            {err}
-          </div>
-        )}
+          {err && (
+            <div className="mb-5 border border-rose-500/40 bg-rose-500/[0.06] px-4 py-2.5 text-[12px] font-mono text-rose-300">
+              ERROR / {err}
+            </div>
+          )}
 
-        <form onSubmit={addBrand} className="flex gap-2">
-          <div className="relative flex-1">
-            <Search
-              size={14}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500"
-            />
+          <form onSubmit={addBrand} className="flex flex-col sm:flex-row max-w-lg">
             <input
               value={addInput}
               onChange={(e) => setAddInput(e.target.value)}
               placeholder="stripe.com"
               disabled={busy === "add"}
-              className="w-full bg-zinc-900/80 border border-white/[0.06] rounded-lg pl-9 pr-4 h-11 text-[14px] text-zinc-100 placeholder:text-zinc-600 outline-none focus:border-[#7CB342]/40 disabled:opacity-50 transition-colors font-mono"
+              className="flex-1 bg-transparent border border-white/30 px-4 h-12 text-[14px] text-white placeholder:text-zinc-600 outline-none focus:border-[#7CB342] disabled:opacity-50 transition-colors font-mono"
             />
-          </div>
-          <button
-            type="submit"
-            disabled={busy === "add" || !addInput.trim()}
-            className="h-11 px-5 rounded-lg bg-[#7CB342] hover:bg-[#8BC34A] active:scale-[0.97] text-zinc-950 text-[13px] font-semibold transition-all disabled:opacity-50 disabled:active:scale-100 flex items-center gap-1.5"
-          >
-            {busy === "add" ? (
-              <>
-                <Loader2 size={14} className="animate-spin" />
-                Scanning…
-              </>
-            ) : (
-              <>
-                Track + scan
-                <ArrowRight size={13} />
-              </>
-            )}
-          </button>
-        </form>
+            <button
+              type="submit"
+              disabled={busy === "add" || !addInput.trim()}
+              className="h-12 px-6 bg-[#7CB342] hover:bg-[#8BC34A] text-black font-bold text-[13px] tracking-[-0.01em] disabled:opacity-50 transition-colors border border-[#7CB342] sm:border-l-0 whitespace-nowrap"
+            >
+              {busy === "add" ? "SCANNING…" : "TRACK + SCAN →"}
+            </button>
+          </form>
 
-        <p className="mt-4 text-[11px] text-zinc-500">
-          Or run an unsigned scan at the{" "}
-          <Link href="/" className="text-[#7CB342] hover:text-[#8BC34A]">
-            home page
-          </Link>{" "}
-          first — same 5 engines, public scorecard at /visibility/[domain].
-        </p>
+          <p className="mt-5 text-[11px] font-mono uppercase tracking-[0.2em] text-zinc-600">
+            OR RUN UNSIGNED AT{" "}
+            <Link
+              href="/"
+              className="text-[#7CB342] hover:text-[#8BC34A] underline underline-offset-2"
+            >
+              CABBGE.COM
+            </Link>{" "}
+            FIRST
+          </p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6">
-      {/* sidebar — tracked brands list */}
-      <aside className="space-y-3">
-        <form
-          onSubmit={addBrand}
-          className="rounded-xl border border-white/[0.06] bg-zinc-900/40 p-3 space-y-2"
-        >
-          <label className="text-[10px] uppercase tracking-[0.25em] text-zinc-500 font-semibold">
-            Track another
-          </label>
-          <div className="relative">
-            <Plus
-              size={12}
-              className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-500"
-            />
-            <input
-              value={addInput}
-              onChange={(e) => setAddInput(e.target.value)}
-              placeholder="stripe.com"
-              disabled={busy === "add"}
-              className="w-full bg-zinc-950/60 border border-white/[0.06] rounded-md pl-7 pr-3 h-8 text-[12.5px] text-zinc-100 placeholder:text-zinc-600 outline-none focus:border-[#7CB342]/40 disabled:opacity-50 transition-colors font-mono"
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={busy === "add" || !addInput.trim()}
-            className="w-full h-8 rounded-md bg-[#7CB342] hover:bg-[#8BC34A] active:scale-[0.97] text-zinc-950 text-[11.5px] font-semibold transition-all disabled:opacity-50 disabled:active:scale-100 flex items-center justify-center gap-1"
+    <div className="border border-white/15">
+      <div className="grid grid-cols-12">
+        {/* RAIL — tracked brands */}
+        <aside className="col-span-12 lg:col-span-3 lg:border-r border-white/15 lg:border-b-0 border-b">
+          <form
+            onSubmit={addBrand}
+            className="border-b border-white/15 p-3"
           >
-            {busy === "add" ? (
-              <>
-                <Loader2 size={11} className="animate-spin" />
-                Scanning…
-              </>
-            ) : (
-              "Add + scan"
-            )}
-          </button>
-        </form>
-
-        <ul className="space-y-1">
-          {tracked.map((t) => {
-            const g = grades[t.brandSlug];
-            const m = mentions[t.brandSlug];
-            const active = activeSlug === t.brandSlug;
-            return (
-              <li
-                key={t.brandSlug}
-                className={`group rounded-lg border px-3 py-2.5 cursor-pointer transition-all ${
-                  active
-                    ? "border-[#7CB342]/30 bg-[#7CB342]/[0.06]"
-                    : "border-white/[0.06] bg-zinc-900/40 hover:border-white/10 hover:bg-zinc-900/60"
-                }`}
-                onClick={() => setActiveSlug(t.brandSlug)}
+            <div className="text-[10px] font-mono uppercase tracking-[0.25em] text-zinc-500 mb-2">
+              TRACK ANOTHER
+            </div>
+            <div className="flex">
+              <input
+                value={addInput}
+                onChange={(e) => setAddInput(e.target.value)}
+                placeholder="stripe.com"
+                disabled={busy === "add"}
+                className="flex-1 bg-transparent border border-white/20 px-3 h-9 text-[12.5px] text-white placeholder:text-zinc-600 outline-none focus:border-[#7CB342] disabled:opacity-50 transition-colors font-mono min-w-0"
+              />
+              <button
+                type="submit"
+                disabled={busy === "add" || !addInput.trim()}
+                className="h-9 px-3 bg-[#7CB342] hover:bg-[#8BC34A] text-black font-bold text-[11px] tracking-[-0.01em] disabled:opacity-50 transition-colors border border-[#7CB342] border-l-0 whitespace-nowrap"
               >
-                <div className="flex items-center justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[13px] text-zinc-100 font-semibold truncate">
+                {busy === "add" ? "…" : "ADD"}
+              </button>
+            </div>
+          </form>
+
+          <ul>
+            {tracked.map((t) => {
+              const g = grades[t.brandSlug];
+              const m = mentions[t.brandSlug];
+              const active = activeSlug === t.brandSlug;
+              return (
+                <li
+                  key={t.brandSlug}
+                  onClick={() => setActiveSlug(t.brandSlug)}
+                  className={`group cursor-pointer border-b border-white/10 px-4 py-3 transition-colors ${
+                    active
+                      ? "bg-[#7CB342]/[0.08] border-l-2 border-l-[#7CB342]"
+                      : "hover:bg-white/[0.02] border-l-2 border-l-transparent"
+                  }`}
+                >
+                  <div className="flex items-baseline justify-between gap-2">
+                    <div className="text-[13px] font-bold tracking-tight truncate min-w-0">
                       {t.displayName || t.brandSlug}
                     </div>
-                    <div className="text-[10px] text-zinc-500 truncate font-mono mt-0.5">
-                      {t.brandSlug}
-                    </div>
-                  </div>
-                  <div className="text-right shrink-0">
                     <div
-                      className={`text-[18px] font-bold tabular-nums leading-none ${
+                      className={`text-[20px] font-bold tabular-nums leading-none shrink-0 ${
                         g ? scoreColor(g.scores.overall) : "text-zinc-700"
                       }`}
                     >
                       {g ? g.scores.overall : "—"}
                     </div>
+                  </div>
+                  <div className="flex items-center justify-between mt-1.5 font-mono text-[10px]">
+                    <span className="text-zinc-600 truncate min-w-0">
+                      {t.brandSlug}
+                    </span>
                     {m && m.total > 0 && (
-                      <div className="text-[9.5px] text-zinc-500 mt-1">
-                        {m.total} new
-                      </div>
+                      <span className="text-[#7CB342] shrink-0">
+                        +{m.total} 7D
+                      </span>
                     )}
                   </div>
-                </div>
-                {active && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      untrack(t.brandSlug);
-                    }}
-                    className="mt-2 text-[10px] text-zinc-600 hover:text-rose-400 flex items-center gap-1 transition-colors"
-                  >
-                    <X size={10} /> Untrack
-                  </button>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      </aside>
+                </li>
+              );
+            })}
+          </ul>
+        </aside>
 
-      {/* main content */}
-      <section className="space-y-5">
-        {err && (
-          <div className="rounded-lg border border-red-500/20 bg-red-500/[0.06] px-4 py-3 text-[12.5px] text-red-300">
-            {err}
-          </div>
-        )}
+        {/* DETAIL */}
+        <section className="col-span-12 lg:col-span-9">
+          {err && (
+            <div className="border-b border-rose-500/40 bg-rose-500/[0.06] px-5 py-3 text-[12px] font-mono text-rose-300">
+              ERROR / {err}
+            </div>
+          )}
 
-        {!grade ? (
-          <div className="rounded-xl border border-white/[0.06] bg-zinc-900/40 p-6 space-y-4">
-            <div>
-              <div className="text-[10px] uppercase tracking-[0.25em] text-zinc-500 font-semibold">
-                No grade yet
+          {!grade ? (
+            <div className="px-6 py-10">
+              <div className="text-[10px] font-mono uppercase tracking-[0.25em] text-zinc-500 mb-3">
+                NO GRADE YET
               </div>
-              <div className="text-[15px] text-zinc-100 font-semibold mt-1">
-                {tracked.find((t) => t.brandSlug === activeSlug)?.displayName ||
-                  activeSlug}
-              </div>
-              <p className="text-[12.5px] text-zinc-400 mt-1">
+              <h2 className="text-2xl font-bold tracking-tight mb-1">
+                {tracked.find((t) => t.brandSlug === activeSlug)
+                  ?.displayName || activeSlug}
+              </h2>
+              <p className="text-[13px] text-zinc-400 mb-6">
                 Run a fresh scan to populate the playbook.
               </p>
+              <button
+                onClick={rescan}
+                disabled={busy === "rescan"}
+                className="h-11 px-5 bg-[#7CB342] hover:bg-[#8BC34A] text-black font-bold text-[13px] tracking-[-0.01em] disabled:opacity-50 transition-colors border border-[#7CB342]"
+              >
+                {busy === "rescan" ? "SCANNING…" : "RUN 5-ENGINE SCAN →"}
+              </button>
             </div>
-            <button
-              onClick={rescan}
-              disabled={busy === "rescan"}
-              className="h-10 px-4 rounded-lg bg-[#7CB342] hover:bg-[#8BC34A] active:scale-[0.97] text-zinc-950 text-[13px] font-semibold transition-all disabled:opacity-50 disabled:active:scale-100 flex items-center gap-2"
-            >
-              {busy === "rescan" ? (
-                <>
-                  <Loader2 size={13} className="animate-spin" />
-                  Scanning…
-                </>
-              ) : (
-                <>
-                  <RefreshCw size={13} />
-                  Run 5-engine scan
-                </>
-              )}
-            </button>
-          </div>
-        ) : (
-          <>
-            {/* score header card */}
-            <div className="rounded-2xl border border-white/[0.06] bg-zinc-900/40 overflow-hidden">
-              <div className="p-5 sm:p-6 flex items-start justify-between gap-4 flex-wrap">
+          ) : (
+            <>
+              {/* HEADER */}
+              <div className="border-b border-white/15 px-5 sm:px-7 py-7 sm:py-9 flex items-start justify-between gap-6 flex-wrap">
                 <div className="min-w-0">
-                  <div className="text-[10px] uppercase tracking-[0.25em] text-zinc-500 font-semibold">
-                    {grade.category || "Brand"}
+                  <div className="text-[10px] font-mono uppercase tracking-[0.25em] text-[#7CB342] mb-2">
+                    {grade.category || "BRAND"}
                   </div>
-                  <div className="text-2xl font-bold text-zinc-100 truncate mt-1 tracking-tight">
+                  <h1 className="text-3xl sm:text-5xl font-bold tracking-[-0.03em] leading-[0.95] truncate">
                     {grade.brand}
-                  </div>
-                  <div className="text-[11px] text-zinc-500 mt-1.5 font-mono">
-                    Last scanned{" "}
-                    {new Date(grade.scannedAt).toLocaleString(undefined, {
+                  </h1>
+                  <div className="mt-3 text-[11px] font-mono uppercase tracking-[0.15em] text-zinc-500">
+                    {grade.slug}
+                    <span className="mx-2">/</span>
+                    SCANNED{" "}
+                    {new Date(grade.scannedAt).toLocaleDateString(undefined, {
                       month: "short",
                       day: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
                     })}
                   </div>
                 </div>
-                <div
-                  className={`shrink-0 rounded-2xl border bg-gradient-to-br ${scoreRing(
-                    grade.scores.overall,
-                  )} p-4 flex flex-col items-center min-w-[100px]`}
-                >
+                <div className="text-right shrink-0">
                   <div
-                    className={`text-4xl font-bold tabular-nums leading-none ${scoreColor(
+                    className={`text-6xl sm:text-7xl font-bold tabular-nums leading-none tracking-[-0.04em] ${scoreColor(
                       grade.scores.overall,
                     )}`}
                   >
                     {grade.scores.overall}
                   </div>
-                  <div className="text-[9px] uppercase tracking-[0.2em] text-zinc-500 mt-2 font-semibold">
-                    overall
+                  <div className="text-[9px] font-mono uppercase tracking-[0.3em] text-zinc-500 mt-2">
+                    / 100
                   </div>
                 </div>
               </div>
 
-              {/* engine grid */}
-              <div className="border-t border-white/[0.04] p-4 grid grid-cols-3 sm:grid-cols-5 gap-2">
-                {ENGINE_LABELS.map(({ key, label }) => {
-                  const v = grade.scores[key];
-                  if (v === undefined) return null;
-                  return (
-                    <div
-                      key={key}
-                      className="rounded-lg border border-white/[0.04] bg-zinc-950/40 p-2.5"
-                    >
-                      <div className="text-[9px] uppercase tracking-[0.2em] text-zinc-500 font-semibold">
-                        {label}
-                      </div>
-                      <div
-                        className={`text-lg font-bold tabular-nums mt-1 ${scoreColor(
-                          v as number,
-                        )}`}
-                      >
-                        {v}
-                      </div>
-                    </div>
-                  );
-                })}
+              {/* ENGINE TABLE */}
+              <div className="border-b border-white/15">
+                <div className="px-5 sm:px-7 pt-6 pb-3 text-[10px] font-mono uppercase tracking-[0.25em] text-zinc-500">
+                  §01 / PER-ENGINE
+                </div>
+                <table className="w-full font-mono text-[13px]">
+                  <thead>
+                    <tr className="border-y border-white/15 text-[9.5px] uppercase tracking-[0.2em] text-zinc-500">
+                      <th className="text-left px-5 sm:px-7 py-2.5 font-normal">
+                        ENGINE
+                      </th>
+                      <th className="text-right px-5 py-2.5 font-normal">
+                        SCORE
+                      </th>
+                      <th className="text-right px-5 sm:px-7 py-2.5 font-normal w-1/3">
+                        BAR
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {ENGINE_LABELS.map(({ key, label }) => {
+                      const v = grade.scores[key];
+                      if (v === undefined) return null;
+                      const n = v as number;
+                      return (
+                        <tr
+                          key={key}
+                          className="border-b border-white/10 hover:bg-white/[0.02] transition-colors"
+                        >
+                          <td className="px-5 sm:px-7 py-3 font-bold tracking-tight">
+                            {label}
+                          </td>
+                          <td
+                            className={`px-5 py-3 text-right tabular-nums font-bold ${scoreColor(n)}`}
+                          >
+                            {n}
+                          </td>
+                          <td className="px-5 sm:px-7 py-3">
+                            <div className="h-2 bg-white/5 relative">
+                              <div
+                                className={`absolute inset-y-0 left-0 ${
+                                  n >= 70
+                                    ? "bg-emerald-400"
+                                    : n >= 40
+                                      ? "bg-amber-300"
+                                      : "bg-rose-400"
+                                }`}
+                                style={{ width: `${Math.min(100, n)}%` }}
+                              />
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
 
-              {/* secondary scores */}
-              <div className="border-t border-white/[0.04] px-4 py-3 grid grid-cols-3 gap-2">
+              {/* SECONDARY SCORES */}
+              <div className="border-b border-white/15 grid grid-cols-3 divide-x divide-white/15">
                 {[
-                  { label: "Readiness", value: grade.scores.readiness },
-                  { label: "Mentions", value: grade.scores.mentions },
-                  { label: "Off-domain", value: grade.scores.offDomain },
+                  { label: "READINESS", value: grade.scores.readiness },
+                  { label: "MENTIONS", value: grade.scores.mentions },
+                  { label: "OFF-DOMAIN", value: grade.scores.offDomain },
                 ]
                   .filter((s) => s.value !== undefined)
                   .map((s) => (
-                    <div
-                      key={s.label}
-                      className="rounded-lg border border-white/[0.04] bg-zinc-950/40 p-2.5"
-                    >
-                      <div className="text-[9px] uppercase tracking-[0.2em] text-zinc-500 font-semibold">
+                    <div key={s.label} className="px-5 sm:px-7 py-5">
+                      <div className="text-[10px] font-mono uppercase tracking-[0.25em] text-zinc-500">
                         {s.label}
                       </div>
                       <div
-                        className={`text-base font-bold tabular-nums mt-1 ${scoreColor(
+                        className={`text-3xl sm:text-4xl font-bold tabular-nums tracking-[-0.03em] mt-1.5 ${scoreColor(
                           s.value as number,
                         )}`}
                       >
@@ -462,136 +435,151 @@ export function DashboardClient({
                   ))}
               </div>
 
-              {/* action chips */}
-              <div className="border-t border-white/[0.04] p-4 flex flex-wrap items-center gap-2">
+              {/* ACTIONS */}
+              <div className="border-b border-white/15 px-5 sm:px-7 py-4 flex flex-wrap items-center gap-0">
                 <button
                   onClick={rescan}
                   disabled={busy === "rescan"}
-                  className="h-8 px-3 rounded-md bg-[#7CB342] hover:bg-[#8BC34A] active:scale-[0.97] text-zinc-950 text-[11.5px] font-semibold transition-all disabled:opacity-50 disabled:active:scale-100 flex items-center gap-1.5"
+                  className="h-10 px-4 bg-[#7CB342] hover:bg-[#8BC34A] text-black font-bold text-[12px] tracking-[-0.01em] disabled:opacity-50 transition-colors border border-[#7CB342] whitespace-nowrap"
                 >
-                  {busy === "rescan" ? (
-                    <>
-                      <Loader2 size={11} className="animate-spin" />
-                      Scanning…
-                    </>
-                  ) : (
-                    <>
-                      <RefreshCw size={11} />
-                      Re-scan
-                    </>
-                  )}
+                  {busy === "rescan" ? "SCANNING…" : "↻ RE-SCAN"}
                 </button>
                 <Link
                   href={`/visibility/${grade.slug}`}
-                  className="h-8 px-3 rounded-md border border-white/[0.06] hover:border-white/[0.14] text-[11.5px] text-zinc-200 hover:text-zinc-100 transition-colors flex items-center gap-1.5"
+                  className="h-10 px-4 border border-white/30 hover:border-white text-white font-bold text-[12px] tracking-[-0.01em] -ml-px flex items-center transition-colors whitespace-nowrap"
                 >
-                  <ExternalLink size={11} />
-                  Public scorecard
+                  PUBLIC SCORECARD ↗
                 </Link>
                 <Link
                   href="/dashboard/mentions"
-                  className="h-8 px-3 rounded-md border border-white/[0.06] hover:border-white/[0.14] text-[11.5px] text-zinc-200 hover:text-zinc-100 transition-colors flex items-center gap-1.5"
+                  className="h-10 px-4 border border-white/30 hover:border-white text-white font-bold text-[12px] tracking-[-0.01em] -ml-px flex items-center transition-colors whitespace-nowrap"
                 >
-                  <MessageSquare size={11} />
-                  Mentions
+                  MENTIONS
                 </Link>
                 <Link
                   href="/dashboard/outreach"
-                  className="h-8 px-3 rounded-md border border-white/[0.06] hover:border-white/[0.14] text-[11.5px] text-zinc-200 hover:text-zinc-100 transition-colors flex items-center gap-1.5"
+                  className="h-10 px-4 border border-white/30 hover:border-white text-white font-bold text-[12px] tracking-[-0.01em] -ml-px flex items-center transition-colors whitespace-nowrap"
                 >
-                  <Send size={11} />
-                  Outreach kit
+                  OUTREACH
                 </Link>
+                <button
+                  onClick={() => activeSlug && untrack(activeSlug)}
+                  disabled={busy === "untrack"}
+                  className="h-10 px-4 ml-auto text-zinc-500 hover:text-rose-400 font-mono text-[11px] uppercase tracking-[0.2em] transition-colors"
+                >
+                  UNTRACK
+                </button>
               </div>
-            </div>
 
-            {/* mention rollup */}
-            {mention && (
-              <div className="rounded-xl border border-white/[0.06] bg-zinc-900/40 p-5">
-                <div className="flex items-baseline justify-between gap-3 flex-wrap">
-                  <div>
-                    <div className="text-[10px] uppercase tracking-[0.25em] text-zinc-500 font-semibold">
-                      Mentions · last 7 days
-                    </div>
-                    <div className="text-xl font-bold text-zinc-100 mt-1 tracking-tight">
-                      {mention.total}{" "}
-                      <span className="text-[13px] text-zinc-500 font-normal">
-                        new
-                      </span>
-                    </div>
-                  </div>
-                  <Link
-                    href="/dashboard/mentions"
-                    className="text-[12px] text-zinc-400 hover:text-[#7CB342] transition-colors flex items-center gap-1"
-                  >
-                    View all <ArrowRight size={11} />
-                  </Link>
-                </div>
-                {mention.total > 0 && (
-                  <div className="mt-3 flex flex-wrap gap-1.5">
-                    {Object.entries(mention.bySource).map(([s, n]) => (
-                      <span
-                        key={s}
-                        className="text-[10.5px] px-2 py-1 rounded-md border border-white/[0.06] bg-zinc-950/40 text-zinc-300 font-mono"
-                      >
-                        <span className="text-zinc-500 mr-1">
-                          {SOURCE_LABEL[s] || s}
-                        </span>
-                        {n}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* playbook */}
-            {playbook.length > 0 && (
-              <div className="rounded-xl border border-white/[0.06] bg-zinc-900/40 overflow-hidden">
-                <div className="p-5 flex items-baseline justify-between gap-3 flex-wrap">
-                  <div>
-                    <div className="text-[10px] uppercase tracking-[0.25em] text-[#7CB342] font-semibold">
-                      Action playbook
-                    </div>
-                    <p className="text-[12px] text-zinc-500 mt-1">
-                      Per-engine plays ranked by impact. Each fix
-                      targets a specific engine&apos;s ranking signals.
-                    </p>
-                  </div>
-                  <Link
-                    href={`/visibility/${grade.slug}`}
-                    className="text-[12px] text-zinc-400 hover:text-[#7CB342] transition-colors flex items-center gap-1"
-                  >
-                    Full scorecard <ArrowRight size={11} />
-                  </Link>
-                </div>
-                <ul className="divide-y divide-white/[0.04] border-t border-white/[0.04]">
-                  {playbook.map((a, i) => (
-                    <li key={i} className="p-4 hover:bg-zinc-900/30 transition-colors">
-                      <div className="flex items-start gap-2 flex-wrap mb-2">
-                        <EnginePill engine={a.engine} />
-                        <PriorityPill priority={a.priority} />
-                        <span className="text-[13px] text-zinc-100 font-semibold min-w-0">
-                          {a.title}
+              {/* MENTIONS */}
+              {mention && (
+                <div className="border-b border-white/15">
+                  <div className="px-5 sm:px-7 py-5 flex items-baseline justify-between gap-3 flex-wrap">
+                    <div>
+                      <div className="text-[10px] font-mono uppercase tracking-[0.25em] text-zinc-500">
+                        §02 / MENTIONS / LAST 7 DAYS
+                      </div>
+                      <div className="text-3xl sm:text-4xl font-bold tabular-nums tracking-[-0.03em] mt-1.5">
+                        {mention.total}{" "}
+                        <span className="text-[14px] text-zinc-500 font-mono uppercase tracking-[0.15em] ml-1">
+                          NEW
                         </span>
                       </div>
-                      <p className="text-[12px] text-zinc-400 leading-relaxed">
-                        {a.rationale}
-                      </p>
-                      {a.estimatedLift && (
-                        <div className="mt-2 inline-flex items-center gap-1.5 text-[10px] uppercase tracking-[0.2em] text-zinc-500 font-semibold">
-                          <span className="w-1 h-1 rounded-full bg-[#7CB342]" />
-                          Lift: {a.estimatedLift}
-                        </div>
+                    </div>
+                    <Link
+                      href="/dashboard/mentions"
+                      className="text-[11px] font-mono uppercase tracking-[0.2em] text-zinc-400 hover:text-[#7CB342] transition-colors"
+                    >
+                      VIEW ALL →
+                    </Link>
+                  </div>
+                  {mention.total > 0 && (
+                    <div className="px-5 sm:px-7 pb-5 grid grid-cols-2 sm:grid-cols-4 gap-0 border-t border-white/10">
+                      {Object.entries(mention.bySource).map(
+                        ([s, n], i, arr) => (
+                          <div
+                            key={s}
+                            className={`py-3 px-2 ${
+                              i < arr.length - 1
+                                ? "border-r border-white/10"
+                                : ""
+                            }`}
+                          >
+                            <div className="text-[9.5px] font-mono uppercase tracking-[0.25em] text-zinc-500">
+                              {SOURCE_LABEL[s] || s.toUpperCase()}
+                            </div>
+                            <div className="text-2xl font-bold tabular-nums mt-1 text-[#7CB342]">
+                              {n}
+                            </div>
+                          </div>
+                        ),
                       )}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </>
-        )}
-      </section>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* PLAYBOOK */}
+              {playbook.length > 0 && (
+                <div>
+                  <div className="px-5 sm:px-7 py-5 flex items-baseline justify-between gap-3 flex-wrap">
+                    <div>
+                      <div className="text-[10px] font-mono uppercase tracking-[0.25em] text-[#7CB342]">
+                        §03 / PLAYBOOK
+                      </div>
+                      <h3 className="text-2xl font-bold tracking-tight mt-1">
+                        Per-engine plays.
+                      </h3>
+                      <p className="text-[12px] text-zinc-500 mt-1 max-w-md">
+                        Each fix targets a specific engine&apos;s
+                        ranking signals. Ranked by impact.
+                      </p>
+                    </div>
+                    <Link
+                      href={`/visibility/${grade.slug}`}
+                      className="text-[11px] font-mono uppercase tracking-[0.2em] text-zinc-400 hover:text-[#7CB342] transition-colors"
+                    >
+                      FULL SCORECARD →
+                    </Link>
+                  </div>
+                  <ul className="border-t border-white/15">
+                    {playbook.map((a, i) => (
+                      <li
+                        key={i}
+                        className="border-b border-white/10 px-5 sm:px-7 py-5 hover:bg-white/[0.02] transition-colors grid grid-cols-12 gap-4"
+                      >
+                        <div className="col-span-12 sm:col-span-2 flex flex-col gap-1">
+                          <div className="text-[10px] font-mono text-zinc-600">
+                            /{String(i + 1).padStart(2, "0")}
+                          </div>
+                          <div className="flex flex-wrap gap-1">
+                            <EnginePill engine={a.engine} />
+                            <PriorityPill priority={a.priority} />
+                          </div>
+                        </div>
+                        <div className="col-span-12 sm:col-span-10">
+                          <div className="text-[14px] font-bold tracking-tight mb-1.5">
+                            {a.title}
+                          </div>
+                          <p className="text-[13px] text-zinc-400 leading-relaxed">
+                            {a.rationale}
+                          </p>
+                          {a.estimatedLift && (
+                            <div className="mt-2 text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500">
+                              <span className="text-[#7CB342]">▲</span> LIFT /{" "}
+                              {a.estimatedLift}
+                            </div>
+                          )}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </>
+          )}
+        </section>
+      </div>
     </div>
   );
 }
@@ -600,13 +588,13 @@ function EnginePill({ engine }: { engine: string }) {
   const all = engine === "all";
   return (
     <span
-      className={`text-[9.5px] uppercase tracking-[0.2em] px-1.5 py-0.5 rounded font-semibold shrink-0 ${
+      className={`text-[9.5px] font-mono uppercase tracking-[0.2em] px-1.5 py-0.5 font-bold ${
         all
-          ? "bg-zinc-800 text-zinc-200"
-          : "bg-[#7CB342]/15 text-[#7CB342]"
+          ? "bg-white text-black"
+          : "bg-[#7CB342] text-black"
       }`}
     >
-      {engine}
+      {engine.toUpperCase()}
     </span>
   );
 }
@@ -614,15 +602,15 @@ function EnginePill({ engine }: { engine: string }) {
 function PriorityPill({ priority }: { priority: string }) {
   const cls =
     priority === "high"
-      ? "bg-rose-500/[0.12] text-rose-300"
+      ? "border-rose-400 text-rose-300"
       : priority === "medium"
-        ? "bg-amber-500/[0.12] text-amber-300"
-        : "bg-zinc-800 text-zinc-400";
+        ? "border-amber-400 text-amber-300"
+        : "border-zinc-600 text-zinc-500";
   return (
     <span
-      className={`text-[9.5px] uppercase tracking-[0.2em] px-1.5 py-0.5 rounded font-semibold shrink-0 ${cls}`}
+      className={`text-[9.5px] font-mono uppercase tracking-[0.2em] px-1.5 py-0.5 border ${cls}`}
     >
-      {priority}
+      {priority.toUpperCase()}
     </span>
   );
 }
