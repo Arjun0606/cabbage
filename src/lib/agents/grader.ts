@@ -123,7 +123,10 @@ export async function lookupGrade(slug: string): Promise<PublicGrade | null> {
   return rowToGrade(data, true);
 }
 
-export async function gradeUrl(inputUrl: string): Promise<PublicGrade> {
+export async function gradeUrl(
+  inputUrl: string,
+  opts: { fresh?: boolean } = {},
+): Promise<PublicGrade> {
   const { valid, url, error } = sanitizeUrl(inputUrl);
   if (!valid) throw new Error(error || "Invalid URL");
 
@@ -138,7 +141,7 @@ export async function gradeUrl(inputUrl: string): Promise<PublicGrade> {
     .eq("origin", origin)
     .maybeSingle<PublicGradeRow>();
 
-  if (cached) {
+  if (cached && !opts.fresh) {
     const age = Date.now() - new Date(cached.scanned_at).getTime();
     if (age < CACHE_TTL_MS) return rowToGrade(cached, true);
   }

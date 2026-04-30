@@ -81,32 +81,81 @@ async function safeFetch(
   }
 }
 
+interface WikiSummary {
+  type?: string;
+  title?: string;
+  content_urls?: { desktop?: { page?: string } };
+  extract?: string;
+}
+
+async function wikiSummary(slug: string): Promise<WikiSummary | null> {
+  const url = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(slug)}`;
+  const res = await safeFetch(url);
+  if (!res || !res.ok) return null;
+  return (await res.json().catch(() => null)) as WikiSummary | null;
+}
+
+function wikiHit(s: WikiSummary, fallbackSlug: string): OffDomainItem {
+  return {
+    source: "wikipedia",
+    label: "Wikipedia",
+    present: true,
+    url:
+      s.content_urls?.desktop?.page ||
+      `https://en.wikipedia.org/wiki/${encodeURIComponent(fallbackSlug)}`,
+    details:
+      s.extract && s.extract.length > 0
+        ? s.extract.slice(0, 240)
+        : "Wikipedia article exists",
+  };
+}
+
 async function checkWikipedia(brand: string): Promise<OffDomainItem> {
-  const slug = brand.replace(/\s+/g, "_");
-  const summaryUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(slug)}`;
-  const res = await safeFetch(summaryUrl);
-  if (res && res.ok) {
-    const data = (await res.json().catch(() => null)) as {
-      type?: string;
-      title?: string;
-      content_urls?: { desktop?: { page?: string } };
-      extract?: string;
-    } | null;
-    if (data && data.type !== "disambiguation" && data.title) {
-      return {
-        source: "wikipedia",
-        label: "Wikipedia",
-        present: true,
-        url:
-          data.content_urls?.desktop?.page ||
-          `https://en.wikipedia.org/wiki/${encodeURIComponent(slug)}`,
-        details:
-          data.extract && data.extract.length > 0
-            ? data.extract.slice(0, 240)
-            : "Wikipedia article exists",
-      };
+  // 1. Try the direct slug — fastest path for unambiguous brands.
+  const directSlug = brand.replace(/\s+/g, "_");
+  const direct = await wikiSummary(directSlug);
+  if (direct && direct.title && direct.type !== "disambiguation") {
+    return wikiHit(direct, directSlug);
+  }
+
+  // 2. Direct hit was a disambiguation page (common for short brand
+  //    names — "Stripe" → disambiguation, real article is "Stripe, Inc.")
+  //    or didn't exist. Use the opensearch endpoint to find candidate
+  //    titles, then pull each one's summary until we find a real
+  //    article. Limit to top 5 candidates so we don't fan out.
+  const searchUrl = `https://en.wikipedia.org/w/api.php?action=opensearch&format=json&limit=5&search=${encodeURIComponent(brand)}`;
+  const sRes = await safeFetch(searchUrl);
+  if (sRes && sRes.ok) {
+    const data = (await sRes.json().catch(() => null)) as
+      | [string, string[], string[], string[]]
+      | null;
+    const titles = data?.[1] || [];
+    const urls = data?.[3] || [];
+    for (let i = 0; i < titles.length; i++) {
+      const candidateSlug = titles[i].replace(/\s+/g, "_");
+      const summary = await wikiSummary(candidateSlug);
+      if (
+        summary &&
+        summary.title &&
+        summary.type !== "disambiguation"
+      ) {
+        return {
+          source: "wikipedia",
+          label: "Wikipedia",
+          present: true,
+          url:
+            summary.content_urls?.desktop?.page ||
+            urls[i] ||
+            `https://en.wikipedia.org/wiki/${encodeURIComponent(candidateSlug)}`,
+          details:
+            summary.extract && summary.extract.length > 0
+              ? summary.extract.slice(0, 240)
+              : "Wikipedia article exists",
+        };
+      }
     }
   }
+
   return {
     source: "wikipedia",
     label: "Wikipedia",
@@ -162,21 +211,46 @@ async function checkTrustpilot(siteUrl: string): Promise<OffDomainItem> {
     };
   }
   const url = `https://www.trustpilot.com/review/${host}`;
-  const res = await safeFetch(url, { method: "GET" });
+  const res = await safeFetch(url, {
+    method: "GET",
+    headers: {
+      Accept: "text/html",
+      "User-Agent":
+        "Mozilla/5.0 (compatible; CabbgeBot/1.0; +https://cabbge.com)",
+    },
+  });
   if (res && res.ok) {
     const html = await res.text();
-    // Trustpilot returns a 200 with a "claim your business" page even
-    // for unclaimed sites. Distinguish a real profile by the presence
-    // of a TrustScore element.
+    // Trustpilot 200s on every URL — claimed business pages, unclaimed
+    // pages, and even for hostnames that don't exist (they auto-create
+    // a placeholder). A few signals we accept as "real profile":
+    //   - aggregateRating JSON-LD block (always present when reviews exist)
+    //   - data-business-unit-name attribute
+    //   - "TrustScore" text
+    //   - "[N] reviews" text where N > 0
+    //   - reviewCount JSON-LD field
+    const hasAggregate =
+      /"@type"\s*:\s*"AggregateRating"/i.test(html) ||
+      /aggregateRating/i.test(html);
+    const hasBusinessUnit =
+      /data-business-unit-name/i.test(html) ||
+      /data-business-unit-id/i.test(html);
     const hasTrustScore =
       /trustScore/i.test(html) || /aria-label="[^"]*Rated/i.test(html);
-    if (hasTrustScore) {
+    const reviewCountMatch = html.match(/"reviewCount"\s*:\s*"?(\d+)/i);
+    const hasReviews = reviewCountMatch
+      ? parseInt(reviewCountMatch[1], 10) > 0
+      : false;
+
+    if (hasAggregate || hasBusinessUnit || hasTrustScore || hasReviews) {
       return {
         source: "trustpilot",
         label: "Trustpilot",
         present: true,
         url,
-        details: "Trustpilot profile exists",
+        details: hasReviews
+          ? `Trustpilot profile with ${reviewCountMatch![1]} reviews`
+          : "Trustpilot profile exists",
       };
     }
   }
@@ -200,18 +274,50 @@ async function checkG2(brand: string): Promise<OffDomainItem> {
       details: "Could not slugify brand name.",
     };
   }
-  const url = `https://www.g2.com/products/${slug}/reviews`;
-  const res = await safeFetch(url, { method: "GET" });
-  if (res && res.ok) {
-    const html = await res.text();
-    if (/<title[^>]*>[\s\S]*?G2[\s\S]*?Reviews/i.test(html)) {
-      return {
-        source: "g2",
-        label: "G2",
-        present: true,
-        url,
-        details: "G2 product page exists",
-      };
+  // G2 product slugs aren't always 1:1 with brand names (e.g. Stripe
+  // is at /products/stripe-payments). Use the search endpoint which
+  // returns matches across all products, then verify by fetching
+  // /products/<slug>.
+  const searchUrl = `https://www.g2.com/search?query=${encodeURIComponent(brand)}`;
+  const sRes = await safeFetch(searchUrl, {
+    method: "GET",
+    headers: {
+      Accept: "text/html",
+      "User-Agent":
+        "Mozilla/5.0 (compatible; CabbgeBot/1.0; +https://cabbge.com)",
+    },
+  });
+  if (sRes && sRes.ok) {
+    const html = await sRes.text();
+    // Look for the first /products/<slug> link in the search results.
+    // G2 escapes its product URLs as href="/products/<slug>".
+    const m = html.match(
+      new RegExp(
+        `href="/products/([a-z0-9][a-z0-9-]*?)(?:/reviews|"|/)`,
+        "i",
+      ),
+    );
+    const foundSlug = m?.[1];
+    if (foundSlug) {
+      // Verify the brand name actually appears in the search-result
+      // context — guards against G2 returning unrelated suggestions.
+      const idx = html.indexOf(`/products/${foundSlug}`);
+      const context = html.slice(Math.max(0, idx - 200), idx + 200);
+      if (
+        new RegExp(brand.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i").test(
+          context,
+        ) ||
+        foundSlug.includes(slug) ||
+        slug.includes(foundSlug.split("-")[0])
+      ) {
+        return {
+          source: "g2",
+          label: "G2",
+          present: true,
+          url: `https://www.g2.com/products/${foundSlug}/reviews`,
+          details: "G2 product page exists",
+        };
+      }
     }
   }
   return {
@@ -225,9 +331,16 @@ async function checkG2(brand: string): Promise<OffDomainItem> {
 }
 
 async function checkReddit(brand: string): Promise<OffDomainItem> {
+  // Reddit aggressively rate-limits / 429s short or generic UAs. The
+  // mention-tracker variant uses this same long-form UA and works
+  // reliably; mirror it here for consistency.
   const url = `https://www.reddit.com/search.json?q=%22${encodeURIComponent(brand)}%22&sort=relevance&t=year&limit=25`;
   const res = await safeFetch(url, {
-    headers: { Accept: "application/json" },
+    headers: {
+      Accept: "application/json",
+      "User-Agent":
+        "cabbge.com off-domain-checker (https://cabbge.com)",
+    },
   });
   if (res && res.ok) {
     const data = (await res.json().catch(() => null)) as {

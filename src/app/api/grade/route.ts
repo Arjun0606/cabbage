@@ -16,7 +16,7 @@ export const maxDuration = 90;
  * /api/grader and /api/free-report — see src/proxy.ts).
  */
 export async function POST(req: Request) {
-  let body: { url?: string };
+  let body: { url?: string; fresh?: boolean };
   try {
     body = await req.json();
   } catch {
@@ -31,8 +31,15 @@ export async function POST(req: Request) {
     );
   }
 
+  // ?fresh=1 query param OR { fresh: true } body field skips the
+  // 7-day cache. Useful for QA + for the Re-scan button. Counts the
+  // same against credits as a fresh scan.
+  const reqUrl = new URL(req.url);
+  const fresh =
+    body.fresh === true || reqUrl.searchParams.get("fresh") === "1";
+
   try {
-    const grade = await gradeUrl(url);
+    const grade = await gradeUrl(url, { fresh });
     return NextResponse.json({ grade });
   } catch (err) {
     console.error("/api/grade failed:", err);

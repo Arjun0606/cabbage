@@ -537,18 +537,49 @@ async function checkAIReadiness(url: string): Promise<AIReadinessCheck[]> {
     console.error(`AI readiness: llms.txt fetch error:`, err instanceof Error ? err.message : err);
   }
 
-  // sitemap.xml — strict validation (HTTP 200 + xml content-type + XML structure)
-  try {
-    const res = await fetchWithTimeout(`${baseUrl}/sitemap.xml`);
-    if (res.ok) {
-      const contentType = res.headers.get("content-type") || "";
-      if (contentType.includes("xml")) {
-        sitemapXml = await res.text();
-        sitemapOk = /^\s*<\?xml/.test(sitemapXml) && (sitemapXml.includes("<urlset") || sitemapXml.includes("<sitemapindex"));
+  // sitemap discovery — try the canonical /sitemap.xml first, then
+  // /sitemap_index.xml, then any "Sitemap:" line in robots.txt. Many
+  // big sites (Stripe, Vercel) host the sitemap at a non-root path
+  // (e.g. /sitemap/sitemap.xml) so we have to follow the robots.txt
+  // hint to find it.
+  const sitemapCandidates = [
+    `${baseUrl}/sitemap.xml`,
+    `${baseUrl}/sitemap_index.xml`,
+  ];
+
+  // Pull the sitemap location from robots.txt if we already fetched it.
+  if (typeof robotsTxt === "string" && robotsTxt) {
+    const rxLines = robotsTxt.split(/\r?\n/);
+    for (const line of rxLines) {
+      const m = line.match(/^\s*sitemap\s*:\s*(\S+)/i);
+      if (m?.[1] && !sitemapCandidates.includes(m[1])) {
+        sitemapCandidates.unshift(m[1]);
       }
     }
-  } catch (err) {
-    console.error(`AI readiness: sitemap.xml fetch error:`, err instanceof Error ? err.message : err);
+  }
+
+  for (const candidate of sitemapCandidates) {
+    try {
+      const res = await fetchWithTimeout(candidate);
+      if (!res.ok) continue;
+      const contentType = res.headers.get("content-type") || "";
+      const body = await res.text();
+      // Accept either xml content-type or just an XML-shaped body —
+      // some sitemaps come back as text/plain or text/xml variants.
+      const xmlShaped =
+        /^\s*<\?xml/.test(body) &&
+        (body.includes("<urlset") || body.includes("<sitemapindex"));
+      if (contentType.includes("xml") || xmlShaped) {
+        sitemapXml = body;
+        sitemapOk = xmlShaped;
+        if (sitemapOk) break;
+      }
+    } catch (err) {
+      console.error(
+        `AI readiness: sitemap fetch error (${candidate}):`,
+        err instanceof Error ? err.message : err,
+      );
+    }
   }
 
   // Parse HTML meta description content (not just presence)
