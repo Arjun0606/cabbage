@@ -166,10 +166,121 @@ function buildEcomPack(input: PromptPackInput): QueryWithMeta[] {
   return pack;
 }
 
+// ---------- LOCAL SERVICE pack (RE developers, law firms, clinics, restaurants, agencies) ----------
+//
+// Real-estate developers like Urbanrise / Navanaami / Sobha land
+// here. The buyer's prompts look completely different from SaaS:
+// city + locality + budget + buyer-segment intent. Falling back to
+// the SaaS pack ("best X for solo founders") is a demo killer.
+
+const LOCAL_BUYER_INTENTS = [
+  "first-time buyers",
+  "NRI investors",
+  "families",
+  "young professionals",
+  "investment buyers",
+  "luxury buyers",
+];
+
+function buildLocalServicePack(input: PromptPackInput): QueryWithMeta[] {
+  const category = input.category || "businesses";
+  const brand = input.brand;
+  const competitors = input.competitors || [];
+  const pack: QueryWithMeta[] = [];
+
+  // Pure category prompts — what would a buyer ask without naming you?
+  pack.push({ query: `best ${category} in 2026`, level: "country", intent: "research" });
+  pack.push({ query: `top-rated ${category}`, level: "country", intent: "research" });
+  pack.push({ query: `most trusted ${category}`, level: "country", intent: "research" });
+  pack.push({ query: `${category} reviews`, level: "country", intent: "research" });
+
+  // Buyer-segment intent prompts.
+  for (const intent of LOCAL_BUYER_INTENTS) {
+    pack.push({
+      query: `best ${category} for ${intent}`,
+      level: "country",
+      intent: "research",
+    });
+  }
+
+  // Brand-direct prompts.
+  pack.push({ query: `${brand} review`, level: "country", intent: "research" });
+  pack.push({ query: `is ${brand} reliable`, level: "country", intent: "research" });
+  pack.push({ query: `${brand} reputation`, level: "country", intent: "research" });
+  pack.push({ query: `${brand} customer experience`, level: "country", intent: "research" });
+
+  // Comparison prompts.
+  for (const comp of competitors) {
+    pack.push({
+      query: `${brand} vs ${comp}`,
+      level: "country",
+      intent: "comparison",
+    });
+  }
+
+  return pack;
+}
+
+// ---------- APP pack (mobile / desktop apps) ----------
+function buildAppPack(input: PromptPackInput): QueryWithMeta[] {
+  const category = input.category || "apps";
+  const brand = input.brand;
+  const competitors = input.competitors || [];
+  const pack: QueryWithMeta[] = [];
+
+  pack.push({ query: `best ${category} for iPhone`, level: "country", intent: "research" });
+  pack.push({ query: `best ${category} for Android`, level: "country", intent: "research" });
+  pack.push({ query: `top-rated ${category} 2026`, level: "country", intent: "research" });
+  pack.push({ query: `most downloaded ${category}`, level: "country", intent: "research" });
+  pack.push({ query: `${category} with no ads`, level: "country", intent: "research" });
+  pack.push({ query: `free ${category}`, level: "country", intent: "research" });
+  pack.push({ query: `${category} that actually works`, level: "country", intent: "research" });
+  pack.push({ query: `${brand} review`, level: "country", intent: "research" });
+  pack.push({ query: `${brand} alternatives`, level: "country", intent: "comparison" });
+  pack.push({ query: `is ${brand} worth it`, level: "country", intent: "research" });
+  for (const comp of competitors) {
+    pack.push({
+      query: `${brand} vs ${comp}`,
+      level: "country",
+      intent: "comparison",
+    });
+  }
+  return pack;
+}
+
+// ---------- MEDIA pack (publishers, newsletters, blogs) ----------
+function buildMediaPack(input: PromptPackInput): QueryWithMeta[] {
+  const category = input.category || "publication";
+  const brand = input.brand;
+  const competitors = input.competitors || [];
+  const pack: QueryWithMeta[] = [];
+
+  pack.push({ query: `best ${category} to follow`, level: "country", intent: "research" });
+  pack.push({ query: `top ${category} writers`, level: "country", intent: "research" });
+  pack.push({ query: `most respected ${category}`, level: "country", intent: "research" });
+  pack.push({ query: `expert sources for ${category}`, level: "country", intent: "research" });
+  pack.push({ query: `${category} newsletter recommendations`, level: "country", intent: "research" });
+  pack.push({ query: `${brand} review`, level: "country", intent: "research" });
+  pack.push({ query: `is ${brand} reliable`, level: "country", intent: "research" });
+  pack.push({ query: `${brand} bias`, level: "country", intent: "research" });
+  pack.push({ query: `${brand} alternatives`, level: "country", intent: "comparison" });
+  for (const comp of competitors) {
+    pack.push({
+      query: `${brand} vs ${comp}`,
+      level: "country",
+      intent: "comparison",
+    });
+  }
+  return pack;
+}
+
 const PACKS: Partial<Record<Vertical, (input: PromptPackInput) => QueryWithMeta[]>> = {
   saas: buildSaasPack,
   ecommerce: buildEcomPack,
   marketplace: buildEcomPack,
+  local_service: buildLocalServicePack,
+  app: buildAppPack,
+  media: buildMediaPack,
 };
 
 export function buildPackFor(
@@ -182,17 +293,29 @@ export function buildPackFor(
   // (typical for SPA shells with 0 words in raw HTML) it returns
   // "unknown" or empty. Substituting "unknown" verbatim into prompts
   // produces nonsense like "best unknown for solo founders". Fall
-  // back to "software" / "tools" / a brand-anchored phrasing instead.
+  // back to a vertical-appropriate generic phrasing instead.
   const cleanCategory =
     !input.category ||
     input.category.toLowerCase().trim() === "unknown" ||
     input.category.trim() === ""
       ? vertical === "ecommerce" || vertical === "marketplace"
         ? "products"
-        : "software"
+        : vertical === "local_service"
+          ? "businesses"
+          : vertical === "app"
+            ? "apps"
+            : vertical === "media"
+              ? "publications"
+              : "software"
       : input.category;
 
   return generator({ ...input, category: cleanCategory });
 }
 
-export { buildSaasPack, buildEcomPack };
+export {
+  buildSaasPack,
+  buildEcomPack,
+  buildLocalServicePack,
+  buildAppPack,
+  buildMediaPack,
+};
