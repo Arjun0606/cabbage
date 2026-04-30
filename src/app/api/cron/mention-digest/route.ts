@@ -13,15 +13,13 @@ export const maxDuration = 300;
 /**
  * GET /api/cron/mention-digest
  *
- * Scheduled Mondays 14:00 UTC (one hour after the refresh-mentions
- * cron at 09:00 UTC, so the digest reads from the freshly-populated
- * brand_mentions table).
+ * Weekly Monday recap (14:00 UTC). Sends every eligible user a full
+ * 7-day recap regardless of whether anything moved — this is the
+ * "Monday morning ritual" email. Daily push lives in
+ * /api/cron/digest-daily and is event-gated.
  *
- * Auth via the global CRON_SECRET. If RESEND_API_KEY/RESEND_FROM
- * aren't set, sendEmail() returns { skipped: true } so the cron is
- * safe to schedule before the email vendor is wired up — useful for
- * confirming the digest builder works in prod before flipping the
- * switch.
+ * Auth via CRON_SECRET. If RESEND_API_KEY/RESEND_FROM aren't set,
+ * sendEmail returns { skipped: true } per recipient.
  */
 export async function GET(req: NextRequest) {
   const auth = req.headers.get("authorization");
@@ -32,7 +30,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const digests = await buildDigests();
+  const digests = await buildDigests({
+    windowMs: 7 * 24 * 60 * 60 * 1000,
+    onlyIfChanged: false,
+  });
   if (digests.length === 0) {
     return NextResponse.json({ ok: true, sent: 0, skipped: 0 });
   }
