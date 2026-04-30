@@ -177,7 +177,22 @@ export function buildPackFor(
   input: PromptPackInput,
 ): QueryWithMeta[] {
   const generator = PACKS[vertical] ?? buildSaasPack;
-  return generator(input);
+
+  // Sanitize category — if classifier failed to read the homepage
+  // (typical for SPA shells with 0 words in raw HTML) it returns
+  // "unknown" or empty. Substituting "unknown" verbatim into prompts
+  // produces nonsense like "best unknown for solo founders". Fall
+  // back to "software" / "tools" / a brand-anchored phrasing instead.
+  const cleanCategory =
+    !input.category ||
+    input.category.toLowerCase().trim() === "unknown" ||
+    input.category.trim() === ""
+      ? vertical === "ecommerce" || vertical === "marketplace"
+        ? "products"
+        : "software"
+      : input.category;
+
+  return generator({ ...input, category: cleanCategory });
 }
 
 export { buildSaasPack, buildEcomPack };
