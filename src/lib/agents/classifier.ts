@@ -165,9 +165,16 @@ Classify this site and extract brand metadata. Return this JSON:
   "subcategory": "<specific category e.g. 'CRM', 'running shoes', 'meditation app', 'plumber', 'tech news'>",
   "brand": "<primary brand name>",
   "brandAliases": ["<alternate spellings / acronyms / domain name minus TLD / full legal name>"],
-  "category": "<what the user would search for — e.g. 'CRM software', 'wireless earbuds', 'meditation app'>",
+  "category": "<2-4 word canonical category — e.g. 'CRM software', 'Payment processing', 'Wireless earbuds', 'Meditation app', 'Project management software'>",
   "competitorHypotheses": ["<up to 5 well-known competitors in the same category>"]
 }
+
+CATEGORY rules — STRICT:
+- Title Case, 2-4 words MAX. NEVER more than 60 characters.
+- Generic enough that 5+ competitors share it. ("CRM software" not "CRM platform with native marketing automation".)
+- NO parentheses, NO hyphens, NO "platform for X", NO descriptive prose.
+- Examples GOOD: "CRM software", "Payment processing", "Email marketing", "Project management software", "Headless CMS", "Web analytics", "Note taking app".
+- Examples BAD: "payment processing platform for businesses (payments, billing, financial services APIs)", "AI-powered customer relationship management software", "the CRM that loves you back".
 
 Classification rules:
 - saas: sells software subscriptions (login, dashboard, free trial, "book a demo", pricing tiers)
@@ -211,7 +218,20 @@ confidence: 0.9+ for clear cases, 0.5-0.8 for mixed signals, <0.5 for genuinely 
     const brandAliases = Array.isArray(parsed?.brandAliases)
       ? parsed.brandAliases.slice(0, 8).map((s: unknown) => String(s))
       : [];
-    const category = String(parsed?.category || "").trim().slice(0, 120);
+    // Hard cap at 60 chars + strip parens noise + drop trailing
+    // descriptors after a colon — a few prompt failures still slip
+    // through ("CRM software (the AI-native one)" → "CRM software").
+    let category = String(parsed?.category || "")
+      .trim()
+      .replace(/\s*\([^)]*\)\s*/g, " ")
+      .replace(/[:—–-]\s.*$/, "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 60);
+    // Title case if the model returned lowercase prose.
+    if (category && category === category.toLowerCase()) {
+      category = category.replace(/\b([a-z])/g, (m) => m.toUpperCase());
+    }
     const competitorHypotheses = Array.isArray(parsed?.competitorHypotheses)
       ? parsed.competitorHypotheses.slice(0, 5).map((s: unknown) => String(s))
       : [];
