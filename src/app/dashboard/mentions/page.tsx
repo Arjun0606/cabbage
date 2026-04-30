@@ -20,15 +20,17 @@ export default async function MentionsPage() {
     <main className="px-6 py-10">
       <div className="max-w-5xl mx-auto space-y-8">
         <div>
-          <h1 className="text-2xl font-semibold text-zinc-100">
+          <div className="text-[10px] uppercase tracking-[0.25em] text-[#7CB342] font-semibold">
+            Mentions
+          </div>
+          <h1 className="text-3xl font-bold text-zinc-100 mt-2 tracking-tight">
             Mention tracking
           </h1>
-          <p className="text-sm text-zinc-400 mt-2 max-w-2xl">
+          <p className="text-[14px] text-zinc-400 mt-2 max-w-2xl leading-relaxed">
             Reddit, Hacker News, X, and YouTube — every public mention
-            of the brands you track. Refreshed weekly automatically;
-            scan on demand for 1 credit. The 5-engine GEO scan tells
-            you how AI sees you. This tells you where humans are
-            talking.
+            of the brands you track. Refreshed weekly; scan on demand
+            for 1 credit. The 5-engine GEO scan tells you how AI sees
+            you. This tells you where humans are talking.
           </p>
         </div>
 

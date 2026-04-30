@@ -123,16 +123,16 @@ export default async function DashboardPage() {
     <main className="px-6 py-10">
       <div className="max-w-6xl mx-auto space-y-8">
         <div>
-          <div className="text-[11px] uppercase tracking-widest text-zinc-500">
-            Cabbge
+          <div className="text-[10px] uppercase tracking-[0.25em] text-[#7CB342] font-semibold">
+            Dashboard
           </div>
-          <h1 className="text-2xl font-semibold text-zinc-100 mt-1">
+          <h1 className="text-3xl font-bold text-zinc-100 mt-2 tracking-tight">
             Your brands
           </h1>
-          <p className="text-sm text-zinc-400 mt-2 max-w-2xl">
+          <p className="text-[14px] text-zinc-400 mt-2 max-w-2xl leading-relaxed">
             Five engines scanned, four mention sources tracked. Pick
-            a brand to see the playbook, or grade something new from
-            the home page.
+            a brand to see the per-engine playbook, or grade
+            something new from the home page.
           </p>
         </div>
 

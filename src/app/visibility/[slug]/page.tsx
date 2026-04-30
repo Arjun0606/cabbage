@@ -74,37 +74,52 @@ export default async function VisibilityPage({ params }: Params) {
       ? "text-emerald-400"
       : grade.scores.overall >= 40
         ? "text-amber-300"
-        : "text-zinc-400";
+        : "text-rose-300";
+
+  const scoreRing =
+    grade.scores.overall >= 70
+      ? "from-emerald-500/20 to-emerald-500/0 border-emerald-500/30"
+      : grade.scores.overall >= 40
+        ? "from-amber-500/20 to-amber-500/0 border-amber-500/30"
+        : "from-rose-500/20 to-rose-500/0 border-rose-500/30";
 
   return (
-    <main className="min-h-screen bg-zinc-950 text-zinc-100 px-6 py-10">
-      <div className="max-w-4xl mx-auto space-y-12">
-        <div>
-          <Link
-            href="/"
-            className="text-xs uppercase tracking-widest text-zinc-500 hover:text-zinc-300"
-          >
-            ← cabbge
-          </Link>
-          <div className="mt-4 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-            <div>
-              <h1 className="text-3xl sm:text-4xl font-semibold text-zinc-100">
+    <main className="min-h-screen bg-[#0a0a0b] text-zinc-100 px-6 py-10">
+      <div className="max-w-4xl mx-auto space-y-10">
+        <Link
+          href="/"
+          className="inline-flex items-center gap-2 text-[12px] text-zinc-500 hover:text-zinc-300 transition-colors"
+        >
+          <span>← cabbge</span>
+        </Link>
+
+        <div className="rounded-2xl border border-white/[0.06] bg-zinc-900/40 p-6 sm:p-8">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-6">
+            <div className="min-w-0">
+              <div className="text-[10px] uppercase tracking-[0.25em] text-[#7CB342] font-semibold">
+                AI visibility · {grade.category || grade.vertical}
+              </div>
+              <h1 className="text-3xl sm:text-4xl font-bold text-zinc-100 mt-2 tracking-tight">
                 {grade.brand}
               </h1>
-              <div className="text-sm text-zinc-500 mt-1">
-                {grade.slug} · {grade.category || grade.vertical}
+              <div className="text-[12px] text-zinc-500 mt-1.5 font-mono">
+                {grade.slug}
+              </div>
+              <div className="text-[11px] text-zinc-500 mt-2">
+                Scanned {new Date(grade.scannedAt).toLocaleDateString()} ·
+                refreshed every 7 days
               </div>
             </div>
-            <div className="text-right">
-              <div className="text-[10px] uppercase tracking-widest text-zinc-500">
-                AI visibility
-              </div>
-              <div className={`text-6xl font-semibold ${scoreColor}`}>
+            <div
+              className={`shrink-0 rounded-2xl border bg-gradient-to-br ${scoreRing} px-6 py-4 flex flex-col items-center min-w-[140px]`}
+            >
+              <div
+                className={`text-6xl font-bold tabular-nums leading-none ${scoreColor}`}
+              >
                 {grade.scores.overall}
               </div>
-              <div className="text-xs text-zinc-500">
-                / 100 · scanned{" "}
-                {new Date(grade.scannedAt).toLocaleDateString()}
+              <div className="text-[9px] uppercase tracking-[0.25em] text-zinc-500 mt-3 font-semibold">
+                / 100
               </div>
             </div>
           </div>
@@ -350,12 +365,20 @@ export default async function VisibilityPage({ params }: Params) {
 }
 
 function ScoreCard({ label, value }: { label: string; value: number }) {
+  const c =
+    value >= 70
+      ? "text-emerald-400"
+      : value >= 40
+        ? "text-amber-300"
+        : "text-rose-300";
   return (
-    <div className="rounded-lg border border-zinc-800 bg-zinc-950/60 p-4">
-      <div className="text-[10px] uppercase tracking-widest text-zinc-500">
+    <div className="rounded-xl border border-white/[0.06] bg-zinc-900/40 p-4 hover:border-white/[0.12] transition-colors">
+      <div className="text-[9px] uppercase tracking-[0.25em] text-zinc-500 font-semibold">
         {label}
       </div>
-      <div className="text-3xl font-semibold text-zinc-100">{value}</div>
+      <div className={`text-3xl font-bold tabular-nums mt-1.5 ${c}`}>
+        {value}
+      </div>
     </div>
   );
 }
@@ -370,14 +393,20 @@ function MentionRate({
   total: number;
 }) {
   const pct = total > 0 ? Math.round((mentioned / total) * 100) : 0;
+  const c =
+    pct >= 70
+      ? "text-emerald-400"
+      : pct >= 40
+        ? "text-amber-300"
+        : "text-rose-300";
   return (
-    <div className="rounded-lg border border-zinc-800 bg-zinc-950/60 p-4">
-      <div className="text-[10px] uppercase tracking-widest text-zinc-500 mb-1">
+    <div className="rounded-xl border border-white/[0.06] bg-zinc-900/40 p-4 hover:border-white/[0.12] transition-colors">
+      <div className="text-[9px] uppercase tracking-[0.25em] text-zinc-500 font-semibold mb-1.5">
         {engine} mention rate
       </div>
-      <div className="text-2xl font-semibold text-zinc-100">{pct}%</div>
-      <div className="text-xs text-zinc-500 mt-0.5">
-        {mentioned} of {total} prompts
+      <div className={`text-2xl font-bold tabular-nums ${c}`}>{pct}%</div>
+      <div className="text-[10.5px] text-zinc-500 mt-1 font-mono">
+        {mentioned} / {total} prompts
       </div>
     </div>
   );
